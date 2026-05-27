@@ -1,0 +1,3674 @@
+{
+  "version": "1.0.0",
+  "name": "huawei-cloud",
+  "description": "Query Huawei Cloud resources and monitoring data via SDK",
+  "tools": [
+    {
+      "name": "huawei_list_ecs",
+      "description": "List Huawei Cloud ECS instances with pagination",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region (e.g., cn-north-4)"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Number of results to return (default: 100)"
+          },
+          "offset": {
+            "type": "integer",
+            "description": "Offset for pagination (default: 0)"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (optional if HUAWEI_AK env is set)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (optional if HUAWEI_SK env is set)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (optional if HUAWEI_PROJECT_ID env is set)"
+          }
+        },
+        "required": [
+          "region"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_get_ecs_metrics",
+      "description": "Get ECS instance monitoring metrics (CPU, memory, disk, network)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region (e.g., cn-north-4)"
+          },
+          "instance_id": {
+            "type": "string",
+            "description": "ECS instance ID"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (optional if HUAWEI_AK env is set)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (optional if HUAWEI_SK env is set)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (optional if HUAWEI_PROJECT_ID env is set)"
+          }
+        },
+        "required": [
+          "region",
+          "instance_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_stop_ecs_instance",
+      "description": "关闭（关机）指定的ECS实例。默认执行正常关机（SOFT），支持强制关机（HARD）。操作前需确认，危险操作必须携带 confirm=true。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "华为云区域 (如 cn-north-4)"
+          },
+          "instance_id": {
+            "type": "string",
+            "description": "ECS实例ID"
+          },
+          "stop_type": {
+            "type": "string",
+            "description": "关机类型: SOFT(正常关机) 或 HARD(强制关机)，默认: SOFT"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (可选)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (可选)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (可选)"
+          },
+          "confirm": {
+            "type": "string",
+            "description": "二次确认，必须设为 true 才执行关机操作"
+          }
+        },
+        "required": [
+          "region",
+          "instance_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_start_ecs_instance",
+      "description": "启动（开机）指定的ECS实例。用于将已关机的ECS实例重新开机。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "华为云区域 (如 cn-north-4)"
+          },
+          "instance_id": {
+            "type": "string",
+            "description": "ECS实例ID"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (可选)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (可选)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (可选)"
+          }
+        },
+        "required": [
+          "region",
+          "instance_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_list_vpc",
+      "description": "List Huawei Cloud VPC networks with pagination",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region (e.g., cn-north-4)"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Number of results to return (default: 100)"
+          },
+          "offset": {
+            "type": "integer",
+            "description": "Offset for pagination (default: 0)"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (optional if HUAWEI_AK env is set)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (optional if HUAWEI_SK env is set)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (optional if HUAWEI_PROJECT_ID env is set)"
+          }
+        },
+        "required": [
+          "region"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_list_vpc_subnets",
+      "description": "List Huawei Cloud VPC subnets, supports filtering by VPC ID",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region (e.g., cn-north-4)"
+          },
+          "vpc_id": {
+            "type": "string",
+            "description": "Optional VPC ID to filter subnets (default: all VPCs)"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Number of results to return (default: 100)"
+          },
+          "offset": {
+            "type": "integer",
+            "description": "Offset for pagination (default: 0)"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (optional if HUAWEI_AK env is set)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (optional if HUAWEI_SK env is set)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (optional if HUAWEI_PROJECT_ID env is set)"
+          }
+        },
+        "required": [
+          "region"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_list_sfs",
+      "description": "List SFS (Scalable File Service) file systems, includes capacity, status, mount point and other information",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region (e.g., cn-north-4)"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Number of results to return (default: 100)"
+          },
+          "offset": {
+            "type": "integer",
+            "description": "Offset for pagination (default: 0)"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (optional if HUAWEI_AK env is set)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (optional if HUAWEI_SK env is set)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (optional if HUAWEI_PROJECT_ID env is set)"
+          }
+        },
+        "required": [
+          "region"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_list_sfs_turbo",
+      "description": "List SFS Turbo high-performance file systems, includes capacity, performance type, VPC information and mount point",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region (e.g., cn-north-4)"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Number of results to return (default: 100)"
+          },
+          "offset": {
+            "type": "integer",
+            "description": "Offset for pagination (default: 0)"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (optional if HUAWEI_AK env is set)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (optional if HUAWEI_SK env is set)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (optional if HUAWEI_PROJECT_ID env is set)"
+          }
+        },
+        "required": [
+          "region"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_list_nat",
+      "description": "List NAT gateways in the specified region, includes ID, name, description, spec, router ID, internal network ID, status, admin state up, and creation time",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region (e.g., cn-north-4)"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Number of results to return (default: 100)"
+          },
+          "offset": {
+            "type": "integer",
+            "description": "Offset for pagination (default: 0)"
+          },
+          "id": {
+            "type": "string",
+            "description": "NAT gateway ID (optional filter)"
+          },
+          "name": {
+            "type": "string",
+            "description": "NAT gateway name (optional filter)"
+          },
+          "description": {
+            "type": "string",
+            "description": "NAT gateway description (optional filter)"
+          },
+          "spec": {
+            "type": "string",
+            "description": "NAT gateway specification (optional filter: 1=small, 2=medium, 3=large, 4=extra-large)"
+          },
+          "router_id": {
+            "type": "string",
+            "description": "Router ID (optional filter)"
+          },
+          "internal_network_id": {
+            "type": "string",
+            "description": "Internal network ID (optional filter)"
+          },
+          "status": {
+            "type": "string",
+            "description": "NAT gateway status (optional filter)"
+          },
+          "admin_state_up": {
+            "type": "boolean",
+            "description": "Admin state up (optional filter)"
+          },
+          "created_at": {
+            "type": "string",
+            "description": "Creation time (optional filter)"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (optional if HUAWEI_AK env is set)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (optional if HUAWEI_SK env is set)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (optional if HUAWEI_PROJECT_ID env is set)"
+          }
+        },
+        "required": [
+          "region"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_list_security_groups",
+      "description": "List Huawei Cloud security groups in a region with pagination",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region (e.g., cn-north-4)"
+          },
+          "vpc_id": {
+            "type": "string",
+            "description": "VPC ID to filter security groups (optional)"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Number of results to return (default: 100)"
+          },
+          "offset": {
+            "type": "integer",
+            "description": "Offset for pagination (default: 0)"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (optional if HUAWEI_AK env is set)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (optional if HUAWEI_SK env is set)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (optional if HUAWEI_PROJECT_ID env is set)"
+          }
+        },
+        "required": [
+          "region"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_list_flavors",
+      "description": "List available ECS instance types (flavors) in a region with pagination",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region (e.g., cn-north-4)"
+          },
+          "az": {
+            "type": "string",
+            "description": "Availability zone (optional)"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Number of results to return (default: 100)"
+          },
+          "offset": {
+            "type": "integer",
+            "description": "Offset for pagination (default: 0)"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (optional if HUAWEI_AK env is set)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (optional if HUAWEI_SK env is set)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (optional if HUAWEI_PROJECT_ID env is set)"
+          }
+        },
+        "required": [
+          "region"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_list_cce_clusters",
+      "description": "List CCE (Cloud Container Engine) clusters with pagination",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region (e.g., cn-north-4)"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Number of results to return (default: 100)"
+          },
+          "offset": {
+            "type": "integer",
+            "description": "Offset for pagination (default: 0)"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (optional if HUAWEI_AK env is set)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (optional if HUAWEI_SK env is set)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (optional if HUAWEI_PROJECT_ID env is set)"
+          }
+        },
+        "required": [
+          "region"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_list_cce_nodes",
+      "description": "List nodes in a CCE cluster with pagination",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region (e.g., cn-north-4)"
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE cluster ID"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Number of results to return (default: 100)"
+          },
+          "offset": {
+            "type": "integer",
+            "description": "Offset for pagination (default: 0)"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (optional if HUAWEI_AK env is set)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (optional if HUAWEI_SK env is set)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (optional if HUAWEI_PROJECT_ID env is set)"
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_list_cce_nodepools",
+      "description": "List node pools in a CCE cluster with pagination",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region (e.g., cn-north-4)"
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE cluster ID"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Number of results to return (default: 100)"
+          },
+          "offset": {
+            "type": "integer",
+            "description": "Offset for pagination (default: 0)"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (optional if HUAWEI_AK env is set)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (optional if HUAWEI_SK env is set)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (optional if HUAWEI_PROJECT_ID env is set)"
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_list_evs",
+      "description": "List EVS (Elastic Volume Service) cloud disks with pagination",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region (e.g., cn-north-4)"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Number of results to return (default: 100)"
+          },
+          "offset": {
+            "type": "integer",
+            "description": "Offset for pagination (default: 0)"
+          },
+          "volume_type": {
+            "type": "string",
+            "description": "Filter by volume type: SSD, SATA, ESSD (optional)"
+          },
+          "availability_zone": {
+            "type": "string",
+            "description": "Filter by availability zone (optional)"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (optional if HUAWEI_AK env is set)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (optional if HUAWEI_SK env is set)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (optional if HUAWEI_PROJECT_ID env is set)"
+          }
+        },
+        "required": [
+          "region"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_get_evs_metrics",
+      "description": "Get EVS volume monitoring metrics (read/write throughput, IOPS, latency)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region (e.g., cn-north-4)"
+          },
+          "volume_id": {
+            "type": "string",
+            "description": "EVS volume ID"
+          },
+          "instance_id": {
+            "type": "string",
+            "description": "ECS instance ID which the volume is attached to (required, used to construct disk_name dimension"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (optional if HUAWEI_AK env is set)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (optional if HUAWEI_SK env is set)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (optional if HUAWEI_PROJECT_ID env is set)"
+          }
+        },
+        "required": [
+          "region",
+          "volume_id",
+          "instance_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_get_nat_gateway_metrics",
+      "description": "获取NAT网关的监控指标（带宽、连接数、丢包率、新建连接速率等）",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "华为云区域（如cn-north-4）"
+          },
+          "nat_gateway_id": {
+            "type": "string",
+            "description": "NAT网关ID"
+          },
+          "hours": {
+            "type": "integer",
+            "description": "查询时间范围（小时），默认1小时"
+          },
+          "period": {
+            "type": "integer",
+            "description": "采样周期，单位秒，默认300（5分钟），可选值：300/1200/3600"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (可选)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (可选)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (可选)"
+          }
+        },
+        "required": [
+          "region",
+          "nat_gateway_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_get_elb_metrics",
+      "description": "获取ELB弹性负载均衡的监控指标（带宽、连接数、QPS、状态码、响应时间等）",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "华为云区域（如cn-north-4）"
+          },
+          "elb_id": {
+            "type": "string",
+            "description": "ELB负载均衡器ID"
+          },
+          "hours": {
+            "type": "integer",
+            "description": "查询时间范围（小时），默认1小时"
+          },
+          "period": {
+            "type": "integer",
+            "description": "采样周期，单位秒，默认300（5分钟），可选值：300/1200/3600"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (可选)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (可选)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (可选)"
+          }
+        },
+        "required": [
+          "region",
+          "elb_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_get_cce_pods",
+      "description": "Get pods in a CCE cluster (requires kubernetes Python package)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region (e.g., cn-north-4)"
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE cluster ID"
+          },
+          "namespace": {
+            "type": "string",
+            "description": "Kubernetes namespace (optional, default: all namespaces)"
+          },
+          "labels": {
+            "type": "string",
+            "description": "Kubernetes label selector for filtering pods, e.g. 'app=nginx,version=v1' (optional)"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (optional if HUAWEI_AK env is set)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (optional if HUAWEI_SK env is set)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (optional if HUAWEI_PROJECT_ID env is set)"
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_get_cce_namespaces",
+      "description": "Get namespaces in a CCE cluster (requires kubernetes Python package)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region (e.g., cn-north-4)"
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE cluster ID"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (optional if HUAWEI_AK env is set)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (optional if HUAWEI_SK env is set)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (optional if HUAWEI_PROJECT_ID env is set)"
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_get_cce_deployments",
+      "description": "Get deployments in a CCE cluster (requires kubernetes Python package)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region (e.g., cn-north-4)"
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE cluster ID"
+          },
+          "namespace": {
+            "type": "string",
+            "description": "Kubernetes namespace (optional, default: all namespaces)"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (optional if HUAWEI_AK env is set)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (optional if HUAWEI_SK env is set)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (optional if HUAWEI_PROJECT_ID env is set)"
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_get_kubernetes_nodes",
+      "description": "Get nodes in a CCE cluster (requires kubernetes Python package)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region (e.g., cn-north-4)"
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE cluster ID"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (optional if HUAWEI_AK env is set)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (optional if HUAWEI_SK env is set)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (optional if HUAWEI_PROJECT_ID env is set)"
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_get_cce_events",
+      "description": "Get events in a CCE cluster with pagination support",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region (e.g., cn-north-4)"
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE cluster ID"
+          },
+          "namespace": {
+            "type": "string",
+            "description": "Kubernetes namespace (optional, default: all namespaces)"
+          },
+          "limit": {
+            "type": "string",
+            "description": "Maximum number of events to return (default: 500)"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (optional if HUAWEI_AK env is set)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (optional if HUAWEI_SK env is set)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (optional if HUAWEI_PROJECT_ID env is set)"
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_get_cce_pvcs",
+      "description": "Get PVCs (PersistentVolumeClaims) in a CCE cluster",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region (e.g., cn-north-4)"
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE cluster ID"
+          },
+          "namespace": {
+            "type": "string",
+            "description": "Kubernetes namespace (optional, default: all namespaces)"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (optional if HUAWEI_AK env is set)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (optional if HUAWEI_SK env is set)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (optional if HUAWEI_PROJECT_ID env is set)"
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_get_cce_pvs",
+      "description": "Get PVs (PersistentVolumes) in a CCE cluster",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region (e.g., cn-north-4)"
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE cluster ID"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (optional if HUAWEI_AK env is set)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (optional if HUAWEI_SK env is set)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (optional if HUAWEI_PROJECT_ID env is set)"
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_list_elb",
+      "description": "List ELB (Elastic Load Balance) load balancers",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region (e.g., cn-north-4)"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Number of results to return (default: 100)"
+          },
+          "offset": {
+            "type": "integer",
+            "description": "Offset for pagination (default: 0)"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (optional if HUAWEI_AK env is set)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (optional if HUAWEI_SK env is set)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (optional if HUAWEI_PROJECT_ID env is set)"
+          }
+        },
+        "required": [
+          "region"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_list_elb_listeners",
+      "description": "List ELB listeners",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region (e.g., cn-north-4)"
+          },
+          "loadbalancer_id": {
+            "type": "string",
+            "description": "ELB load balancer ID (optional)"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Number of results to return (default: 100)"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (optional if HUAWEI_AK env is set)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (optional if HUAWEI_SK env is set)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (optional if HUAWEI_PROJECT_ID env is set)"
+          }
+        },
+        "required": [
+          "region"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_get_elb_metrics",
+      "description": "Get ELB load balancer monitoring metrics (connections, QPS, throughput)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region (e.g., cn-north-4)"
+          },
+          "loadbalancer_id": {
+            "type": "string",
+            "description": "ELB load balancer ID"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (optional if HUAWEI_AK env is set)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (optional if HUAWEI_SK env is set)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (optional if HUAWEI_PROJECT_ID env is set)"
+          }
+        },
+        "required": [
+          "region",
+          "loadbalancer_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_list_vpc_acls",
+      "description": "List VPC network ACLs (Access Control Lists)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region (e.g., cn-north-4)"
+          },
+          "vpc_id": {
+            "type": "string",
+            "description": "VPC ID to filter ACLs (optional)"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (optional if HUAWEI_AK env is set)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (optional if HUAWEI_SK env is set)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (optional if HUAWEI_PROJECT_ID env is set)"
+          }
+        },
+        "required": [
+          "region"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_list_eip",
+      "description": "List EIP (Elastic IP) addresses",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region (e.g., cn-north-4)"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Number of results to return (default: 100)"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (optional if HUAWEI_AK env is set)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (optional if HUAWEI_SK env is set)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (optional if HUAWEI_PROJECT_ID env is set)"
+          }
+        },
+        "required": [
+          "region"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_get_eip_metrics",
+      "description": "Get EIP monitoring metrics (bandwidth, connections)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region (e.g., cn-north-4)"
+          },
+          "eip_id": {
+            "type": "string",
+            "description": "EIP ID"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (optional if HUAWEI_AK env is set)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (optional if HUAWEI_SK env is set)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (optional if HUAWEI_PROJECT_ID env is set)"
+          }
+        },
+        "required": [
+          "region",
+          "eip_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_list_supported_regions",
+      "description": "List all supported Huawei Cloud regions. Returns region IDs, names, and descriptions for both China mainland and international regions. No credentials required.",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_list_projects",
+      "description": "List all projects (tenants) available for the account using IAM API. Returns project IDs for all regions, and optionally filters by domain_id or specific region name.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (optional if HUAWEI_AK env is set)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (optional if HUAWEI_SK env is set)"
+          },
+          "domain_id": {
+            "type": "string",
+            "description": "Filter by domain ID (optional)"
+          },
+          "region": {
+            "type": "string",
+            "description": "Filter by region name, e.g., 'cn-north-4' (optional)"
+          }
+        },
+        "required": []
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_get_project_by_region",
+      "description": "Get project ID for a specific region. This is a convenience function that queries IAM and returns the project ID for the specified region name (e.g., 'cn-north-4').",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region name (e.g., 'cn-north-4', 'cn-east-3', etc.)"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (optional if HUAWEI_AK env is set)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (optional if HUAWEI_SK env is set)"
+          }
+        },
+        "required": [
+          "region"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_resize_cce_nodepool",
+      "description": "Resize (scale up or down) a CCE node pool to a specific number of nodes. Use this to add or remove nodes in a node pool.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region (e.g., cn-north-4)"
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE cluster ID"
+          },
+          "nodepool_id": {
+            "type": "string",
+            "description": "Node pool ID to resize"
+          },
+          "node_count": {
+            "type": "integer",
+            "description": "Target node count (desired number of nodes after resize)"
+          },
+          "scale_group_names": {
+            "type": "string",
+            "description": "Comma-separated list of scale group names to use (default: 'default')"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (optional if HUAWEI_AK env is set)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (optional if HUAWEI_SK env is set)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (optional if HUAWEI_PROJECT_ID env is set)"
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id",
+          "nodepool_id",
+          "node_count"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_scale_cce_workload",
+      "description": "Scale a CCE workload (Deployment or StatefulSet) to a specified number of replicas. User confirmation (confirm=true) is required before scaling.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region (e.g., cn-north-4)"
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE cluster ID"
+          },
+          "workload_type": {
+            "type": "string",
+            "description": "Type of workload: 'deployment' or 'statefulset'"
+          },
+          "name": {
+            "type": "string",
+            "description": "Name of the workload (Deployment or StatefulSet)"
+          },
+          "namespace": {
+            "type": "string",
+            "description": "Kubernetes namespace"
+          },
+          "replicas": {
+            "type": "integer",
+            "description": "Target number of replicas"
+          },
+          "confirm": {
+            "type": "boolean",
+            "description": "REQUIRED: Set to true to confirm scaling. Without this, scaling will not proceed."
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (optional if HUAWEI_AK env is set)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (optional if HUAWEI_SK env is set)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (optional if HUAWEI_PROJECT_ID env is set)"
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id",
+          "workload_type",
+          "name",
+          "namespace",
+          "replicas"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_delete_cce_cluster",
+      "description": "Delete a CCE cluster. WARNING: This will delete the cluster and all its resources. User confirmation (confirm=true) is required before deletion.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region (e.g., cn-north-4)"
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE cluster ID to delete"
+          },
+          "confirm": {
+            "type": "boolean",
+            "description": "REQUIRED: Set to true to confirm deletion. Without this, deletion will not proceed."
+          },
+          "delete_evs": {
+            "type": "boolean",
+            "description": "Whether to delete associated EVS volumes (default: false)"
+          },
+          "delete_net": {
+            "type": "boolean",
+            "description": "Whether to delete associated network resources (default: false)"
+          },
+          "delete_obs": {
+            "type": "boolean",
+            "description": "Whether to delete associated OBS buckets (default: false)"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (optional if HUAWEI_AK env is set)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (optional if HUAWEI_SK env is set)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (optional if HUAWEI_PROJECT_ID env is set)"
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id",
+          "confirm"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_delete_cce_workload",
+      "description": "Delete a CCE workload (Deployment or StatefulSet). WARNING: This will delete the workload and all its pods. User confirmation (confirm=true) is required before deletion.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region (e.g., cn-north-4)"
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE cluster ID"
+          },
+          "workload_type": {
+            "type": "string",
+            "description": "Type of workload: 'deployment' or 'statefulset'"
+          },
+          "name": {
+            "type": "string",
+            "description": "Name of the workload to delete"
+          },
+          "namespace": {
+            "type": "string",
+            "description": "Kubernetes namespace"
+          },
+          "confirm": {
+            "type": "boolean",
+            "description": "REQUIRED: Set to true to confirm deletion. Without this, deletion will not proceed."
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (optional if HUAWEI_AK env is set)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (optional if HUAWEI_SK env is set)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (optional if HUAWEI_PROJECT_ID env is set)"
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id",
+          "workload_type",
+          "name",
+          "namespace",
+          "confirm"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_delete_cce_node",
+      "description": "Delete a node from CCE cluster. WARNING: This will delete the node and all its pods. User confirmation (confirm=true) is required before deletion.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region (e.g., cn-north-4)"
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE cluster ID"
+          },
+          "node_id": {
+            "type": "string",
+            "description": "Node ID to delete"
+          },
+          "confirm": {
+            "type": "boolean",
+            "description": "REQUIRED: Set to true to confirm deletion. Without this, deletion will not proceed."
+          },
+          "scale_down": {
+            "type": "boolean",
+            "description": "Whether to scale down pods before deleting (default: true)"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (optional if HUAWEI_AK env is set)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (optional if HUAWEI_SK env is set)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (optional if HUAWEI_PROJECT_ID env is set)"
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id",
+          "node_id",
+          "confirm"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_get_cce_kubeconfig",
+      "description": "Get kubeconfig for a CCE cluster. Returns kubeconfig in JSON and YAML format with cluster endpoints information. The kubeconfig can be used with kubectl to manage the cluster.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region (e.g., cn-north-4)"
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE cluster ID"
+          },
+          "duration": {
+            "type": "integer",
+            "description": "Certificate validity duration in days (default: 30)"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (optional if HUAWEI_AK env is set)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (optional if HUAWEI_SK env is set)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (optional if HUAWEI_PROJECT_ID env is set)"
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_list_aom_instances",
+      "description": "List AOM Prometheus instances and their details (including prom_http_api_endpoint)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region (e.g., cn-north-4)"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (optional if HUAWEI_AK env is set)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (optional if HUAWEI_SK env is set)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (optional if HUAWEI_PROJECT_ID env is set)"
+          },
+          "prom_type": {
+            "type": "string",
+            "description": "Filter by Prometheus type - CCE, APPLICATION, default (optional)"
+          }
+        },
+        "required": [
+          "region"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_list_cce_addons",
+      "description": "Get addons (plugins) installed in a CCE cluster, returns detailed addon information including version, status, and description",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region (e.g., cn-north-4)"
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE cluster ID"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (optional if HUAWEI_AK env is set)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (optional if HUAWEI_SK env is set)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (optional if HUAWEI_PROJECT_ID env is set)"
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_list_cce_configmaps",
+      "description": "List ConfigMaps in a CCE Kubernetes cluster, returns basic information and data keys (optional full data content)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region (e.g., cn-north-4)"
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE cluster ID"
+          },
+          "namespace": {
+            "type": "string",
+            "description": "Kubernetes namespace (optional, default: all namespaces)"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Number of results to return (default: 100)"
+          },
+          "offset": {
+            "type": "integer",
+            "description": "Pagination offset (default: 0)"
+          },
+          "include_data": {
+            "type": "boolean",
+            "description": "Whether to include ConfigMap data content (default: false)"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (optional if HUAWEI_AK env is set)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (optional if HUAWEI_SK env is set)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (optional if HUAWEI_PROJECT_ID env is set)"
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_list_cce_secrets",
+      "description": "List Secrets in a CCE Kubernetes cluster, returns basic information and data keys (optional full data content for debugging)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region (e.g., cn-north-4)"
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE cluster ID"
+          },
+          "namespace": {
+            "type": "string",
+            "description": "Kubernetes namespace (optional, default: all namespaces)"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Number of results to return (default: 100)"
+          },
+          "include_data": {
+            "type": "boolean",
+            "description": "Whether to include Secret data content (default: false, sensitive information warning)"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (optional if HUAWEI_AK env is set)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (optional if HUAWEI_SK env is set)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (optional if HUAWEI_PROJECT_ID env is set)"
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_get_aom_metrics",
+      "description": "Get Prometheus metrics from AOM using SDK to get signature, then send HTTP request directly",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region (e.g., cn-north-4)"
+          },
+          "aom_instance_id": {
+            "type": "string",
+            "description": "AOM Prometheus instance ID"
+          },
+          "query": {
+            "type": "string",
+            "description": "PromQL expression (e.g., up, node_cpu_seconds_total)"
+          },
+          "start": {
+            "type": "integer",
+            "description": "Start timestamp in Unix seconds"
+          },
+          "end": {
+            "type": "integer",
+            "description": "End timestamp in Unix seconds"
+          },
+          "step": {
+            "type": "integer",
+            "description": "Query step in seconds (default: 60)"
+          },
+          "hours": {
+            "type": "integer",
+            "description": "Time range in hours (default: 1)"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID"
+          }
+        },
+        "required": [
+          "region",
+          "aom_instance_id",
+          "query"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_list_aom_alerts",
+      "description": "List AOM alert events (alarm records) from the last 24 hours. Supports filtering by alert status (firing/resolved) and severity (critical/warning/info).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region (e.g., cn-north-4)"
+          },
+          "alert_status": {
+            "type": "string",
+            "description": "Filter by alert status: 'firing' or 'resolved' (optional)"
+          },
+          "severity": {
+            "type": "string",
+            "description": "Filter by severity: 'critical', 'warning', or 'info' (optional)"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum number of alerts to return (default: 100)"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (optional if HUAWEI_AK env is set)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (optional if HUAWEI_SK env is set)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (optional if HUAWEI_PROJECT_ID env is set)"
+          }
+        },
+        "required": [
+          "region"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_list_aom_alarm_rules",
+      "description": "List AOM alarm rules (threshold alarm configurations). Shows the alarm rules that have been configured for monitoring.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region (e.g., cn-north-4)"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum number of rules to return (default: 100)"
+          },
+          "offset": {
+            "type": "integer",
+            "description": "Offset for pagination (default: 0)"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (optional if HUAWEI_AK env is set)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (optional if HUAWEI_SK env is set)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (optional if HUAWEI_PROJECT_ID env is set)"
+          }
+        },
+        "required": [
+          "region"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_list_aom_action_rules",
+      "description": "List AOM action rules (notification rules). Shows the configured notification channels (SMN topics) for alerts.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region (e.g., cn-north-4)"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (optional if HUAWEI_AK env is set)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (optional if HUAWEI_SK env is set)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (optional if HUAWEI_PROJECT_ID env is set)"
+          }
+        },
+        "required": [
+          "region"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_list_aom_mute_rules",
+      "description": "List AOM mute rules (silence rules). Shows the configured silence rules that suppress alerts during maintenance windows.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region (e.g., cn-north-4)"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (optional if HUAWEI_AK env is set)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (optional if HUAWEI_SK env is set)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (optional if HUAWEI_PROJECT_ID env is set)"
+          }
+        },
+        "required": [
+          "region"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_list_aom_current_alarms",
+      "description": "List AOM events and alerts using ListEvents API. Query active alerts (type=active_alert) or historical alerts (type=history_alert). Returns alert details including severity, resource info, and status.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region (e.g., cn-north-4)"
+          },
+          "event_type": {
+            "type": "string",
+            "description": "Query type: 'active_alert' for active alerts, 'history_alert' for historical alerts. Default: 'active_alert'"
+          },
+          "event_severity": {
+            "type": "string",
+            "description": "Filter by severity: 'Critical', 'Major', 'Minor', 'Info'. Default: all severities"
+          },
+          "time_range": {
+            "type": "string",
+            "description": "Time range in format 'startTime.endTime.durationMinutes', e.g., '-1.-1.60' for last 60 minutes. Default: last 24 hours"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum number of events to return (default: 100)"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (optional if HUAWEI_AK env is set)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (optional if HUAWEI_SK env is set)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (optional if HUAWEI_PROJECT_ID env is set)"
+          }
+        },
+        "required": [
+          "region"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_cce_cluster_inspection",
+      "description": "CCE集群巡检工具。执行全面的集群健康巡检并生成详细报告：(1)Pod状态巡检-检查重启情况 (2)Node状态巡检 (3)插件Pod监控-CPU/内存>80% (4)节点资源监控-CPU/内存/磁盘>80% (5)Event巡检-异常事件 (6)AOM告警巡检。返回巡检结果、问题列表和详细报告。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "华为云区域 (如 cn-north-4)"
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE集群ID"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (可选，如已设置 HUAWEI_AK 环境变量)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (可选，如已设置 HUAWEI_SK 环境变量)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (可选，如已设置 HUAWEI_PROJECT_ID 环境变量)"
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_pod_status_inspection",
+      "description": "Pod状态巡检。检查Pod运行状态、容器重启次数、异常状态识别（CrashLoopBackOff、ImagePullBackOff、OOMKilled、Evicted等）。返回运行/待处理/失败Pod统计、重启Pod列表、异常Pod列表。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "华为云区域 (如 cn-north-4)"
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE集群ID"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (可选，如已设置 HUAWEI_AK 环境变量)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (可选，如已设置 HUAWEI_SK 环境变量)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (可选，如已设置 HUAWEI_PROJECT_ID 环境变量)"
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_addon_pod_monitoring_inspection",
+      "description": "插件Pod监控巡检（kube-system + monitoring命名空间）。检查CPU/内存使用率>80%的插件Pod数量及Top 10。返回高CPU/内存使用率Pod列表。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "华为云区域 (如 cn-north-4)"
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE集群ID"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (可选，如已设置 HUAWEI_AK 环境变量)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (可选，如已设置 HUAWEI_SK 环境变量)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (可选，如已设置 HUAWEI_PROJECT_ID 环境变量)"
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_biz_pod_monitoring_inspection",
+      "description": "业务Pod监控巡检（非kube-system/monitoring命名空间）。检查业务Pod的CPU/内存使用率>80%的Pod数量及Top 10。返回高CPU/内存使用率业务Pod列表。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "华为云区域 (如 cn-north-4)"
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE集群ID"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (可选，如已设置 HUAWEI_AK 环境变量)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (可选，如已设置 HUAWEI_SK 环境变量)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (可选，如已设置 HUAWEI_PROJECT_ID 环境变量)"
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_node_status_inspection",
+      "description": "Node状态巡检。检查节点状态（Active/Error/Deleting/Installing/Abnormal）、Ready/NotReady统计。返回节点详情、异常节点列表及原因说明。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "华为云区域 (如 cn-north-4)"
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE集群ID"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (可选，如已设置 HUAWEI_AK 环境变量)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (可选，如已设置 HUAWEI_SK 环境变量)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (可选，如已设置 HUAWEI_PROJECT_ID 环境变量)"
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_node_resource_inspection",
+      "description": "节点资源监控巡检。检查节点CPU/内存/磁盘使用率>80%的节点数量及Top 10。返回高资源使用率节点列表，帮助识别资源瓶颈。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "华为云区域 (如 cn-north-4)"
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE集群ID"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (可选，如已设置 HUAWEI_AK 环境变量)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (可选，如已设置 HUAWEI_SK 环境变量)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (可选，如已设置 HUAWEI_PROJECT_ID 环境变量)"
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_event_inspection",
+      "description": "Event巡检。检查集群事件类型统计（Normal/Warning）、关键事件识别（Failed/Error/CrashLoopBackOff/OOMKilled/Evicted/FailedScheduling等）。按原因/命名空间归一统计。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "华为云区域 (如 cn-north-4)"
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE集群ID"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (可选，如已设置 HUAWEI_AK 环境变量)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (可选，如已设置 HUAWEI_SK 环境变量)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (可选，如已设置 HUAWEI_PROJECT_ID 环境变量)"
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_aom_alarm_inspection",
+      "description": "AOM告警巡检。获取当前活跃告警，按严重级别分类（Critical/Major/Minor/Info），过滤当前集群相关告警。返回告警详情和按类型归一统计。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "华为云区域 (如 cn-north-4)"
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE集群ID"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (可选，如已设置 HUAWEI_AK 环境变量)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (可选，如已设置 HUAWEI_SK 环境变量)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (可选，如已设置 HUAWEI_PROJECT_ID 环境变量)"
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_elb_monitoring_inspection",
+      "description": "ELB负载均衡监控巡检。检查LoadBalancer类型Service的ELB监控数据（连接数、带宽、使用率）、公网EIP带宽监控。识别高连接/高带宽使用率ELB和EIP超限告警。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "华为云区域 (如 cn-north-4)"
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE集群ID"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (可选，如已设置 HUAWEI_AK 环境变量)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (可选，如已设置 HUAWEI_SK 环境变量)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (可选，如已设置 HUAWEI_PROJECT_ID 环境变量)"
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_cce_cluster_inspection_parallel",
+      "description": "CCE集群巡检工具，并行模式，使用多线程并行执行巡检任务，大幅提升巡检效率。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "华为云区域 (如 cn-north-4)"
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE集群ID"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (可选，如已设置 HUAWEI_AK 环境变量)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (可选，如已设置 HUAWEI_SK 环境变量)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (可选，如已设置 HUAWEI_PROJECT_ID 环境变量)"
+          },
+          "max_workers": {
+            "type": "integer",
+            "description": "最大并行数 (默认: 4)"
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_cce_cluster_inspection_subagent",
+      "description": "CCE集群巡检工具，Subagent并行模式，由主agent启动多个subagent并行执行巡检任务。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "华为云区域 (如 cn-north-4)"
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE集群ID"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (可选，如已设置 HUAWEI_AK 环境变量)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (可选，如已设置 HUAWEI_SK 环境变量)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (可选，如已设置 HUAWEI_PROJECT_ID 环境变量)"
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_aggregate_inspection_results",
+      "description": "聚合多个Subagent巡检结果，生成完整的CCE集群巡检报告。在所有subagent任务完成后调用此工具汇总结果。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "华为云区域 (如 cn-north-4)"
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE集群ID"
+          },
+          "results": {
+            "type": "array",
+            "description": "subagent任务结果数组，每个结果包含task_id和result"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (可选，如已设置 HUAWEI_AK 环境变量)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (可选，如已设置 HUAWEI_SK 环境变量)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (可选，如已设置 HUAWEI_PROJECT_ID 环境变量)"
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id",
+          "results"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_export_inspection_report",
+      "description": "生成并导出HTML格式的集群巡检报告。自动执行集群巡检并生成网页版报告文件，包含详细的巡检结果和问题解决建议。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "华为云区域 (如 cn-north-4)"
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE集群ID"
+          },
+          "output_file": {
+            "type": "string",
+            "description": "HTML报告输出路径 (默认: /tmp/cce_inspection_report_{cluster_id}.html)"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (可选，如已设置 HUAWEI_AK 环境变量)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (可选，如已设置 HUAWEI_SK 环境变量)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (可选，如已设置 HUAWEI_PROJECT_ID 环境变量)"
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_list_log_groups",
+      "description": "查询LTS日志组列表。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "华为云区域 (如 cn-north-4)"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (可选，如已设置 HUAWEI_AK 环境变量)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (可选，如已设置 HUAWEI_SK 环境变量)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (可选，如已设置 HUAWEI_PROJECT_ID 环境变量)"
+          }
+        },
+        "required": [
+          "region"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_list_log_streams",
+      "description": "查询LTS日志流列表。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "华为云区域 (如 cn-north-4)"
+          },
+          "log_group_id": {
+            "type": "string",
+            "description": "日志组ID，不传则查询所有"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (可选，如已设置 HUAWEI_AK 环境变量)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (可选，如已设置 HUAWEI_SK 环境变量)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (可选，如已设置 HUAWEI_PROJECT_ID 环境变量)"
+          }
+        },
+        "required": [
+          "region"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_query_logs",
+      "description": "查询LTS日志内容，支持按时间范围和关键词搜索。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "华为云区域"
+          },
+          "log_group_id": {
+            "type": "string",
+            "description": "日志组ID"
+          },
+          "log_stream_id": {
+            "type": "string",
+            "description": "日志流ID"
+          },
+          "start_time": {
+            "type": "string",
+            "description": "开始时间 (格式: YYYY-MM-DD HH:MM:SS，默认最近1小时)"
+          },
+          "end_time": {
+            "type": "string",
+            "description": "结束时间 (格式: YYYY-MM-DD HH:MM:SS，默认当前时间)"
+          },
+          "keywords": {
+            "type": "string",
+            "description": "搜索关键词"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "返回条数 (默认100)"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (可选，如已设置 HUAWEI_AK 环境变量)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (可选，如已设置 HUAWEI_SK 环境变量)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (可选，如已设置 HUAWEI_PROJECT_ID 环境变量)"
+          }
+        },
+        "required": [
+          "region",
+          "log_group_id",
+          "log_stream_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_get_cce_logconfigs",
+      "description": "从CCE集群获取LogConfig自定义资源（CR），返回应用与日志流的关联关系。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "华为云区域"
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE集群ID"
+          },
+          "namespace": {
+            "type": "string",
+            "description": "命名空间过滤（可选，默认查询所有命名空间）"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (可选，如已设置 HUAWEI_AK 环境变量)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (可选，如已设置 HUAWEI_SK 环境变量)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (可选，如已设置 HUAWEI_PROJECT_ID 环境变量)"
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_query_aom_logs",
+      "description": "查询AOM应用日志，支持按命名空间、Pod、容器过滤。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "华为云区域"
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE集群ID (可选)"
+          },
+          "namespace": {
+            "type": "string",
+            "description": "命名空间"
+          },
+          "pod_name": {
+            "type": "string",
+            "description": "Pod名称"
+          },
+          "container_name": {
+            "type": "string",
+            "description": "容器名称"
+          },
+          "start_time": {
+            "type": "string",
+            "description": "开始时间"
+          },
+          "end_time": {
+            "type": "string",
+            "description": "结束时间"
+          },
+          "keywords": {
+            "type": "string",
+            "description": "搜索关键词"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "返回条数 (默认100)"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (可选，如已设置 HUAWEI_AK 环境变量)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (可选，如已设置 HUAWEI_SK 环境变量)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (可选，如已设置 HUAWEI_PROJECT_ID 环境变量)"
+          }
+        },
+        "required": [
+          "region"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_get_recent_logs",
+      "description": "获取最近的日志。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "华为云区域"
+          },
+          "log_group_id": {
+            "type": "string",
+            "description": "日志组ID"
+          },
+          "log_stream_id": {
+            "type": "string",
+            "description": "日志流ID"
+          },
+          "hours": {
+            "type": "integer",
+            "description": "查询最近几小时 (默认1)"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "返回条数 (默认100)"
+          },
+          "labels": {
+            "type": "string",
+            "description": "标签过滤，JSON字典格式 (e.g., '{\"appName\": \"test\", \"namespace\": \"default\"}')"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (可选，如已设置 HUAWEI_AK 环境变量)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (可选，如已设置 HUAWEI_SK 环境变量)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (可选，如已设置 HUAWEI_PROJECT_ID 环境变量)"
+          }
+        },
+        "required": [
+          "region",
+          "log_group_id",
+          "log_stream_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_get_pod_logs",
+      "description": "获取 CCE 集群中指定 Pod 的容器日志（模拟 kubectl logs）",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "华为云区域 (如 cn-north-4)"
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE 集群 ID"
+          },
+          "pod_name": {
+            "type": "string",
+            "description": "Pod 名称"
+          },
+          "namespace": {
+            "type": "string",
+            "description": "Kubernetes 命名空间 (默认: default)"
+          },
+          "container": {
+            "type": "string",
+            "description": "容器名称 (可选，不指定则返回第一个容器)"
+          },
+          "previous": {
+            "type": "boolean",
+            "description": "是否获取上一个已终止容器的日志 (默认: false)"
+          },
+          "tail_lines": {
+            "type": "integer",
+            "description": "返回最近 N 行日志 (默认: 100)"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (可选)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (可选)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "项目 ID (可选)"
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id",
+          "pod_name"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_query_application_logs",
+      "description": "查询CCE集群中应用自定义时间范围的日志信息，自动匹配日志流、自动携带标签过滤。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "华为云区域 (e.g., cn-north-4)"
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE集群ID"
+          },
+          "app_name": {
+            "type": "string",
+            "description": "应用/工作负载名称"
+          },
+          "namespace": {
+            "type": "string",
+            "description": "命名空间 (默认: default)"
+          },
+          "start_time": {
+            "type": "string",
+            "description": "查询开始时间，格式: YYYY-MM-DD HH:MM:SS (默认: 1小时前)"
+          },
+          "end_time": {
+            "type": "string",
+            "description": "查询结束时间，格式同上 (默认: 当前时间)"
+          },
+          "keywords": {
+            "type": "string",
+            "description": "日志关键词过滤"
+          },
+          "labels": {
+            "type": "string",
+            "description": "自定义过滤标签，JSON字典格式 (e.g., '{\"env\": \"prod\", \"version\": \"v1\"}')"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "返回日志条数 (默认: 1000)"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (可选，如已设置HUAWEI_AK环境变量)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (可选，如已设置HUAWEI_SK环境变量)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (可选，如已设置HUAWEI_PROJECT_ID环境变量)"
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id",
+          "app_name"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_query_application_recent_logs",
+      "description": "CCE集群应用日志快捷查询，查询最近N小时日志，自动匹配日志流、自动携带标签过滤，无需手动查找日志ID。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "华为云区域 (e.g., cn-north-4)"
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE集群ID"
+          },
+          "app_name": {
+            "type": "string",
+            "description": "应用/工作负载名称"
+          },
+          "namespace": {
+            "type": "string",
+            "description": "命名空间 (默认: default)"
+          },
+          "hours": {
+            "type": "integer",
+            "description": "查询最近几小时 (默认: 1)"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "返回日志条数 (默认: 1000)"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (可选，如已设置HUAWEI_AK环境变量)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (可选，如已设置HUAWEI_SK环境变量)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (可选，如已设置HUAWEI_PROJECT_ID环境变量)"
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id",
+          "app_name"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_get_cce_ingresses",
+      "description": "查询CCE集群内Ingress路由列表。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "华为云区域"
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE集群ID"
+          },
+          "namespace": {
+            "type": "string",
+            "description": "命名空间（可选，默认查询所有）"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (可选)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (可选)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (可选)"
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_get_cce_node_metrics_topN",
+      "description": "获取CCE集群节点CPU/内存/磁盘使用率Top N排名。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "华为云区域"
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE集群ID"
+          },
+          "top_n": {
+            "type": "integer",
+            "description": "返回Top N节点，默认10"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (可选)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (可选)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (可选)"
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_get_cce_node_metrics",
+      "description": "获取指定CCE节点的CPU、内存、磁盘使用率过去一段时间的时序监控数据。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "华为云区域"
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE集群ID"
+          },
+          "node_ip": {
+            "type": "string",
+            "description": "节点IP地址"
+          },
+          "hours": {
+            "type": "integer",
+            "description": "查询时间范围（小时），默认1小时"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (可选)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (可选)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (可选)"
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id",
+          "node_ip"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_get_cce_nodes",
+      "description": "获取CCE集群指定节点详细信息。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "华为云区域"
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE集群ID"
+          },
+          "node_name": {
+            "type": "string",
+            "description": "节点名称（可选，默认查询所有节点）"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (可选)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (可选)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (可选)"
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_get_cce_pod_metrics_topN",
+      "description": "获取CCE集群Pod CPU/内存使用率Top N排名。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "华为云区域"
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE集群ID"
+          },
+          "namespace": {
+            "type": "string",
+            "description": "命名空间（可选，默认查询所有）"
+          },
+          "top_n": {
+            "type": "integer",
+            "description": "返回Top N Pod，默认10"
+          },
+          "node_ip": {
+            "type": "string",
+            "description": "节点IP过滤（可选，只返回指定节点上的Pod）"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (可选)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (可选)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (可选)"
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_get_cce_pod_metrics",
+      "description": "获取指定CCE Pod的CPU、内存使用率过去一段时间的时序监控数据。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "华为云区域"
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE集群ID"
+          },
+          "pod_name": {
+            "type": "string",
+            "description": "Pod名称"
+          },
+          "namespace": {
+            "type": "string",
+            "description": "命名空间（可选，默认查询所有）"
+          },
+          "hours": {
+            "type": "integer",
+            "description": "查询时间范围（小时），默认1小时"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (可选)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (可选)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (可选)"
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id",
+          "pod_name"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_get_cce_services",
+      "description": "查询CCE集群Service服务列表。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "华为云区域"
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE集群ID"
+          },
+          "namespace": {
+            "type": "string",
+            "description": "命名空间（可选，默认查询所有）"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (可选)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (可选)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (可选)"
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_list_cce_daemonsets",
+      "description": "查询CCE集群内所有DaemonSet守护进程集信息（含副本数、状态、镜像）。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "华为云区域"
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE集群ID"
+          },
+          "namespace": {
+            "type": "string",
+            "description": "命名空间（可选，默认查询所有）"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (可选)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (可选)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (可选)"
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_list_cce_statefulsets",
+      "description": "查询CCE集群内所有StatefulSet有状态服务信息（含副本数、状态、镜像、存储卷）。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "华为云区域"
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE集群ID"
+          },
+          "namespace": {
+            "type": "string",
+            "description": "命名空间（可选，默认查询所有）"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (可选)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (可选)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (可选)"
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_list_cce_cronjobs",
+      "description": "查询CCE集群内所有CronJob定时任务信息（含调度计划、并发策略、暂停状态、最近执行时间等）。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "华为云区域"
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE集群ID"
+          },
+          "namespace": {
+            "type": "string",
+            "description": "命名空间（可选，默认查询所有）"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (可选)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (可选)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (可选)"
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_network_diagnose",
+      "description": "CCE工作负载网络问题诊断，自动梳理完整网络链路（Pod→Service→Ingress→ELB→NAT→EIP）并分析链路各组件状态、监控、告警，生成诊断报告。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "华为云区域 (如 cn-north-4)"
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE集群ID"
+          },
+          "namespace": {
+            "type": "string",
+            "description": "工作负载所在命名空间"
+          },
+          "workload_type": {
+            "type": "string",
+            "description": "工作负载类型：deployment/statefulset/daemonset"
+          },
+          "workload_name": {
+            "type": "string",
+            "description": "工作负载名称"
+          },
+          "hours": {
+            "type": "integer",
+            "description": "诊断时间范围（小时），默认1小时"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (可选)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (可选)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (可选)"
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id",
+          "namespace",
+          "workload_type",
+          "workload_name"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_network_diagnose_by_alarm",
+      "description": "基于AOM告警触发的工作负载网络问题诊断，自动关联告警对应的工作负载并执行完整网络链路诊断。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "华为云区域 (如 cn-north-4)"
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE集群ID"
+          },
+          "alarm_id": {
+            "type": "string",
+            "description": "AOM告警ID"
+          },
+          "namespace": {
+            "type": "string",
+            "description": "告警关联的工作负载命名空间（可选，自动匹配时可不填）"
+          },
+          "workload_name": {
+            "type": "string",
+            "description": "告警关联的工作负载名称（可选，自动匹配时可不填）"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (可选)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (可选)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (可选)"
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id",
+          "alarm_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_workload_diagnose",
+      "description": "CCE工作负载异常综合诊断。收集工作负载基础信息、诊断异常Pod（Pending/CrashLoopBackOff/ImagePullBackOff等）、联动节点诊断和网络链路诊断、进行变更关联分析、获取AOM告警，生成含Top3根因的综合诊断报告。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "华为云区域 (如 cn-north-4)"
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE集群ID"
+          },
+          "workload_name": {
+            "type": "string",
+            "description": "工作负载名称（可选，不填则诊断namespace下所有工作负载）"
+          },
+          "namespace": {
+            "type": "string",
+            "description": "命名空间 (默认: default)"
+          },
+          "fault_time": {
+            "type": "string",
+            "description": "故障时间点，格式: YYYY-MM-DD HH:MM:SS (可选)"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (可选)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (可选)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (可选)"
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_workload_diagnose_by_alarm",
+      "description": "基于AOM告警触发CCE工作负载异常综合诊断。自动从告警信息中解析工作负载名称和命名空间，然后执行完整的工作负载诊断流程。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "华为云区域 (如 cn-north-4)"
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE集群ID"
+          },
+          "alarm_info": {
+            "type": "string",
+            "description": "告警信息（JSON格式或告警名称），包含resource_id/namespace/name等字段"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (可选)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (可选)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (可选)"
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id",
+          "alarm_info"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_hibernate_cce_cluster",
+      "description": "休眠CCE集群。将集群置于休眠状态，停止控制面计费和工作负载（但保留集群配置）。适用于临时不需要使用集群的场景，可节省成本。唤醒使用huawei_awake_cce_cluster。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "华为云区域 (如 cn-north-4)"
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE集群ID"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (可选)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (可选)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (可选)"
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_awake_cce_cluster",
+      "description": "唤醒休眠的CCE集群。恢复集群至正常运行状态，重新开始控制面计费，工作负载将自动恢复。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "华为云区域 (如 cn-north-4)"
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE集群ID"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (可选)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (可选)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (可选)"
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_node_diagnose",
+      "description": "CCE节点故障诊断，检查节点状态、资源使用率、系统组件（Kubelet/Containerd/CNI）、磁盘IO、网络连通性等，生成节点健康诊断报告。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "华为云区域 (如 cn-north-4)"
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE集群ID"
+          },
+          "node_ip": {
+            "type": "string",
+            "description": "节点IP地址"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (可选)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (可选)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (可选)"
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id",
+          "node_ip"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_node_batch_diagnose",
+      "description": "CCE节点批量故障诊断，同时诊断多个节点的健康状态，支持按节点标签过滤，输出批量诊断报告。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "华为云区域 (如 cn-north-4)"
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE集群ID"
+          },
+          "node_ips": {
+            "type": "array",
+            "description": "要诊断的节点IP列表（可选，不填则诊断集群所有节点）"
+          },
+          "label_selector": {
+            "type": "string",
+            "description": "节点标签选择器（可选，格式：key=value），按标签筛选要诊断的节点"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (可选)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (可选)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (可选)"
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_get_application_log_stream",
+      "description": "根据CCE集群ID、应用名、命名空间自动匹配对应的日志组和日志流ID，基于LogConfig规则匹配。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "华为云区域"
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE集群ID"
+          },
+          "app_name": {
+            "type": "string",
+            "description": "应用/工作负载名称"
+          },
+          "namespace": {
+            "type": "string",
+            "description": "命名空间 (默认: default)"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (可选)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (可选)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (可选)"
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id",
+          "app_name"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_test_all_tools",
+      "description": "测试huawei-cloud skill下的所有工具，自动获取测试资源，修改类操作仅预览",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key"
+          },
+          "region": {
+            "type": "string",
+            "description": "华为云区域 (默认: cn-north-4)"
+          }
+        },
+        "required": [
+          "ak",
+          "sk"
+        ]
+      },
+      "script": "scripts/test_huawei_cloud_tools.py"
+    }
+  ]
+}
