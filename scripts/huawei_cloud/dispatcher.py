@@ -12,6 +12,7 @@ from . import cce_diagnosis
 from . import cce_auto_inspection
 from . import chart_generator
 from . import common
+from . import cce_cluster, cce_nodepool, cce_node, cce_addon, cce_k8s
 
 # cce_app_logs and lts require huaweicloudsdklts which may not be installed
 try:
@@ -766,6 +767,23 @@ def _reboot_ecs(params: Dict[str, str]) -> Dict[str, Any]:
         ak=params.get("ak"), sk=params.get("sk"), project_id=params.get("project_id"))
 
 
+def _create_cce_cluster(params: Dict[str, str]) -> Dict[str, Any]:
+    return cce_cluster.create_cce_cluster(
+        region=params["region"],
+        cluster_name=params["cluster_name"],
+        cluster_version=params["cluster_version"],
+        vpc_id=params["vpc_id"],
+        subnet_id=params["subnet_id"],
+        cluster_type=params.get("cluster_type", "VirtualMachine"),
+        container_network_type=params.get("container_network_type", "overlay_l2"),
+        flavor_id=params.get("flavor_id"),
+        description=params.get("description"),
+        ak=params.get("ak"),
+        sk=params.get("sk"),
+        project_id=params.get("project_id"),
+    )
+
+
 ACTION_SPECS: Dict[str, tuple[tuple[str, ...], Handler]] = {
     "huawei_list_ecs": (("region",), _list_ecs),
     "huawei_get_ecs_metrics": (("region", "instance_id"), _get_ecs_metrics),
@@ -791,6 +809,7 @@ ACTION_SPECS: Dict[str, tuple[tuple[str, ...], Handler]] = {
     "huawei_list_projects": ((), _list_projects),
     "huawei_get_project_by_region": (("region",), _get_project_by_region),
     "huawei_list_cce_clusters": (("region",), _list_cce_clusters),
+    "huawei_create_cce_cluster": (("region", "cluster_name", "cluster_version", "vpc_id", "subnet_id"), _create_cce_cluster),
     "huawei_delete_cce_cluster": (("region", "cluster_id"), _delete_cce_cluster),
     "huawei_list_cce_nodes": (("region", "cluster_id"), _list_cce_nodes),
     "huawei_get_cce_nodes": (("region", "cluster_id"), _get_cce_nodes),
