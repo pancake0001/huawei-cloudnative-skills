@@ -1,6 +1,13 @@
 """CCE Cluster management functions."""
 
-from typing import Any, Dict, Optional
+import hashlib
+import hmac
+import time as time_module
+import urllib.parse
+from urllib.parse import quote, unquote
+from typing import Any, Dict, List, Optional
+import requests
+
 from huaweicloudsdkcce.v3 import (
     CreateClusterRequest,
     DeleteClusterRequest,
@@ -13,6 +20,7 @@ from huaweicloudsdkcce.v3 import (
     ClusterSpec,
     ContainerNetwork,
     HostNetwork,
+    ServiceNetwork,
 )
 from huaweicloudsdkcce.v3.region.cce_region import CceRegion
 from huaweicloudsdkcore.auth.credentials import BasicCredentials
@@ -675,11 +683,13 @@ def unbind_cce_cluster_eip(
 def create_cce_cluster(
     region: str,
     cluster_name: str,
-    cluster_version: str,
     vpc_id: str,
     subnet_id: str,
+    cluster_version: Optional[str] = None,
     cluster_type: str = "VirtualMachine",
     container_network_type: str = "overlay_l2",
+    container_network_cidr: Optional[str] = None,
+    service_network_cidr: Optional[str] = None,
     flavor_id: Optional[str] = None,
     description: Optional[str] = None,
     ak: Optional[str] = None,
@@ -689,15 +699,18 @@ def create_cce_cluster(
     """Create a new CCE cluster
 
     Creates a Cloud Container Engine cluster with specified configuration.
+    If cluster_version is not specified, CCE will use the latest supported version.
 
     Args:
         region: Huawei Cloud region (e.g., cn-north-4)
         cluster_name: Name of the cluster to create
-        cluster_version: Kubernetes version (e.g., "v1.28", "v1.29")
         vpc_id: VPC ID where the cluster will be created
         subnet_id: Subnet ID for the cluster
+        cluster_version: Kubernetes version (optional, defaults to latest if not specified)
         cluster_type: Cluster type (default: "VirtualMachine")
         container_network_type: Container network type (default: "overlay_l2")
+        container_network_cidr: Container network CIDR (optional, e.g., "172.16.0.0/16")
+        service_network_cidr: Service network CIDR (optional, e.g., "10.247.0.0/16")
         flavor_id: Cluster flavor ID (optional, determines control plane specs)
         description: Cluster description (optional)
         ak: Access Key ID (optional)
@@ -718,9 +731,6 @@ def create_cce_cluster(
     if not cluster_name:
         return {"success": False, "error": "cluster_name is required"}
 
-    if not cluster_version:
-        return {"success": False, "error": "cluster_version is required"}
-
     if not vpc_id:
         return {"success": False, "error": "vpc_id is required"}
 
@@ -739,16 +749,23 @@ def create_cce_cluster(
 
         host_network = HostNetwork(vpc=vpc_id, subnet=subnet_id)
         container_network = ContainerNetwork(mode=container_network_type)
+        if container_network_cidr:
+            container_network.cidr = container_network_cidr
 
         cluster_spec = ClusterSpec(
             type=cluster_type,
-            version=cluster_version,
             host_network=host_network,
             container_network=container_network,
         )
 
+        if cluster_version:
+            cluster_spec.version = cluster_version
+
         if flavor_id:
             cluster_spec.flavor_id = flavor_id
+
+        if service_network_cidr:
+            cluster_spec.service_network = ServiceNetwork(i_pv4_cidr=service_network_cidr)
 
         cluster_body = Cluster(
             kind="Cluster",
@@ -763,9 +780,12 @@ def create_cce_cluster(
 
         cluster_id = None
         cluster_name_result = cluster_name
+        actual_version = cluster_version or "latest (API default)"
         if hasattr(response, 'metadata'):
             cluster_id = getattr(response.metadata, 'uid', None)
             cluster_name_result = getattr(response.metadata, 'name', cluster_name)
+        if hasattr(response, 'spec') and hasattr(response.spec, 'version'):
+            actual_version = response.spec.version
 
         return {
             "success": True,
@@ -773,11 +793,13 @@ def create_cce_cluster(
             "action": "create_cce_cluster",
             "cluster_id": cluster_id,
             "cluster_name": cluster_name_result,
-            "cluster_version": cluster_version,
+            "cluster_version": actual_version,
             "cluster_type": cluster_type,
             "vpc_id": vpc_id,
             "subnet_id": subnet_id,
             "container_network_type": container_network_type,
+            "container_network_cidr": container_network_cidr,
+            "service_network_cidr": service_network_cidr,
             "flavor_id": flavor_id,
             "message": "Cluster creation request submitted successfully",
             "response": response.to_dict() if hasattr(response, 'to_dict') else str(response),

@@ -1,8 +1,82 @@
 {
   "version": "1.0.0",
   "name": "huawei-cloud-cce-cluster-management",
-  "description": "Huawei Cloud CCE cluster management tools for cluster lifecycle, node pool, node, and addon operations",
+  "description": "Huawei Cloud CCE cluster management tools for cluster lifecycle, node pool, node, addon operations, and network prerequisites",
   "tools": [
+    {
+      "name": "huawei_list_vpc",
+      "description": "List VPCs (Virtual Private Clouds) in the specified region. Used to find VPC ID for cluster creation.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region (e.g., cn-north-4)"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Number of results to return (default: 100)"
+          },
+          "offset": {
+            "type": "integer",
+            "description": "Offset for pagination (default: 0)"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (optional if HUAWEI_AK env is set)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (optional if HUAWEI_SK env is set)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (optional if HUAWEI_PROJECT_ID env is set)"
+          }
+        },
+        "required": ["region"]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_list_vpc_subnets",
+      "description": "List subnets in a VPC. Used to find subnet ID for cluster creation.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region (e.g., cn-north-4)"
+          },
+          "vpc_id": {
+            "type": "string",
+            "description": "VPC ID to filter subnets (optional, lists all subnets if not provided)"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Number of results to return (default: 100)"
+          },
+          "offset": {
+            "type": "integer",
+            "description": "Offset for pagination (default: 0)"
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID (optional if HUAWEI_AK env is set)"
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key (optional if HUAWEI_SK env is set)"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (optional if HUAWEI_PROJECT_ID env is set)"
+          }
+        },
+        "required": ["region"]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
     {
       "name": "huawei_list_cce_clusters",
       "description": "List CCE (Cloud Container Engine) clusters with pagination",
