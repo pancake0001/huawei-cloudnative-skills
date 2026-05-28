@@ -1,7 +1,19 @@
 """CCE Cluster management functions."""
 
 from typing import Any, Dict, Optional
-from huaweicloudsdkcce.v3 import *
+from huaweicloudsdkcce.v3 import (
+    CreateClusterRequest,
+    DeleteClusterRequest,
+    ListClustersRequest,
+    ShowClusterRequest,
+    HibernateClusterRequest,
+    AwakeClusterRequest,
+    Cluster,
+    ClusterMetadata,
+    ClusterSpec,
+    ContainerNetwork,
+    HostNetwork,
+)
 from huaweicloudsdkcce.v3.region.cce_region import CceRegion
 from huaweicloudsdkcore.auth.credentials import BasicCredentials
 from huaweicloudsdkcore.exceptions.exceptions import ClientRequestException
@@ -725,16 +737,14 @@ def create_cce_cluster(
         if description:
             cluster_metadata.annotations = {"description": description}
 
-        network_config = NetworkSpec(
-            vpc_id=vpc_id,
-            subnet_id=subnet_id,
-            container_network=ContainerNetworkSpec(mode=container_network_type),
-        )
+        host_network = HostNetwork(vpc=vpc_id, subnet=subnet_id)
+        container_network = ContainerNetwork(mode=container_network_type)
 
         cluster_spec = ClusterSpec(
             type=cluster_type,
             version=cluster_version,
-            network=network_config,
+            host_network=host_network,
+            container_network=container_network,
         )
 
         if flavor_id:
@@ -747,8 +757,7 @@ def create_cce_cluster(
             spec=cluster_spec,
         )
 
-        request_body = CreateClusterRequestBody(cluster=cluster_body)
-        request = CreateClusterRequest(body=request_body)
+        request = CreateClusterRequest(body=cluster_body)
 
         response = client.create_cluster(request)
 
