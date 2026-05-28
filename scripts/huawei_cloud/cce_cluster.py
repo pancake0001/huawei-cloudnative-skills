@@ -1,0 +1,788 @@
+"""CCE Cluster management functions."""
+
+from typing import Any, Dict, Optional
+from huaweicloudsdkcce.v3 import *
+from huaweicloudsdkcce.v3.region.cce_region import CceRegion
+from huaweicloudsdkcore.auth.credentials import BasicCredentials
+from huaweicloudsdkcore.exceptions.exceptions import ClientRequestException
+from .common import (
+    get_credentials,
+    get_credentials_with_region,
+    create_cce_client,
+    SDK_AVAILABLE,
+    IMPORT_ERROR,
+    _register_cert_file,
+    _safe_delete_file,
+)
+
+
+def list_cce_clusters(region: str, ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None, limit: int = 100, offset: int = 0) -> Dict[str, Any]:
+    """List CCE clusters in the specified region with pagination"""
+    access_key, secret_key, proj_id = get_credentials(ak, sk, project_id)
+
+    if not access_key or not secret_key:
+        return {
+            "success": False,
+            "error": "Credentials not provided. Set HUAWEI_AK and HUAWEI_SK environment variables or pass as parameters."
+        }
+
+    if not SDK_AVAILABLE:
+        return {
+            "success": False,
+            "error": f"Huawei Cloud SDK not installed: {IMPORT_ERROR}"
+        }
+
+    try:
+        client = create_cce_client(region, access_key, secret_key, proj_id)
+
+        request = ListClustersRequest()
+
+        response = client.list_clusters(request)
+
+        clusters = []
+        if hasattr(response, 'items') and response.items:
+            for cluster in response.items:
+                cluster_info = {
+                    "id": cluster.metadata.uid,
+                    "name": cluster.metadata.name,
+                    "status": cluster.status.phase if hasattr(cluster, 'status') and hasattr(cluster.status, 'phase') else 'Unknown',
+                    "type": cluster.spec.type if hasattr(cluster, 'spec') and hasattr(cluster.spec, 'type') else 'Unknown',
+                    "version": cluster.spec.version if hasattr(cluster, 'spec') and hasattr(cluster.spec, 'version') else 'Unknown',
+                    "created_at": str(cluster.metadata.creation_timestamp) if hasattr(cluster, 'metadata') and hasattr(cluster.metadata, 'creation_timestamp') else None,
+                }
+                if hasattr(cluster, 'spec') and hasattr(cluster.spec, 'network'):
+                    cluster_info["network"] = {
+                        "vpc_id": getattr(cluster.spec.network, 'vpc_id', None),
+                        "subnet_id": getattr(cluster.spec.network, 'subnet_id', None),
+                    }
+                if hasattr(cluster, 'spec') and hasattr(cluster.spec, 'node'):
+                    cluster_info["node_config"] = {
+                        "flavor": getattr(cluster.spec.node, 'flavor', None),
+                        "count": getattr(cluster.spec.node, 'initial_node_count', None),
+                    }
+                clusters.append(cluster_info)
+
+        return {
+            "success": True,
+            "region": region,
+            "action": "list_cce_clusters",
+            "count": len(clusters),
+            "clusters": clusters
+        }
+
+    except ClientRequestException as e:
+        return {
+            "success": False,
+            "error": f"{e.error_code} - {e.error_msg}",
+            "request_id": getattr(e, 'request_id', None)
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "error_type": type(e).__name__
+        }
+
+
+def get_cce_nodes(region: str, cluster_id: str, node_name: Optional[str] = None, ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None) -> Dict[str, Any]:
+    """Get detailed information about CCE cluster nodes
+    
+    Args:
+        region: Huawei Cloud region (e.g., cn-north-4)
+        cluster_id: CCE cluster ID
+        node_name: Node name (optional, if not provided, returns all nodes)
+        ak: Access Key ID (optional)
+        sk: Secret Access Key (optional)
+        project_id: Project ID (optional)
+
+    Returns:
+        Dictionary with node details
+    """
+    access_key, secret_key, proj_id = get_credentials(ak, sk, project_id)
+
+    if not access_key or not secret_key:
+        return {
+            "success": False,
+            "error": "Credentials not provided. Set HUAWEI_AK and HUAWEI_SK environment variables or pass as parameters."
+        }
+
+    if not cluster_id:
+        return {
+            "success": False,
+            "error": "cluster_id is required"
+        }
+
+    if not SDK_AVAILABLE:
+        return {
+            "success": False,
+            "error": f"Huawei Cloud SDK not installed: {IMPORT_ERROR}"
+        }
+
+    try:
+        client = create_cce_client(region, access_key, secret_key, proj_id)
+
+        request = ListNodesRequest()
+        request.cluster_id = cluster_id
+
+        response = client.list_nodes(request)
+
+        nodes = []
+        if hasattr(response, 'items') and response.items:
+            for node in response.items:
+                if node_name and node.metadata.name != node_name:
+                    continue
+                
+                node_info = {
+                    "id": node.metadata.uid,
+                    "name": node.metadata.name,
+                    "status": node.status.phase if hasattr(node, 'status') and hasattr(node.status, 'phase') else 'Unknown',
+                    "created_at": str(node.metadata.creation_timestamp) if hasattr(node, 'metadata') and hasattr(node.metadata, 'creation_timestamp') else None,
+                }
+                if hasattr(node, 'spec'):
+                    node_info["flavor"] = getattr(node.spec, 'flavor', None)
+                    node_info["server_id"] = getattr(node.status, 'server_id', None)
+                    node_info["availability_zone"] = getattr(node.spec, 'az', None)
+                if hasattr(node, 'status') and hasattr(node.status, 'conditions'):
+                    conditions = []
+                    for cond in node.status.conditions:
+                        conditions.append({
+                            "type": cond.type,
+                            "status": cond.status,
+                            "reason": getattr(cond, 'reason', None),
+                            "message": getattr(cond, 'message', None),
+                        })
+                    node_info["conditions"] = conditions
+                if hasattr(node, 'status'):
+                    node_info["allocatable"] = getattr(node.status, 'allocatable', None)
+                    node_info["capacity"] = getattr(node.status, 'capacity', None)
+                nodes.append(node_info)
+
+        return {
+            "success": True,
+            "region": region,
+            "cluster_id": cluster_id,
+            "action": "get_cce_nodes",
+            "node_name": node_name,
+            "count": len(nodes),
+            "nodes": nodes
+        }
+
+    except ClientRequestException as e:
+        return {
+            "success": False,
+            "error": f"{e.error_code} - {e.error_msg}",
+            "request_id": getattr(e, 'request_id', None)
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "error_type": type(e).__name__
+        }
+
+
+def get_cce_kubeconfig(region: str, cluster_id: str, ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None, duration: int = 30) -> Dict[str, Any]:
+    """Get kubeconfig for a CCE cluster
+
+    Args:
+        region: Huawei Cloud region (e.g., cn-north-4)
+        cluster_id: CCE cluster ID
+        ak: Access Key ID (optional)
+        sk: Secret Access Key (optional)
+        project_id: Project ID (optional)
+        duration: Certificate validity duration in days (default: 30)
+
+    Returns:
+        Dictionary with kubeconfig content
+    """
+    access_key, secret_key, proj_id = get_credentials_with_region(region, ak, sk, project_id)
+
+    if not access_key or not secret_key:
+        return {
+            "success": False,
+            "error": "Credentials not provided. Set HUAWEI_AK and HUAWEI_SK environment variables or pass as parameters."
+        }
+
+    if not proj_id:
+        return {
+            "success": False,
+            "error": "Project ID not found. Please provide project_id parameter."
+        }
+
+    if not cluster_id:
+        return {
+            "success": False,
+            "error": "cluster_id is required"
+        }
+
+    if not SDK_AVAILABLE:
+        return {
+            "success": False,
+            "error": f"Huawei Cloud SDK not installed: {IMPORT_ERROR}"
+        }
+
+    try:
+        client = create_cce_client(region, access_key, secret_key, proj_id)
+        
+        cert_duration = ClusterCertDuration(duration=duration)
+        request = CreateKubernetesClusterCertRequest(cluster_id=cluster_id)
+        request.body = cert_duration
+        
+        response = client.create_kubernetes_cluster_cert(request)
+        
+        result = {
+            "success": True,
+            "region": region,
+            "cluster_id": cluster_id,
+            "action": "get_cce_kubeconfig",
+            "duration_days": duration,
+        }
+        
+        if hasattr(response, 'to_dict'):
+            resp_dict = response.to_dict()
+            
+            result["kubeconfig"] = resp_dict
+            
+            if 'clusters' in resp_dict:
+                result["cluster_endpoints"] = []
+                for cluster in resp_dict['clusters']:
+                    endpoint_info = {
+                        "name": cluster.get('name'),
+                        "server": cluster.get('cluster', {}).get('server')
+                    }
+                    result["cluster_endpoints"].append(endpoint_info)
+            
+            if 'current_context' in resp_dict:
+                result["current_context"] = resp_dict['current_context']
+            
+            import yaml
+            result["kubeconfig_yaml"] = yaml.dump(resp_dict, default_flow_style=False, allow_unicode=True)
+        
+        return result
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "error_type": type(e).__name__
+        }
+
+
+def delete_cce_cluster(region: str, cluster_id: str, confirm: bool = False, delete_evs: bool = False, delete_net: bool = False, delete_obs: bool = False, ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None) -> Dict[str, Any]:
+    """Delete a CCE cluster
+
+    IMPORTANT: This operation will delete the cluster and all its resources.
+    User confirmation is required before deletion.
+
+    Args:
+        region: Huawei Cloud region (e.g., cn-north-4)
+        cluster_id: CCE cluster ID to delete
+        confirm: Must be set to True to confirm deletion (required)
+        delete_evs: Whether to delete associated EVS volumes (default: False)
+        delete_net: Whether to delete associated network resources (default: False)
+        delete_obs: Whether to delete associated OBS buckets (default: False)
+        ak: Access Key ID (optional)
+        sk: Secret Access Key (optional)
+        project_id: Project ID (optional)
+
+    Returns:
+        Dictionary with deletion result
+    """
+    access_key, secret_key, proj_id = get_credentials(ak, sk, project_id)
+
+    if not access_key or not secret_key:
+        return {
+            "success": False,
+            "error": "Credentials not provided. Set HUAWEI_AK and HUAWEI_SK environment variables or pass as parameters."
+        }
+
+    if not cluster_id:
+        return {
+            "success": False,
+            "error": "cluster_id is required"
+        }
+
+    if not confirm:
+        return {
+            "success": False,
+            "error": "Deletion not confirmed. To delete the cluster, please set confirm=true parameter.",
+            "warning": "This operation will delete the cluster and all its resources (nodes, workloads, etc.). Are you sure you want to delete this cluster?",
+            "hint": "Add confirm=true parameter to confirm deletion. Example: delete_cce_cluster region=cn-north-4 cluster_id=xxx confirm=true"
+        }
+
+    if not SDK_AVAILABLE:
+        return {
+            "success": False,
+            "error": f"Huawei Cloud SDK not installed: {IMPORT_ERROR}"
+        }
+
+    try:
+        client = create_cce_client(region, access_key, secret_key, proj_id)
+
+        request = DeleteClusterRequest()
+        request.cluster_id = cluster_id
+        request.delete_evs = delete_evs
+        request.delete_net = delete_net
+        request.delete_obs = delete_obs
+
+        response = client.delete_cluster(request)
+
+        return {
+            "success": True,
+            "region": region,
+            "cluster_id": cluster_id,
+            "action": "delete_cce_cluster",
+            "message": f"Cluster deletion request submitted successfully",
+            "delete_evs": delete_evs,
+            "delete_net": delete_net,
+            "delete_obs": delete_obs,
+            "response": response.to_dict() if hasattr(response, 'to_dict') else str(response)
+        }
+
+    except ClientRequestException as e:
+        return {
+            "success": False,
+            "error": f"{e.error_code} - {e.error_msg}",
+            "request_id": getattr(e, 'request_id', None)
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "error_type": type(e).__name__
+        }
+
+
+def hibernate_cce_cluster(
+    region: str,
+    cluster_id: str,
+    ak: Optional[str] = None,
+    sk: Optional[str] = None,
+    project_id: Optional[str] = None,
+    confirm: bool = False,
+) -> Dict[str, Any]:
+    """Hibernate a CCE cluster (pause billing + workloads)
+
+    Puts the cluster into hibernated state. Billing for control plane is paused.
+    Workloads are stopped. Use awake_cce_cluster to resume.
+
+    Args:
+        region: Huawei Cloud region (e.g., cn-north-4)
+        cluster_id: CCE cluster ID
+        ak: Access Key ID (optional)
+        sk: Secret Access Key (optional)
+        project_id: Project ID (optional)
+        confirm: Must be True to confirm the operation
+
+    Returns:
+        Dictionary with result
+    """
+    access_key, secret_key, proj_id = get_credentials(ak, sk, project_id)
+
+    if not access_key or not secret_key:
+        return {
+            "success": False,
+            "error": "Credentials not provided. Set HUAWEI_AK and HUAWEI_SK environment variables or pass as parameters."
+        }
+
+    if not cluster_id:
+        return {"success": False, "error": "cluster_id is required"}
+
+    if not SDK_AVAILABLE:
+        return {"success": False, "error": f"Huawei Cloud SDK not installed: {IMPORT_ERROR}"}
+
+    if not confirm:
+        return {
+            "success": False,
+            "requires_confirmation": True,
+            "operation": "hibernate_cce_cluster",
+            "cluster_id": cluster_id,
+            "error": f"Hibernate will pause cluster {cluster_id} and stop all workloads. Billing for control plane is paused.",
+            "hint": f"Add confirm=true to confirm. Example: huawei_hibernate_cce_cluster region=cn-north-4 cluster_id=xxx confirm=true"
+        }
+
+    try:
+        client = create_cce_client(region, access_key, secret_key, proj_id)
+        request = HibernateClusterRequest()
+        request.cluster_id = cluster_id
+        response = client.hibernate_cluster(request)
+
+        return {
+            "success": True,
+            "region": region,
+            "cluster_id": cluster_id,
+            "action": "hibernate_cce_cluster",
+            "message": "Cluster hibernation request submitted successfully",
+            "status_code": response.status_code if hasattr(response, "status_code") else None,
+        }
+
+    except ClientRequestException as e:
+        return {
+            "success": False,
+            "error": f"{e.error_code} - {e.error_msg}",
+            "request_id": getattr(e, "request_id", None),
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "error_type": type(e).__name__,
+        }
+
+
+def awake_cce_cluster(
+    region: str,
+    cluster_id: str,
+    ak: Optional[str] = None,
+    sk: Optional[str] = None,
+    project_id: Optional[str] = None,
+    confirm: bool = False,
+) -> Dict[str, Any]:
+    """Awake a hibernated CCE cluster (resume billing + workloads)
+
+    Wakes up a previously hibernated cluster. Billing for control plane resumes
+    and workloads will be restarted.
+
+    Args:
+        region: Huawei Cloud region (e.g., cn-north-4)
+        cluster_id: CCE cluster ID
+        ak: Access Key ID (optional)
+        sk: Secret Access Key (optional)
+        project_id: Project ID (optional)
+        confirm: Must be True to confirm the operation
+
+    Returns:
+        Dictionary with result
+    """
+    access_key, secret_key, proj_id = get_credentials(ak, sk, project_id)
+
+    if not access_key or not secret_key:
+        return {
+            "success": False,
+            "error": "Credentials not provided. Set HUAWEI_AK and HUAWEI_SK environment variables or pass as parameters."
+        }
+
+    if not cluster_id:
+        return {"success": False, "error": "cluster_id is required"}
+
+    if not SDK_AVAILABLE:
+        return {"success": False, "error": f"Huawei Cloud SDK not installed: {IMPORT_ERROR}"}
+
+    if not confirm:
+        return {
+            "success": False,
+            "requires_confirmation": True,
+            "operation": "awake_cce_cluster",
+            "cluster_id": cluster_id,
+            "error": f"Awake will resume cluster {cluster_id}. Control plane billing resumes and workloads restart.",
+            "hint": f"Add confirm=true to confirm. Example: huawei_awake_cce_cluster region=cn-north-4 cluster_id=xxx confirm=true"
+        }
+
+    try:
+        client = create_cce_client(region, access_key, secret_key, proj_id)
+        request = AwakeClusterRequest()
+        request.cluster_id = cluster_id
+        response = client.awake_cluster(request)
+
+        return {
+            "success": True,
+            "region": region,
+            "cluster_id": cluster_id,
+            "action": "awake_cce_cluster",
+            "message": "Cluster awake request submitted successfully",
+            "status_code": response.status_code if hasattr(response, "status_code") else None,
+        }
+
+    except ClientRequestException as e:
+        return {
+            "success": False,
+            "error": f"{e.error_code} - {e.error_msg}",
+            "request_id": getattr(e, "request_id", None),
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "error_type": type(e).__name__,
+        }
+
+
+def bind_cce_cluster_eip(
+    region: str,
+    cluster_id: str,
+    eip_id: str,
+    ak: Optional[str] = None,
+    sk: Optional[str] = None,
+    project_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Bind an EIP to a CCE cluster master node for public API access
+
+    Associates an existing Elastic IP with the cluster's control plane,
+    enabling public access to the Kubernetes API server.
+
+    Args:
+        region: Huawei Cloud region (e.g., cn-north-4)
+        cluster_id: CCE cluster ID
+        eip_id: EIP resource ID to bind (use huawei_list_eip to find available EIPs)
+        ak: Access Key ID (optional)
+        sk: Secret Access Key (optional)
+        project_id: Project ID (optional)
+
+    Returns:
+        Dictionary with result including the public endpoint URL
+    """
+    access_key, secret_key, proj_id = get_credentials(ak, sk, project_id)
+
+    if not access_key or not secret_key:
+        return {
+            "success": False,
+            "error": "Credentials not provided. Set HUAWEI_AK and HUAWEI_SK environment variables or pass as parameters."
+        }
+
+    if not cluster_id:
+        return {"success": False, "error": "cluster_id is required"}
+
+    if not eip_id:
+        return {"success": False, "error": "eip_id is required"}
+
+    if not SDK_AVAILABLE:
+        return {"success": False, "error": f"Huawei Cloud SDK not installed: {IMPORT_ERROR}"}
+
+    try:
+        client = create_cce_client(region, access_key, secret_key, proj_id)
+
+        spec_spec = MasterEIPRequestSpecSpec(id=eip_id)
+        spec = MasterEIPRequestSpec(action="bind", spec=spec_spec)
+        body = MasterEIPRequest(spec=spec)
+        request = UpdateClusterEipRequest(cluster_id=cluster_id, body=body)
+
+        client.update_cluster_eip(request)
+
+        resp = client.show_cluster(ShowClusterRequest(cluster_id=cluster_id))
+        public_url = None
+        if hasattr(resp, 'status') and hasattr(resp.status, 'endpoints'):
+            for ep in resp.status.endpoints:
+                if ep.type == "External":
+                    public_url = ep.url
+                    break
+
+        result = {
+            "success": True,
+            "region": region,
+            "cluster_id": cluster_id,
+            "action": "bind_cce_cluster_eip",
+            "eip_id": eip_id,
+            "message": "EIP bound to cluster master successfully",
+        }
+        if public_url:
+            result["public_endpoint"] = public_url
+
+        return result
+
+    except ClientRequestException as e:
+        return {
+            "success": False,
+            "error": f"{e.error_code} - {e.error_msg}",
+            "request_id": getattr(e, "request_id", None),
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "error_type": type(e).__name__,
+        }
+
+
+def unbind_cce_cluster_eip(
+    region: str,
+    cluster_id: str,
+    ak: Optional[str] = None,
+    sk: Optional[str] = None,
+    project_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Unbind the EIP from a CCE cluster master node
+
+    Removes the Elastic IP association from the cluster's control plane,
+    disabling public access to the Kubernetes API server.
+
+    Args:
+        region: Huawei Cloud region (e.g., cn-north-4)
+        cluster_id: CCE cluster ID
+        ak: Access Key ID (optional)
+        sk: Secret Access Key (optional)
+        project_id: Project ID (optional)
+
+    Returns:
+        Dictionary with result
+    """
+    access_key, secret_key, proj_id = get_credentials(ak, sk, project_id)
+
+    if not access_key or not secret_key:
+        return {
+            "success": False,
+            "error": "Credentials not provided. Set HUAWEI_AK and HUAWEI_SK environment variables or pass as parameters."
+        }
+
+    if not cluster_id:
+        return {"success": False, "error": "cluster_id is required"}
+
+    if not SDK_AVAILABLE:
+        return {"success": False, "error": f"Huawei Cloud SDK not installed: {IMPORT_ERROR}"}
+
+    try:
+        client = create_cce_client(region, access_key, secret_key, proj_id)
+
+        spec = MasterEIPRequestSpec(action="unbind")
+        body = MasterEIPRequest(spec=spec)
+        request = UpdateClusterEipRequest(cluster_id=cluster_id, body=body)
+
+        client.update_cluster_eip(request)
+
+        return {
+            "success": True,
+            "region": region,
+            "cluster_id": cluster_id,
+            "action": "unbind_cce_cluster_eip",
+            "message": "EIP unbound from cluster master successfully",
+        }
+
+    except ClientRequestException as e:
+        return {
+            "success": False,
+            "error": f"{e.error_code} - {e.error_msg}",
+            "request_id": getattr(e, "request_id", None),
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "error_type": type(e).__name__,
+        }
+
+
+def create_cce_cluster(
+    region: str,
+    cluster_name: str,
+    cluster_version: str,
+    vpc_id: str,
+    subnet_id: str,
+    cluster_type: str = "VirtualMachine",
+    container_network_type: str = "overlay_l2",
+    flavor_id: Optional[str] = None,
+    description: Optional[str] = None,
+    ak: Optional[str] = None,
+    sk: Optional[str] = None,
+    project_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Create a new CCE cluster
+
+    Creates a Cloud Container Engine cluster with specified configuration.
+
+    Args:
+        region: Huawei Cloud region (e.g., cn-north-4)
+        cluster_name: Name of the cluster to create
+        cluster_version: Kubernetes version (e.g., "v1.28", "v1.29")
+        vpc_id: VPC ID where the cluster will be created
+        subnet_id: Subnet ID for the cluster
+        cluster_type: Cluster type (default: "VirtualMachine")
+        container_network_type: Container network type (default: "overlay_l2")
+        flavor_id: Cluster flavor ID (optional, determines control plane specs)
+        description: Cluster description (optional)
+        ak: Access Key ID (optional)
+        sk: Secret Access Key (optional)
+        project_id: Project ID (optional)
+
+    Returns:
+        Dictionary with cluster creation result
+    """
+    access_key, secret_key, proj_id = get_credentials(ak, sk, project_id)
+
+    if not access_key or not secret_key:
+        return {
+            "success": False,
+            "error": "Credentials not provided. Set HUAWEI_AK and HUAWEI_SK environment variables or pass as parameters."
+        }
+
+    if not cluster_name:
+        return {"success": False, "error": "cluster_name is required"}
+
+    if not cluster_version:
+        return {"success": False, "error": "cluster_version is required"}
+
+    if not vpc_id:
+        return {"success": False, "error": "vpc_id is required"}
+
+    if not subnet_id:
+        return {"success": False, "error": "subnet_id is required"}
+
+    if not SDK_AVAILABLE:
+        return {"success": False, "error": f"Huawei Cloud SDK not installed: {IMPORT_ERROR}"}
+
+    try:
+        client = create_cce_client(region, access_key, secret_key, proj_id)
+
+        cluster_metadata = ClusterMetadata(name=cluster_name)
+        if description:
+            cluster_metadata.annotations = {"description": description}
+
+        network_config = NetworkSpec(
+            vpc_id=vpc_id,
+            subnet_id=subnet_id,
+            container_network=ContainerNetworkSpec(mode=container_network_type),
+        )
+
+        cluster_spec = ClusterSpec(
+            type=cluster_type,
+            version=cluster_version,
+            network=network_config,
+        )
+
+        if flavor_id:
+            cluster_spec.flavor_id = flavor_id
+
+        cluster_body = Cluster(
+            kind="Cluster",
+            api_version="v3",
+            metadata=cluster_metadata,
+            spec=cluster_spec,
+        )
+
+        request_body = CreateClusterRequestBody(cluster=cluster_body)
+        request = CreateClusterRequest(body=request_body)
+
+        response = client.create_cluster(request)
+
+        cluster_id = None
+        cluster_name_result = cluster_name
+        if hasattr(response, 'metadata'):
+            cluster_id = getattr(response.metadata, 'uid', None)
+            cluster_name_result = getattr(response.metadata, 'name', cluster_name)
+
+        return {
+            "success": True,
+            "region": region,
+            "action": "create_cce_cluster",
+            "cluster_id": cluster_id,
+            "cluster_name": cluster_name_result,
+            "cluster_version": cluster_version,
+            "cluster_type": cluster_type,
+            "vpc_id": vpc_id,
+            "subnet_id": subnet_id,
+            "container_network_type": container_network_type,
+            "flavor_id": flavor_id,
+            "message": "Cluster creation request submitted successfully",
+            "response": response.to_dict() if hasattr(response, 'to_dict') else str(response),
+        }
+
+    except ClientRequestException as e:
+        return {
+            "success": False,
+            "error": f"{e.error_code} - {e.error_msg}",
+            "request_id": getattr(e, "request_id", None),
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "error_type": type(e).__name__,
+        }
