@@ -350,9 +350,17 @@ def transform_skill(skill_name: str, target_dir: Path) -> Path:
                 cn_content = f.read()
             with open(output_dir / "SKILL-CN.md", "w", encoding="utf-8") as f:
                 f.write(cn_content)
-            with open(output_dir / "SKILL.md", "w", encoding="utf-8") as f:
-                f.write("# Huawei Cloud CCE Cluster Management\n\n[Chinese Version: SKILL-CN.md]\n\n**TODO: Translate from SKILL-CN.md using LLM or manual translation.**\n\nFor now, please refer to SKILL-CN.md for the complete documentation.\n")
-            print(f"  Created SKILL-CN.md (Chinese) and placeholder SKILL.md (English)")
+            skill_en_path = source_dir / "SKILL-EN.md"
+            if skill_en_path.exists():
+                with open(skill_en_path, "r", encoding="utf-8") as f:
+                    en_content = f.read()
+                with open(output_dir / "SKILL.md", "w", encoding="utf-8") as f:
+                    f.write(en_content)
+                print(f"  Created SKILL-CN.md (Chinese) and SKILL.md (English from SKILL-EN.md)")
+            else:
+                with open(output_dir / "SKILL.md", "w", encoding="utf-8") as f:
+                    f.write("# Huawei Cloud CCE Cluster Management\n\n[Chinese Version: SKILL-CN.md]\n\n**TODO: Translate from SKILL-CN.md using LLM or manual translation.**\n\nFor now, please refer to SKILL-CN.md for the complete documentation.\n")
+                print(f"  Created SKILL-CN.md (Chinese) and placeholder SKILL.md (English)")
             continue
         
         if item_name == "scripts":
