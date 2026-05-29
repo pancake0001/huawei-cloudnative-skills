@@ -303,48 +303,6 @@
       "script": "scripts/huawei-cloud.py"
     },
     {
-      "name": "huawei_update_cce_cluster",
-      "description": "Update CCE cluster configuration. Allows modifying cluster description, custom specifications, and other cluster settings.",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "region": {
-            "type": "string",
-            "description": "Huawei Cloud region (e.g., cn-north-4)"
-          },
-          "cluster_id": {
-            "type": "string",
-            "description": "CCE cluster ID to update"
-          },
-          "cluster_name": {
-            "type": "string",
-            "description": "New cluster name (optional)"
-          },
-          "description": {
-            "type": "string",
-            "description": "New cluster description (optional)"
-          },
-          "ak": {
-            "type": "string",
-            "description": "Access Key ID (optional if HUAWEI_AK env is set)"
-          },
-          "sk": {
-            "type": "string",
-            "description": "Secret Access Key (optional if HUAWEI_SK env is set)"
-          },
-          "project_id": {
-            "type": "string",
-            "description": "Project ID (optional if HUAWEI_PROJECT_ID env is set)"
-          }
-        },
-        "required": [
-          "region",
-          "cluster_id"
-        ]
-      },
-      "script": "scripts/huawei-cloud.py"
-    },
-    {
       "name": "huawei_hibernate_cce_cluster",
       "description": "Hibernate (sleep) a CCE cluster to reduce costs. Cluster nodes will be stopped but control plane is preserved.",
       "parameters": {

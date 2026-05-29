@@ -241,15 +241,21 @@ def prune_dispatcher(dispatcher_content: str, actions: List[str]) -> str:
             "unbind_cce_cluster_eip": "cce_cluster.unbind_cce_cluster_eip",
             "create_cce_cluster": "cce_cluster.create_cce_cluster",
             "list_cce_node_pools": "cce_nodepool.list_cce_node_pools",
-            "resize_node_pool": "cce_nodepool.resize_cce_nodepool",
+            "resize_node_pool": "cce_nodepool.resize_node_pool",
+            "create_node_pool": "cce_nodepool.create_node_pool",
+            "delete_node_pool": "cce_nodepool.delete_node_pool",
             "list_cce_cluster_nodes": "cce_node.list_cce_nodes",
             "delete_cce_node": "cce_node.delete_cce_node",
+            "create_cce_node": "cce_node.create_cce_node",
             "cce_node_cordon": "cce_node.cce_node_cordon",
             "cce_node_uncordon": "cce_node.cce_node_uncordon",
             "cce_node_drain": "cce_node.cce_node_drain",
             "cce_node_status": "cce_node.cce_node_status",
             "list_cce_addons": "cce_addon.list_cce_addons",
             "get_cce_addon_detail": "cce_addon.get_cce_addon_detail",
+            "install_cce_addon": "cce_addon.install_cce_addon",
+            "uninstall_cce_addon": "cce_addon.uninstall_cce_addon",
+            "update_cce_addon": "cce_addon.update_cce_addon",
         }
         
         for action_lower, func_ref in shim_map.items():
