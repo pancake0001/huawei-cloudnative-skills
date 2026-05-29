@@ -810,7 +810,7 @@ def _create_cce_nodepool(params: Dict[str, str]) -> Dict[str, Any]:
         root_volume_size=int(params["root_volume_size"]),
         root_volume_type=params["root_volume_type"],
         initial_node_count=_to_int(params.get("initial_node_count"), 1),
-        os_type=params.get("os_type"),
+        os_type=params.get("os_type", "EulerOS"),
         ssh_key=params.get("ssh_key"),
         data_volumes=data_volumes,
         subnet_id=params.get("subnet_id"),

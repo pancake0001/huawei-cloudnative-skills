@@ -423,14 +423,6 @@ def create_node_pool(
             "error": "initial_node_count must be a non-negative integer"
         }
 
-    if not ssh_key:
-        password, password_error = get_cce_password()
-        if password_error:
-            return {
-                "success": False,
-                "error": password_error
-            }
-
     if not SDK_AVAILABLE:
         return {
             "success": False,
@@ -447,7 +439,7 @@ def create_node_pool(
         root_volume.size = root_volume_size
         root_volume.volumetype = root_volume_type
 
-login = Login()
+        login = Login()
         if ssh_key:
             login.ssh_key = ssh_key
         else:

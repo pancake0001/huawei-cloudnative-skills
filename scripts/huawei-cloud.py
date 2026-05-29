@@ -286,7 +286,7 @@ def main():
 
     modular_result = _dispatch_modular_action(action, params)
     if modular_result is not None:
-        print(json.dumps(modular_result, indent=2, ensure_ascii=False))
+        print(json.dumps(modular_result, indent=2, ensure_ascii=True))
         return
 
     _exit_error(f"Unknown action: {action}")
