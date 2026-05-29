@@ -1,179 +1,179 @@
-# 创建集群参数说明
+# Cluster Creation Parameter Reference
 
 ## Overview
 
-CCE 集群、节点池和节点创建所需参数详解，包含 Turbo 集群、密码加盐加密、ENI flavor 兼容性等关键约束。
+Detailed parameters required for creating CCE clusters, node pools, and nodes, including key constraints such as Turbo clusters, password salting/encryption, and ENI flavor compatibility.
 
-## 集群必填参数
+## Required Cluster Parameters
 
-| 参数 | 说明 | 示例值 |
-|------|------|-------|
-| `region` | 华为云区域 | `cn-north-4` |
-| `cluster_name` | 集群名称 | `my-cluster` |
-| `cluster_version` | Kubernetes 版本 | `v1.28` |
-| `flavor_id` | 集群规格 | `cce.s1.small` |
+| Parameter | Description | Example Value |
+|-----------|-------------|---------------|
+| `region` | Huawei Cloud region | `cn-north-4` |
+| `cluster_name` | Cluster name | `my-cluster` |
+| `cluster_version` | Kubernetes version | `v1.28` |
+| `flavor_id` | Cluster specification | `cce.s1.small` |
 | `vpc_id` | VPC ID | `vpc-xxx` |
-| `subnet_id` | 子网 ID | `subnet-xxx` |
+| `subnet_id` | Subnet ID | `subnet-xxx` |
 
-## 集群可选参数
+## Optional Cluster Parameters
 
-| 参数 | 说明 | 默认值 |
-|------|------|-------|
-| `cluster_type` | 集群类型 | `VirtualMachine` |
-| `container_network_type` | 容器网络类型 | `overlay_l2` |
-| `container_network_cidr` | 容器网段 | 自动分配 |
-| `eni_subnet_id` | ENI 子网 ID（Turbo 集群） | 空 |
-| `description` | 集群描述 | 空 |
+| Parameter | Description | Default Value |
+|-----------|-------------|---------------|
+| `cluster_type` | Cluster type | `VirtualMachine` |
+| `container_network_type` | Container network type | `overlay_l2` |
+| `container_network_cidr` | Container network CIDR | Auto-assigned |
+| `eni_subnet_id` | ENI subnet ID (Turbo cluster) | Empty |
+| `description` | Cluster description | Empty |
 
-### Turbo 集群
+### Turbo Cluster
 
-创建 CCE Turbo（ENI 网络）集群时，需设置：
+When creating a CCE Turbo (ENI network) cluster, set:
 
-- `cluster_type=VirtualMachine`（Turbo 集群的 category 由 API 根据 container_network_type 自动判定）
+- `cluster_type=VirtualMachine` (the Turbo cluster's category is automatically determined by the API based on container_network_type)
 - `container_network_type=eni`
-- `flavor_id` 可使用 `cce.s1.small` 等任意规格
+- `flavor_id` can use any specification such as `cce.s1.small`
 
-API 返回的 `spec.category` 会自动变为 `Turbo`。
+The `spec.category` returned by the API will automatically become `Turbo`.
 
-## 集群规格
+## Cluster Specifications
 
-| 规格 | 说明 | 适用场景 |
-|------|------|---------|
-| `cce.s1.small` | 小规模，50 节点 | 开发测试 |
-| `cce.s1.medium` | 中规模，200 节点 | 生产环境 |
-| `cce.s1.large` | 大规模，1000 节点 | 大型应用 |
-| `cce.s2.small` | 高可用小规模 | 高可用测试 |
-| `cce.s2.medium` | 高可用中规模 | 高可用生产 |
+| Specification | Description | Applicable Scenario |
+|---------------|-------------|---------------------|
+| `cce.s1.small` | Small scale, 50 nodes | Development & testing |
+| `cce.s1.medium` | Medium scale, 200 nodes | Production environment |
+| `cce.s1.large` | Large scale, 1000 nodes | Large-scale applications |
+| `cce.s2.small` | HA small scale | HA testing |
+| `cce.s2.medium` | HA medium scale | HA production |
 
-## 节点池创建参数
+## Node Pool Creation Parameters
 
-### 必填参数
+### Required Parameters
 
-| 参数 | 说明 | 示例值 |
-|------|------|-------|
-| `region` | 华为云区域 | `cn-north-4` |
-| `cluster_id` | 集群 ID | `xxx` |
-| `nodepool_name` | 节点池名称 | `dev-worker-pool` |
-| `flavor` | 节点规格 | `c7.large.2` |
-| `availability_zone` | 可用区 | `cn-north-4a` |
-| `root_volume_size` | 系统盘大小（GB） | `40` |
-| `root_volume_type` | 系统盘类型 | `GPSSD` |
-| `initial_node_count` | 初始节点数 | `1` |
+| Parameter | Description | Example Value |
+|-----------|-------------|---------------|
+| `region` | Huawei Cloud region | `cn-north-4` |
+| `cluster_id` | Cluster ID | `xxx` |
+| `nodepool_name` | Node pool name | `dev-worker-pool` |
+| `flavor` | Node specification | `c7.large.2` |
+| `availability_zone` | Availability zone | `cn-north-4a` |
+| `root_volume_size` | System disk size (GB) | `40` |
+| `root_volume_type` | System disk type | `GPSSD` |
+| `initial_node_count` | Initial node count | `1` |
 
-### 登录认证（必填其中一项）
+### Login Authentication (one is required)
 
-| 参数 | 说明 | 备注 |
-|------|------|------|
-| `ssh_key` | SSH 密钥对名称 | 与密码互斥 |
-| 密码 | 从 `CCE_NODE_PASSWORD` 环境变量读取 | 8-26 位，需含大写、小写、数字、特殊字符中的至少三种 |
+| Parameter | Description | Notes |
+|-----------|-------------|-------|
+| `ssh_key` | SSH key pair name | Mutually exclusive with password |
+| Password | Read from `CCE_NODE_PASSWORD` environment variable | 8-26 characters, must include at least three of: uppercase, lowercase, digits, special characters |
 
-> **重要：密码通过 `CCE_NODE_PASSWORD` 环境变量传入，脚本自动进行 SHA-512 加盐加密 + base64 编码，无需手动处理。**
+> **Important: The password is passed via the `CCE_NODE_PASSWORD` environment variable. The script automatically performs SHA-512 salted encryption + base64 encoding. No manual processing is needed.**
 
-### CCE_NODE_PASSWORD 环境变量
+### CCE_NODE_PASSWORD Environment Variable
 
-创建节点/节点池时，如未提供 `ssh_key`，脚本从环境变量 `CCE_NODE_PASSWORD` 读取密码：
+When creating nodes/node pools without providing `ssh_key`, the script reads the password from the environment variable `CCE_NODE_PASSWORD`:
 
 ```bash
-export CCE_NODE_PASSWORD="你的密码"
+export CCE_NODE_PASSWORD="your_password"
 ```
 
-密码复杂度要求：
-- 长度：8-26 位
-- 至少包含大写字母、小写字母、数字、特殊字符中的三种
-- 特殊字符：`!@$%^-_=+[]{}:,./?`
+Password complexity requirements:
+- Length: 8-26 characters
+- Must include at least three of: uppercase letters, lowercase letters, digits, special characters
+- Special characters: `!@$%^-_=+[]{}:,./?`
 
-脚本自动验证密码复杂度，不符合要求时会返回错误提示。
+The script automatically validates password complexity and returns an error message if requirements are not met.
 
-### 密码加盐加密
+### Password Salting and Encryption
 
-> **重要：CCE API 要求 password 字段必须经过 SHA-512 加盐加密后 base64 编码，不能直接传入原始密码。**
+> **Important: The CCE API requires the password field to be SHA-512 salted encrypted and then base64 encoded. Raw passwords cannot be passed directly.**
 
-加密步骤（Python）：
+Encryption steps (Python):
 
 ```python
 from passlib.hash import sha512_crypt
 import base64
 
-hashed = sha512_crypt.using(rounds=5000).hash("原始密码")
+hashed = sha512_crypt.using(rounds=5000).hash("raw_password")
 salted_b64 = base64.b64encode(hashed.encode("utf-8")).decode("utf-8")
-# salted_b64 即为 UserPassword.password 字段的值
+# salted_b64 is the value for the UserPassword.password field
 ```
 
-需安装依赖：`pip install passlib`
+Dependency required: `pip install passlib`
 
-### 可选参数
+### Optional Parameters
 
-| 参数 | 说明 | 默认值 |
-|------|------|-------|
-| `os_type` | 操作系统 | `EulerOS` |
-| `data_volumes` | 数据卷配置 JSON | 部分规格必填 |
-| `subnet_id` | 子网 ID | 使用集群子网 |
-| `autoscaling_enabled` | 是否启用自动伸缩 | `false` |
-| `min_node_count` | 自动伸缩最小节点数 | 0 |
-| `max_node_count` | 自动伸缩最大节点数 | 0 |
+| Parameter | Description | Default Value |
+|-----------|-------------|---------------|
+| `os_type` | Operating system | `EulerOS` |
+| `data_volumes` | Data volume configuration JSON | Required for some specifications |
+| `subnet_id` | Subnet ID | Uses cluster subnet |
+| `autoscaling_enabled` | Enable autoscaling | `false` |
+| `min_node_count` | Minimum node count for autoscaling | 0 |
+| `max_node_count` | Maximum node count for autoscaling | 0 |
 
-### 数据卷（data_volumes）
+### Data Volumes (data_volumes)
 
-部分节点规格（如非本地盘类型）**必须配置数据卷**，否则创建失败。格式为 JSON 数组：
+Some node specifications (e.g., non-local disk types) **must have data volumes configured**, otherwise creation will fail. Format is a JSON array:
 
 ```bash
 data_volumes='[{"size":100,"type":"SSD"}]'
 ```
 
-### ENI Flavor 兼容性
+### ENI Flavor Compatibility
 
-> **重要：Turbo（ENI 网络）集群的节点池必须使用支持 ENI 的 flavor。**
+> **Important: Node pools in Turbo (ENI network) clusters must use ENI-compatible flavors.**
 
-不支持 ENI 的 flavor（如 `s6.large.2`, `c6.large.2`）会报错：
+Flavors that do not support ENI (such as `s6.large.2`, `c6.large.2`) will produce an error:
 `Flavor [xxx] 's subeni quota is 0, Eni network is not supported`
 
-推荐 Turbo 集群使用：`c7` 系列（如 `c7.large.2`）、`s7` 系列。
+Recommended for Turbo clusters: `c7` series (e.g., `c7.large.2`), `s7` series.
 
-## 节点创建参数
+## Node Creation Parameters
 
-节点直接创建（非节点池）的参数与节点池基本一致，额外包含：
+Parameters for direct node creation (non-node pool) are essentially the same as node pool, with the additional:
 
-| 参数 | 说明 | 默认值 |
-|------|------|-------|
-| `node_count` | 创建节点数量 | `1` |
+| Parameter | Description | Default Value |
+|-----------|-------------|---------------|
+| `node_count` | Number of nodes to create | `1` |
 
-密码同样需要 SHA-512 加盐加密 + base64 编码。
+The password also requires SHA-512 salted encryption + base64 encoding.
 
-## Kubernetes 版本
+## Kubernetes Versions
 
-常用版本：`v1.27`, `v1.28`, `v1.29`, `v1.30`, `v1.31`
+Common versions: `v1.27`, `v1.28`, `v1.29`, `v1.30`, `v1.31`
 
-## 密码码加盐加密
+## Password Salting and Encryption
 
-创建节点/节点池时 `password` 字段需经 SHA-512 加盐加密后再 base64 编码，不可直接传入原始密码。
+When creating nodes/node pools, the `password` field must be SHA-512 salted encrypted and then base64 encoded. Raw passwords cannot be passed directly.
 
-### 加盐方法
+### Salting Method
 
- 参考：[CCE 密码加盐加密](https://support.huaweicloud.com/api-cce/add-salt.html)
+ Reference: [CCE Password Salting and Encryption](https://support.huaweicloud.com/api-cce/add-salt.html)
 
  
 
- ### Python 示例
+ ### Python Example
 
  ```python
 from passlib.hash import sha512_crypt
 import base64
 
- hashed = sha512_crypt.using(rounds=5000).hash("原始密码")
+ hashed = sha512_crypt.using(rounds=5000).hash("raw_password")
  salted_password = base64.b64encode(hashed.encode("utf-8")).decode("utf-8")
  ```
 
 
 
-### 密码复杂度要求
+### Password Complexity Requirements
 
- - 长度：8-26 位
- - 至少包含大写字母、小写字母、数字、特殊字符中的三种
- - 特殊字符：`!@$%^-_=+[]{}:,./?`
+ - Length: 8-26 characters
+ - Must include at least three of: uppercase letters, lowercase letters, digits, special characters
+ - Special characters: `!@$%^-_=+[]{}:,./?`
 
 ## Example
 
-### 创建标准集群
+### Create a Standard Cluster
 
 ```bash
 python3 huawei-cloud.py huawei_create_cce_cluster \
@@ -185,7 +185,7 @@ python3 huawei-cloud.py huawei_create_cce_cluster \
   subnet_id=subnet-xxx
 ```
 
-### 创建 Turbo 集群
+### Create a Turbo Cluster
 
 ```bash
 python3 huawei-cloud.py huawei_create_cce_cluster \
@@ -199,10 +199,10 @@ python3 huawei-cloud.py huawei_create_cce_cluster \
   subnet_id=subnet-xxx
 ```
 
-### 创建节点池
+### Create a Node Pool
 
 ```bash
-export CCE_NODE_PASSWORD="你的密码"
+export CCE_NODE_PASSWORD="your_password"
 
 python3 huawei-cloud.py huawei_create_cce_nodepool \
     region=cn-north-4 \
@@ -216,12 +216,12 @@ python3 huawei-cloud.py huawei_create_cce_nodepool \
     'data_volumes=[{"size":100,"type":"SSD"}]'
 ```
 
-## 注意事项
+## Notes
 
-- 集群名称：1-63 字符，字母、数字、中划线
-- VPC 和子网必须存在于指定区域
-- 创建集群可能需要 5-15 分钟
-- 集群规格创建后不可更改
-- Turbo 集群节点必须使用 ENI 兼容的 flavor
-- 非本地盘规格必须配置数据卷
-- password 字段必须 SHA-512 加盐 + base64 编码，脚本已自动处理
+- Cluster name: 1-63 characters, letters, digits, and hyphens
+- VPC and subnet must exist in the specified region
+- Cluster creation may take 5-15 minutes
+- Cluster specification cannot be changed after creation
+- Turbo cluster nodes must use ENI-compatible flavors
+- Non-local disk specifications must have data volumes configured
+- The password field must be SHA-512 salted + base64 encoded; the script handles this automatically

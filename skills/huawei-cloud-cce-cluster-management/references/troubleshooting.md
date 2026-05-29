@@ -1,66 +1,66 @@
-# 常见问题排查
+# Common Troubleshooting Issues
 
 ## Overview
 
-CCE 集群管理操作中常见问题及解决方案。
+Common issues and solutions in CCE cluster management operations.
 
-## 问题分类
+## Issue Categories
 
-| 错误类型 | 可能原因 | 解决方案 |
+| Error Type | Possible Cause | Solution |
 |---------|---------|---------|
-| 403 权限不足 | IAM 权限缺失 | 检查 IAM 策略配置 |
-| 404 资源不存在 | 集群/节点 ID 错误 | 确认资源 ID 正确 |
-| 400 参数错误 | 参数格式不正确 | 检查参数格式和取值 |
-| 409 状态冲突 | 资源状态不允许操作 | 等待资源状态变更后重试 |
+| 403 Insufficient Permissions | Missing IAM permissions | Check IAM policy configuration |
+| 404 Resource Not Found | Incorrect cluster/node ID | Verify resource ID is correct |
+| 400 Parameter Error | Invalid parameter format | Check parameter format and values |
+| 409 State Conflict | Operation not allowed in current resource state | Wait for resource state change and retry |
 
-## 常见问题
+## Common Issues
 
-### 1. 集群查询返回空列表
+### 1. Cluster query returns empty list
 
-**可能原因：**
-- 区域参数错误
-- 当前账号无集群
+**Possible Causes:**
+- Incorrect region parameter
+- Current account has no clusters
 
-**解决方案：**
+**Solutions:**
 ```bash
-# 确认区域正确
+# Verify region is correct
 python3 huawei-cloud.py huawei_list_cce_clusters region=cn-north-4
 
-# 检查其他区域
+# Check other regions
 python3 huawei-cloud.py huawei_list_cce_clusters region=cn-east-3
 ```
 
-### 2. 节点操作返回权限不足
+### 2. Node operation returns insufficient permissions
 
-**可能原因：**
-- IAM 缺少 `cce:node:update` 权限
+**Possible Causes:**
+- IAM lacks `cce:node:update` permission
 
-**解决方案：**
-在 IAM 控制台为用户添加 CCE 相关权限。
+**Solutions:**
+Add CCE-related permissions for the user in the IAM console.
 
-### 3. 集群休眠/唤醒失败
+### 3. Cluster sleep/awaken operation failed
 
-**可能原因：**
-- 集群状态不支持该操作
-- 集群正在执行其他任务
+**Possible Causes:**
+- Cluster state does not support this operation
+- Cluster is executing other tasks
 
-**解决方案：**
+**Solutions:**
 ```bash
-# 先查询集群状态
+# First query cluster status
 python3 huawei-cloud.py huawei_list_cce_clusters region=cn-north-4
 
-# 确认状态为 Available 后再操作
+# Confirm status is Available before operating
 ```
 
-### 4. 节点池扩缩容未生效
+### 4. Node pool scaling not taking effect
 
-**可能原因：**
-- 忘记添加 `confirm=true` 参数
-- 节点池正在扩缩容中
+**Possible Causes:**
+- Forgot to add `confirm=true` parameter
+- Node pool is currently scaling
 
-**解决方案：**
+**Solutions:**
 ```bash
-# 添加 confirm 参数
+# Add confirm parameter
 python3 huawei-cloud.py huawei_resize_cce_nodepool \
   region=cn-north-4 \
   cluster_id=xxx \
@@ -69,29 +69,29 @@ python3 huawei-cloud.py huawei_resize_cce_nodepool \
   confirm=true
 ```
 
-### 5. 创建节点/节点池时报密码相关错误
+### 5. Password-related errors when creating nodes/node pools
 
-**错误信息：**
+**Error Messages:**
 - `CCE_CM.0004 - Request is invalid, Unexpected initial node password format`
 - `CCE_NODE_PASSWORD environment variable is not set`
 - `CCE_NODE_PASSWORD length must be 8-26 characters`
 - `CCE_NODE_PASSWORD must contain at least 3 of: uppercase, lowercase, digits, special chars`
 
-**原因：**
-- 未设置 `CCE_NODE_PASSWORD` 环境变量
-- 密码复杂度不符合要求（8-26 位，至少含大写、小写、数字、特殊字符中的三种）
-- 直接调用 CCE API 时密码未经过 SHA-512 加盐加密 + base64 编码
+**Causes:**
+- `CCE_NODE_PASSWORD` environment variable not set
+- Password complexity does not meet requirements (8-26 characters, must contain at least 3 of: uppercase, lowercase, digits, special characters)
+- When calling CCE API directly, password not encrypted with SHA-512 salted encryption + base64 encoding
 
-**解决方案：**
+**Solutions:**
 ```bash
-# 设置密码环境变量（需符合复杂度要求）
+# Set password environment variable (must meet complexity requirements)
 export CCE_NODE_PASSWORD="MyPass123!"
 
-# 脚本会自动进行 SHA-512 加盐加密 + base64 编码，无需手动处理
+# The script automatically performs SHA-512 salted encryption + base64 encoding, no manual processing needed
 python3 huawei-cloud.py huawei_create_cce_nodepool ...
 ```
 
-直接调用 CCE API 时需自行加密：
+When calling CCE API directly, you need to encrypt yourself:
 ```python
 import os
 from passlib.hash import sha512_crypt
@@ -102,69 +102,69 @@ hashed = sha512_crypt.using(rounds=5000).hash(password)
 salted_b64 = base64.b64encode(hashed.encode("utf-8")).decode("utf-8")
 ```
 
-### 6. 创建节点池时报 "Flavor ENI network is not supported"
+### 6. "Flavor ENI network is not supported" error when creating node pool
 
-**错误信息：** `Flavor [xxx] 's subeni quota is 0, Eni network is not supported`
+**Error Message:** `Flavor [xxx] 's subeni quota is 0, Eni network is not supported`
 
-**原因：** Turbo（ENI 网络）集群的节点池使用了不支持 ENI 的节点规格。
+**Cause:** Node pool in a Turbo (ENI network) cluster uses a node flavor that does not support ENI.
 
-**不支持 ENI 的规格：** `s6` 系列、`c6` 系列等
-**支持 ENI 的规格：** `c7` 系列（如 `c7.large.2`）、`s7` 系列
+**Flavors that do not support ENI:** `s6` series, `c6` series, etc.
+**Flavors that support ENI:** `c7` series (e.g., `c7.large.2`), `s7` series
 
-**解决方案：**
+**Solutions:**
 ```bash
-# Turbo 集群使用 c7 系列 flavor
+# Turbo cluster uses c7 series flavor
 python3 huawei-cloud.py huawei_create_cce_nodepool \
   flavor=c7.large.2 \
   ...
 ```
 
-### 7. 创建节点池时报 "Data volume needed"
+### 7. "Data volume needed" error when creating node pool
 
-**错误信息：** `Data volume needed for non-local-disk flavor or non-system diskType`
+**Error Message:** `Data volume needed for non-local-disk flavor or non-system diskType`
 
-**原因：** 部分节点规格（非本地盘类型）必须配置数据卷。
+**Cause:** Some node flavors (non-local disk types) must configure data volumes.
 
-**解决方案：**
+**Solutions:**
 ```bash
 python3 huawei-cloud.py huawei_create_cce_nodepool \
   ... \
   'data_volumes=[{"size":100,"type":"SSD"}]'
 ```
 
-### 8. 查询插件详情时报 "instanceID is invalid"
+### 8. "instanceID is invalid" error when querying addon details
 
-**错误信息：** `CCE.03400001 - Invalid request., instanceID is invalid`
+**Error Message:** `CCE.03400001 - Invalid request., instanceID is invalid`
 
-**原因：** `ShowAddonInstanceRequest` 的 `id` 字段传入了错误的值。
+**Cause:** Incorrect value passed to the `id` field of `ShowAddonInstanceRequest`.
 
-**解决方案：**
-- `id` 字段应传入插件的实例 UID（从 `huawei_list_cce_addons` 或创建响应的 `uid` 字段获取）
-- 不要使用 `addon_name` 字段（已弃用），应使用 `id` 字段
-- 调用 `client.show_addon_instance()` 方法，不是 `client.show_addon()`
+**Solutions:**
+- The `id` field should use the addon instance UID (obtained from `huawei_list_cce_addons` or the `uid` field in the creation response)
+- Do not use the `addon_name` field (deprecated), use the `id` field instead
+- Call `client.show_addon_instance()` method, not `client.show_addon()`
 
-### 9. 安装插件时报 "InstanceSpec got unexpected keyword argument 'template_name'"
+### 9. "InstanceSpec got unexpected keyword argument 'template_name'" error when installing addon
 
-**错误信息：** `InstanceSpec.__init__() got an unexpected keyword argument 'template_name'`
+**Error Message:** `InstanceSpec.__init__() got an unexpected keyword argument 'template_name'`
 
-**原因：** CCE SDK `InstanceSpec` 类的正确字段名是 `addon_template_name`，不是 `template_name`。
+**Cause:** The correct field name for CCE SDK `InstanceSpec` class is `addon_template_name`, not `template_name`.
 
-**解决方案：**
+**Solutions:**
 ```python
 spec = InstanceSpec(
-    addon_template_name="volcano",  # 正确
-    # template_name="volcano",      # 错误
+    addon_template_name="volcano",  # Correct
+    # template_name="volcano",      # Incorrect
     ...
 )
 ```
 
-### 10. 创建节点时报 "cannot import name 'CreateNodeRequestBody'"
+### 10. "cannot import name 'CreateNodeRequestBody'" error when creating node
 
-**错误信息：** `cannot import name 'CreateNodeRequestBody' from 'huaweicloudsdkcce.v3'`
+**Error Message:** `cannot import name 'CreateNodeRequestBody' from 'huaweicloudsdkcce.v3'`
 
-**原因：** CCE SDK 没有 `CreateNodeRequestBody` 类，应使用 `Node` 对象作为 `CreateNodeRequest` 的 body。
+**Cause:** CCE SDK does not have `CreateNodeRequestBody` class; use `Node` object as the body of `CreateNodeRequest`.
 
-**解决方案：**
+**Solutions:**
 ```python
 from huaweicloudsdkcce.v3 import CreateNodeRequest, Node, NodeMetadata, NodeSpec
 
@@ -174,15 +174,15 @@ request.body = body
 response = client.create_node(request)
 ```
 
-### 11. 创建节点时 SDK 属性名报错
+### 11. SDK attribute name error when creating node
 
-**错误信息：** `Login.__init__() got an unexpected keyword argument 'userPassword'` 或类似
+**Error Message:** `Login.__init__() got an unexpected keyword argument 'userPassword'` or similar
 
-**原因：** CCE SDK Python 包属性名使用 snake_case，不是 camelCase。
+**Cause:** CCE SDK Python package attribute names use snake_case, not camelCase.
 
-**常见错误对照：**
+**Common error reference:**
 
-| 错误写法 (camelCase) | 正确写法 (snake_case) |
+| Incorrect (camelCase) | Correct (snake_case) |
 |----------------------|----------------------|
 | `Login(userPassword=...)` | `Login(user_password=...)` |
 | `Login(sshkey=...)` | `Login(ssh_key=...)` |
@@ -191,14 +191,14 @@ response = client.create_node(request)
 | `NodeSpec(nodeNicSpec=...)` | `NodeSpec(node_nic_spec=...)` |
 | `NodeNicSpec(subnetId=...)` | `NodeNicSpec(primary_nic={"subnetId": "xxx"})` |
 
-### 12. NodeNicSpec 构造报错
+### 12. NodeNicSpec construction error
 
-**错误信息：** `NodeNicSpec.__init__() got an unexpected keyword argument 'subnetId'`
+**Error Message:** `NodeNicSpec.__init__() got an unexpected keyword argument 'subnetId'`
 
-**原因：** `NodeNicSpec` 不直接接受 `subnetId` 参数，需通过 `primary_nic` dict 传入。
+**Cause:** `NodeNicSpec` does not directly accept `subnetId` parameter; pass it through `primary_nic` dict.
 
-**解决方案：**
+**Solutions:**
 ```python
-node_nic_spec = NodeNicSpec(primary_nic={"subnetId": "subnet-id"})  # 正确
-# NodeNicSpec(subnetId="subnet-id")  # 错误
+node_nic_spec = NodeNicSpec(primary_nic={"subnetId": "subnet-id"})  # Correct
+# NodeNicSpec(subnetId="subnet-id")  # Incorrect
 ```

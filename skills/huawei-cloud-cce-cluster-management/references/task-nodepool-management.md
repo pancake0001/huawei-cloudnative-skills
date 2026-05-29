@@ -1,86 +1,86 @@
-# 节点池管理任务详解
+# Node Pool Management Task Details
 
 ## Overview
 
-节点池生命周期管理，包括创建节点池、查询节点池列表和调整节点数量。
+Node pool lifecycle management, including creating node pools, querying node pool lists, and adjusting node counts.
 
-## 创建节点池参数
+## Create Node Pool Parameters
 
-### 必填参数
+### Required Parameters
 
-| 参数 | 说明 | 示例值 |
+| Parameter | Description | Example Value |
 |------|------|-------|
-| `region` | 华为云区域 | `cn-north-4` |
-| `cluster_id` | 集群 ID | `xxx` |
-| `nodepool_name` | 节点池名称 | `dev-worker-pool` |
-| `flavor` | 节点规格 | `c7.large.2` |
-| `availability_zone` | 可用区 | `cn-north-4a` |
-| `root_volume_size` | 系统盘大小（GB） | `40` |
-| `root_volume_type` | 系统盘类型 | `GPSSD` |
-| `initial_node_count` | 初始节点数 | `1` |
-| `ssh_key` 或 `password` | 登录认证（必填其一） | `KeyPair-dev` 或 `MyPass123!` |
+| `region` | Huawei Cloud region | `cn-north-4` |
+| `cluster_id` | Cluster ID | `xxx` |
+| `nodepool_name` | Node pool name | `dev-worker-pool` |
+| `flavor` | Node specification | `c7.large.2` |
+| `availability_zone` | Availability zone | `cn-north-4a` |
+| `root_volume_size` | System disk size (GB) | `40` |
+| `root_volume_type` | System disk type | `GPSSD` |
+| `initial_node_count` | Initial node count | `1` |
+| `ssh_key` or `password` | Login authentication (one required) | `KeyPair-dev` or `MyPass123!` |
 
-### 登录认证
+### Login Authentication
 
-`ssh_key` 和 `password` 必填其中一项，互斥：
-- `ssh_key`: SSH 密钥对名称
-- `password`: 节点登录密码（8-26 位，至少含大写、小写、数字、特殊字符中的三种）
+One of `ssh_key` and `password` is required; they are mutually exclusive:
+- `ssh_key`: SSH key pair name
+- `password`: Node login password (8-26 characters, must contain at least three of: uppercase, lowercase, digits, special characters)
 
-> **重要：脚本会自动对 password 进行 SHA-512 加盐加密 + base64 编码，无需手动处理。但如直接调用 CCE API，必须自行加密。**
+> **Important: The script automatically performs SHA-512 salted encryption + base64 encoding on the password. No manual processing is needed. However, if calling the CCE API directly, you must encrypt it yourself.**
 
-### 数据卷（data_volumes）
+### Data Volumes (data_volumes)
 
-部分节点规格（非本地盘类型）**必须配置数据卷**，否则创建报错：
+Some node specifications (non-local disk types) **must configure data volumes**, otherwise creation will fail with the error:
 `Data volume needed for non-local-disk flavor or non-system diskType`
 
 ```bash
 data_volumes='[{"size":100,"type":"SSD"}]'
 ```
 
-### ENI Flavor 兼容性
+### ENI Flavor Compatibility
 
-Turbo（ENI 网络）集群的节点池必须使用支持 ENI 的 flavor。不兼容的 flavor 会报错：
+Node pools in Turbo (ENI network) clusters must use ENI-compatible flavors. Incompatible flavors will result in the error:
 `Flavor [xxx] 's subeni quota is 0, Eni network is not supported`
 
-| Flavor 系列 | ENI 支持 | 推荐场景 |
+| Flavor Series | ENI Support | Recommended Scenario |
 |-------------|---------|---------|
-| `c7` 系列（如 `c7.large.2`） | ✅ 支持 | Turbo 集群推荐 |
-| `s7` 系列 | ✅ 支持 | Turbo 集群 |
-| `s6` 系列（如 `s6.large.2`） | ❌ 不支持 | 仅标准集群 |
-| `c6` 系列（如 `c6.large.2`） | ❌ 不支持 | 仅标准集群 |
+| `c7` series (e.g., `c7.large.2`) | ✅ Supported | Recommended for Turbo clusters |
+| `s7` series | ✅ Supported | Turbo clusters |
+| `s6` series (e.g., `s6.large.2`) | ❌ Not supported | Standard clusters only |
+| `c6` series (e.g., `c6.large.2`) | ❌ Not supported | Standard clusters only |
 
-### 可选参数
+### Optional Parameters
 
-| 参数 | 说明 | 默认值 |
+| Parameter | Description | Default Value |
 |------|------|-------|
-| `os_type` | 操作系统 | `EulerOS` |
-| `subnet_id` | 子网 ID | 使用集群子网 |
-| `autoscaling_enabled` | 启用自动伸缩 | `false` |
-| `min_node_count` | 最小节点数 | 0 |
-| `max_node_count` | 最大节点数 | 0 |
+| `os_type` | Operating system | `EulerOS` |
+| `subnet_id` | Subnet ID | Uses cluster subnet |
+| `autoscaling_enabled` | Enable auto-scaling | `false` |
+| `min_node_count` | Minimum node count | 0 |
+| `max_node_count` | Maximum node count | 0 |
 
-## 扩缩容参数
+## Scaling Parameters
 
-| 参数 | 说明 | 必填 |
+| Parameter | Description | Required |
 |------|------|-----|
-| `region` | 华为云区域 | 是 |
-| `cluster_id` | 集群 ID | 是 |
-| `nodepool_id` | 节点池 ID | 是 |
-| `node_count` | 目标节点数 | 是 |
-| `confirm` | 确认执行 | 是 |
+| `region` | Huawei Cloud region | Yes |
+| `cluster_id` | Cluster ID | Yes |
+| `nodepool_id` | Node pool ID | Yes |
+| `node_count` | Target node count | Yes |
+| `confirm` | Confirm execution | Yes |
 
-## 节点池状态
+## Node Pool States
 
-| 状态 | 说明 |
+| State | Description |
 |------|------|
-| Active | 正常运行 |
-| Scaling | 正在扩缩容 |
-| Deleting | 删除中 |
-| Error | 异常状态 |
+| Active | Running normally |
+| Scaling | Scaling in progress |
+| Deleting | Being deleted |
+| Error | Abnormal state |
 
-## 操作说明
+## Operation Instructions
 
-### 创建节点池（标准集群）
+### Create Node Pool (Standard Cluster)
 
 ```bash
 python3 huawei-cloud.py huawei_create_cce_nodepool \
@@ -95,10 +95,10 @@ python3 huawei-cloud.py huawei_create_cce_nodepool \
   ssh_key=KeyPair-dev
 ```
 
-### 创建节点池（Turbo 集群）
+### Create Node Pool (Turbo Cluster)
 
 ```bash
-export CCE_NODE_PASSWORD="你的密码"
+export CCE_NODE_PASSWORD="your_password"
 
 python3 huawei-cloud.py huawei_create_cce_nodepool \
     region=cn-north-4 \
@@ -112,7 +112,7 @@ python3 huawei-cloud.py huawei_create_cce_nodepool \
     'data_volumes=[{"size":100,"type":"SSD"}]'
 ```
 
-### 查询节点池
+### Query Node Pools
 
 ```bash
 python3 huawei-cloud.py huawei_list_cce_nodepools \
@@ -120,7 +120,7 @@ python3 huawei-cloud.py huawei_list_cce_nodepools \
   cluster_id=xxx
 ```
 
-### 扩容节点池
+### Scale Up Node Pool
 
 ```bash
 python3 huawei-cloud.py huawei_resize_cce_nodepool \
@@ -131,7 +131,7 @@ python3 huawei-cloud.py huawei_resize_cce_nodepool \
   confirm=true
 ```
 
-### 缩容节点池
+### Scale Down Node Pool
 
 ```bash
 python3 huawei-cloud.py huawei_resize_cce_nodepool \

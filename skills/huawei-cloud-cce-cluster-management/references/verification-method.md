@@ -1,67 +1,67 @@
-# 功能验证步骤
+# Feature Verification Steps
 
 ## Overview
 
-CCE 集群管理技能的功能验证流程。
+Functional verification process for CCE cluster management skill.
 
-## 验证清单
+## Verification Checklist
 
-| 序号 | 验证项 | 命令示例 |
-|-----|-------|---------|
-| 1 | 查询集群列表 | `huawei_list_cce_clusters region=cn-north-4` |
-| 2 | 查询节点列表 | `huawei_list_cce_nodes region=cn-north-4 cluster_id=xxx` |
-| 3 | 查询节点池列表 | `huawei_list_cce_nodepools region=cn-north-4 cluster_id=xxx` |
-| 4 | 获取 kubeconfig | `huawei_get_cce_kubeconfig region=cn-north-4 cluster_id=xxx` |
-| 5 | 节点调度状态 | `huawei_cce_node_status region=cn-north-4 cluster_id=xxx node_id=xxx` |
+| No. | Verification Item | Command Example |
+|-----|-------------------|-----------------|
+| 1 | Query cluster list | `huawei_list_cce_clusters region=cn-north-4` |
+| 2 | Query node list | `huawei_list_cce_nodes region=cn-north-4 cluster_id=xxx` |
+| 3 | Query node pool list | `huawei_list_cce_nodepools region=cn-north-4 cluster_id=xxx` |
+| 4 | Get kubeconfig | `huawei_get_cce_kubeconfig region=cn-north-4 cluster_id=xxx` |
+| 5 | Node scheduling status | `huawei_cce_node_status region=cn-north-4 cluster_id=xxx node_id=xxx` |
 
-## 验证步骤
+## Verification Steps
 
-### Step 1: 环境检查
+### Step 1: Environment Check
 
 ```bash
-# 检查 Python 环境
+# Check Python environment
 python3 --version
 
-# 检查依赖
+# Check dependencies
 pip show huaweicloudsdkcce
 ```
 
-### Step 2: 验证查询功能
+### Step 2: Verify Query Functions
 
 ```bash
-# 查询集群列表
+# Query cluster list
 python3 huawei-cloud.py huawei_list_cce_clusters region=cn-north-4
 
-# 预期结果：返回集群列表，包含 cluster_id、name、status 等字段
+# Expected result: Returns cluster list, including cluster_id, name, status, etc.
 ```
 
-### Step 3: 验证节点管理
+### Step 3: Verify Node Management
 
 ```bash
-# 查询节点调度状态
+# Query node scheduling status
 python3 huawei-cloud.py huawei_cce_node_status \
   region=cn-north-4 \
   cluster_id=<cluster_id> \
   node_id=<node_id>
 
-# 预期结果：返回 "Schedulable" 或 "Unschedulable"
+# Expected result: Returns "Schedulable" or "Unschedulable"
 ```
 
-### Step 4: 验证危险操作确认机制
+### Step 4: Verify Dangerous Operation Confirmation Mechanism
 
 ```bash
-# 不带 confirm 参数调用删除命令
+# Call delete command without confirm parameter
 python3 huawei-cloud.py huawei_delete_cce_cluster \
   region=cn-north-4 \
   cluster_id=xxx
 
-# 预期结果：返回预览和警告，不执行删除
+# Expected result: Returns preview and warning, does not execute deletion
 ```
 
 ## Example
 
 ```bash
-# 完整验证流程
+# Complete verification flow
 python3 huawei-cloud.py huawei_list_cce_clusters region=cn-north-4
 python3 huawei-cloud.py huawei_list_cce_nodes region=cn-north-4 cluster_id=<cluster_id>
 ```
