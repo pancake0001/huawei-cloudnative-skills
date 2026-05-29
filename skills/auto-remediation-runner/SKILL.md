@@ -25,6 +25,8 @@ description: Use this skill only when the user asks for a Huawei Cloud CCE remed
 
 工作负载：`huawei_scale_cce_workload`、`huawei_resize_cce_workload`、`huawei_delete_cce_workload`。
 
+弹性策略：`huawei_configure_cce_hpa`。
+
 节点：`huawei_cce_node_cordon`、`huawei_cce_node_drain`、`huawei_cce_node_uncordon`、`huawei_reboot_ecs`。
 
 节点池和集群：`huawei_resize_cce_nodepool`、`huawei_hibernate_cce_cluster`、`huawei_awake_cce_cluster`。
@@ -36,4 +38,3 @@ description: Use this skill only when the user asks for a Huawei Cloud CCE remed
 ## 风险约束
 
 禁止自动加 `confirm=true`。删除集群、删除节点、删除工作负载、drain、reboot、HSS 漏洞状态变更都必须先预览，再用户确认，再执行后验证。
-

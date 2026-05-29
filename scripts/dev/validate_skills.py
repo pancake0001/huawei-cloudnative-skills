@@ -30,6 +30,7 @@ PHASE_ONE_SKILLS = {
     "root-cause-analyzer",
     "auto-remediation-runner",
     "daily-cluster-inspector",
+    "cost-optimization-advisor",
     "container-migration-planner",
 }
 
@@ -181,4 +182,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

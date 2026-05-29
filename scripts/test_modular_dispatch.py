@@ -729,6 +729,138 @@ class DispatcherTests(unittest.TestCase):
         spec = dispatcher.ACTION_SPECS["huawei_list_cce_cronjobs"]
         self.assertEqual(spec[0], ("region", "cluster_id"))
 
+    # ==================== HPA actions ====================
+
+    def test_list_cce_hpas_dispatch(self):
+        with mock.patch("huawei_cloud.dispatcher.cce_hpa.list_cce_hpas", return_value={"success": True, "hpas": []}) as mocked:
+            result = dispatcher.dispatch_action("huawei_list_cce_hpas", {
+                "region": "cn-north-4",
+                "cluster_id": "c1",
+                "namespace": "default",
+                "include_system": "false",
+            })
+        self.assertTrue(result["success"])
+        mocked.assert_called_once_with(
+            region="cn-north-4",
+            cluster_id="c1",
+            ak=None,
+            sk=None,
+            project_id=None,
+            namespace="default",
+            include_system=False,
+        )
+
+    def test_generate_cce_hpa_manifest_dispatch(self):
+        result = dispatcher.dispatch_action("huawei_generate_cce_hpa_manifest", {
+            "workload_name": "demo",
+            "namespace": "default",
+            "min_replicas": "2",
+            "max_replicas": "8",
+            "target_cpu_utilization": "65",
+            "target_memory_utilization": "70",
+        })
+        self.assertTrue(result["success"])
+        self.assertEqual(result["manifest"]["metadata"]["name"], "demo-hpa")
+        self.assertEqual(result["manifest"]["spec"]["minReplicas"], 2)
+        self.assertEqual(result["manifest"]["spec"]["maxReplicas"], 8)
+        self.assertIn("HorizontalPodAutoscaler", result["manifest_yaml"])
+
+    def test_configure_cce_hpa_preview_dispatch(self):
+        with mock.patch("huawei_cloud.dispatcher.cce_hpa.configure_cce_hpa", return_value={"success": False, "requires_confirmation": True}) as mocked:
+            result = dispatcher.dispatch_action("huawei_configure_cce_hpa", {
+                "region": "cn-north-4",
+                "cluster_id": "c1",
+                "workload_name": "demo",
+                "namespace": "default",
+                "min_replicas": "2",
+                "max_replicas": "8",
+                "target_cpu_utilization": "60",
+            })
+        self.assertFalse(result["success"])
+        self.assertTrue(result["requires_confirmation"])
+        mocked.assert_called_once()
+        kwargs = mocked.call_args.kwargs
+        self.assertEqual(kwargs["region"], "cn-north-4")
+        self.assertEqual(kwargs["workload_name"], "demo")
+        self.assertEqual(kwargs["min_replicas"], 2)
+        self.assertEqual(kwargs["max_replicas"], 8)
+        self.assertFalse(kwargs["confirm"])
+
+    def test_configure_cce_hpa_requires_params(self):
+        result = dispatcher.dispatch_action("huawei_configure_cce_hpa", {
+            "region": "cn-north-4",
+            "cluster_id": "c1",
+            "workload_name": "demo",
+            "namespace": "default",
+            "min_replicas": "2",
+        })
+        self.assertFalse(result["success"])
+        self.assertIn("max_replicas", result["error"])
+
+    def test_hpa_actions_in_action_specs(self):
+        self.assertTrue(dispatcher.is_registered_action("huawei_list_cce_hpas"))
+        self.assertTrue(dispatcher.is_registered_action("huawei_generate_cce_hpa_manifest"))
+        self.assertTrue(dispatcher.is_registered_action("huawei_configure_cce_hpa"))
+        self.assertEqual(dispatcher.ACTION_SPECS["huawei_list_cce_hpas"][0], ("region", "cluster_id"))
+        self.assertEqual(
+            dispatcher.ACTION_SPECS["huawei_generate_cce_hpa_manifest"][0],
+            ("workload_name", "namespace", "min_replicas", "max_replicas"),
+        )
+        self.assertEqual(
+            dispatcher.ACTION_SPECS["huawei_configure_cce_hpa"][0],
+            ("region", "cluster_id", "workload_name", "namespace", "min_replicas", "max_replicas"),
+        )
+
+    # ==================== Cost optimization action ====================
+
+    def test_analyze_cce_cost_optimization_dispatch(self):
+        with mock.patch(
+            "huawei_cloud.dispatcher.cce_cost_optimization.analyze_cce_cost_optimization",
+            return_value={"success": True, "recommendations": []},
+        ) as mocked:
+            result = dispatcher.dispatch_action("huawei_analyze_cce_cost_optimization", {
+                "region": "cn-north-4",
+                "cluster_id": "c1",
+                "short_hours": "24",
+                "long_hours": "168",
+                "top_n": "25",
+                "exclude_namespaces": "kube-system,monitoring",
+                "business_namespaces": "default,prod",
+                "output_dir": "debug/cost",
+                "include_raw": "true",
+                "hpa_workload_name": "demo",
+                "hpa_namespace": "default",
+                "hpa_min_replicas": "1",
+                "hpa_max_replicas": "5",
+                "hpa_target_cpu_utilization": "65",
+            })
+        self.assertTrue(result["success"])
+        mocked.assert_called_once()
+        kwargs = mocked.call_args.kwargs
+        self.assertEqual(kwargs["region"], "cn-north-4")
+        self.assertEqual(kwargs["cluster_id"], "c1")
+        self.assertEqual(kwargs["short_hours"], 24)
+        self.assertEqual(kwargs["long_hours"], 168)
+        self.assertEqual(kwargs["top_n"], 25)
+        self.assertEqual(kwargs["exclude_namespaces"], "kube-system,monitoring")
+        self.assertEqual(kwargs["business_namespaces"], "default,prod")
+        self.assertEqual(kwargs["output_dir"], "debug/cost")
+        self.assertTrue(kwargs["include_raw"])
+        self.assertEqual(kwargs["hpa_workload_name"], "demo")
+        self.assertEqual(kwargs["hpa_namespace"], "default")
+        self.assertEqual(kwargs["hpa_min_replicas"], 1)
+        self.assertEqual(kwargs["hpa_max_replicas"], 5)
+        self.assertEqual(kwargs["hpa_target_cpu_utilization"], 65)
+
+    def test_analyze_cce_cost_optimization_requires_params(self):
+        result = dispatcher.dispatch_action("huawei_analyze_cce_cost_optimization", {"region": "cn-north-4"})
+        self.assertFalse(result["success"])
+        self.assertIn("cluster_id", result["error"])
+
+    def test_cost_optimization_action_in_action_specs(self):
+        self.assertTrue(dispatcher.is_registered_action("huawei_analyze_cce_cost_optimization"))
+        self.assertEqual(dispatcher.ACTION_SPECS["huawei_analyze_cce_cost_optimization"][0], ("region", "cluster_id"))
+
 
 if __name__ == "__main__":
     unittest.main()
