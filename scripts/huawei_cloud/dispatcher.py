@@ -17,6 +17,8 @@ from . import common
 try:
     from . import cce_app_logs as _cce_app_logs_mod
     from . import lts as _lts_mod
+    cce_app_logs = _cce_app_logs_mod
+    lts = _lts_mod
     _lts_available = True
 except ImportError:
     _lts_available = False
@@ -522,18 +524,28 @@ def _workload_diagnose_by_alarm_action(params):
 
 
 def _hibernate_cce_cluster_action(params):
+    if params.get("confirm", "").lower() == "true":
+        return cce.hibernate_cce_cluster(
+            region=params["region"], cluster_id=params["cluster_id"],
+            ak=params.get("ak"), sk=params.get("sk"), project_id=params.get("project_id"),
+            confirm=True
+        )
     return cce.hibernate_cce_cluster(
-        region=params["region"], cluster_id=params["cluster_id"],
-        ak=params.get("ak"), sk=params.get("sk"), project_id=params.get("project_id"),
-        confirm=params.get("confirm", "").lower() == "true"
+        params["region"], params["cluster_id"],
+        params.get("ak"), params.get("sk"), params.get("project_id")
     )
 
 
 def _awake_cce_cluster_action(params):
+    if params.get("confirm", "").lower() == "true":
+        return cce.awake_cce_cluster(
+            region=params["region"], cluster_id=params["cluster_id"],
+            ak=params.get("ak"), sk=params.get("sk"), project_id=params.get("project_id"),
+            confirm=True
+        )
     return cce.awake_cce_cluster(
-        region=params["region"], cluster_id=params["cluster_id"],
-        ak=params.get("ak"), sk=params.get("sk"), project_id=params.get("project_id"),
-        confirm=params.get("confirm", "").lower() == "true"
+        params["region"], params["cluster_id"],
+        params.get("ak"), params.get("sk"), params.get("project_id")
     )
 
 

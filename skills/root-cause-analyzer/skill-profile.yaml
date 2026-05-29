@@ -1,0 +1,22 @@
+name: root-cause-analyzer
+level: L3
+domain: diagnosis-remediation
+description: Analyze cross-domain CCE incidents and produce root cause reports.
+tools:
+  - huawei_workload_diagnose
+  - huawei_workload_diagnose_by_alarm
+  - huawei_network_diagnose
+  - huawei_network_diagnose_by_alarm
+  - huawei_node_diagnose
+  - huawei_node_batch_diagnose
+  - huawei_generate_diagnosis_report
+  - huawei_generate_monitor_dashboard
+  - huawei_analyze_aom_alarms
+  - huawei_get_cce_events
+references:
+  - references/workflow.md
+  - references/risk-rules.md
+  - references/output-schema.md
+guardrails:
+  max_auto_risk: R1
+
