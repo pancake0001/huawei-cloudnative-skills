@@ -21,10 +21,14 @@ from huaweicloudsdkcce.v3 import (
     ContainerNetwork,
     HostNetwork,
     ServiceNetwork,
+    EniNetwork,
+    NetworkSubnet,
 )
 from huaweicloudsdkcce.v3.region.cce_region import CceRegion
 from huaweicloudsdkcore.auth.credentials import BasicCredentials
 from huaweicloudsdkcore.exceptions.exceptions import ClientRequestException
+from huaweicloudsdkvpc.v2 import ShowSubnetRequest
+from huaweicloudsdkvpc.v2.region.vpc_region import VpcRegion
 from .common import (
     get_credentials,
     get_credentials_with_region,
@@ -34,6 +38,44 @@ from .common import (
     _register_cert_file,
     _safe_delete_file,
 )
+
+
+def _resolve_neutron_subnet_id(region: str, vpc_subnet_id: str, ak: str, sk: str, project_id: Optional[str] = None) -> Optional[str]:
+    """Resolve the Neutron subnet UUID from a VPC subnet UUID.
+
+    CCE Turbo (ENI) clusters require the Neutron subnet UUID in the
+    eniNetwork.subnets[].subnetID field, while HostNetwork.subnet uses
+    the VPC subnet UUID. This helper queries the VPC API to obtain the
+    neutron_subnet_id for a given VPC subnet.
+
+    Args:
+        region: Huawei Cloud region
+        vpc_subnet_id: VPC subnet UUID (e.g., b8a2c56a-...)
+        ak: Access Key
+        sk: Secret Key
+        project_id: Project ID (optional, will be resolved from region if not provided)
+
+    Returns:
+        Neutron subnet UUID string, or None if lookup fails
+    """
+    try:
+        # Resolve project ID from region if not provided
+        access_key, secret_key, proj_id = get_credentials_with_region(region, ak, sk, project_id)
+        if not proj_id:
+            return None
+        from huaweicloudsdkvpc.v2 import VpcClient
+        creds = BasicCredentials(ak=access_key, sk=secret_key, project_id=proj_id)
+        vpc_client = VpcClient.new_builder() \
+            .with_credentials(creds) \
+            .with_endpoint(f'vpc.{region}.myhuaweicloud.com') \
+            .build()
+        req = ShowSubnetRequest(subnet_id=vpc_subnet_id)
+        resp = vpc_client.show_subnet(req)
+        if hasattr(resp, 'subnet') and hasattr(resp.subnet, 'neutron_subnet_id'):
+            return resp.subnet.neutron_subnet_id
+    except Exception:
+        pass
+    return None
 
 
 def list_cce_clusters(region: str, ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None, limit: int = 100, offset: int = 0) -> Dict[str, Any]:
@@ -692,6 +734,7 @@ def create_cce_cluster(
     service_network_cidr: Optional[str] = None,
     flavor_id: Optional[str] = None,
     description: Optional[str] = None,
+    eni_subnet_id: Optional[str] = None,
     ak: Optional[str] = None,
     sk: Optional[str] = None,
     project_id: Optional[str] = None,
@@ -707,12 +750,13 @@ def create_cce_cluster(
         vpc_id: VPC ID where the cluster will be created
         subnet_id: Subnet ID for the cluster
         cluster_version: Kubernetes version (optional, defaults to latest if not specified)
-        cluster_type: Cluster type (default: "VirtualMachine")
-        container_network_type: Container network type (default: "overlay_l2")
+        cluster_type: Cluster type (default: "VirtualMachine", use "VirtualMachine" + eni network for Turbo)
+        container_network_type: Container network type (default: "overlay_l2", use "eni" for Turbo clusters)
         container_network_cidr: Container network CIDR (optional, e.g., "172.16.0.0/16")
         service_network_cidr: Service network CIDR (optional, e.g., "10.247.0.0/16")
         flavor_id: Cluster flavor ID (optional, determines control plane specs)
         description: Cluster description (optional)
+        eni_subnet_id: ENI subnet ID for Turbo clusters (required when container_network_type="eni")
         ak: Access Key ID (optional)
         sk: Secret Access Key (optional)
         project_id: Project ID (optional)
@@ -763,6 +807,29 @@ def create_cce_cluster(
 
         if flavor_id:
             cluster_spec.flavor_id = flavor_id
+
+        # Set eni_network for Turbo clusters (container_network_type="eni")
+        # IMPORTANT: CCE Turbo (ENI) clusters require the **Neutron subnet UUID**
+        # in eniNetwork.subnets[].subnetID, NOT the VPC subnet UUID.
+        # The HostNetwork.subnet field uses the VPC subnet UUID, but the ENI
+        # subnet validation checks against Neutron subnet IDs. If the VPC
+        # subnet ID is provided, we automatically resolve its Neutron UUID.
+        if container_network_type == "eni":
+            eni_net_subnet_id = eni_subnet_id or subnet_id
+            # If eni_net_subnet_id looks like a VPC subnet UUID (not a Neutron one),
+            # resolve the Neutron subnet UUID via the VPC API.
+            neutron_id = _resolve_neutron_subnet_id(
+                region, eni_net_subnet_id, access_key, secret_key, proj_id
+            )
+            if neutron_id:
+                cluster_spec.eni_network = EniNetwork(
+                    subnets=[NetworkSubnet(subnet_id=neutron_id)]
+                )
+            else:
+                # Fallback: use the provided ID directly (may be a Neutron UUID already)
+                cluster_spec.eni_network = EniNetwork(
+                    subnets=[NetworkSubnet(subnet_id=eni_net_subnet_id)]
+                )
 
         if service_network_cidr:
             cluster_spec.service_network = ServiceNetwork(i_pv4_cidr=service_network_cidr)

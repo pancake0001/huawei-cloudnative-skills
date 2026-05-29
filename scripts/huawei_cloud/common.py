@@ -281,10 +281,16 @@ def generate_monitoring_chart(metrics_data: Dict[str, Any], resource_name: str, 
         return None
 
 def get_credentials(ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None) -> tuple:
-    """Get credentials from params or environment variables"""
-    access_key = ak or os.environ.get("HUAWEI_AK")
-    secret_key = sk or os.environ.get("HUAWEI_SK")
-    proj_id = project_id or os.environ.get("HUAWEI_PROJECT_ID")
+    """Get credentials from params or environment variables
+    
+    Supports multiple env var naming conventions:
+    - HUAWEI_AK / HUAWEI_SK / HUAWEI_PROJECT_ID (project custom)
+    - HUAWEICLOUD_SDK_AK / HUAWEICLOUD_SDK_SK / HUAWEICLOUD_SDK_PROJECT_ID (SDK official)
+    - HW_ACCESS_KEY / HW_SECRET_KEY / HW_REGION_NAME (Terraform/CLI style)
+    """
+    access_key = ak or os.environ.get("HUAWEI_AK") or os.environ.get("HUAWEICLOUD_SDK_AK") or os.environ.get("HW_ACCESS_KEY")
+    secret_key = sk or os.environ.get("HUAWEI_SK") or os.environ.get("HUAWEICLOUD_SDK_SK") or os.environ.get("HW_SECRET_KEY")
+    proj_id = project_id or os.environ.get("HUAWEI_PROJECT_ID") or os.environ.get("HUAWEICLOUD_SDK_PROJECT_ID")
     return access_key, secret_key, proj_id
 
 def get_project_id_for_region(region: str, ak: Optional[str] = None, sk: Optional[str] = None) -> Optional[str]:
