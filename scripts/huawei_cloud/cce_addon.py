@@ -3,7 +3,16 @@
 from typing import Any, Dict, Optional
 
 from huaweicloudsdkcore.exceptions.exceptions import ClientRequestException
-from huaweicloudsdkcce.v3 import ShowAddonInstanceRequest, ListAddonInstancesRequest
+from huaweicloudsdkcce.v3 import (
+    ShowAddonInstanceRequest,
+    ListAddonInstancesRequest,
+    CreateAddonInstanceRequest,
+    AddonInstance,
+    InstanceSpec,
+    AddonMetadata,
+    UpdateAddonInstanceRequest,
+    DeleteAddonInstanceRequest,
+)
 
 from .common import get_credentials, create_cce_client, SDK_AVAILABLE, IMPORT_ERROR
 
@@ -160,6 +169,317 @@ def list_cce_addons(region: str, cluster_id: str, ak: Optional[str] = None, sk: 
             "action": "list_cce_addons",
             "count": len(addons),
             "addons": addons
+        }
+
+    except ClientRequestException as e:
+        return {
+            "success": False,
+            "error": f"{e.error_code} - {e.error_msg}",
+            "request_id": getattr(e, 'request_id', None)
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "error_type": type(e).__name__
+        }
+
+
+def install_cce_addon(
+    region: str,
+    cluster_id: str,
+    addon_template_name: str,
+    addon_version: str,
+    values: Dict[str, Any],
+    ak: Optional[str] = None,
+    sk: Optional[str] = None,
+    project_id: Optional[str] = None
+) -> Dict[str, Any]:
+    """Install an addon to a CCE cluster
+
+    Args:
+        region: Huawei Cloud region (e.g., cn-north-4)
+        cluster_id: CCE cluster ID
+        addon_template_name: Addon template name (e.g., "coredns", "metrics-server")
+        addon_version: Addon version to install
+        values: Addon-specific configuration values
+        ak: Access Key ID (optional)
+        sk: Secret Access Key (optional)
+        project_id: Project ID (optional)
+
+    Returns:
+        Dictionary with installation result
+    """
+    access_key, secret_key, proj_id = get_credentials(ak, sk, project_id)
+
+    if not access_key or not secret_key:
+        return {
+            "success": False,
+            "error": "Credentials not provided. Set HUAWEI_AK and HUAWEI_SK environment variables or pass as parameters."
+        }
+
+    if not cluster_id:
+        return {
+            "success": False,
+            "error": "cluster_id is required"
+        }
+
+    if not addon_template_name:
+        return {
+            "success": False,
+            "error": "addon_template_name is required"
+        }
+
+    if not addon_version:
+        return {
+            "success": False,
+            "error": "addon_version is required"
+        }
+
+    if not SDK_AVAILABLE:
+        return {
+            "success": False,
+            "error": f"Huawei Cloud SDK not installed: {IMPORT_ERROR}"
+        }
+
+    try:
+        client = create_cce_client(region, access_key, secret_key, proj_id)
+
+        metadata = AddonMetadata(
+            annotations={"addon.install/type": "install"}
+        )
+
+        spec = InstanceSpec(
+            cluster_id=cluster_id,
+            version=addon_version,
+            template_name=addon_template_name,
+            values=values
+        )
+
+        body = AddonInstance(
+            kind="Addon",
+            api_version="v3",
+            metadata=metadata,
+            spec=spec
+        )
+
+        request = CreateAddonInstanceRequest()
+        request.body = body
+
+        response = client.create_addon_instance(request)
+
+        addon_info = {}
+        if hasattr(response, 'metadata') and response.metadata:
+            addon_info["uid"] = getattr(response.metadata, 'uid', None)
+            addon_info["name"] = getattr(response.metadata, 'name', None)
+
+        return {
+            "success": True,
+            "region": region,
+            "cluster_id": cluster_id,
+            "action": "install_cce_addon",
+            "addon_template_name": addon_template_name,
+            "addon_version": addon_version,
+            "addon": addon_info
+        }
+
+    except ClientRequestException as e:
+        return {
+            "success": False,
+            "error": f"{e.error_code} - {e.error_msg}",
+            "request_id": getattr(e, 'request_id', None)
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "error_type": type(e).__name__
+        }
+
+
+def uninstall_cce_addon(
+    region: str,
+    cluster_id: str,
+    addon_id: str,
+    confirm: bool,
+    ak: Optional[str] = None,
+    sk: Optional[str] = None,
+    project_id: Optional[str] = None
+) -> Dict[str, Any]:
+    """Uninstall an addon from a CCE cluster
+
+    Args:
+        region: Huawei Cloud region (e.g., cn-north-4)
+        cluster_id: CCE cluster ID
+        addon_id: Addon ID (name or UID)
+        confirm: Must be True to proceed with uninstallation
+        ak: Access Key ID (optional)
+        sk: Secret Access Key (optional)
+        project_id: Project ID (optional)
+
+    Returns:
+        Dictionary with uninstallation result
+    """
+    if not confirm:
+        return {
+            "success": False,
+            "error": "Uninstallation requires explicit confirmation. Set confirm=True to proceed."
+        }
+
+    access_key, secret_key, proj_id = get_credentials(ak, sk, project_id)
+
+    if not access_key or not secret_key:
+        return {
+            "success": False,
+            "error": "Credentials not provided. Set HUAWEI_AK and HUAWEI_SK environment variables or pass as parameters."
+        }
+
+    if not cluster_id:
+        return {
+            "success": False,
+            "error": "cluster_id is required"
+        }
+
+    if not addon_id:
+        return {
+            "success": False,
+            "error": "addon_id is required"
+        }
+
+    if not SDK_AVAILABLE:
+        return {
+            "success": False,
+            "error": f"Huawei Cloud SDK not installed: {IMPORT_ERROR}"
+        }
+
+    try:
+        client = create_cce_client(region, access_key, secret_key, proj_id)
+
+        request = DeleteAddonInstanceRequest()
+        request.cluster_id = cluster_id
+        request.addon_name = addon_id
+
+        client.delete_addon_instance(request)
+
+        return {
+            "success": True,
+            "region": region,
+            "cluster_id": cluster_id,
+            "action": "uninstall_cce_addon",
+            "addon_id": addon_id,
+            "message": f"Addon {addon_id} uninstallation initiated"
+        }
+
+    except ClientRequestException as e:
+        return {
+            "success": False,
+            "error": f"{e.error_code} - {e.error_msg}",
+            "request_id": getattr(e, 'request_id', None)
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "error_type": type(e).__name__
+        }
+
+
+def update_cce_addon(
+    region: str,
+    cluster_id: str,
+    addon_id: str,
+    addon_version: str,
+    values: Dict[str, Any],
+    ak: Optional[str] = None,
+    sk: Optional[str] = None,
+    project_id: Optional[str] = None
+) -> Dict[str, Any]:
+    """Update an addon in a CCE cluster
+
+    Args:
+        region: Huawei Cloud region (e.g., cn-north-4)
+        cluster_id: CCE cluster ID
+        addon_id: Addon ID (name or UID)
+        addon_version: New addon version
+        values: Addon-specific configuration values
+        ak: Access Key ID (optional)
+        sk: Secret Access Key (optional)
+        project_id: Project ID (optional)
+
+    Returns:
+        Dictionary with update result
+    """
+    access_key, secret_key, proj_id = get_credentials(ak, sk, project_id)
+
+    if not access_key or not secret_key:
+        return {
+            "success": False,
+            "error": "Credentials not provided. Set HUAWEI_AK and HUAWEI_SK environment variables or pass as parameters."
+        }
+
+    if not cluster_id:
+        return {
+            "success": False,
+            "error": "cluster_id is required"
+        }
+
+    if not addon_id:
+        return {
+            "success": False,
+            "error": "addon_id is required"
+        }
+
+    if not addon_version:
+        return {
+            "success": False,
+            "error": "addon_version is required"
+        }
+
+    if not SDK_AVAILABLE:
+        return {
+            "success": False,
+            "error": f"Huawei Cloud SDK not installed: {IMPORT_ERROR}"
+        }
+
+    try:
+        client = create_cce_client(region, access_key, secret_key, proj_id)
+
+        metadata = AddonMetadata(
+            annotations={"addon.upgrade/type": "upgrade"}
+        )
+
+        spec = InstanceSpec(
+            cluster_id=cluster_id,
+            version=addon_version,
+            values=values
+        )
+
+        body = AddonInstance(
+            kind="Addon",
+            api_version="v3",
+            metadata=metadata,
+            spec=spec
+        )
+
+        request = UpdateAddonInstanceRequest()
+        request.addon_name = addon_id
+        request.body = body
+
+        response = client.update_addon_instance(request)
+
+        addon_info = {}
+        if hasattr(response, 'metadata') and response.metadata:
+            addon_info["uid"] = getattr(response.metadata, 'uid', None)
+            addon_info["name"] = getattr(response.metadata, 'name', None)
+
+        return {
+            "success": True,
+            "region": region,
+            "cluster_id": cluster_id,
+            "action": "update_cce_addon",
+            "addon_id": addon_id,
+            "addon_version": addon_version,
+            "addon": addon_info
         }
 
     except ClientRequestException as e:

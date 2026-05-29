@@ -786,6 +786,105 @@ def _create_cce_cluster(params: Dict[str, str]) -> Dict[str, Any]:
     )
 
 
+def _create_cce_nodepool(params: Dict[str, str]) -> Dict[str, Any]:
+    data_volumes = _parse_json_param(params.get("data_volumes"))
+    autoscaling_enabled = params.get("autoscaling_enabled", "false").lower() == "true"
+    return cce_nodepool.create_node_pool(
+        region=params["region"],
+        cluster_id=params["cluster_id"],
+        nodepool_name=params["nodepool_name"],
+        flavor=params["flavor"],
+        availability_zone=params["availability_zone"],
+        root_volume_size=int(params["root_volume_size"]),
+        root_volume_type=params["root_volume_type"],
+        initial_node_count=_to_int(params.get("initial_node_count"), 1),
+        os_type=params.get("os_type"),
+        ssh_key=params.get("ssh_key"),
+        password=params.get("password"),
+        data_volumes=data_volumes,
+        subnet_id=params.get("subnet_id"),
+        autoscaling_enabled=autoscaling_enabled,
+        min_node_count=_to_int(params.get("min_node_count"), 0) if autoscaling_enabled else None,
+        max_node_count=_to_int(params.get("max_node_count"), 0) if autoscaling_enabled else None,
+        ak=params.get("ak"),
+        sk=params.get("sk"),
+        project_id=params.get("project_id"),
+    )
+
+
+def _delete_cce_nodepool(params: Dict[str, str]) -> Dict[str, Any]:
+    return cce_nodepool.delete_node_pool(
+        region=params["region"],
+        cluster_id=params["cluster_id"],
+        nodepool_id=params["nodepool_id"],
+        confirm=params.get("confirm", "").lower() == "true",
+        ak=params.get("ak"),
+        sk=params.get("sk"),
+        project_id=params.get("project_id"),
+    )
+
+
+def _create_cce_node(params: Dict[str, str]) -> Dict[str, Any]:
+    data_volumes = _parse_json_param(params.get("data_volumes"))
+    return cce_node.create_cce_node(
+        region=params["region"],
+        cluster_id=params["cluster_id"],
+        flavor=params["flavor"],
+        availability_zone=params["availability_zone"],
+        root_volume_size=int(params["root_volume_size"]),
+        root_volume_type=params["root_volume_type"],
+        node_count=_to_int(params.get("node_count"), 1),
+        os_type=params.get("os_type"),
+        ssh_key=params.get("ssh_key"),
+        password=params.get("password"),
+        data_volumes=data_volumes,
+        subnet_id=params.get("subnet_id"),
+        ak=params.get("ak"),
+        sk=params.get("sk"),
+        project_id=params.get("project_id"),
+    )
+
+
+def _install_cce_addon(params: Dict[str, str]) -> Dict[str, Any]:
+    values = _parse_json_param(params.get("values"))
+    return cce_addon.install_cce_addon(
+        region=params["region"],
+        cluster_id=params["cluster_id"],
+        addon_template_name=params["addon_template_name"],
+        addon_version=params.get("addon_version"),
+        values=values,
+        ak=params.get("ak"),
+        sk=params.get("sk"),
+        project_id=params.get("project_id"),
+    )
+
+
+def _uninstall_cce_addon(params: Dict[str, str]) -> Dict[str, Any]:
+    return cce_addon.uninstall_cce_addon(
+        region=params["region"],
+        cluster_id=params["cluster_id"],
+        addon_id=params["addon_id"],
+        confirm=params.get("confirm", "").lower() == "true",
+        ak=params.get("ak"),
+        sk=params.get("sk"),
+        project_id=params.get("project_id"),
+    )
+
+
+def _update_cce_addon(params: Dict[str, str]) -> Dict[str, Any]:
+    values = _parse_json_param(params.get("values"))
+    return cce_addon.update_cce_addon(
+        region=params["region"],
+        cluster_id=params["cluster_id"],
+        addon_id=params["addon_id"],
+        addon_version=params.get("addon_version"),
+        values=values,
+        ak=params.get("ak"),
+        sk=params.get("sk"),
+        project_id=params.get("project_id"),
+    )
+
+
 ACTION_SPECS: Dict[str, tuple[tuple[str, ...], Handler]] = {
     "huawei_list_ecs": (("region",), _list_ecs),
     "huawei_get_ecs_metrics": (("region", "instance_id"), _get_ecs_metrics),
@@ -821,6 +920,12 @@ ACTION_SPECS: Dict[str, tuple[tuple[str, ...], Handler]] = {
     "huawei_list_cce_addons": (("region", "cluster_id"), _list_cce_addons),
     "huawei_get_cce_addon_detail": (("region", "cluster_id", "addon_name"), _get_cce_addon_detail),
     "huawei_resize_cce_nodepool": (("region", "cluster_id", "nodepool_id", "node_count"), _resize_cce_nodepool),
+    "huawei_create_cce_nodepool": (("region", "cluster_id", "nodepool_name", "flavor", "availability_zone", "root_volume_size", "root_volume_type"), _create_cce_nodepool),
+    "huawei_delete_cce_nodepool": (("region", "cluster_id", "nodepool_id"), _delete_cce_nodepool),
+    "huawei_create_cce_node": (("region", "cluster_id", "flavor", "availability_zone", "root_volume_size", "root_volume_type"), _create_cce_node),
+    "huawei_install_cce_addon": (("region", "cluster_id", "addon_template_name"), _install_cce_addon),
+    "huawei_uninstall_cce_addon": (("region", "cluster_id", "addon_id"), _uninstall_cce_addon),
+    "huawei_update_cce_addon": (("region", "cluster_id", "addon_id"), _update_cce_addon),
     "huawei_get_cce_pods": (("region", "cluster_id"), _get_cce_pods),
     "huawei_get_pod_logs": (("region", "cluster_id", "pod_name"), _get_pod_logs),
     "huawei_get_cce_namespaces": (("region", "cluster_id"), _get_cce_namespaces),

@@ -26,7 +26,9 @@ description: |
 | `huawei_hibernate_cce_cluster` | 休眠 | 🟠 高 | 休眠集群，停止所有工作负载，暂停控制面计费 |
 | `huawei_awake_cce_cluster` | 唤醒 | 🟠 高 | 唤醒休眠集群，恢复工作负载和控制面计费 |
 | `huawei_resize_cce_nodepool` | 扩缩容 | 🟡 中 | 调整节点池节点数量，影响业务容量 |
+| `huawei_delete_cce_nodepool` | 删除 | 🟠 高 | 删除节点池，影响业务容量 |
 | `huawei_delete_cce_node` | 删除 | 🟠 高 | 从集群删除节点，影响业务调度 |
+| `huawei_uninstall_cce_addon` | 卸载 | 🟠 高 | 卸载集群插件，可能影响集群功能 |
 | `huawei_cce_node_cordon` | 标记不可调度 | 🟡 中 | 节点标记为不可调度，新 Pod 不会分配 |
 | `huawei_cce_node_uncordon` | 恢复调度 | 🟡 中 | 节点恢复可调度，新 Pod 可能立即分配 |
 | `huawei_cce_node_drain` | 驱逐 | 🟠 高 | 驱逐节点所有 Pod，影响业务运行 |
@@ -210,7 +212,9 @@ python3 huawei-cloud.py huawei_get_cce_kubeconfig \
 | 工具 | 功能 | 风险等级 | 需确认 |
 |------|------|---------|-------|
 | `huawei_list_cce_nodepools` | 查询节点池列表 | 🟢 低 | 否 |
+| `huawei_create_cce_nodepool` | 创建节点池 | 🟢 低 | 否 |
 | `huawei_resize_cce_nodepool` | 调整节点池节点数量 | 🟡 中 | **是** |
+| `huawei_delete_cce_nodepool` | 删除节点池 | 🟠 高 | **是** |
 
 **参数说明：**
 - `region` (required): 华为云区域
@@ -254,6 +258,7 @@ python3 huawei-cloud.py huawei_resize_cce_nodepool \
 | `huawei_cce_node_uncordon` | 恢复节点可调度 | 🟡 中 | **是** |
 | `huawei_cce_node_drain` | 驱逐节点所有 Pod | 🟠 高 | **是** |
 | `huawei_cce_node_status` | 查询节点调度状态 | 🟢 低 | 否 |
+| `huawei_create_cce_node` | 创建节点 | 🟢 低 | 否 |
 
 **参数说明：**
 - `region` (required): 华为云区域
@@ -335,10 +340,13 @@ python3 huawei-cloud.py huawei_delete_cce_node \
 
 ### 插件管理
 
-| 工具 | 功能 | 参数 |
-|------|------|------|
-| `huawei_list_cce_addons` | 查询集群插件列表 | `region`, `cluster_id` |
-| `huawei_get_cce_addon_detail` | 查询插件详情 | `region`, `cluster_id`, `addon_id` |
+| 工具 | 功能 | 风险等级 | 需确认 |
+|------|------|---------|-------|
+| `huawei_list_cce_addons` | 查询集群插件列表 | 🟢 低 | 否 |
+| `huawei_get_cce_addon_detail` | 查询插件详情 | 🟢 低 | 否 |
+| `huawei_install_cce_addon` | 安装插件 | 🟢 低 | 否 |
+| `huawei_uninstall_cce_addon` | 卸载插件 | 🟠 高 | **是** |
+| `huawei_update_cce_addon` | 更新插件 | 🟡 中 | 否 |
 
 **参数说明：**
 - `region` (required): 华为云区域

@@ -1,6 +1,6 @@
 """CCE Node management functions."""
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 from .common import (
     get_credentials,
     create_cce_client,
@@ -530,3 +530,139 @@ def cce_node_status(
         sk=sk,
         project_id=project_id,
     )
+
+
+def create_cce_node(
+    region: str,
+    cluster_id: str,
+    flavor: str,
+    availability_zone: str,
+    root_volume_size: int = 40,
+    root_volume_type: str = "SSD",
+    node_count: int = 1,
+    os_type: str = "EulerOS 2.9",
+    ssh_key: Optional[str] = None,
+    password: Optional[str] = None,
+    data_volumes: Optional[List[Dict[str, Any]]] = None,
+    subnet_id: Optional[str] = None,
+    ak: Optional[str] = None,
+    sk: Optional[str] = None,
+    project_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Create nodes in a CCE cluster
+
+    Args:
+        region: Huawei Cloud region (e.g., cn-north-4)
+        cluster_id: CCE cluster ID
+        flavor: Node flavor (e.g., c6.large.2)
+        availability_zone: Availability zone (e.g., cn-north-4a)
+        root_volume_size: Root volume size in GB (default: 40)
+        root_volume_type: Root volume type (default: SSD)
+        node_count: Number of nodes to create (default: 1)
+        os_type: Operating system type (default: EulerOS 2.9)
+        ssh_key: SSH key pair name for login
+        password: Password for login (used if ssh_key not provided)
+        data_volumes: List of data volume configs [{"size": 100, "type": "SSD"}]
+        subnet_id: Subnet ID for the node
+        ak: Access Key ID (optional)
+        sk: Secret Access Key (optional)
+        project_id: Project ID (optional)
+
+    Returns:
+        Dictionary with creation result
+    """
+    access_key, secret_key, proj_id = get_credentials(ak, sk, project_id)
+
+    if not access_key or not secret_key:
+        return {
+            "success": False,
+            "error": "Credentials not provided. Set HUAWEI_AK and HUAWEI_SK environment variables or pass as parameters.",
+        }
+
+    if not cluster_id:
+        return {"success": False, "error": "cluster_id is required"}
+
+    if not flavor:
+        return {"success": False, "error": "flavor is required"}
+
+    if not availability_zone:
+        return {"success": False, "error": "availability_zone is required"}
+
+    if not SDK_AVAILABLE:
+        return {"success": False, "error": f"Huawei Cloud SDK not installed: {IMPORT_ERROR}"}
+
+    try:
+        from huaweicloudsdkcce.v3 import (
+            CreateNodeRequest,
+            CreateNodeRequestBody,
+            NodeMetadata,
+            NodeSpec,
+            Volume,
+            Login,
+            UserPassword,
+            NodeNicSpec,
+        )
+
+        client = create_cce_client(region, access_key, secret_key, proj_id)
+
+        root_volume = Volume(size=root_volume_size, volumetype=root_volume_type)
+
+        data_volume_list = []
+        if data_volumes:
+            for vol in data_volumes:
+                data_volume_list.append(
+                    Volume(
+                        size=vol.get("size", 100),
+                        volumetype=vol.get("type", "SSD"),
+                    )
+                )
+
+        login = None
+        if ssh_key:
+            login = Login(sshkey=ssh_key)
+        elif password:
+            login = Login(userPassword=UserPassword(username="root", password=password))
+
+        node_spec = NodeSpec(
+            flavor=flavor,
+            az=availability_zone,
+            os=os_type,
+            login=login,
+            rootVolume=root_volume,
+            dataVolumes=data_volume_list if data_volume_list else None,
+            nodeNicSpec=NodeNicSpec(subnetId=subnet_id) if subnet_id else None,
+        )
+
+        node_metadata = NodeMetadata(name=f"node-{cluster_id[:8]}")
+
+        request_body = CreateNodeRequestBody(
+            metadata=node_metadata,
+            spec=node_spec,
+            count=node_count,
+        )
+
+        request = CreateNodeRequest(cluster_id=cluster_id)
+        request.body = request_body
+
+        response = client.create_node(request)
+
+        return {
+            "success": True,
+            "region": region,
+            "cluster_id": cluster_id,
+            "action": "create_cce_node",
+            "node_count": node_count,
+            "flavor": flavor,
+            "availability_zone": availability_zone,
+            "message": f"Node creation request submitted for {node_count} node(s)",
+            "response": response.to_dict() if hasattr(response, "to_dict") else str(response),
+        }
+
+    except ClientRequestException as e:
+        return {
+            "success": False,
+            "error": f"{e.error_code} - {e.error_msg}",
+            "request_id": getattr(e, "request_id", None),
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e), "error_type": type(e).__name__}
