@@ -5,10 +5,13 @@ from __future__ import annotations
 import base64
 import os
 import sys
+import tempfile
 import uuid
 import warnings
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
+
+os.environ.setdefault("MPLCONFIGDIR", os.path.join(tempfile.gettempdir(), "matplotlib"))
 
 import yaml
 

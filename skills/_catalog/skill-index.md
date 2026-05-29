@@ -1,0 +1,130 @@
+# Skill Index
+
+`skills/_catalog` 是总目录，不是可触发 skill，因此不放 `SKILL.md`。第一阶段采用简化架构：agent 通过各 skill 的 `description` 自动触发；需要人工查找时先看本文件，再进入对应 skill 的 `SKILL.md` 和 `references/*`。
+
+第一阶段不实现复杂 `skill-router`，也不建立完整 runtime 平台。工具边界由每个 skill 的 `skill-profile.yaml` 声明，`manifest.json` 由 `scripts/dev/generate_manifests.py` 生成。
+
+## L1 产品与资源生命周期管理
+
+### container-migration-planner
+
+适用：CCE 集群迁移、容器平台交付方案、资源盘点、迁移风险评估。
+
+常见问题：需要从一个集群迁移到另一个集群；需要评估 VPC、ELB、EIP、存储和工作负载依赖；需要输出迁移方案。
+
+常用工具：`huawei_list_cce_clusters`、`huawei_list_cce_nodes`、`huawei_get_cce_deployments`、`huawei_get_cce_services`、`huawei_get_cce_ingresses`、`huawei_get_cce_pvcs`、`huawei_list_vpc`、`huawei_list_elb`。
+
+关系：只做盘点和方案，不执行真实迁移；如发现运行态异常，转给 `root-cause-analyzer`。
+
+## L2 可观测与告警智能
+
+### observability-context-builder
+
+适用：需要汇聚指标、日志、事件、告警，建立故障上下文。
+
+常见问题：Pod 异常但不知道先看什么；用户提供 CCE 告警需要补齐上下文；服务变慢需要拉取 AOM、LTS、Events、TopN 指标。
+
+常用工具：`huawei_list_aom_alarms`、`huawei_get_aom_metrics`、`huawei_query_aom_logs`、`huawei_get_cce_events`、`huawei_get_cce_pod_metrics_topN`、`huawei_get_cce_node_metrics_topN`。
+
+关系：负责收集证据，不给最终恢复动作；根因判断交给 `root-cause-analyzer`。
+
+### alarm-correlation-engine
+
+适用：AOM 告警很多，需要合并、去重、分级和关联分析。
+
+常见问题：CCE 告警风暴；active/history 告警需要一起看；规则、静默、动作规则需要核对。
+
+常用工具：`huawei_list_aom_alarms`、`huawei_list_aom_current_alarms`、`huawei_analyze_aom_alarms`、`huawei_list_aom_alarm_rules`、`huawei_aom_alarm_inspection`。
+
+关系：输出告警线索和时间线；复杂跨域根因交给 `root-cause-analyzer`。
+
+## L3 故障诊断与自愈恢复
+
+### pod-failure-diagnoser
+
+适用：CrashLoopBackOff、ImagePullBackOff、OOMKilled、Pending、Evicted、Pod 日志异常。
+
+常见问题：Pod 一直重启；工作负载副本不可用；Pod Pending；用户只给了 namespace 和应用名。
+
+常用工具：`huawei_get_cce_pods`、`huawei_get_pod_logs`、`huawei_get_cce_events`、`huawei_get_cce_pod_metrics`、`huawei_workload_diagnose`。
+
+关系：定位 Pod/Workload 层问题；如果需要扩缩容或删除重建，交给 `auto-remediation-runner` 预览。
+
+### node-failure-diagnoser
+
+适用：Node NotReady、资源压力、NPD 事件、节点漏洞、节点网络连通异常。
+
+常见问题：节点 NotReady；Pod 集中调度失败；节点 CPU/内存/磁盘压力；HSS 漏洞影响节点。
+
+常用工具：`huawei_get_kubernetes_nodes`、`huawei_get_cce_node_metrics`、`huawei_node_diagnose`、`huawei_node_batch_diagnose`、`huawei_hss_list_host_vuls_all`。
+
+关系：定位节点层问题；cordon、drain、reboot 由 `auto-remediation-runner` 预览和确认。
+
+### network-failure-diagnoser
+
+适用：Service 不通、Ingress 502/504、ELB/EIP/NAT 链路问题、Pod 调度后的连通性验证。
+
+常见问题：外部访问 502；Service 没有后端；Ingress 到 ELB 链路异常；节点安全组或网络 ACL 可疑。
+
+常用工具：`huawei_get_cce_services`、`huawei_get_cce_ingresses`、`huawei_list_elb`、`huawei_get_elb_metrics`、`huawei_list_eip`、`huawei_network_diagnose`。
+
+关系：定位网络链路；涉及绑定/解绑 EIP 或扩缩容验证时交给 `auto-remediation-runner`。
+
+### root-cause-analyzer
+
+适用：跨 Pod、Node、Network、AOM 告警的综合根因分析。
+
+常见问题：用户只描述业务不可用；多个告警同时出现；需要 Top3 根因、证据链和报告。
+
+常用工具：`huawei_workload_diagnose`、`huawei_network_diagnose`、`huawei_node_diagnose`、`huawei_generate_diagnosis_report`、`huawei_analyze_aom_alarms`。
+
+关系：汇总诊断结论；恢复动作交给 `auto-remediation-runner`，巡检入口交给 `daily-cluster-inspector`。
+
+### auto-remediation-runner
+
+适用：用户已经明确要求恢复动作，或诊断结果需要生成可确认的恢复预案。
+
+常见问题：扩容工作负载；cordon/drain 节点；重启 ECS；修复 HSS 漏洞；休眠或唤醒 CCE 集群。
+
+常用工具：`huawei_scale_cce_workload`、`huawei_resize_cce_nodepool`、`huawei_cce_node_cordon`、`huawei_cce_node_drain`、`huawei_reboot_ecs`、`huawei_hss_change_vul_status`。
+
+关系：默认只预览，不自动加 `confirm=true`；执行后调用只读诊断工具做验证。
+
+## L4 巡检、治理与连续运维
+
+### daily-cluster-inspector
+
+适用：每日巡检、快速健康检查、自动巡检任务、巡检报告生成。
+
+常见问题：每天早上检查 CCE 集群；只想快速知道是否异常；需要在异常时再深度诊断。
+
+常用工具：`huawei_cce_quick_check`、`huawei_cce_auto_inspection`、`huawei_cce_cluster_inspection_parallel`、`huawei_pod_status_inspection`、`huawei_aom_alarm_inspection`。
+
+关系：正常时输出简报；异常时转给 `root-cause-analyzer` 或对应诊断 skill。
+
+## L5 解决方案与交付专家
+
+第一阶段由 `container-migration-planner` 覆盖容器迁移和交付方案类问题。后续可以扩展容量规划、成本优化、灾备设计等独立 skill。
+
+## L6 多云、多集群与混合云管理
+
+第一阶段暂不实现多云控制面。多集群清单和迁移盘点先由 `container-migration-planner` 处理。
+
+## L7 知识库、Runbook 与智能体底座
+
+第一阶段以各 skill 的 `references/workflow.md`、`references/risk-rules.md`、`references/output-schema.md` 承载 runbook。后续如果 skill 数量超过 20 个，再评估独立 router 或知识库索引。
+
+## 常见问题路由
+
+| 用户问题 | 推荐 skill |
+| --- | --- |
+| Pod 一直重启、Pending、OOMKilled | `pod-failure-diagnoser` |
+| 节点 NotReady、资源压力、节点漏洞 | `node-failure-diagnoser` |
+| Ingress 502、Service 不通、ELB 链路异常 | `network-failure-diagnoser` |
+| CCE 告警很多，需要合并分析 | `alarm-correlation-engine` |
+| 需要先把日志、事件、指标、告警都收集齐 | `observability-context-builder` |
+| 业务不可用，需要综合根因分析 | `root-cause-analyzer` |
+| 需要扩容、重启、drain、漏洞修复等动作 | `auto-remediation-runner` |
+| 做每日巡检或周期性健康检查 | `daily-cluster-inspector` |
+| 做容器迁移方案和资源盘点 | `container-migration-planner` |
+

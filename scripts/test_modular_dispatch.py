@@ -5,6 +5,8 @@ import sys
 import unittest
 import json
 import re
+import os
+import tempfile
 from pathlib import Path
 from unittest import mock
 import io
@@ -12,6 +14,7 @@ import runpy
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
+os.environ.setdefault("MPLCONFIGDIR", str(Path(tempfile.gettempdir()) / "matplotlib"))
 sys.path.insert(0, str(SCRIPT_DIR))
 
 from huawei_cloud import dispatcher  # noqa: E402
@@ -211,7 +214,7 @@ class DispatcherTests(unittest.TestCase):
         mocked.assert_called_once_with("cn-north-4", "c1", "np1", 3, True, ["asg-a", "asg-b"], None, None, None)
 
     def test_main_legacy_dispatch_branches_removed(self):
-        script_text = (SCRIPT_DIR / "huawei-cloud.py").read_text()
+        script_text = (SCRIPT_DIR / "huawei-cloud.py").read_text(encoding="utf-8")
         legacy_actions = set(re.findall(r'(?:if|elif) action == "([^"]+)"', script_text))
         self.assertEqual(legacy_actions, set())
 

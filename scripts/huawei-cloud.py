@@ -8,12 +8,15 @@ import sys
 import json
 import os
 import base64
+import tempfile
 import yaml
 import uuid
 import warnings
 import time
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Dict, Any, List
+
+os.environ.setdefault("MPLCONFIGDIR", os.path.join(tempfile.gettempdir(), "matplotlib"))
 
 # Suppress matplotlib warnings
 warnings.filterwarnings('ignore')

@@ -1,0 +1,26 @@
+name: network-failure-diagnoser
+level: L3
+domain: diagnosis-remediation
+description: Diagnose CCE Service, Ingress, ELB, EIP, NAT, and VPC network failures.
+tools:
+  - huawei_get_cce_services
+  - huawei_get_cce_ingresses
+  - huawei_list_elb
+  - huawei_list_elb_listeners
+  - huawei_get_elb_metrics
+  - huawei_list_eip
+  - huawei_get_eip_metrics
+  - huawei_list_nat
+  - huawei_get_nat_gateway_metrics
+  - huawei_list_security_groups
+  - huawei_list_vpc_acls
+  - huawei_network_diagnose
+  - huawei_network_diagnose_by_alarm
+  - huawei_network_verify_pod_scheduling
+references:
+  - references/workflow.md
+  - references/risk-rules.md
+  - references/output-schema.md
+guardrails:
+  max_auto_risk: R1
+
