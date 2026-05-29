@@ -44,9 +44,9 @@ def get_cce_addon_detail(region: str, cluster_id: str, addon_name: str, ak: Opti
 
         request = ShowAddonInstanceRequest()
         request.cluster_id = cluster_id
-        request.addon_name = addon_name
+        request.id = addon_name
 
-        response = client.show_addon(request)
+        response = client.show_addon_instance(request)
 
         addon_info = {}
         if hasattr(response, 'spec') and response.spec:
@@ -252,7 +252,7 @@ def install_cce_addon(
         spec = InstanceSpec(
             cluster_id=cluster_id,
             version=addon_version,
-            template_name=addon_template_name,
+            addon_template_name=addon_template_name,
             values=values
         )
 

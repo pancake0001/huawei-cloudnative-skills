@@ -1,5 +1,8 @@
 """CCE Node Pool management functions."""
 
+import base64
+
+from passlib.hash import sha512_crypt
 from typing import Any, Dict, List, Optional
 
 from huaweicloudsdkcce.v3 import (
@@ -26,6 +29,7 @@ from .common import (
     IMPORT_ERROR,
     get_credentials,
     create_cce_client,
+    get_cce_password,
 )
 
 
@@ -343,7 +347,6 @@ def create_node_pool(
     initial_node_count: int,
     os_type: str = "EulerOS",
     ssh_key: Optional[str] = None,
-    password: Optional[str] = None,
     data_volumes: Optional[List[Dict[str, Any]]] = None,
     subnet_id: Optional[str] = None,
     autoscaling_enabled: bool = False,
@@ -366,7 +369,6 @@ def create_node_pool(
         initial_node_count: Initial number of nodes
         os_type: Operating system type (default: EulerOS)
         ssh_key: SSH key name for login (optional, mutually exclusive with password)
-        password: Password for login (optional, mutually exclusive with ssh_key)
         data_volumes: List of data volume specs [{"size": 100, "type": "SSD"}, ...]
         subnet_id: Subnet ID for the node pool
         autoscaling_enabled: Enable autoscaling (default: False)
@@ -375,6 +377,10 @@ def create_node_pool(
         ak: Access Key ID (optional)
         sk: Secret Access Key (optional)
         project_id: Project ID (optional)
+
+    Note:
+        Password login uses the CCE_NODE_PASSWORD environment variable.
+        If ssh_key is not provided, CCE_NODE_PASSWORD must be set.
 
     Returns:
         Dictionary with operation result
@@ -417,11 +423,13 @@ def create_node_pool(
             "error": "initial_node_count must be a non-negative integer"
         }
 
-    if not ssh_key and not password:
-        return {
-            "success": False,
-            "error": "Either ssh_key or password must be provided for node login"
-        }
+    if not ssh_key:
+        password, password_error = get_cce_password()
+        if password_error:
+            return {
+                "success": False,
+                "error": password_error
+            }
 
     if not SDK_AVAILABLE:
         return {
@@ -439,12 +447,16 @@ def create_node_pool(
         root_volume.size = root_volume_size
         root_volume.volumetype = root_volume_type
 
-        login = Login()
+login = Login()
         if ssh_key:
             login.ssh_key = ssh_key
-        if password:
+        else:
+            password, password_error = get_cce_password()
+            if password_error:
+                return {"success": False, "error": password_error}
+            hashed = sha512_crypt.using(rounds=5000).hash(password)
             user_password = UserPassword()
-            user_password.password = password
+            user_password.password = base64.b64encode(hashed.encode("utf-8")).decode("utf-8")
             login.user_password = user_password
 
         node_spec = NodeSpec()
