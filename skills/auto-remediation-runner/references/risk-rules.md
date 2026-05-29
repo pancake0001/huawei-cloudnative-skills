@@ -15,6 +15,7 @@
 - `huawei_stop_ecs_instance`
 - `huawei_bind_cce_cluster_eip`
 - `huawei_unbind_cce_cluster_eip`
+- `huawei_configure_cce_hpa`
 
 规则：必须先预览，禁止自动添加 `confirm=true`。
 
@@ -30,4 +31,3 @@
 - `huawei_hss_change_vul_status`
 
 规则：必须用户明确确认动作和对象后才能传 `confirm=true`。执行后必须验证。禁止自动、批量、模糊对象执行。
-

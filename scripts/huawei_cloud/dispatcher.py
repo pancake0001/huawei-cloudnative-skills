@@ -13,7 +13,7 @@ from . import pod_diagnosis
 from . import cce_auto_inspection
 from . import chart_generator
 from . import common
-from . import cce_cluster, cce_nodepool, cce_node, cce_addon, cce_k8s
+from . import cce_cluster, cce_nodepool, cce_node, cce_addon, cce_k8s, cce_hpa, cce_cost_optimization
 
 # cce_app_logs and lts require huaweicloudsdklts which may not be installed
 try:
@@ -45,10 +45,22 @@ def _to_int(value: str | None, default: int) -> int:
         return default
 
 
+def _to_optional_int(value: str | None) -> int | None:
+    if value is None or value.strip().lower() in {"", "none", "null"}:
+        return None
+    return _to_int(value, 0)
+
+
 def _parse_json_param(value: str | None) -> Any:
     if not value:
         return None
     return json.loads(value)
+
+
+def _hpa_cpu_target(params: Dict[str, str]) -> int | None:
+    if "target_cpu_utilization" not in params:
+        return 60
+    return _to_optional_int(params.get("target_cpu_utilization"))
 
 
 def _list_ecs(params: Dict[str, str]) -> Dict[str, Any]:
@@ -598,6 +610,79 @@ def _list_cce_cronjobs(params: Dict[str, str]) -> Dict[str, Any]:
     )
 
 
+def _list_cce_hpas(params: Dict[str, str]) -> Dict[str, Any]:
+    return cce_hpa.list_cce_hpas(
+        region=params["region"],
+        cluster_id=params["cluster_id"],
+        ak=params.get("ak"),
+        sk=params.get("sk"),
+        project_id=params.get("project_id"),
+        namespace=params.get("namespace"),
+        include_system=params.get("include_system", "false").lower() == "true",
+    )
+
+
+def _generate_cce_hpa_manifest(params: Dict[str, str]) -> Dict[str, Any]:
+    return cce_hpa.generate_cce_hpa_manifest(
+        workload_name=params["workload_name"],
+        namespace=params["namespace"],
+        min_replicas=_to_int(params["min_replicas"], 1),
+        max_replicas=_to_int(params["max_replicas"], 1),
+        workload_type=params.get("workload_type", "deployment"),
+        hpa_name=params.get("hpa_name"),
+        target_cpu_utilization=_hpa_cpu_target(params),
+        target_memory_utilization=_to_optional_int(params.get("target_memory_utilization")),
+        behavior=_parse_json_param(params.get("behavior")),
+        output_file=params.get("output_file"),
+    )
+
+
+def _configure_cce_hpa(params: Dict[str, str]) -> Dict[str, Any]:
+    return cce_hpa.configure_cce_hpa(
+        region=params["region"],
+        cluster_id=params["cluster_id"],
+        workload_name=params["workload_name"],
+        namespace=params["namespace"],
+        min_replicas=_to_int(params["min_replicas"], 1),
+        max_replicas=_to_int(params["max_replicas"], 1),
+        workload_type=params.get("workload_type", "deployment"),
+        hpa_name=params.get("hpa_name"),
+        target_cpu_utilization=_hpa_cpu_target(params),
+        target_memory_utilization=_to_optional_int(params.get("target_memory_utilization")),
+        behavior=_parse_json_param(params.get("behavior")),
+        confirm=params.get("confirm", "").lower() == "true",
+        ak=params.get("ak"),
+        sk=params.get("sk"),
+        project_id=params.get("project_id"),
+    )
+
+
+def _analyze_cce_cost_optimization(params: Dict[str, str]) -> Dict[str, Any]:
+    return cce_cost_optimization.analyze_cce_cost_optimization(
+        region=params["region"],
+        cluster_id=params["cluster_id"],
+        ak=params.get("ak"),
+        sk=params.get("sk"),
+        project_id=params.get("project_id"),
+        short_hours=_to_int(params.get("short_hours"), 24),
+        long_hours=_to_int(params.get("long_hours"), 168),
+        top_n=_to_int(params.get("top_n"), 50),
+        exclude_namespaces=params.get("exclude_namespaces"),
+        business_namespaces=params.get("business_namespaces"),
+        output_dir=params.get("output_dir"),
+        include_raw=params.get("include_raw", "false").lower() == "true",
+        hpa_workload_name=params.get("hpa_workload_name"),
+        hpa_namespace=params.get("hpa_namespace"),
+        hpa_workload_type=params.get("hpa_workload_type", "deployment"),
+        hpa_min_replicas=_to_int(params.get("hpa_min_replicas"), 1),
+        hpa_max_replicas=_to_int(params.get("hpa_max_replicas"), 3),
+        hpa_target_cpu_utilization=_to_optional_int(params.get("hpa_target_cpu_utilization"))
+        if "hpa_target_cpu_utilization" in params
+        else 60,
+        hpa_target_memory_utilization=_to_optional_int(params.get("hpa_target_memory_utilization")),
+    )
+
+
 # ---- HSS handlers ----
 def _hss_list_vul_host_hosts(params: Dict[str, str]) -> Dict[str, Any]:
     return hss.list_vul_host_hosts(region=params["region"], ak=params.get("ak"), sk=params.get("sk"))
@@ -979,6 +1064,10 @@ ACTION_SPECS: Dict[str, tuple[tuple[str, ...], Handler]] = {
     "huawei_list_cce_daemonsets": (("region", "cluster_id"), _list_cce_daemonsets),
     "huawei_list_cce_statefulsets": (("region", "cluster_id"), _list_cce_statefulsets),
     "huawei_list_cce_cronjobs": (("region", "cluster_id"), _list_cce_cronjobs),
+    "huawei_list_cce_hpas": (("region", "cluster_id"), _list_cce_hpas),
+    "huawei_generate_cce_hpa_manifest": (("workload_name", "namespace", "min_replicas", "max_replicas"), _generate_cce_hpa_manifest),
+    "huawei_configure_cce_hpa": (("region", "cluster_id", "workload_name", "namespace", "min_replicas", "max_replicas"), _configure_cce_hpa),
+    "huawei_analyze_cce_cost_optimization": (("region", "cluster_id"), _analyze_cce_cost_optimization),
     "huawei_list_aom_instances": (("region",), _list_aom_instances),
     "huawei_get_aom_metrics": (("region", "aom_instance_id", "query"), _get_aom_metrics),
     "huawei_list_aom_alerts": (("region",), _list_aom_alerts),

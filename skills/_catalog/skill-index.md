@@ -86,7 +86,7 @@
 
 常见问题：扩容工作负载；cordon/drain 节点；重启 ECS；修复 HSS 漏洞；休眠或唤醒 CCE 集群。
 
-常用工具：`huawei_scale_cce_workload`、`huawei_resize_cce_nodepool`、`huawei_cce_node_cordon`、`huawei_cce_node_drain`、`huawei_reboot_ecs`、`huawei_hss_change_vul_status`。
+常用工具：`huawei_scale_cce_workload`、`huawei_configure_cce_hpa`、`huawei_resize_cce_nodepool`、`huawei_cce_node_cordon`、`huawei_cce_node_drain`、`huawei_reboot_ecs`、`huawei_hss_change_vul_status`。
 
 关系：默认只预览，不自动加 `confirm=true`；执行后调用只读诊断工具做验证。
 
@@ -101,6 +101,16 @@
 常用工具：`huawei_cce_quick_check`、`huawei_cce_auto_inspection`、`huawei_cce_cluster_inspection_parallel`、`huawei_pod_status_inspection`、`huawei_aom_alarm_inspection`。
 
 关系：正常时输出简报；异常时转给 `root-cause-analyzer` 或对应诊断 skill。
+
+### cost-optimization-advisor
+
+适用：空闲资源、过量 Request、低利用率节点、HPA/autoscaler 弹性策略优化。
+
+常见问题：集群平均 CPU/内存利用率长期低于 30%；某些节点明显低于整体平均；业务命名空间工作负载 request 明显大于实际使用；需要生成 HPA 或节点池 autoscaler 优化建议。
+
+常用工具：`huawei_analyze_cce_cost_optimization`、`huawei_list_cce_nodes`、`huawei_list_cce_nodepools`、`huawei_get_cce_pods`、`huawei_get_cce_deployments`、`huawei_list_cce_hpas`、`huawei_generate_cce_hpa_manifest`、`huawei_configure_cce_hpa`、`huawei_get_cce_node_metrics_topN`、`huawei_get_cce_pod_metrics_topN`、`huawei_get_aom_metrics`。
+
+关系：负责分析、HPA 查询、HPA YAML 生成和配置预览；实际配置 HPA、autoscaler 或缩容节点池时必须经过人工确认流程。
 
 ## L5 解决方案与交付专家
 
@@ -126,4 +136,5 @@
 | 业务不可用，需要综合根因分析 | `root-cause-analyzer` |
 | 需要扩容、重启、drain、漏洞修复等动作 | `auto-remediation-runner` |
 | 做每日巡检或周期性健康检查 | `daily-cluster-inspector` |
+| 做成本优化、Request 过量分析、弹性策略建议 | `cost-optimization-advisor` |
 | 做容器迁移方案和资源盘点 | `container-migration-planner` |
