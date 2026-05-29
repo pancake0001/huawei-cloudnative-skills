@@ -25,7 +25,8 @@ scripts/huawei_cloud/dispatcher.py
 
 - `observability-context-builder`：汇聚告警、指标、日志、事件上下文。
 - `alarm-correlation-engine`：AOM active/history 告警归并、去重、分级。
-- `pod-failure-diagnoser`：Pod 和工作负载异常诊断。
+- `pod-failure-diagnoser`：Pod 单资源异常诊断。
+- `workload-failure-diagnoser`：发布失败、滚动升级卡住、副本不满足和探针异常诊断。
 - `node-failure-diagnoser`：节点 NotReady、资源压力、NPD、漏洞诊断。
 - `network-failure-diagnoser`：Service、Ingress、ELB、EIP、NAT、VPC 链路诊断。
 - `root-cause-analyzer`：跨域根因分析和诊断报告。

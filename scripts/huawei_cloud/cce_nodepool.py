@@ -2,7 +2,10 @@
 
 import base64
 
-from passlib.hash import sha512_crypt
+try:
+    from passlib.hash import sha512_crypt
+except ImportError:
+    sha512_crypt = None
 from typing import Any, Dict, List, Optional
 
 from huaweicloudsdkcce.v3 import (
@@ -446,6 +449,8 @@ def create_node_pool(
             password, password_error = get_cce_password()
             if password_error:
                 return {"success": False, "error": password_error}
+            if sha512_crypt is None:
+                return {"success": False, "error": "passlib is required to create a node pool with password login"}
             hashed = sha512_crypt.using(rounds=5000).hash(password)
             user_password = UserPassword()
             user_password.password = base64.b64encode(hashed.encode("utf-8")).decode("utf-8")
