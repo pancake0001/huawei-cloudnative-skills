@@ -93,6 +93,14 @@ export HW_SECRET_KEY="your-secret-access-key"
 export HW_REGION_NAME="cn-north-4"
 ```
 
+### Node Login Password
+
+When creating nodes or node pools without `ssh_key`, the password is read from the `CCE_NODE_PASSWORD` environment variable (not from CLI parameters). The script automatically validates password complexity (8-26 characters, at least 3 of: uppercase, lowercase, digits, special characters) and handles SHA-512 salted encryption + base64 encoding.
+
+```bash
+export CCE_NODE_PASSWORD="your-password"
+```
+
 ### IAM Permission Policies
 
 Ensure the IAM user has the minimum required permissions:

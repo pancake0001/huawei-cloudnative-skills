@@ -99,6 +99,14 @@ export HW_REGION_NAME="cn-north-4"
 **方式二：每次调用参数传入**
 在每次 API 调用时传入 `ak` 和 `sk` 参数（不推荐用于生产环境）。
 
+### 节点登录密码
+
+创建节点/节点池时，如未提供 `ssh_key`，密码通过 `CCE_NODE_PASSWORD` 环境变量传入（不从 CLI 参数传入）。脚本自动验证密码复杂度（8-26 位，至少含大写、小写、数字、特殊字符中的三种），并自动进行 SHA-512 加盐加密 + base64 编码。
+
+```bash
+export CCE_NODE_PASSWORD="你的密码"
+```
+
 ### Python 依赖
 
 ```bash
