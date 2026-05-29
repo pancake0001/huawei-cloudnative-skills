@@ -5,7 +5,7 @@
   "tools": [
     {
       "name": "huawei_list_vpc",
-      "description": "List VPCs (Virtual Private Clouds) in the specified region. Used to find VPC ID for cluster creation.",
+      "description": "List VPCs in the region. Returns human-readable attributes: name, cidr, status. Use to find VPC ID for cluster creation. If no VPC found, consider creating one first.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -40,7 +40,7 @@
     },
     {
       "name": "huawei_list_vpc_subnets",
-      "description": "List subnets in a VPC. Used to find subnet ID for cluster creation.",
+      "description": "List subnets in a VPC. Returns human-readable attributes: name, cidr, availability_zone. Use to find subnet ID for cluster/node creation. Query with vpc_id to filter.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -188,7 +188,7 @@
     },
     {
       "name": "huawei_create_cce_cluster",
-      "description": "Create a new CCE (Cloud Container Engine) cluster. This is an async operation that returns a job ID for tracking progress.",
+      "description": "Create a CCE cluster. Recommended: Turbo cluster (cluster_type=Turbo) with eni network for best performance. Naming format: '<env>-<app>-cluster' (e.g., 'prod-web-cluster'). Use huawei_list_vpc and huawei_list_vpc_subnets to find network resources.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -198,7 +198,7 @@
           },
           "cluster_name": {
             "type": "string",
-            "description": "Name of the CCE cluster to create"
+            "description": "Cluster name. Recommended format: '<env>-<app>-cluster'. Example: 'prod-web-cluster', 'dev-api-cluster'"
           },
           "cluster_version": {
             "type": "string",
@@ -214,11 +214,11 @@
           },
           "cluster_type": {
             "type": "string",
-            "description": "Cluster type: VirtualMachine (default) or BareMetal"
+            "description": "Cluster type. Recommended: 'Turbo' for ENI network (best performance). Options: VirtualMachine, Turbo"
           },
           "container_network_type": {
             "type": "string",
-            "description": "Container network type: overlay_l2 (default), underlay_ipvlan, vpc-router, eni"
+            "description": "Container network. Recommended: 'eni' for Turbo, 'overlay_l2' for Standard. Options: overlay_l2, vpc-router, eni"
           },
           "flavor_id": {
             "type": "string",
@@ -913,7 +913,7 @@
     },
     {
       "name": "huawei_create_cce_nodepool",
-      "description": "Create a node pool in a CCE cluster. Node pools allow you to manage groups of nodes with similar configurations.",
+      "description": "Create a node pool in CCE cluster. Recommended naming: '<env>-<role>-pool' (e.g., 'prod-worker-pool'). Start with initial_node_count=2 for HA, or 0 with autoscaling.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -927,7 +927,7 @@
           },
           "nodepool_name": {
             "type": "string",
-            "description": "Name of the node pool to create"
+            "description": "Node pool name. Recommended: '<env>-<role>-pool'. Example: 'prod-worker-pool', 'dev-gpu-pool'"
           },
           "flavor": {
             "type": "string",
@@ -947,7 +947,7 @@
           },
           "initial_node_count": {
             "type": "integer",
-            "description": "Initial number of nodes in the node pool (default: 1)"
+            "description": "Initial nodes. Recommended: 2 for HA, 0 with autoscaling_enabled=true"
           },
           "os_type": {
             "type": "string",
@@ -971,7 +971,7 @@
           },
           "autoscaling_enabled": {
             "type": "boolean",
-            "description": "Enable autoscaling for the node pool (default: false)"
+            "description": "Enable autoscaling. Recommended: true for dynamic scaling. Default: false"
           },
           "min_node_count": {
             "type": "integer",
@@ -1052,7 +1052,7 @@
     },
     {
       "name": "huawei_create_cce_node",
-      "description": "Create nodes directly in CCE cluster (outside node pools). This creates standalone nodes that are not managed by a node pool.",
+      "description": "Create nodes directly in cluster (outside node pools). Prefer node pools for managed scaling. Recommended: node_count starts at 2 for HA.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -1130,7 +1130,7 @@
     },
     {
       "name": "huawei_install_cce_addon",
-      "description": "Install an addon (plugin) in CCE cluster. Common addons include: coredns, metrics-server, everest (CSI), nginx-ingress, etc.",
+      "description": "Install an addon in CCE cluster. Common addons: coredns (DNS), metrics-server (monitoring), everest (storage). Use addon_version from huawei_list_cce_addons to check available versions.",
       "parameters": {
         "type": "object",
         "properties": {
