@@ -25,6 +25,7 @@ PHASE_ONE_SKILLS = {
     "observability-context-builder",
     "alarm-correlation-engine",
     "pod-failure-diagnoser",
+    "workload-failure-diagnoser",
     "node-failure-diagnoser",
     "network-failure-diagnoser",
     "root-cause-analyzer",

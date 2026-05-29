@@ -10,6 +10,7 @@ from . import aom, cce, cce_metrics, ecs, elb, hss, identity, network, storage
 from . import cce_inspection
 from . import cce_diagnosis
 from . import pod_diagnosis
+from . import workload_rollout_diagnosis
 from . import cce_auto_inspection
 from . import chart_generator
 from . import common
@@ -560,6 +561,48 @@ def _pod_failure_diagnose_action(params):
         return {"success": False, "error": str(exc), "error_type": type(exc).__name__, "stage": "pod_failure_diagnose"}
 
 
+def _get_workload_rollout_context_action(params):
+    try:
+        return workload_rollout_diagnosis.get_workload_rollout_context(
+            region=params["region"],
+            cluster_id=params["cluster_id"],
+            namespace=params["namespace"],
+            kind=params["kind"],
+            name=params["name"],
+            event_limit=_to_int(params.get("event_limit"), 500),
+            label_selector=params.get("label_selector"),
+            ak=params.get("ak"),
+            sk=params.get("sk"),
+            project_id=params.get("project_id"),
+        )
+    except Exception as exc:
+        return {"success": False, "error": str(exc), "error_type": type(exc).__name__, "stage": "get_workload_rollout_context"}
+
+
+def _workload_rollout_diagnose_action(params):
+    try:
+        return workload_rollout_diagnosis.workload_rollout_diagnose(
+            region=params["region"],
+            cluster_id=params["cluster_id"],
+            namespace=params["namespace"],
+            kind=params["kind"],
+            name=params["name"],
+            include_pod_diagnosis=params.get("include_pod_diagnosis", "true").lower() != "false",
+            include_logs=params.get("include_logs", "true").lower() != "false",
+            include_metrics=params.get("include_metrics", "false").lower() == "true",
+            tail_lines=_to_int(params.get("tail_lines"), 80),
+            hours=_to_int(params.get("hours"), 1),
+            max_pods=_to_int(params.get("max_pods"), 20),
+            event_limit=_to_int(params.get("event_limit"), 500),
+            label_selector=params.get("label_selector"),
+            ak=params.get("ak"),
+            sk=params.get("sk"),
+            project_id=params.get("project_id"),
+        )
+    except Exception as exc:
+        return {"success": False, "error": str(exc), "error_type": type(exc).__name__, "stage": "workload_rollout_diagnose"}
+
+
 def _hibernate_cce_cluster_action(params):
     if params.get("confirm", "").lower() == "true":
         return cce.hibernate_cce_cluster(
@@ -1047,6 +1090,8 @@ ACTION_SPECS: Dict[str, tuple[tuple[str, ...], Handler]] = {
     "huawei_update_cce_addon": (("region", "cluster_id", "addon_id"), _update_cce_addon),
     "huawei_get_cce_pods": (("region", "cluster_id"), _get_cce_pods),
     "huawei_pod_failure_diagnose": (("region", "cluster_id"), _pod_failure_diagnose_action),
+    "huawei_get_workload_rollout_context": (("region", "cluster_id", "namespace", "kind", "name"), _get_workload_rollout_context_action),
+    "huawei_workload_rollout_diagnose": (("region", "cluster_id", "namespace", "kind", "name"), _workload_rollout_diagnose_action),
     "huawei_get_pod_logs": (("region", "cluster_id", "pod_name"), _get_pod_logs),
     "huawei_get_cce_namespaces": (("region", "cluster_id"), _get_cce_namespaces),
     "huawei_get_cce_deployments": (("region", "cluster_id"), _get_cce_deployments),

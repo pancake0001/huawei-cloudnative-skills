@@ -552,6 +552,51 @@ class DispatcherTests(unittest.TestCase):
         self.assertEqual(spec1[0], ("region", "cluster_id"))
         self.assertEqual(spec2[0], ("region", "cluster_id", "alarm_info"))
 
+    def test_workload_rollout_diagnose_dispatch(self):
+        """huawei_workload_rollout_diagnose 正确转发 rollout 诊断参数"""
+        with mock.patch("huawei_cloud.dispatcher.workload_rollout_diagnosis.workload_rollout_diagnose", return_value={"success": True}) as mocked:
+            result = dispatcher.dispatch_action("huawei_workload_rollout_diagnose", {
+                "region": "cn-north-4",
+                "cluster_id": "c1",
+                "namespace": "default",
+                "kind": "Deployment",
+                "name": "api",
+                "include_logs": "false",
+                "include_metrics": "true",
+                "max_pods": "7",
+                "event_limit": "100",
+            })
+
+        self.assertTrue(result["success"])
+        mocked.assert_called_once_with(
+            region="cn-north-4",
+            cluster_id="c1",
+            namespace="default",
+            kind="Deployment",
+            name="api",
+            include_pod_diagnosis=True,
+            include_logs=False,
+            include_metrics=True,
+            tail_lines=80,
+            hours=1,
+            max_pods=7,
+            event_limit=100,
+            label_selector=None,
+            ak=None,
+            sk=None,
+            project_id=None,
+        )
+
+    def test_workload_rollout_actions_in_action_specs(self):
+        """rollout 上下文采集和诊断 action 已注册"""
+        self.assertTrue(dispatcher.is_registered_action("huawei_get_workload_rollout_context"))
+        self.assertTrue(dispatcher.is_registered_action("huawei_workload_rollout_diagnose"))
+        context_spec = dispatcher.ACTION_SPECS["huawei_get_workload_rollout_context"]
+        diagnose_spec = dispatcher.ACTION_SPECS["huawei_workload_rollout_diagnose"]
+        required = ("region", "cluster_id", "namespace", "kind", "name")
+        self.assertEqual(context_spec[0], required)
+        self.assertEqual(diagnose_spec[0], required)
+
     # ==================== hibernate/awake cluster 新增用例 ====================
 
     def test_hibernate_cce_cluster_dispatch(self):
