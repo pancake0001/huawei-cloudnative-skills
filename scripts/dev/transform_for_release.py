@@ -351,8 +351,8 @@ def transform_skill(skill_name: str, target_dir: Path) -> Path:
             with open(output_dir / "SKILL-CN.md", "w", encoding="utf-8") as f:
                 f.write(cn_content)
             with open(output_dir / "SKILL.md", "w", encoding="utf-8") as f:
-                f.write(translate_skill_md(cn_content))
-            print(f"  Translated SKILL.md")
+                f.write("# Huawei Cloud CCE Cluster Management\n\n[Chinese Version: SKILL-CN.md]\n\n**TODO: Translate from SKILL-CN.md using LLM or manual translation.**\n\nFor now, please refer to SKILL-CN.md for the complete documentation.\n")
+            print(f"  Created SKILL-CN.md (Chinese) and placeholder SKILL.md (English)")
             continue
         
         if item_name == "scripts":
