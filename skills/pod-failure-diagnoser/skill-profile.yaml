@@ -3,6 +3,7 @@ level: L3
 domain: diagnosis-remediation
 description: Diagnose Pod and workload failures in Huawei Cloud CCE.
 tools:
+  - huawei_pod_failure_diagnose
   - huawei_get_cce_pods
   - huawei_get_pod_logs
   - huawei_get_cce_events
@@ -18,4 +19,3 @@ references:
   - references/output-schema.md
 guardrails:
   max_auto_risk: R1
-
