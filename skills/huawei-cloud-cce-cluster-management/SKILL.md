@@ -1,478 +1,277 @@
 ---
 name: huawei-cloud-cce-cluster-management
 description: |
-  华为云 CCE 集群生命周期管理技能，支持集群创建、删除、休眠/唤醒、节点池扩缩容、节点生命周期管理（cordon/uncordon/drain/delete）等操作。
-  触发场景：(1) 创建或删除 CCE 集群；(2) 集群休眠/唤醒操作；(3) 节点池扩缩容；(4) 节点调度管理（标记不可调度、驱逐Pod、删除节点）；(5) 绑定/解绑集群 EIP；(6) 查询集群和节点信息；(7) 管理集群插件。
-  关键词：CCE 集群管理、创建集群、删除集群、节点池、节点管理、集群休眠、集群唤醒、cordon、uncordon、drain、kubeconfig
+  Huawei Cloud CCE (Cloud Container Engine) cluster lifecycle management skill using Python SDK v3.
+  Use this skill when the user wants to: (1) create, delete, hibernate, or awake CCE clusters, (2) list clusters and query cluster/node/nodepool/addon information, (3) manage node pools (create, delete, resize), (4) manage nodes (create, delete, cordon, uncordon, drain), (5) manage addons (install, uninstall, update), (6) bind/unbind cluster EIP for public access, (7) get cluster kubeconfig.
+  Trigger: user mentions "CCE cluster", "create cluster", "delete cluster", "node pool", "node management", "hibernate cluster", "awake cluster", "addon", "kubeconfig", "EIP binding", "CCE 集群", "创建集群", "删除集群", "节点池", "节点管理", "休眠集群", "唤醒集群", "插件", "kubeconfig", "EIP 绑定"
+tags: [cce, kubernetes, cluster-management, nodepool, addon]
+version: 1.0.0
 ---
 
-# 华为云 CCE 集群管理
+# Huawei Cloud CCE Cluster Management
 
-华为云 CCE (Cloud Container Engine) 集群生命周期管理，包括集群创建/删除、休眠/唤醒、节点池管理、节点调度控制等操作。
+## Overview
 
-## ⛔ 安全约束
+Manage CCE (Cloud Container Engine) cluster lifecycle, including cluster creation/deletion/hibernation/awakening, node pool management, node scheduling control, and addon management.
 
-### 危险操作二次确认机制
+## ⛔ Security Constraints
 
-> **本技能严格执行变动类操作二次确认机制，防止误操作导致业务中断或数据丢失。**
+### Dangerous Operation Confirmation Mechanism
 
-所有危险操作必须携带 `confirm=true` 参数才会真正执行，否则仅返回操作预览和确认提示。
+> **This skill strictly enforces a two-step confirmation mechanism for all dangerous operations to prevent accidental service disruption or data loss.**
 
-#### 需二次确认的操作列表
+All dangerous operations require `confirm=true` parameter to execute. Otherwise, they return a preview and confirmation prompt.
 
-| 工具 | 操作类型 | 风险等级 | 说明 |
-|------|---------|---------|------|
-| `huawei_delete_cce_cluster` | 删除 | 🔴 极高 | 删除整个 CCE 集群，不可恢复 |
-| `huawei_hibernate_cce_cluster` | 休眠 | 🟠 高 | 休眠集群，停止所有工作负载，暂停控制面计费 |
-| `huawei_awake_cce_cluster` | 唤醒 | 🟠 高 | 唤醒休眠集群，恢复工作负载和控制面计费 |
-| `huawei_resize_cce_nodepool` | 扩缩容 | 🟡 中 | 调整节点池节点数量，影响业务容量 |
-| `huawei_delete_cce_nodepool` | 删除 | 🟠 高 | 删除节点池，影响业务容量 |
-| `huawei_delete_cce_node` | 删除 | 🟠 高 | 从集群删除节点，影响业务调度 |
-| `huawei_uninstall_cce_addon` | 卸载 | 🟠 高 | 卸载集群插件，可能影响集群功能 |
-| `huawei_cce_node_cordon` | 标记不可调度 | 🟡 中 | 节点标记为不可调度，新 Pod 不会分配 |
-| `huawei_cce_node_uncordon` | 恢复调度 | 🟡 中 | 节点恢复可调度，新 Pod 可能立即分配 |
-| `huawei_cce_node_drain` | 驱逐 | 🟠 高 | 驱逐节点所有 Pod，影响业务运行 |
+#### Operations Requiring Confirmation
 
-#### 工作流程
+| Tool | Operation Type | Risk Level | Description |
+|------|---------------|------------|-------------|
+| `huawei_delete_cce_cluster` | Delete | 🔴 Critical | Deletes entire CCE cluster, irreversible |
+| `huawei_hibernate_cce_cluster` | Hibernate | 🟠 High | Stops all workloads, pauses control plane billing |
+| `huawei_awake_cce_cluster` | Awake | 🟠 High | Resumes cluster from hibernation |
+| `huawei_resize_cce_nodepool` | Scale | 🟡 Medium | Adjusts node pool size, affects capacity |
+| `huawei_delete_cce_nodepool` | Delete | 🟠 High | Deletes node pool, affects business capacity |
+| `huawei_delete_cce_node` | Delete | 🟠 High | Removes node from cluster, affects scheduling |
+| `huawei_uninstall_cce_addon` | Uninstall | 🟠 High | Removes addon, may affect cluster functionality |
+| `huawei_cce_node_cordon` | Cordon | 🟡 Medium | Marks node unschedulable, new pods won't be assigned |
+| `huawei_cce_node_uncordon` | Uncordon | 🟡 Medium | Marks node schedulable, new pods may be assigned immediately |
+| `huawei_cce_node_drain` | Drain | 🟠 High | Evicts all pods from node, affects running workloads |
 
-**第一步：预览操作** - 不带 `confirm` 参数调用
+#### Workflow
+
+**Step 1: Preview Operation** - Call without `confirm` parameter
+
 ```bash
-# 示例：预览删除集群
+# Example: Preview cluster deletion
 python3 huawei-cloud.py huawei_delete_cce_cluster \
   region=cn-north-4 \
   cluster_id=xxx
 ```
 
-返回：操作预览、风险警告、确认示例
+Returns: operation preview, risk warning, confirmation example
 
-**第二步：确认执行** - 携带 `confirm=true` 参数再次调用
+**Step 2: Confirm Execution** - Call with `confirm=true`
+
 ```bash
-# 示例：确认并执行删除
+# Example: Confirm and execute deletion
 python3 huawei-cloud.py huawei_delete_cce_cluster \
   region=cn-north-4 \
   cluster_id=xxx \
   confirm=true
 ```
 
-#### 安全特性
+### Credential Security
 
-- ❌ **未带 confirm 参数时**：操作不执行，仅返回预览和警告
-- ✅ **携带 confirm=true 时**：操作才真正执行
-- 📝 **返回清晰的提示**：包含警告信息、操作影响和确认示例
-- ⏱️ **代码级验证**：函数内部强制校验 confirm 参数
+✅ **This skill strictly follows these security rules:**
 
-### 认证信息安全
+1. **No persistent credential storage** - Never saves AK/SK, tokens, or certificates to disk
+2. **No long-term memory cache** - AK/SK exists only during API call, released afterward
+3. **Only project ID memory cache** - Non-sensitive project ID cached in process memory
+4. **No credential leakage** - Never includes AK/SK in logs, responses, or errors
+5. **Temporary file cleanup** - If temporary cert files are created, they are deleted immediately after use
 
-✅ **本技能严格遵守以下安全规则：**
+AK/SK usage methods:
 
-1. **禁止持久化存储认证信息** - 从不将 AK/SK、Token、证书等敏感认证信息保存到磁盘文件
-2. **禁止长期内存缓存** - AK/SK 仅在当前 API 请求调用过程中存在于内存，调用结束后自动释放
-3. **仅项目 ID 内存缓存** - 仅将非敏感的项目 ID 缓存在进程内存中（不写入磁盘）
-4. **禁止日志泄露** - 不在任何日志、响应输出或错误信息中包含 AK/SK 等敏感信息
-5. **临时文件安全清理** - 如果因 API 需求创建临时证书文件，使用后立即删除
-
-AK/SK 仅支持以下两种方式使用：
-- 通过环境变量 `HUAWEI_AK` / `HUAWEI_SK` 传入（进程级，不保存）
-- 通过每次调用参数传入（仅本次调用有效）
+- Environment variables `HW_ACCESS_KEY` / `HW_SECRET_KEY` / `HW_REGION_NAME` (process-level, not saved)
+- Per-call parameter (valid only for that call)
 
 ---
 
-## 前置条件
+## Prerequisites
 
-### 环境变量配置
+### Python Environment
 
-**方式一：环境变量（推荐）**
-```bash
-export HUAWEI_AK="your-access-key-id"
-export HUAWEI_SK="your-secret-access-key"
-```
+- Python 3.8+
+- Install SDKs: `pip install huaweicloudsdkcce huaweicloudsdkcore`
+- Optional for node operations: `pip install kubernetes`
 
-**方式二：每次调用参数传入**
-在每次 API 调用时传入 `ak` 和 `sk` 参数（不推荐用于生产环境）。
-
-### Python 依赖
+### Environment Variables (Recommended)
 
 ```bash
-pip install huaweicloudsdkcore huaweicloudsdkcce huaweicloudsdkiam
+export HW_ACCESS_KEY="your-access-key-id"
+export HW_SECRET_KEY="your-secret-access-key"
+export HW_REGION_NAME="cn-north-4"
 ```
 
-### IAM 权限策略
+### IAM Permission Policies
 
-确保 IAM 用户具有以下最小权限：
+Ensure the IAM user has the minimum required permissions:
 
-| 权限 | 说明 |
-|------|------|
-| `cce:cluster:list` | 查询集群列表 |
-| `cce:cluster:get` | 查询集群详情 |
-| `cce:cluster:create` | 创建集群 |
-| `cce:cluster:delete` | 删除集群 |
-| `cce:cluster:update` | 更新集群（休眠/唤醒/EIP 绑定） |
-| `cce:node:list` | 查询节点列表 |
-| `cce:node:get` | 查询节点详情 |
-| `cce:node:delete` | 删除节点 |
-| `cce:node:update` | 更新节点（cordon/uncordon/drain） |
-| `cce:nodepool:list` | 查询节点池列表 |
-| `cce:nodepool:update` | 更新节点池（扩缩容） |
-| `cce:addon:list` | 查询插件列表 |
-| `cce:addon:get` | 查询插件详情 |
+| Permission | Description |
+|------------|-------------|
+| `cce:cluster:list` | List clusters |
+| `cce:cluster:get` | Get cluster details |
+| `cce:cluster:create` | Create clusters |
+| `cce:cluster:delete` | Delete clusters |
+| `cce:cluster:update` | Update clusters (hibernate/awake/bind EIP) |
+| `cce:node:list` | List nodes |
+| `cce:node:get` | Get node details |
+| `cce:node:create` | Create nodes |
+| `cce:node:delete` | Delete nodes |
+| `cce:node:update` | Update nodes (cordon/uncordon/drain) |
+| `cce:nodepool:list` | List node pools |
+| `cce:nodepool:create` | Create node pools |
+| `cce:nodepool:delete` | Delete node pools |
+| `cce:nodepool:update` | Update node pools (resize) |
+| `cce:addon:list` | List addons |
+| `cce:addon:get` | Get addon details |
+| `cce:addon:create` | Install addons |
+| `cce:addon:update` | Update addons |
+| `cce:addon:delete` | Uninstall addons |
 
 ---
 
-## 工具分类
+## Core Commands
 
-### 集群查询
+### Cluster Query
 
-| 工具 | 功能 | 参数 |
-|------|------|------|
-| `huawei_list_cce_clusters` | 查询区域内所有 CCE 集群列表 | `region` |
-| `huawei_get_cce_nodes` | 获取指定节点详细信息 | `region`, `cluster_id`, `node_id` |
-| `huawei_get_cce_kubeconfig` | 获取集群 kubeconfig 配置 | `region`, `cluster_id` |
+| Tool | Function | Parameters |
+|------|----------|------------|
+| `huawei_list_cce_clusters` | List all CCE clusters in region | `region` |
+| `huawei_get_cce_nodes` | Get detailed node information | `region`, `cluster_id`, `node_id` |
+| `huawei_get_cce_kubeconfig` | Get cluster kubeconfig | `region`, `cluster_id`, `duration` |
 
-**参数说明：**
-- `region` (required): 华为云区域 (e.g., cn-north-4, cn-east-3)
-- `cluster_id` (required): CCE 集群 ID
-- `node_id` (required): 节点 ID
+### Cluster Management
 
----
+| Tool | Function | Risk Level | Requires Confirmation |
+|------|----------|------------|----------------------|
+| `huawei_create_cce_cluster` | Create CCE cluster | 🟢 Low | No |
+| `huawei_delete_cce_cluster` | Delete CCE cluster | 🔴 Critical | **Yes** |
+| `huawei_hibernate_cce_cluster` | Hibernate cluster | 🟠 High | **Yes** |
+| `huawei_awake_cce_cluster` | Awake cluster | 🟠 High | **Yes** |
+| `huawei_bind_cce_cluster_eip` | Bind cluster EIP | 🟢 Low | No |
+| `huawei_unbind_cce_cluster_eip` | Unbind cluster EIP | 🟡 Medium | No |
 
-### 集群管理
+**Recommended defaults:**
 
-| 工具 | 功能 | 风险等级 | 需确认 |
-|------|------|---------|-------|
-| `huawei_create_cce_cluster` | 创建 CCE 集群 | 🟢 低 | 否 |
-| `huawei_delete_cce_cluster` | 删除 CCE 集群 | 🔴 极高 | **是** |
-| `huawei_hibernate_cce_cluster` | 休眠集群 | 🟠 高 | **是** |
-| `huawei_awake_cce_cluster` | 唤醒集群 | 🟠 高 | **是** |
-| `huawei_bind_cce_cluster_eip` | 绑定集群 EIP | 🟢 低 | 否 |
-| `huawei_unbind_cce_cluster_eip` | 解绑集群 EIP | 🟡 中 | 否 |
+- Cluster type: `Turbo` (best performance with ENI network)
+- Container network: `eni` for Turbo clusters
+- Naming format: `<env>-<app>-cluster` (e.g., `prod-web-cluster`)
 
-**参数说明：**
-- `region` (required): 华为云区域
-- `cluster_id` (required): CCE 集群 ID
-- `confirm` (optional): 设为 `true` 确认执行危险操作
+### Node Pool Management
 
-**使用示例：**
-```bash
-# 查询集群列表
-python3 huawei-cloud.py huawei_list_cce_clusters region=cn-north-4
+| Tool | Function | Risk Level | Requires Confirmation |
+|------|----------|------------|----------------------|
+| `huawei_list_cce_nodepools` | List node pools | 🟢 Low | No |
+| `huawei_create_cce_nodepool` | Create node pool | 🟢 Low | No |
+| `huawei_delete_cce_nodepool` | Delete node pool | 🟠 High | **Yes** |
+| `huawei_resize_cce_nodepool` | Resize node pool | 🟡 Medium | **Yes** |
 
-# 创建集群（基础示例）
-python3 huawei-cloud.py huawei_create_cce_cluster \
-  region=cn-north-4 \
-  name=my-cluster \
-  version=v1.28 \
-  flavor=cce.s1.small \
-  vpc_id=xxx \
-  subnet_id=xxx
+**Recommended defaults:**
 
-# 删除集群（需二次确认）
-python3 huawei-cloud.py huawei_delete_cce_cluster \
-  region=cn-north-4 \
-  cluster_id=xxx
-# 返回预览和警告，不执行
+- Naming format: `<env>-<role>-pool` (e.g., `prod-worker-pool`)
+- Initial node count: 2 for HA, or 0 with autoscaling
+- Enable autoscaling for dynamic scaling
 
-# 确认删除集群
-python3 huawei-cloud.py huawei_delete_cce_cluster \
-  region=cn-north-4 \
-  cluster_id=xxx \
-  confirm=true
+### Node Management
 
-# 休眠集群（需二次确认）
-python3 huawei-cloud.py huawei_hibernate_cce_cluster \
-  region=cn-north-4 \
-  cluster_id=xxx
+| Tool | Function | Risk Level | Requires Confirmation |
+|------|----------|------------|----------------------|
+| `huawei_list_cce_nodes` | List cluster nodes | 🟢 Low | No |
+| `huawei_create_cce_node` | Create nodes directly | 🟢 Low | No |
+| `huawei_delete_cce_node` | Delete node | 🟠 High | **Yes** |
+| `huawei_cce_node_cordon` | Mark node unschedulable | 🟡 Medium | **Yes** |
+| `huawei_cce_node_uncordon` | Mark node schedulable | 🟡 Medium | **Yes** |
+| `huawei_cce_node_drain` | Evict all pods from node | 🟠 High | **Yes** |
+| `huawei_cce_node_status` | Query node scheduling status | 🟢 Low | No |
 
-# 确认休眠集群
-python3 huawei-cloud.py huawei_hibernate_cce_cluster \
-  region=cn-north-4 \
-  cluster_id=xxx \
-  confirm=true
+**Note:** Prefer node pools for managed scaling. Direct node creation is for special cases.
 
-# 唤醒集群（需二次确认）
-python3 huawei-cloud.py huawei_awake_cce_cluster \
-  region=cn-north-4 \
-  cluster_id=xxx
+### Addon Management
 
-# 确认唤醒集群
-python3 huawei-cloud.py huawei_awake_cce_cluster \
-  region=cn-north-4 \
-  cluster_id=xxx \
-  confirm=true
+| Tool | Function | Risk Level | Requires Confirmation |
+|------|----------|------------|----------------------|
+| `huawei_list_cce_addons` | List cluster addons | 🟢 Low | No |
+| `huawei_get_cce_addon_detail` | Get addon details | 🟢 Low | No |
+| `huawei_install_cce_addon` | Install addon | 🟢 Low | No |
+| `huawei_uninstall_cce_addon` | Uninstall addon | 🟠 High | **Yes** |
+| `huawei_update_cce_addon` | Update addon | 🟡 Medium | No |
 
-# 获取 kubeconfig
-python3 huawei-cloud.py huawei_get_cce_kubeconfig \
-  region=cn-north-4 \
-  cluster_id=xxx
-```
+**Common addons:**
+
+- `coredns` - DNS service
+- `metrics-server` - Monitoring metrics
+- `everest` - Storage driver
+
+### Network Prerequisites
+
+| Tool | Function | Parameters |
+|------|----------|------------|
+| `huawei_list_vpc` | List VPCs with CIDR info | `region` |
+| `huawei_list_vpc_subnets` | List subnets with AZ info | `region`, `vpc_id` |
+
+**Use these tools to find VPC/subnet IDs before cluster creation.**
 
 ---
 
-### 节点池管理
+## Supported Regions
 
-| 工具 | 功能 | 风险等级 | 需确认 |
-|------|------|---------|-------|
-| `huawei_list_cce_nodepools` | 查询节点池列表 | 🟢 低 | 否 |
-| `huawei_create_cce_nodepool` | 创建节点池 | 🟢 低 | 否 |
-| `huawei_resize_cce_nodepool` | 调整节点池节点数量 | 🟡 中 | **是** |
-| `huawei_delete_cce_nodepool` | 删除节点池 | 🟠 高 | **是** |
-
-**参数说明：**
-- `region` (required): 华为云区域
-- `cluster_id` (required): CCE 集群 ID
-- `nodepool_id` (required): 节点池 ID
-- `node_count` (required): 目标节点数量
-- `confirm` (optional): 设为 `true` 确认执行
-
-**使用示例：**
-```bash
-# 查询节点池列表
-python3 huawei-cloud.py huawei_list_cce_nodepools \
-  region=cn-north-4 \
-  cluster_id=xxx
-
-# 扩容节点池（预览）
-python3 huawei-cloud.py huawei_resize_cce_nodepool \
-  region=cn-north-4 \
-  cluster_id=xxx \
-  nodepool_id=xxx \
-  node_count=5
-
-# 确认扩容节点池
-python3 huawei-cloud.py huawei_resize_cce_nodepool \
-  region=cn-north-4 \
-  cluster_id=xxx \
-  nodepool_id=xxx \
-  node_count=5 \
-  confirm=true
-```
+| Region Code | Region Name |
+|-------------|-------------|
+| cn-north-4 | North China-Beijing 4 |
+| cn-north-1 | North China-Beijing 1 |
+| cn-north-2 | North China-Beijing 2 |
+| cn-east-3 | East China-Shanghai 1 |
+| cn-south-1 | South China-Guangzhou |
+| cn-south-2 | South China-Guangzhou Friendly |
+| cn-east-4 | East China II |
+| cn-southwest-2 | Guiyang 1 |
+| ap-southeast-1 | Asia-Pacific-Hong Kong |
+| ap-southeast-2 | Asia-Pacific-Bangkok |
+| ap-southeast-3 | Asia-Pacific-Singapore |
 
 ---
 
-### 节点管理
+## Output Format
 
-| 工具 | 功能 | 风险等级 | 需确认 |
-|------|------|---------|-------|
-| `huawei_list_cce_nodes` | 查询集群内所有节点 | 🟢 低 | 否 |
-| `huawei_delete_cce_node` | 删除节点 | 🟠 高 | **是** |
-| `huawei_cce_node_cordon` | 标记节点不可调度 | 🟡 中 | **是** |
-| `huawei_cce_node_uncordon` | 恢复节点可调度 | 🟡 中 | **是** |
-| `huawei_cce_node_drain` | 驱逐节点所有 Pod | 🟠 高 | **是** |
-| `huawei_cce_node_status` | 查询节点调度状态 | 🟢 低 | 否 |
-| `huawei_create_cce_node` | 创建节点 | 🟢 低 | 否 |
+All tools return JSON-formatted results containing:
 
-**参数说明：**
-- `region` (required): 华为云区域
-- `cluster_id` (required): CCE 集群 ID
-- `node_id` (required): 节点 ID（删除、cordon、uncordon、drain、status）
-- `confirm` (optional): 设为 `true` 确认执行危险操作
+- `status`: operation result (`success` / `error`)
+- `data`: operation-specific response (cluster info, node list, addon details, etc.)
+- `message`: human-readable description of the result
+- `warning`: risk warning for dangerous operations (preview mode only)
 
-**节点调度状态说明：**
-- **Schedulable（可调度）**: 新 Pod 可以调度到该节点
-- **Unschedulable（不可调度）**: 新 Pod 不会调度到该节点，现有 Pod 不受影响
+## Verification
 
-**使用示例：**
-```bash
-# 查询节点列表
-python3 huawei-cloud.py huawei_list_cce_nodes \
-  region=cn-north-4 \
-  cluster_id=xxx
+See [verification-method.md](references/verification-method.md) for detailed verification steps. Quick checklist:
 
-# 查询节点调度状态
-python3 huawei-cloud.py huawei_cce_node_status \
-  region=cn-north-4 \
-  cluster_id=xxx \
-  node_id=xxx
+1. Verify AK/SK credentials are configured via environment variables
+2. Run `huawei_list_cce_clusters` to confirm API connectivity
+3. Test dangerous operation preview (call without `confirm=true`)
+4. Verify Turbo cluster ENI network configuration
 
-# 标记节点不可调度（预览）
-python3 huawei-cloud.py huawei_cce_node_cordon \
-  region=cn-north-4 \
-  cluster_id=xxx \
-  node_id=xxx
+## Best Practices
 
-# 确认标记节点不可调度
-python3 huawei-cloud.py huawei_cce_node_cordon \
-  region=cn-north-4 \
-  cluster_id=xxx \
-  node_id=xxx \
-  confirm=true
-
-# 恢复节点可调度（预览）
-python3 huawei-cloud.py huawei_cce_node_uncordon \
-  region=cn-north-4 \
-  cluster_id=xxx \
-  node_id=xxx
-
-# 确认恢复节点可调度
-python3 huawei-cloud.py huawei_cce_node_uncordon \
-  region=cn-north-4 \
-  cluster_id=xxx \
-  node_id=xxx \
-  confirm=true
-
-# 驱逐节点所有 Pod（预览）
-python3 huawei-cloud.py huawei_cce_node_drain \
-  region=cn-north-4 \
-  cluster_id=xxx \
-  node_id=xxx
-
-# 确认驱逐节点所有 Pod
-python3 huawei-cloud.py huawei_cce_node_drain \
-  region=cn-north-4 \
-  cluster_id=xxx \
-  node_id=xxx \
-  confirm=true
-
-# 删除节点（预览）
-python3 huawei-cloud.py huawei_delete_cce_node \
-  region=cn-north-4 \
-  cluster_id=xxx \
-  node_id=xxx
-
-# 确认删除节点
-python3 huawei-cloud.py huawei_delete_cce_node \
-  region=cn-north-4 \
-  cluster_id=xxx \
-  node_id=xxx \
-  confirm=true
-```
-
----
-
-### 插件管理
-
-| 工具 | 功能 | 风险等级 | 需确认 |
-|------|------|---------|-------|
-| `huawei_list_cce_addons` | 查询集群插件列表 | 🟢 低 | 否 |
-| `huawei_get_cce_addon_detail` | 查询插件详情 | 🟢 低 | 否 |
-| `huawei_install_cce_addon` | 安装插件 | 🟢 低 | 否 |
-| `huawei_uninstall_cce_addon` | 卸载插件 | 🟠 高 | **是** |
-| `huawei_update_cce_addon` | 更新插件 | 🟡 中 | 否 |
-
-**参数说明：**
-- `region` (required): 华为云区域
-- `cluster_id` (required): CCE 集群 ID
-- `addon_id` (required): 插件 ID 或名称
-
-**使用示例：**
-```bash
-# 查询插件列表
-python3 huawei-cloud.py huawei_list_cce_addons \
-  region=cn-north-4 \
-  cluster_id=xxx
-
-# 查询插件详情
-python3 huawei-cloud.py huawei_get_cce_addon_detail \
-  region=cn-north-4 \
-  cluster_id=xxx \
-  addon_id=coredns
-```
-
----
-
-## 支持区域
-
-| 区域代码 | 区域名称 |
-|----------|----------|
-| cn-north-4 | 华北-北京四 |
-| cn-north-1 | 华北-北京一 |
-| cn-north-2 | 华北-北京二 |
-| cn-east-3 | 华东-上海一 |
-| cn-south-1 | 华南-广州 |
-| cn-south-2 | 华南-广州友好 |
-| cn-east-4 | 华东-华东二 |
-| cn-southwest-2 | 贵阳一 |
-| ap-southeast-1 | 亚太-香港 |
-| ap-southeast-2 | 亚太-曼谷 |
-| ap-southeast-3 | 亚太-新加坡 |
-
----
-
-## 常见场景
-
-### 场景一：集群维护模式（排空节点）
-
-当需要对节点进行维护时，使用 cordon + drain 组合：
-
-```bash
-# 步骤 1: 标记节点不可调度
-python3 huawei-cloud.py huawei_cce_node_cordon \
-  region=cn-north-4 \
-  cluster_id=xxx \
-  node_id=xxx \
-  confirm=true
-
-# 步骤 2: 驱逐节点上的所有 Pod
-python3 huawei-cloud.py huawei_cce_node_drain \
-  region=cn-north-4 \
-  cluster_id=xxx \
-  node_id=xxx \
-  confirm=true
-
-# 维护完成后，恢复节点可调度
-python3 huawei-cloud.py huawei_cce_node_uncordon \
-  region=cn-north-4 \
-  cluster_id=xxx \
-  node_id=xxx \
-  confirm=true
-```
-
-### 场景二：集群休眠唤醒（成本优化）
-
-对于非生产环境或开发环境，可以在非工作时间休眠集群以节省成本：
-
-```bash
-# 休眠集群
-python3 huawei-cloud.py huawei_hibernate_cce_cluster \
-  region=cn-north-4 \
-  cluster_id=xxx \
-  confirm=true
-
-# 唤醒集群
-python3 huawei-cloud.py huawei_awake_cce_cluster \
-  region=cn-north-4 \
-  cluster_id=xxx \
-  confirm=true
-```
-
-**注意：** 休眠集群会停止所有工作负载，暂停控制面计费，但节点计费仍在继续。
-
-### 场景三：节点池扩缩容
-
-根据业务负载动态调整节点数量：
-
-```bash
-# 扩容节点池
-python3 huawei-cloud.py huawei_resize_cce_nodepool \
-  region=cn-north-4 \
-  cluster_id=xxx \
-  nodepool_id=xxx \
-  node_count=10 \
-  confirm=true
-
-# 缩容节点池
-python3 huawei-cloud.py huawei_resize_cce_nodepool \
-  region=cn-north-4 \
-  cluster_id=xxx \
-  nodepool_id=xxx \
-  node_count=3 \
-  confirm=true
-```
-
----
-
-## Notes
-
-- 确保 AK/SK 具有正确的 IAM 权限
-- 不同区域可能有不同的资源可用性
-- 所有危险操作都需要二次确认
-- 删除操作不可恢复，请谨慎操作
-- 休眠集群会停止所有工作负载，请在非业务时间操作
-- 节点 drain 操作会驱逐所有 Pod，请确保应用有足够的副本数
+- Use environment variables (`HW_ACCESS_KEY` / `HW_SECRET_KEY`) for credentials — avoid hardcoding
+- Always preview dangerous operations before confirming with `confirm=true`
+- Use Turbo clusters (`container_network_type=eni`) for high-performance workloads
+- Resize node pools during low-traffic periods to minimize business impact
+- Keep node pools at ≥2 nodes for production workloads to ensure redundancy
+- Regularly check cluster health via `huawei_list_cce_clusters` and `huawei_show_cce_cluster`
 
 ---
 
 ## References
 
-- [CCE 集群管理最佳实践](./references/cce-cluster-best-practices.md)
-- [节点维护操作指南](./references/node-maintenance-guide.md)
-- [集群休眠唤醒说明](./references/cluster-hibernate-awake.md)
+| Document | Description |
+|----------|-------------|
+| [task-cluster-management.md](references/task-cluster-management.md) | Cluster lifecycle operations |
+| [task-nodepool-management.md](references/task-nodepool-management.md) | Node pool operations |
+| [task-node-management.md](references/task-node-management.md) | Node scheduling operations |
+| [iam-policies.md](references/iam-policies.md) | IAM permission policies |
+| [verification-method.md](references/verification-method.md) | Verification steps |
+| [troubleshooting.md](references/troubleshooting.md) | Troubleshooting guide |
+| [cce-api-guide.md](references/cce-api-guide.md) | CCE Python SDK API reference |
+| [cce-cluster-parameters.md](references/cce-cluster-parameters.md) | Cluster/nodepool creation parameters |
+
+---
+
+## Notes
+
+- Ensure AK/SK has correct IAM permissions
+- Different regions may have different resource availability
+- All dangerous operations require confirmation
+- Deletion operations are irreversible
+- Hibernate cluster stops all workloads - use during non-business hours
+- Node drain evicts all pods - ensure sufficient replicas
+- Turbo clusters recommended for best performance with ENI network
