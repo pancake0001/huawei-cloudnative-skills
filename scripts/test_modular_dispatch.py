@@ -257,6 +257,7 @@ class DispatcherTests(unittest.TestCase):
             "huawei_get_application_log_stream",
             "huawei_get_cce_node_metrics",
             "huawei_node_diagnose",
+            "huawei_pod_failure_diagnose",
         ]:
             self.assertTrue(dispatcher.is_registered_action(action))
 
@@ -447,6 +448,29 @@ class DispatcherTests(unittest.TestCase):
         self.assertEqual(args[2], "demo-app")
         self.assertEqual(args[3], "default")
         self.assertEqual(args[7], "2026-04-05 10:00:00")
+
+    def test_pod_failure_diagnose_dispatch(self):
+        """huawei_pod_failure_diagnose 正确调用 Pod 诊断函数"""
+        with mock.patch("huawei_cloud.dispatcher.pod_diagnosis.pod_failure_diagnose", return_value={"success": True, "top_causes": []}) as mocked:
+            result = dispatcher.dispatch_action("huawei_pod_failure_diagnose", {
+                "region": "cn-north-4",
+                "cluster_id": "c1",
+                "namespace": "default",
+                "pod_name": "demo-abc",
+                "include_logs": "false",
+                "include_metrics": "true",
+                "tail_lines": "25",
+            })
+        self.assertTrue(result["success"])
+        mocked.assert_called_once()
+        kwargs = mocked.call_args.kwargs
+        self.assertEqual(kwargs["region"], "cn-north-4")
+        self.assertEqual(kwargs["cluster_id"], "c1")
+        self.assertEqual(kwargs["namespace"], "default")
+        self.assertEqual(kwargs["pod_name"], "demo-abc")
+        self.assertFalse(kwargs["include_logs"])
+        self.assertTrue(kwargs["include_metrics"])
+        self.assertEqual(kwargs["tail_lines"], 25)
 
     def test_workload_diagnose_dispatch_without_optional_params(self):
         """huawei_workload_diagnose 可选参数为空时也能正常调用"""

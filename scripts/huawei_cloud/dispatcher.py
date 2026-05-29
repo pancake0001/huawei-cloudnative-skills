@@ -9,6 +9,7 @@ import json
 from . import aom, cce, cce_metrics, ecs, elb, hss, identity, network, storage
 from . import cce_inspection
 from . import cce_diagnosis
+from . import pod_diagnosis
 from . import cce_auto_inspection
 from . import chart_generator
 from . import common
@@ -524,6 +525,29 @@ def _workload_diagnose_by_alarm_action(params):
         return {"success": False, "error": str(exc), "error_type": type(exc).__name__, "stage": "workload_diagnose_by_alarm"}
 
 
+def _pod_failure_diagnose_action(params):
+    try:
+        return pod_diagnosis.pod_failure_diagnose(
+            region=params["region"],
+            cluster_id=params["cluster_id"],
+            namespace=params.get("namespace"),
+            pod_name=params.get("pod_name"),
+            workload_name=params.get("workload_name"),
+            labels=params.get("labels"),
+            include_logs=params.get("include_logs", "true").lower() != "false",
+            include_metrics=params.get("include_metrics", "false").lower() == "true",
+            tail_lines=_to_int(params.get("tail_lines"), 80),
+            hours=_to_int(params.get("hours"), 1),
+            max_pods=_to_int(params.get("max_pods"), 20),
+            event_limit=_to_int(params.get("event_limit"), 500),
+            ak=params.get("ak"),
+            sk=params.get("sk"),
+            project_id=params.get("project_id"),
+        )
+    except Exception as exc:
+        return {"success": False, "error": str(exc), "error_type": type(exc).__name__, "stage": "pod_failure_diagnose"}
+
+
 def _hibernate_cce_cluster_action(params):
     if params.get("confirm", "").lower() == "true":
         return cce.hibernate_cce_cluster(
@@ -937,6 +961,7 @@ ACTION_SPECS: Dict[str, tuple[tuple[str, ...], Handler]] = {
     "huawei_uninstall_cce_addon": (("region", "cluster_id", "addon_id"), _uninstall_cce_addon),
     "huawei_update_cce_addon": (("region", "cluster_id", "addon_id"), _update_cce_addon),
     "huawei_get_cce_pods": (("region", "cluster_id"), _get_cce_pods),
+    "huawei_pod_failure_diagnose": (("region", "cluster_id"), _pod_failure_diagnose_action),
     "huawei_get_pod_logs": (("region", "cluster_id", "pod_name"), _get_pod_logs),
     "huawei_get_cce_namespaces": (("region", "cluster_id"), _get_cce_namespaces),
     "huawei_get_cce_deployments": (("region", "cluster_id"), _get_cce_deployments),

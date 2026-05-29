@@ -1,10 +1,42 @@
 # Workflow
 
-1. 识别 Pod 状态：Running、Pending、Failed、CrashLoopBackOff、ImagePullBackOff、OOMKilled、Evicted。
-2. 对 Pending 优先看调度事件、资源不足、亲和性、污点容忍、安全组或 PVC。
-3. 对 CrashLoopBackOff 优先看 previous 日志、退出码、探针失败和配置变更。
-4. 对 OOMKilled 优先看内存指标、limit/request、突增流量和历史告警。
-5. 对 ImagePullBackOff 优先看镜像地址、密钥、网络、仓库权限。
-6. 将 Events、Logs、Metrics 按时间线合并，给出 Top3 可能原因。
-7. 需要动作时只输出建议，不自动执行。
+## Evidence Order
 
+1. Scope: confirm `region`, `cluster_id`, `namespace`, and one of `pod_name`, `workload_name`, or `labels`.
+2. Pod snapshot: read phase/status, reason/message, node, owner references, QoS, conditions, container states, last states, restart counts, image and resource requests/limits.
+3. Events: correlate Pod events by involved object; preserve reason, message, count, and last timestamp.
+4. Logs: for CrashLoopBackOff, OOMKilled, and frequent restarts, inspect `previous=true` first, then current logs. ImagePullBackOff normally has no container log.
+5. Metrics: for OOMKilled/Evicted/resource suspicion, fetch pod metrics and optionally TopN pod/node metrics for the fault window.
+6. Output: classify failure type, cite evidence, rank Top3 causes, list read-only next checks, and hand off any mutation to `auto-remediation-runner`.
+
+## Failure Rules
+
+### CrashLoopBackOff
+
+- Signals: waiting reason `CrashLoopBackOff`, BackOff restarting events, high `restart_count`, terminated last state.
+- Evidence: previous logs, exit code, last termination reason, liveness/startup probe events, ConfigMap/Secret changes.
+- Common causes: application crash, missing config, bad command/args, failed dependency, probe too aggressive, resource shortage during startup.
+
+### ImagePullBackOff / ErrImagePull
+
+- Signals: waiting reason `ImagePullBackOff` or `ErrImagePull`, events with failed pull/back-off pulling image.
+- Evidence: image string, imagePullSecrets, event message, repository/tag/auth/network hints.
+- Common causes: wrong image/tag, missing secret, SWR/registry permission, repository deleted, node egress or DNS issue, registry rate limit.
+
+### OOMKilled
+
+- Signals: last terminated reason `OOMKilled`, exit code 137, restart after memory spike.
+- Evidence: last state, memory limit/request, pod memory metrics, node memory pressure, business traffic or batch job timing.
+- Common causes: memory limit too low, memory leak, cache growth, sudden traffic, JVM/runtime memory settings inconsistent with container limit.
+
+### Pending
+
+- Signals: phase `Pending`, `PodScheduled=False`, FailedScheduling, FailedMount, FailedAttachVolume, FailedCreatePodSandBox.
+- Evidence: scheduler event message, node allocatable resources, taints/tolerations, affinity/nodeSelector, namespace quota, PVC/PV state.
+- Common causes: insufficient resources, strict affinity, missing toleration, quota, PVC pending, mount timeout, CNI/sandbox creation issue.
+
+### Evicted
+
+- Signals: pod reason/message contains `Evicted`, phase `Failed`, eviction events.
+- Evidence: eviction message, node pressure condition, QoS class, requests/limits, ephemeral-storage usage.
+- Common causes: MemoryPressure, DiskPressure, ephemeral-storage exhaustion, node NotReady, planned node maintenance.

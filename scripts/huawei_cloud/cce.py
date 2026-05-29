@@ -991,6 +991,95 @@ def resize_node_pool(region: str, cluster_id: str, nodepool_id: str, node_count:
             "error_type": type(e).__name__
         }
 
+def _k8s_ts(value: Any) -> Optional[str]:
+    return str(value) if value else None
+
+
+def _k8s_resource_requirements(container: Any) -> Dict[str, Any]:
+    resources = getattr(container, "resources", None)
+    if not resources:
+        return {}
+    return {
+        "requests": dict(getattr(resources, "requests", None) or {}),
+        "limits": dict(getattr(resources, "limits", None) or {}),
+    }
+
+
+def _k8s_container_state(state: Any) -> Dict[str, Any]:
+    if not state:
+        return {}
+    waiting = getattr(state, "waiting", None)
+    running = getattr(state, "running", None)
+    terminated = getattr(state, "terminated", None)
+    if waiting:
+        return {
+            "type": "waiting",
+            "reason": getattr(waiting, "reason", None),
+            "message": getattr(waiting, "message", None),
+        }
+    if running:
+        return {
+            "type": "running",
+            "started_at": _k8s_ts(getattr(running, "started_at", None)),
+        }
+    if terminated:
+        return {
+            "type": "terminated",
+            "reason": getattr(terminated, "reason", None),
+            "message": getattr(terminated, "message", None),
+            "exit_code": getattr(terminated, "exit_code", None),
+            "signal": getattr(terminated, "signal", None),
+            "started_at": _k8s_ts(getattr(terminated, "started_at", None)),
+            "finished_at": _k8s_ts(getattr(terminated, "finished_at", None)),
+        }
+    return {}
+
+
+def _k8s_container_status(cs: Any, spec_by_name: Dict[str, Any]) -> Dict[str, Any]:
+    spec = spec_by_name.get(getattr(cs, "name", ""))
+    state_detail = _k8s_container_state(getattr(cs, "state", None))
+    last_state_detail = _k8s_container_state(getattr(cs, "last_state", None))
+    return {
+        "name": getattr(cs, "name", None),
+        "image": getattr(cs, "image", None) or getattr(spec, "image", None),
+        "image_id": getattr(cs, "image_id", None),
+        "container_id": getattr(cs, "container_id", None),
+        "ready": getattr(cs, "ready", None),
+        "started": getattr(cs, "started", None),
+        "restart_count": getattr(cs, "restart_count", 0),
+        "state": str(getattr(cs, "state", None)) if getattr(cs, "state", None) else None,
+        "state_detail": state_detail,
+        "last_state": str(getattr(cs, "last_state", None)) if getattr(cs, "last_state", None) else None,
+        "last_state_detail": last_state_detail,
+        "resources": _k8s_resource_requirements(spec),
+    }
+
+
+def _k8s_pod_conditions(conditions: Any) -> List[Dict[str, Any]]:
+    result = []
+    for condition in conditions or []:
+        result.append({
+            "type": getattr(condition, "type", None),
+            "status": getattr(condition, "status", None),
+            "reason": getattr(condition, "reason", None),
+            "message": getattr(condition, "message", None),
+            "last_transition_time": _k8s_ts(getattr(condition, "last_transition_time", None)),
+        })
+    return result
+
+
+def _k8s_owner_references(owner_refs: Any) -> List[Dict[str, Any]]:
+    result = []
+    for ref in owner_refs or []:
+        result.append({
+            "kind": getattr(ref, "kind", None),
+            "name": getattr(ref, "name", None),
+            "uid": getattr(ref, "uid", None),
+            "controller": getattr(ref, "controller", None),
+        })
+    return result
+
+
 def get_kubernetes_pods(region: str, cluster_id: str, ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None, namespace: str = None, labels: str = None) -> Dict[str, Any]:
     """Get pods in a CCE cluster
 
@@ -1022,6 +1111,9 @@ def get_kubernetes_pods(region: str, cluster_id: str, ak: Optional[str] = None, 
             "success": False,
             "error": f"Huawei Cloud SDK not installed: {IMPORT_ERROR}"
         }
+
+    cert_file = None
+    key_file = None
 
     try:
         # Get cluster credentials
@@ -1094,26 +1186,46 @@ def get_kubernetes_pods(region: str, cluster_id: str, ak: Optional[str] = None, 
 
         pod_list = []
         for pod in pods.items:
+            spec_containers = {c.name: c for c in (pod.spec.containers or [])}
+            init_spec_containers = {c.name: c for c in (pod.spec.init_containers or [])} if pod.spec.init_containers else {}
             pod_info = {
                 "name": pod.metadata.name,
                 "namespace": pod.metadata.namespace,
                 "status": pod.status.phase,
+                "phase": pod.status.phase,
+                "reason": pod.status.reason,
+                "message": pod.status.message,
                 "node": pod.spec.node_name,
                 "ip": pod.status.pod_ip,
+                "host_ip": pod.status.host_ip,
+                "qos_class": pod.status.qos_class,
                 "created": str(pod.metadata.creation_timestamp) if pod.metadata.creation_timestamp else None,
                 "labels": pod.metadata.labels,
+                "annotation_keys": sorted((pod.metadata.annotations or {}).keys()),
+                "owner_references": _k8s_owner_references(pod.metadata.owner_references),
+                "conditions": _k8s_pod_conditions(pod.status.conditions),
+                "restart_policy": pod.spec.restart_policy,
+                "service_account": pod.spec.service_account_name,
+                "image_pull_secrets": [
+                    item.name for item in (pod.spec.image_pull_secrets or []) if getattr(item, "name", None)
+                ],
             }
             # Container info
             if pod.status.container_statuses:
-                containers = []
-                for cs in pod.status.container_statuses:
-                    containers.append({
-                        "name": cs.name,
-                        "ready": cs.ready,
-                        "restart_count": cs.restart_count,
-                        "state": str(cs.state) if cs.state else None
-                    })
-                pod_info["containers"] = containers
+                pod_info["containers"] = [
+                    _k8s_container_status(cs, spec_containers)
+                    for cs in pod.status.container_statuses
+                ]
+            else:
+                pod_info["containers"] = []
+
+            if pod.status.init_container_statuses:
+                pod_info["init_containers"] = [
+                    _k8s_container_status(cs, init_spec_containers)
+                    for cs in pod.status.init_container_statuses
+                ]
+            else:
+                pod_info["init_containers"] = []
             pod_list.append(pod_info)
 
         # 清理临时证书文件
@@ -1136,6 +1248,9 @@ def get_kubernetes_pods(region: str, cluster_id: str, ak: Optional[str] = None, 
             "error": str(e),
             "error_type": type(e).__name__
         }
+    finally:
+        _safe_delete_file(cert_file)
+        _safe_delete_file(key_file)
 
 def get_kubernetes_namespaces(region: str, cluster_id: str, ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None) -> Dict[str, Any]:
     """Get namespaces in a CCE cluster"""

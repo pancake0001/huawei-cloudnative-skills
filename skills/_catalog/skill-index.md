@@ -46,7 +46,7 @@
 
 常见问题：Pod 一直重启；工作负载副本不可用；Pod Pending；用户只给了 namespace 和应用名。
 
-常用工具：`huawei_get_cce_pods`、`huawei_get_pod_logs`、`huawei_get_cce_events`、`huawei_get_cce_pod_metrics`、`huawei_workload_diagnose`。
+常用工具：`huawei_pod_failure_diagnose`、`huawei_get_cce_pods`、`huawei_get_pod_logs`、`huawei_get_cce_events`、`huawei_get_cce_pod_metrics`、`huawei_workload_diagnose`。
 
 关系：定位 Pod/Workload 层问题；如果需要扩缩容或删除重建，交给 `auto-remediation-runner` 预览。
 
@@ -127,4 +127,3 @@
 | 需要扩容、重启、drain、漏洞修复等动作 | `auto-remediation-runner` |
 | 做每日巡检或周期性健康检查 | `daily-cluster-inspector` |
 | 做容器迁移方案和资源盘点 | `container-migration-planner` |
-

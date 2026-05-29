@@ -603,8 +603,9 @@ def _render_step_workload(diag: Dict) -> str:
     running = sum(1 for p in target_pods if p.get('status') == 'Running')
     abnormal_pct = (total - running) / total * 100 if total else 0
 
+    _all_str = "\u5168\u90e8"
     html = '<div class="info-grid">'
-    html += f'<div class="info-item"><div class="info-label">\u5de5\u4f5c\u8d1f\u8f7d</div><div class="info-value">{_esc_html(workload_name) or "\u5168\u90e8"}</div></div>'
+    html += f'<div class="info-item"><div class="info-label">\u5de5\u4f5c\u8d1f\u8f7d</div><div class="info-value">{_esc_html(workload_name) or _all_str}</div></div>'
     html += f'<div class="info-item"><div class="info-label">\u547d\u540d\u7a7a\u95f4</div><div class="info-value">{_esc_html(diag.get("namespace", ""))}</div></div>'
     html += f'<div class="info-item"><div class="info-label">\u671f\u671b\u526f\u672c</div><div class="info-value">{total}</div></div>'
     html += f'<div class="info-item"><div class="info-label">\u8fd0\u884c\u526f\u672c</div><div class="info-value" style="color:#4ade80">{running}/{total}</div></div>'
@@ -962,7 +963,8 @@ def generate_diagnosis_report(
         ak=access_key, sk=secret_key, project_id=proj_id,
     )
     if not diag_result.get('success'):
-        return {'success': False, 'error': f'\u8bca\u65ad\u6267\u884c\u5931\u8d25: {diag_result.get("error", "\u672a\u77e5\u9519\u8bef")}'}
+        unknown_err = '\u672a\u77e5\u9519\u8bef'
+        return {'success': False, 'error': f'\u8bca\u65ad\u6267\u884c\u5931\u8d25: {diag_result.get("error", unknown_err)}'}
 
     diag = diag_result.get('diagnosis', {})
 
