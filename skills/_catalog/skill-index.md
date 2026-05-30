@@ -146,13 +146,23 @@ Use for periodic CCE capacity trend analysis, bottleneck forecasting, simulation
 
 ### root-cause-analyzer
 
-适用：跨 Pod、Node、Network、AOM 告警的综合根因分析。
+适用：跨 Pod、Workload rollout、Service 拓扑、近期变更、Node、Network、AOM 告警的综合根因分析。
 
 常见问题：用户只描述业务不可用；多个告警同时出现；需要 Top3 根因、证据链和报告。
 
-常用工具：`huawei_workload_diagnose`、`huawei_network_diagnose`、`huawei_node_diagnose`、`huawei_generate_diagnosis_report`、`huawei_analyze_aom_alarms`。
+常用工具：`huawei_root_cause_analyze`、`huawei_workload_rollout_diagnose`、`huawei_dependency_impact_analyze`、`huawei_change_impact_analyze`、`huawei_generate_diagnosis_report`、`huawei_analyze_aom_alarms`。
 
 关系：汇总诊断结论；恢复动作交给 `auto-remediation-runner`，巡检入口交给 `daily-cluster-inspector`。
+
+### dependency-impact-analyzer
+
+适用：基于 CCE Service/Ingress/Pod/Node 拓扑判断故障传播路径、上下游影响和爆炸半径。
+
+常见问题：某个 Deployment 不可用会影响哪些入口；Service 后端异常会影响哪些 Ingress host；需要判断上游入口和集群内调用风险；需要输出影响面报告。
+
+常用工具：`huawei_dependency_impact_analyze`、`huawei_get_cce_pods`、`huawei_get_cce_services`、`huawei_get_cce_ingresses`、`huawei_get_kubernetes_nodes`。
+
+关系：只读拓扑影响分析；根因判断交给 `root-cause-analyzer`，恢复动作交给 `auto-remediation-runner`。
 
 ### change-impact-analyzer
 
@@ -168,9 +178,9 @@ Use for periodic CCE capacity trend analysis, bottleneck forecasting, simulation
 
 适用：用户已经明确要求恢复动作，或诊断结果需要生成可确认的恢复预案。
 
-常见问题：扩容工作负载；cordon/drain 节点；重启 ECS；修复 HSS 漏洞；休眠或唤醒 CCE 集群。
+常见问题：根据高置信发布故障回滚 Deployment；扩容工作负载；cordon/drain 节点；重启 ECS；修复 HSS 漏洞；休眠或唤醒 CCE 集群。
 
-常用工具：`huawei_scale_cce_workload`、`huawei_configure_cce_hpa`、`huawei_resize_cce_nodepool`、`huawei_cce_node_cordon`、`huawei_cce_node_drain`、`huawei_reboot_ecs`、`huawei_hss_change_vul_status`。
+常用工具：`huawei_auto_remediation_run`、`huawei_rollback_cce_workload`、`huawei_scale_cce_workload`、`huawei_configure_cce_hpa`、`huawei_resize_cce_nodepool`、`huawei_cce_node_cordon`、`huawei_cce_node_drain`、`huawei_reboot_ecs`、`huawei_hss_change_vul_status`。
 
 关系：默认只预览，不自动加 `confirm=true`；执行后调用只读诊断工具做验证。
 

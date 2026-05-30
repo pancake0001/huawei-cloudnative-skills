@@ -2,8 +2,15 @@
 
 ```json
 {
+  "success": false,
+  "requires_confirmation": true,
+  "remediation_trace_id": "ARR-...",
+  "strategy": "rollback_previous_revision",
+  "diagnosis": {},
+  "action_result": {},
+  "verification": {},
   "summary": "remediation plan or execution result",
-  "action": "huawei_scale_cce_workload",
+  "action": "huawei_auto_remediation_run | huawei_rollback_cce_workload | huawei_scale_cce_workload",
   "risk_level": "R1 | R2 | R3",
   "target": {
     "region": "cn-north-4",
@@ -15,7 +22,8 @@
   "confirmation_received": false,
   "execution": {},
   "verification": [],
-  "rollback_notes": []
+  "rollback_notes": [],
+  "report_markdown": "# CCE 自动恢复执行报告...",
+  "report_file": "optional"
 }
 ```
-

@@ -31,8 +31,9 @@ scripts/huawei_cloud/dispatcher.py
 - `network-failure-diagnoser`：Service、Ingress、ELB、EIP、NAT、VPC 链路诊断。
 - `storage-failure-diagnoser`：PVC Pending、PV 绑定、EVS/SFS/OBS 挂载、容量/Inode、只读文件系统和删除保护诊断。
 - `root-cause-analyzer`：跨域根因分析和诊断报告。
+- `dependency-impact-analyzer`：基于 Service/Ingress/Pod/Node 拓扑判断故障传播路径、上下游影响和爆炸半径；组合 action 为 `huawei_dependency_impact_analyze`。
 - `change-impact-analyzer`：结合发布、配置、节点、网络、安全策略变更定位故障诱因，输出完整 Markdown 证据报告；组合 action 为 `huawei_change_impact_analyze`。
-- `auto-remediation-runner`：恢复动作预览、确认、执行后验证。
+- `auto-remediation-runner`：恢复动作预览、确认、执行后验证，支持基于高置信发布故障的 Deployment 回滚编排；组合 action 为 `huawei_auto_remediation_run`。
 - `daily-cluster-inspector`：每日巡检、快检、深度巡检。
 - `cost-optimization-advisor`：空闲资源、过量 Request、低利用率节点、HPA/autoscaler 弹性策略优化建议和 HPA 配置预览；组合 action 为 `huawei_analyze_cce_cost_optimization`。
 - `availability-risk-scanner`：单副本、PDB 缺失、健康检查、亲和性、AZ 均衡、网关和核心插件可用性风险扫描；组合 action 为 `huawei_scan_cce_availability_risk`。

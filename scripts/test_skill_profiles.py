@@ -32,6 +32,8 @@ HIGH_RISK_ACTIONS = {
     "huawei_stop_ecs_instance",
     "huawei_hss_change_vul_status",
     "huawei_configure_cce_hpa",
+    "huawei_rollback_cce_workload",
+    "huawei_auto_remediation_run",
     "huawei_ensure_cce_cci_vpcep",
     "huawei_setup_cce_cci_bursting",
     "huawei_deploy_cce_cci_smoke_workload",
