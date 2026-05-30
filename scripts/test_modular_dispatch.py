@@ -988,6 +988,43 @@ class DispatcherTests(unittest.TestCase):
         self.assertTrue(dispatcher.is_registered_action("huawei_analyze_cce_cost_optimization"))
         self.assertEqual(dispatcher.ACTION_SPECS["huawei_analyze_cce_cost_optimization"][0], ("region", "cluster_id"))
 
+    # ==================== Network failure diagnosis actions ====================
+
+    def test_network_failure_diagnose_dispatch(self):
+        with mock.patch(
+            "huawei_cloud.dispatcher.network_failure_diagnosis.diagnose_network_failure_action",
+            return_value={"success": True, "report_markdown": "# report"},
+        ) as mocked:
+            result = dispatcher.dispatch_action("huawei_network_failure_diagnose", {
+                "region": "cn-north-4",
+                "cluster_id": "c1",
+                "namespace": "prod",
+                "service_name": "api",
+                "failure_symptom": "集群内服务不通",
+                "include_logs": "false",
+            })
+
+        self.assertTrue(result["success"])
+        mocked.assert_called_once()
+        self.assertEqual(mocked.call_args.args[0]["service_name"], "api")
+
+    def test_elb_backend_status_dispatch_parses_limit(self):
+        with mock.patch("huawei_cloud.dispatcher.elb.get_elb_backend_status", return_value={"success": True}) as mocked:
+            result = dispatcher.dispatch_action("huawei_get_elb_backend_status", {
+                "region": "cn-north-4",
+                "elb_id": "elb-1",
+                "limit": "50",
+            })
+
+        self.assertTrue(result["success"])
+        mocked.assert_called_once_with("cn-north-4", "elb-1", None, None, None, 50)
+
+    def test_network_failure_actions_in_action_specs(self):
+        self.assertTrue(dispatcher.is_registered_action("huawei_network_failure_diagnose"))
+        self.assertTrue(dispatcher.is_registered_action("huawei_get_elb_backend_status"))
+        self.assertEqual(dispatcher.ACTION_SPECS["huawei_network_failure_diagnose"][0], ("region", "cluster_id"))
+        self.assertEqual(dispatcher.ACTION_SPECS["huawei_get_elb_backend_status"][0], ("region", "elb_id"))
+
     # ==================== Availability risk scanner action ====================
 
     def test_scan_cce_availability_risk_dispatch(self):

@@ -180,6 +180,115 @@ def list_elb_listeners(region: str, loadbalancer_id: str = None, ak: Optional[st
             "error_type": type(e).__name__
         }
 
+def get_elb_backend_status(region: str, elb_id: str, ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None, limit: int = 200) -> Dict[str, Any]:
+    """Get ELB pools, members, health monitors, and load balancer status.
+
+    This is read-only and intended for CCE network diagnosis. It complements
+    get_elb_metrics by returning backend member health instead of time-series
+    counters only.
+    """
+    access_key, secret_key, proj_id = get_credentials(ak, sk, project_id)
+
+    if not access_key or not secret_key:
+        return {
+            "success": False,
+            "error": "Credentials not provided. Set HUAWEI_AK and HUAWEI_SK environment variables or pass as parameters."
+        }
+
+    if not elb_id:
+        return {
+            "success": False,
+            "error": "elb_id is required"
+        }
+
+    if not SDK_AVAILABLE:
+        return {
+            "success": False,
+            "error": f"Huawei Cloud SDK not installed: {IMPORT_ERROR}"
+        }
+
+    try:
+        client = create_elb_client(region, access_key, secret_key, proj_id)
+
+        lb_status = {}
+        try:
+            status_request = ShowLoadBalancerStatusRequest()
+            status_request.loadbalancer_id = elb_id
+            status_response = client.show_load_balancer_status(status_request)
+            if hasattr(status_response, "to_dict"):
+                lb_status = status_response.to_dict()
+        except Exception as exc:
+            lb_status = {"error": str(exc), "error_type": type(exc).__name__}
+
+        pools_request = ListPoolsRequest()
+        pools_request.loadbalancer_id = [elb_id]
+        pools_request.limit = limit
+        pools_response = client.list_pools(pools_request)
+        pools = []
+        pool_ids = []
+        for pool in getattr(pools_response, "pools", None) or []:
+            pool_info = pool.to_dict() if hasattr(pool, "to_dict") else {}
+            pools.append(pool_info)
+            if pool_info.get("id"):
+                pool_ids.append(pool_info["id"])
+
+        members = []
+        for pool_id in pool_ids:
+            try:
+                members_request = ListMembersRequest()
+                members_request.pool_id = pool_id
+                members_request.limit = limit
+                members_response = client.list_members(members_request)
+                for member in getattr(members_response, "members", None) or []:
+                    member_info = member.to_dict() if hasattr(member, "to_dict") else {}
+                    member_info["pool_id"] = pool_id
+                    members.append(member_info)
+            except Exception as exc:
+                members.append({"pool_id": pool_id, "error": str(exc), "error_type": type(exc).__name__})
+
+        health_monitors = []
+        try:
+            monitors_request = ListHealthMonitorsRequest()
+            monitors_request.limit = limit
+            monitors_response = client.list_health_monitors(monitors_request)
+            for monitor in getattr(monitors_response, "healthmonitors", None) or []:
+                monitor_info = monitor.to_dict() if hasattr(monitor, "to_dict") else {}
+                if not pool_ids or monitor_info.get("id") in {pool.get("healthmonitor_id") for pool in pools}:
+                    health_monitors.append(monitor_info)
+        except Exception as exc:
+            health_monitors.append({"error": str(exc), "error_type": type(exc).__name__})
+
+        unhealthy_members = [
+            member for member in members
+            if str(member.get("operating_status") or "").upper() not in {"", "ONLINE", "NORMAL", "NO_MONITOR"}
+        ]
+
+        return {
+            "success": True,
+            "region": region,
+            "elb_id": elb_id,
+            "action": "get_elb_backend_status",
+            "loadbalancer_status": lb_status,
+            "pools": pools,
+            "members": members,
+            "health_monitors": health_monitors,
+            "unhealthy_member_count": len(unhealthy_members),
+            "unhealthy_members": unhealthy_members,
+        }
+
+    except ClientRequestException as e:
+        return {
+            "success": False,
+            "error": f"{e.error_code} - {e.error_msg}",
+            "request_id": getattr(e, 'request_id', None)
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "error_type": type(e).__name__
+        }
+
 def get_elb_metrics(region: str, elb_id: str, hours: int = 1, period: int = 300, ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None) -> Dict[str, Any]:
     """获取指定ELB负载均衡的监控指标（自动识别ELB类型，查询对应的四层/七层指标）"""
     access_key, secret_key, proj_id = get_credentials(ak, sk, project_id)
@@ -377,4 +486,3 @@ def get_elb_metrics(region: str, elb_id: str, hours: int = 1, period: int = 300,
             "success": False,
             "error": f"查询ELB监控失败: {str(e)}"
         }
-

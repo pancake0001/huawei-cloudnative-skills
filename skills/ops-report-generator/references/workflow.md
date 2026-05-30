@@ -29,4 +29,3 @@
 - If a source report fails, keep aggregate report output and mark source as degraded.
 - If `oncall-copilot` input is missing, mark as a context gap instead of failing the report.
 - Keep report auditable by preserving source file pointers and optional raw payloads (`include_raw=true`).
-

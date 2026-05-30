@@ -13,4 +13,3 @@ references:
   - references/output-schema.md
 guardrails:
   max_auto_risk: R1
-

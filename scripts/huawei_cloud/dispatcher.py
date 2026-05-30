@@ -14,8 +14,9 @@ from . import workload_rollout_diagnosis
 from . import cce_auto_inspection
 from . import chart_generator
 from . import common
-from . import cce_cluster, cce_nodepool, cce_node, cce_addon, cce_k8s, cce_hpa, cce_cost_optimization, cce_availability_risk, cce_capacity_trend, ops_report_generator
-from . import node_failure_diagnosis
+from . import cce_cluster, cce_nodepool, cce_node, cce_addon, cce_k8s, cce_hpa, cce_cost_optimization
+from . import cce_availability_risk, cce_capacity_trend, ops_report_generator
+from . import node_failure_diagnosis, network_failure_diagnosis
 
 # cce_app_logs and lts require huaweicloudsdklts which may not be installed
 try:
@@ -135,6 +136,10 @@ def _list_elb_listeners(params: Dict[str, str]) -> Dict[str, Any]:
 
 def _get_elb_metrics(params: Dict[str, str]) -> Dict[str, Any]:
     return elb.get_elb_metrics(params["region"], params["elb_id"], _to_int(params.get("hours"), 1), _to_int(params.get("period"), 300), params.get("ak"), params.get("sk"), params.get("project_id"))
+
+
+def _get_elb_backend_status(params: Dict[str, str]) -> Dict[str, Any]:
+    return elb.get_elb_backend_status(params["region"], params["elb_id"], params.get("ak"), params.get("sk"), params.get("project_id"), _to_int(params.get("limit"), 200))
 
 
 def _list_projects(params: Dict[str, str]) -> Dict[str, Any]:
@@ -596,6 +601,10 @@ def _network_verify_pod_scheduling_action(params):
         params.get("namespace", "default"),
         params.get("ak"), params.get("sk"), params.get("project_id")
     )
+
+
+def _network_failure_diagnose_action(params):
+    return network_failure_diagnosis.diagnose_network_failure_action(params)
 
 
 def _node_batch_diagnose_action(params):
@@ -1291,6 +1300,7 @@ ACTION_SPECS: Dict[str, tuple[tuple[str, ...], Handler]] = {
     "huawei_list_elb": (("region",), _list_elb),
     "huawei_list_elb_listeners": (("region",), _list_elb_listeners),
     "huawei_get_elb_metrics": (("region", "elb_id"), _get_elb_metrics),
+    "huawei_get_elb_backend_status": (("region", "elb_id"), _get_elb_backend_status),
     "huawei_list_supported_regions": ((), lambda params: identity.list_supported_regions()),
     "huawei_list_projects": ((), _list_projects),
     "huawei_get_project_by_region": (("region",), _get_project_by_region),
@@ -1386,6 +1396,7 @@ ACTION_SPECS: Dict[str, tuple[tuple[str, ...], Handler]] = {
     "huawei_get_cce_node_metrics": (("region", "cluster_id", "node_ip"), lambda params: _metric_action(cce_metrics.get_cce_node_metrics, params["region"], params["cluster_id"], params["node_ip"], params.get("ak"), params.get("sk"), params.get("project_id"), _to_int(params.get("hours"), 1), params.get("cpu_query"), params.get("memory_query"), params.get("disk_query"))),
     "huawei_network_diagnose": (("region", "cluster_id"), _network_diagnose_action),
     "huawei_network_diagnose_by_alarm": (("region", "cluster_id", "alarm_info"), _network_diagnose_by_alarm_action),
+    "huawei_network_failure_diagnose": (("region", "cluster_id"), _network_failure_diagnose_action),
     "huawei_workload_diagnose": (("region", "cluster_id"), _workload_diagnose_action),
     "huawei_workload_diagnose_by_alarm": (("region", "cluster_id", "alarm_info"), _workload_diagnose_by_alarm_action),
     "huawei_hibernate_cce_cluster": (("region", "cluster_id"), _hibernate_cce_cluster_action),

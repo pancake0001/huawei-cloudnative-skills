@@ -1158,13 +1158,13 @@ def get_kubernetes_pods(region: str, cluster_id: str, ak: Optional[str] = None, 
                 break
 
         if user_data and user_data.get('client_certificate_data'):
-            cert_file = '/tmp/cce_client.crt'
+            cert_file = tempfile.mktemp(prefix="cce_pod_client_", suffix=".crt")
             with open(cert_file, 'wb') as f:
                 f.write(base64.b64decode(user_data['client_certificate_data']))
             configuration.cert_file = cert_file
 
         if user_data and user_data.get('client_key_data'):
-            key_file = '/tmp/cce_client.key'
+            key_file = tempfile.mktemp(prefix="cce_pod_client_", suffix=".key")
             with open(key_file, 'wb') as f:
                 f.write(base64.b64decode(user_data['client_key_data']))
             configuration.key_file = key_file
