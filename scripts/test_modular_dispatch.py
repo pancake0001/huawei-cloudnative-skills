@@ -263,6 +263,7 @@ class DispatcherTests(unittest.TestCase):
             "huawei_node_diagnose",
             "huawei_node_failure_diagnose",
             "huawei_pod_failure_diagnose",
+            "huawei_storage_failure_diagnose",
         ]:
             self.assertTrue(dispatcher.is_registered_action(action))
 
@@ -391,6 +392,12 @@ class DispatcherTests(unittest.TestCase):
     def test_node_failure_diagnose_dispatch_calls_target_handler(self):
         with mock.patch("huawei_cloud.dispatcher.node_failure_diagnosis.diagnose_node_failure_action", return_value={"success": True, "report_markdown": "# report"}) as mocked:
             result = dispatcher.dispatch_action("huawei_node_failure_diagnose", {"region": "cn-north-4", "cluster_id": "c1", "node_name": "node-a"})
+        self.assertTrue(result["success"])
+        mocked.assert_called_once()
+
+    def test_storage_failure_diagnose_dispatch_calls_target_handler(self):
+        with mock.patch("huawei_cloud.dispatcher.storage_failure_diagnosis.diagnose_storage_failure_action", return_value={"success": True, "report_markdown": "# report"}) as mocked:
+            result = dispatcher.dispatch_action("huawei_storage_failure_diagnose", {"region": "cn-north-4", "cluster_id": "c1", "namespace": "default", "pvc_name": "data"})
         self.assertTrue(result["success"])
         mocked.assert_called_once()
 
