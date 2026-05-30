@@ -18,6 +18,7 @@ from . import cce_cluster, cce_nodepool, cce_node, cce_addon, cce_k8s, cce_hpa, 
 from . import node_failure_diagnosis
 from . import network_failure_diagnosis
 from . import cce_events_lts
+from . import cce_cluster_monitoring
 
 # cce_app_logs and lts require huaweicloudsdklts which may not be installed
 try:
@@ -253,6 +254,10 @@ def _get_cce_events(params: Dict[str, str]) -> Dict[str, Any]:
 
 def _query_k8s_events_from_lts(params: Dict[str, str]) -> Dict[str, Any]:
     return cce_events_lts.query_k8s_events_from_lts_action(params)
+
+
+def _cce_cluster_monitoring_aggregation(params: Dict[str, str]) -> Dict[str, Any]:
+    return cce_cluster_monitoring.cce_cluster_monitoring_aggregation_action(params)
 
 
 def _get_cce_pvcs(params: Dict[str, str]) -> Dict[str, Any]:
@@ -1339,6 +1344,7 @@ ACTION_SPECS: Dict[str, tuple[tuple[str, ...], Handler]] = {
     "huawei_get_kubernetes_nodes": (("region", "cluster_id"), _get_kubernetes_nodes),
     "huawei_get_cce_events": (("region", "cluster_id"), _get_cce_events),
     "huawei_query_k8s_events_from_lts": (("region", "cluster_id", "start_time", "end_time"), _query_k8s_events_from_lts),  # limit is optional
+    "huawei_cce_cluster_monitoring_aggregation": (("region", "cluster_id", "start_time", "end_time"), _cce_cluster_monitoring_aggregation),  # namespace, top_n are optional
     "huawei_get_cce_pvcs": (("region", "cluster_id"), _get_cce_pvcs),
     "huawei_get_cce_pvs": (("region", "cluster_id"), _get_cce_pvs),
     "huawei_get_cce_services": (("region", "cluster_id"), _get_cce_services),

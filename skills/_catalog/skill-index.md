@@ -58,6 +58,16 @@
 
 关系：只读查询事件；如果事件指向具体故障，转给对应诊断 skill（Pod 问题 -> `pod-failure-diagnoser`，Node 问题 -> `node-failure-diagnoser`，工作负载问题 -> `workload-failure-diagnoser`）。当集群开启 K8s 事件 LTS 采集时，可使用 `huawei_query_k8s_events_from_lts` 从 LTS 查询历史事件；否则使用 `huawei_get_cce_events` 从 K8s API 实时查询。
 
+### metric-analyzer
+
+适用：需要查询和分析 CCE 集群指标（Pod/Node TopN）和云资源指标（ECS、ELB、EIP、NAT），发现资源异常（CPU/内存/磁盘使用率偏高），获取排名和时序数据。
+
+常见问题：查看 CPU/内存使用最高的 Pod；查看节点资源使用排名；查询 ECS/ELB/EIP/NAT 指标；检测资源阈值异常。
+
+常用工具：`huawei_get_cce_pod_metrics_topN`、`huawei_get_cce_pod_metrics`、`huawei_get_cce_node_metrics_topN`、`huawei_get_cce_node_metrics`、`huawei_get_ecs_metrics`、`huawei_get_elb_metrics`、`huawei_get_eip_metrics`、`huawei_get_nat_gateway_metrics`、`huawei_cce_cluster_monitoring_aggregation`。聚合分析工具 `huawei_cce_cluster_monitoring_aggregation` 可一次性获取集群所有监控数据（Pod/Node/ELB/NAT/EIP）并进行异常检测（阈值 80%）。
+
+关系：只读查询指标；如果发现严重资源异常，转给对应诊断 skill（Node 问题 -> `node-failure-diagnoser`，Pod 问题 -> `pod-failure-diagnoser`）。
+
 ## L3 故障诊断与自愈恢复
 
 ### pod-failure-diagnoser
@@ -195,6 +205,7 @@
 | CCE 告警很多，需要合并分析 | `alarm-correlation-engine` |
 | 查询 Pod 标准输出或 LTS 应用日志 | `log-analyzer` |
 | 需要分析 Kubernetes 事件趋势和 Warning 事件 | `kubernetes-event-analyzer` |
+| 查询 CCE Pod/Node 指标和资源使用排名 | `metric-analyzer` |
 | 需要先把日志、事件、指标、告警都收集齐 | `observability-context-builder` |
 | 业务不可用，需要综合根因分析 | `root-cause-analyzer` |
 | 需要扩容、重启、drain、漏洞修复等动作 | `auto-remediation-runner` |
