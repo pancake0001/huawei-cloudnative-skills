@@ -1182,6 +1182,24 @@ class DispatcherTests(unittest.TestCase):
         self.assertTrue(dispatcher.is_registered_action("huawei_generate_ops_report"))
         self.assertEqual(dispatcher.ACTION_SPECS["huawei_generate_ops_report"][0], ("region", "cluster_id"))
 
+    def test_change_impact_analyze_dispatch(self):
+        with mock.patch(
+            "huawei_cloud.dispatcher.change_impact_analysis.analyze_change_impact_action",
+            return_value={"success": True, "summary": {"core_change_count": 0}},
+        ) as mocked:
+            result = dispatcher.dispatch_action("huawei_change_impact_analyze", {
+                "region": "cn-north-4",
+                "cluster_id": "c1",
+                "hours": "1",
+            })
+        self.assertTrue(result["success"])
+        mocked.assert_called_once()
+        self.assertEqual(mocked.call_args.args[0]["cluster_id"], "c1")
+
+    def test_change_impact_analyze_action_in_action_specs(self):
+        self.assertTrue(dispatcher.is_registered_action("huawei_change_impact_analyze"))
+        self.assertEqual(dispatcher.ACTION_SPECS["huawei_change_impact_analyze"][0], ("region", "cluster_id"))
+
     # ==================== CCE to CCI bursting actions ====================
 
     def test_setup_cce_cci_bursting_dispatch_parses_subnets_and_confirmation(self):

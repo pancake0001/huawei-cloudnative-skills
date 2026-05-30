@@ -15,7 +15,7 @@ from . import cce_auto_inspection
 from . import chart_generator
 from . import common
 from . import cce_cluster, cce_nodepool, cce_node, cce_addon, cce_k8s, cce_hpa, cce_cost_optimization, cce_availability_risk, cce_capacity_trend, cce_cci_bursting, ops_report_generator
-from . import node_failure_diagnosis, network_failure_diagnosis, storage_failure_diagnosis, autoscaling_diagnosis
+from . import node_failure_diagnosis, network_failure_diagnosis, storage_failure_diagnosis, autoscaling_diagnosis, change_impact_analysis
 from . import cce_events_lts
 from . import cce_cluster_monitoring
 
@@ -1017,6 +1017,10 @@ def _autoscaling_diagnose(params: Dict[str, str]) -> Dict[str, Any]:
     )
 
 
+def _change_impact_analyze(params: Dict[str, str]) -> Dict[str, Any]:
+    return change_impact_analysis.analyze_change_impact_action(params)
+
+
 # ---- HSS handlers ----
 def _hss_list_vul_host_hosts(params: Dict[str, str]) -> Dict[str, Any]:
     return hss.list_vul_host_hosts(region=params["region"], ak=params.get("ak"), sk=params.get("sk"))
@@ -1518,6 +1522,7 @@ ACTION_SPECS: Dict[str, tuple[tuple[str, ...], Handler]] = {
     "huawei_analyze_cce_capacity_trend": (("region", "cluster_id"), _analyze_cce_capacity_trend),
     "huawei_generate_ops_report": (("region", "cluster_id"), _generate_ops_report),
     "huawei_autoscaling_diagnose": (("region", "cluster_id"), _autoscaling_diagnose),
+    "huawei_change_impact_analyze": (("region", "cluster_id"), _change_impact_analyze),
     "huawei_list_aom_instances": (("region",), _list_aom_instances),
     "huawei_get_aom_metrics": (("region", "aom_instance_id", "query"), _get_aom_metrics),
     "huawei_list_aom_alarm_rules": (("region",), _list_aom_alarm_rules),
