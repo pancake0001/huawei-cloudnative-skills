@@ -28,6 +28,7 @@ PHASE_ONE_SKILLS = {
     "workload-failure-diagnoser",
     "node-failure-diagnoser",
     "network-failure-diagnoser",
+    "storage-failure-diagnoser",
     "root-cause-analyzer",
     "auto-remediation-runner",
     "daily-cluster-inspector",

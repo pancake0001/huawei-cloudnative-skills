@@ -1,3 +1,8 @@
+---
+name: kubernetes-event-analyzer
+description: Use this skill to query and analyze Kubernetes events in Huawei Cloud CCE clusters, including Warning events, repeated event patterns, Pod/Node/Workload anomalies, LTS-backed event history, and handoff to the appropriate diagnosis skill.
+---
+
 # Kubernetes Event Analyzer
 
 Analyze Kubernetes events in Huawei Cloud CCE clusters to find warning events, anomalies, and failure patterns.

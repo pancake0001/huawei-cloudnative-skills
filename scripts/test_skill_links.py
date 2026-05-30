@@ -17,6 +17,7 @@ PHASE_ONE_SKILLS = {
     "pod-failure-diagnoser",
     "node-failure-diagnoser",
     "network-failure-diagnoser",
+    "storage-failure-diagnoser",
     "root-cause-analyzer",
     "auto-remediation-runner",
     "daily-cluster-inspector",

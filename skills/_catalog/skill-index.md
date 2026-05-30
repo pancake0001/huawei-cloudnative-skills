@@ -110,6 +110,16 @@
 
 关系：定位网络链路；涉及绑定/解绑 EIP 或扩缩容验证时交给 `auto-remediation-runner`。
 
+### storage-failure-diagnoser
+
+适用：PVC Pending、PV/PVC 绑定异常、EVS 可用区调度冲突、VolumeAttachment 挂载失败、SFS/SFS Turbo NFS timeout、OBS 403/签名错误、容量或 Inode 耗尽、只读文件系统、ConfigMap/Secret subPath 挂载异常、PVC Terminating 删除保护。
+
+常见问题：为什么我的卷挂不上；PVC 为什么一直 Pending；Pod 卡在 ContainerCreating 且 FailedMount；EVS 云盘 attach 失败；SFS 挂载超时；OBS 挂载 403；应用写入报 no space left/read-only file system；PVC 删除不掉。
+
+常用工具：`huawei_storage_failure_diagnose`、`huawei_get_cce_pvcs`、`huawei_get_cce_pvs`、`huawei_get_cce_storageclasses`、`huawei_get_cce_volumeattachments`、`huawei_get_cce_node_stats_summary`、`huawei_get_cce_everest_csi_logs`、`huawei_list_evs`、`huawei_list_sfs`、`huawei_list_sfs_turbo`。
+
+关系：定位存储生命周期问题；若证据落到节点 NotReady/资源压力，转给 `node-failure-diagnoser`；若落到安全组/ACL/VPC 链路，转给 `network-failure-diagnoser`；删除残留 Pod、扩容、迁移、detach 等动作转给 `auto-remediation-runner`。
+
 ### root-cause-analyzer
 
 适用：跨 Pod、Node、Network、AOM 告警的综合根因分析。
@@ -202,6 +212,7 @@
 | 发布失败、滚动升级卡住、副本不满足、探针异常 | `workload-failure-diagnoser` |
 | 节点 NotReady、资源压力、节点漏洞 | `node-failure-diagnoser` |
 | Ingress 502、Service 不通、ELB 链路异常 | `network-failure-diagnoser` |
+| PVC Pending、FailedMount、VolumeAttachment、容量/Inode、PVC Terminating | `storage-failure-diagnoser` |
 | CCE 告警很多，需要合并分析 | `alarm-correlation-engine` |
 | 查询 Pod 标准输出或 LTS 应用日志 | `log-analyzer` |
 | 需要分析 Kubernetes 事件趋势和 Warning 事件 | `kubernetes-event-analyzer` |
