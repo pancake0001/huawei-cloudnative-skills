@@ -2400,35 +2400,6 @@
       "script": "scripts/huawei-cloud.py"
     },
     {
-      "name": "huawei_list_aom_alerts",
-      "description": "Run huawei_list_aom_alerts through the shared Huawei Cloud dispatcher.",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "region": {
-            "type": "string",
-            "description": "Huawei Cloud region, for example cn-north-4."
-          },
-          "ak": {
-            "type": "string",
-            "description": "Access Key ID. Prefer HUAWEI_AK environment variable."
-          },
-          "sk": {
-            "type": "string",
-            "description": "Secret Access Key. Prefer HUAWEI_SK environment variable."
-          },
-          "project_id": {
-            "type": "string",
-            "description": "Huawei Cloud project ID. Prefer HUAWEI_PROJECT_ID environment variable."
-          }
-        },
-        "required": [
-          "region"
-        ]
-      },
-      "script": "scripts/huawei-cloud.py"
-    },
-    {
       "name": "huawei_list_aom_alarm_rules",
       "description": "Run huawei_list_aom_alarm_rules through the shared Huawei Cloud dispatcher.",
       "parameters": {

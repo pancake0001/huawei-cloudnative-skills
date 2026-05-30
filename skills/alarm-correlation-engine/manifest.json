@@ -15,6 +15,10 @@
             "type": "string",
             "description": "Huawei Cloud region, for example cn-north-4."
           },
+          "cluster_id": {
+            "type": "string",
+            "description": "Optional CCE cluster ID filter."
+          },
           "ak": {
             "type": "string",
             "description": "Access Key ID. Prefer HUAWEI_AK environment variable."
@@ -26,6 +30,10 @@
           "project_id": {
             "type": "string",
             "description": "Huawei Cloud project ID. Prefer HUAWEI_PROJECT_ID environment variable."
+          },
+          "enterprise_project_id": {
+            "type": "string",
+            "description": "Optional enterprise project scope. Use all_granted_eps to match Console-wide rule count."
           }
         },
         "required": [
@@ -44,6 +52,10 @@
             "type": "string",
             "description": "Huawei Cloud region, for example cn-north-4."
           },
+          "cluster_id": {
+            "type": "string",
+            "description": "Optional CCE cluster ID filter."
+          },
           "ak": {
             "type": "string",
             "description": "Access Key ID. Prefer HUAWEI_AK environment variable."
@@ -55,6 +67,10 @@
           "project_id": {
             "type": "string",
             "description": "Huawei Cloud project ID. Prefer HUAWEI_PROJECT_ID environment variable."
+          },
+          "enterprise_project_id": {
+            "type": "string",
+            "description": "Enterprise project scope. Use all_granted_eps to query all granted enterprise projects."
           }
         },
         "required": [
@@ -73,34 +89,9 @@
             "type": "string",
             "description": "Huawei Cloud region, for example cn-north-4."
           },
-          "ak": {
+          "cluster_id": {
             "type": "string",
-            "description": "Access Key ID. Prefer HUAWEI_AK environment variable."
-          },
-          "sk": {
-            "type": "string",
-            "description": "Secret Access Key. Prefer HUAWEI_SK environment variable."
-          },
-          "project_id": {
-            "type": "string",
-            "description": "Huawei Cloud project ID. Prefer HUAWEI_PROJECT_ID environment variable."
-          }
-        },
-        "required": [
-          "region"
-        ]
-      },
-      "script": "scripts/huawei-cloud.py"
-    },
-    {
-      "name": "huawei_list_aom_alerts",
-      "description": "Run huawei_list_aom_alerts through the shared Huawei Cloud dispatcher.",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "region": {
-            "type": "string",
-            "description": "Huawei Cloud region, for example cn-north-4."
+            "description": "Optional CCE cluster ID filter."
           },
           "ak": {
             "type": "string",
@@ -151,6 +142,328 @@
       "script": "scripts/huawei-cloud.py"
     },
     {
+      "name": "huawei_create_aom_alarm_rule",
+      "description": "Run huawei_create_aom_alarm_rule through the shared Huawei Cloud dispatcher.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region, for example cn-north-4."
+          },
+          "rule_name": {
+            "type": "string",
+            "description": "rule_name parameter."
+          },
+          "metric_name": {
+            "type": "string",
+            "description": "metric_name parameter."
+          },
+          "namespace": {
+            "type": "string",
+            "description": "namespace parameter."
+          },
+          "comparison_operator": {
+            "type": "string",
+            "description": "comparison_operator parameter."
+          },
+          "threshold": {
+            "type": "string",
+            "description": "threshold parameter."
+          },
+          "period": {
+            "type": "string",
+            "description": "period parameter."
+          },
+          "evaluation_periods": {
+            "type": "string",
+            "description": "evaluation_periods parameter."
+          },
+          "statistic": {
+            "type": "string",
+            "description": "statistic parameter."
+          },
+          "alarm_level": {
+            "type": "string",
+            "description": "alarm_level parameter."
+          },
+          "fields": {
+            "type": "string",
+            "description": "Optional JSON object with extra create fields, for example {\"unit\":\"%\",\"is_turn_on\":true}."
+          },
+          "confirm": {
+            "type": "string",
+            "description": "Must be true only after explicit user confirmation."
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID. Prefer HUAWEI_AK environment variable."
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key. Prefer HUAWEI_SK environment variable."
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Huawei Cloud project ID. Prefer HUAWEI_PROJECT_ID environment variable."
+          }
+        },
+        "required": [
+          "region",
+          "rule_name",
+          "metric_name",
+          "namespace",
+          "comparison_operator",
+          "threshold",
+          "period",
+          "evaluation_periods",
+          "statistic",
+          "alarm_level"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_create_aom_event_alarm_rule",
+      "description": "Create an AOM event alarm rule. Supports bind_notification_rule_id and requires confirm=true to execute.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region, for example cn-north-4."
+          },
+          "enterprise_project_id": {
+            "type": "string",
+            "description": "Optional enterprise project scope. Defaults to all_granted_eps when omitted."
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE cluster ID."
+          },
+          "rule_name": {
+            "type": "string",
+            "description": "Unique event alarm rule name."
+          },
+          "event_name": {
+            "type": "string",
+            "description": "Event name. Supports full display format like 节点磁盘空间不足##NodeHasDiskPressure."
+          },
+          "event_label": {
+            "type": "string",
+            "description": "Optional display label when event_name is event code only."
+          },
+          "bind_notification_rule_id": {
+            "type": "string",
+            "description": "Optional notification rule id/name. Example: auto-cluster-<cluster_id>."
+          },
+          "alarm_level": {
+            "type": "string",
+            "description": "Alarm severity key, for example Critical, Major, Minor, Info. Default Major."
+          },
+          "description": {
+            "type": "string",
+            "description": "Optional alarm rule description."
+          },
+          "alias": {
+            "type": "string",
+            "description": "Optional alarm rule alias."
+          },
+          "trigger_type": {
+            "type": "string",
+            "description": "Event trigger type. Default immediately."
+          },
+          "frequency": {
+            "type": "string",
+            "description": "Event notification frequency. Default -1."
+          },
+          "prom_instance_id": {
+            "type": "string",
+            "description": "Optional Prometheus instance ID."
+          },
+          "confirm": {
+            "type": "string",
+            "description": "Must be true only after explicit user confirmation."
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID. Prefer HUAWEI_AK environment variable."
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key. Prefer HUAWEI_SK environment variable."
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Huawei Cloud project ID. Prefer HUAWEI_PROJECT_ID environment variable."
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id",
+          "rule_name",
+          "event_name"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_update_aom_alarm_rule",
+      "description": "Run huawei_update_aom_alarm_rule through the shared Huawei Cloud dispatcher.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region, for example cn-north-4."
+          },
+          "rule_name": {
+            "type": "string",
+            "description": "rule_name parameter."
+          },
+          "updates": {
+            "type": "string",
+            "description": "JSON object with fields to update, for example {\"threshold\":\"80\",\"is_turn_on\":true}."
+          },
+          "confirm": {
+            "type": "string",
+            "description": "Must be true only after explicit user confirmation."
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID. Prefer HUAWEI_AK environment variable."
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key. Prefer HUAWEI_SK environment variable."
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Huawei Cloud project ID. Prefer HUAWEI_PROJECT_ID environment variable."
+          }
+        },
+        "required": [
+          "region",
+          "rule_name"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_delete_aom_alarm_rule",
+      "description": "Run huawei_delete_aom_alarm_rule through the shared Huawei Cloud dispatcher.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region, for example cn-north-4."
+          },
+          "rule_name": {
+            "type": "string",
+            "description": "rule_name parameter."
+          },
+          "confirm": {
+            "type": "string",
+            "description": "Must be true only after explicit user confirmation."
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID. Prefer HUAWEI_AK environment variable."
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key. Prefer HUAWEI_SK environment variable."
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Huawei Cloud project ID. Prefer HUAWEI_PROJECT_ID environment variable."
+          }
+        },
+        "required": [
+          "region",
+          "rule_name"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_disable_aom_alarm_rule",
+      "description": "Disable an AOM alarm rule by rule_id. Requires confirm=true to execute.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region, for example cn-north-4."
+          },
+          "rule_id": {
+            "type": "string",
+            "description": "AOM alarm rule ID to disable."
+          },
+          "confirm": {
+            "type": "string",
+            "description": "Must be true only after explicit user confirmation."
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID. Prefer HUAWEI_AK environment variable."
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key. Prefer HUAWEI_SK environment variable."
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Huawei Cloud project ID. Prefer HUAWEI_PROJECT_ID environment variable."
+          }
+        },
+        "required": [
+          "region",
+          "rule_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_enable_aom_alarm_rule",
+      "description": "Enable an AOM alarm rule by rule_id. Requires confirm=true to execute.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region, for example cn-north-4."
+          },
+          "rule_id": {
+            "type": "string",
+            "description": "AOM alarm rule ID to enable."
+          },
+          "confirm": {
+            "type": "string",
+            "description": "Must be true only after explicit user confirmation."
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID. Prefer HUAWEI_AK environment variable."
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key. Prefer HUAWEI_SK environment variable."
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Huawei Cloud project ID. Prefer HUAWEI_PROJECT_ID environment variable."
+          }
+        },
+        "required": [
+          "region",
+          "rule_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
       "name": "huawei_list_aom_action_rules",
       "description": "Run huawei_list_aom_action_rules through the shared Huawei Cloud dispatcher.",
       "parameters": {
@@ -175,6 +488,44 @@
         },
         "required": [
           "region"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_delete_aom_action_rule",
+      "description": "Delete an AOM action rule (notification rule). Requires confirm=true to execute.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region, for example cn-north-4."
+          },
+          "rule_name": {
+            "type": "string",
+            "description": "AOM action rule name to delete."
+          },
+          "confirm": {
+            "type": "string",
+            "description": "Must be true only after explicit user confirmation."
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID. Prefer HUAWEI_AK environment variable."
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key. Prefer HUAWEI_SK environment variable."
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Huawei Cloud project ID. Prefer HUAWEI_PROJECT_ID environment variable."
+          }
+        },
+        "required": [
+          "region",
+          "rule_name"
         ]
       },
       "script": "scripts/huawei-cloud.py"
@@ -238,45 +589,6 @@
         "required": [
           "region",
           "cluster_id"
-        ]
-      },
-      "script": "scripts/huawei-cloud.py"
-    },
-    {
-      "name": "huawei_get_aom_metrics",
-      "description": "Run huawei_get_aom_metrics through the shared Huawei Cloud dispatcher.",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "region": {
-            "type": "string",
-            "description": "Huawei Cloud region, for example cn-north-4."
-          },
-          "aom_instance_id": {
-            "type": "string",
-            "description": "aom_instance_id parameter."
-          },
-          "query": {
-            "type": "string",
-            "description": "query parameter."
-          },
-          "ak": {
-            "type": "string",
-            "description": "Access Key ID. Prefer HUAWEI_AK environment variable."
-          },
-          "sk": {
-            "type": "string",
-            "description": "Secret Access Key. Prefer HUAWEI_SK environment variable."
-          },
-          "project_id": {
-            "type": "string",
-            "description": "Huawei Cloud project ID. Prefer HUAWEI_PROJECT_ID environment variable."
-          }
-        },
-        "required": [
-          "region",
-          "aom_instance_id",
-          "query"
         ]
       },
       "script": "scripts/huawei-cloud.py"
