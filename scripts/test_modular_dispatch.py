@@ -1182,6 +1182,55 @@ class DispatcherTests(unittest.TestCase):
         self.assertTrue(dispatcher.is_registered_action("huawei_generate_ops_report"))
         self.assertEqual(dispatcher.ACTION_SPECS["huawei_generate_ops_report"][0], ("region", "cluster_id"))
 
+    # ==================== CCE to CCI bursting actions ====================
+
+    def test_setup_cce_cci_bursting_dispatch_parses_subnets_and_confirmation(self):
+        with mock.patch(
+            "huawei_cloud.dispatcher.cce_cci_bursting.setup_cce_cci_bursting",
+            return_value={"success": False, "requires_confirmation": True},
+        ) as mocked:
+            result = dispatcher.dispatch_action("huawei_setup_cce_cci_bursting", {
+                "region": "cn-north-4",
+                "cluster_id": "c1",
+                "vpcep_subnet_id": "vpc-subnet-1",
+                "cci_subnet_id": "neutron-subnet-1",
+                "route_table_ids": "rt-1, rt-2",
+                "confirm": "true",
+            })
+        self.assertTrue(result["requires_confirmation"])
+        kwargs = mocked.call_args.kwargs
+        self.assertEqual(kwargs["vpcep_subnet_id"], "vpc-subnet-1")
+        self.assertEqual(kwargs["cci_subnet_id"], "neutron-subnet-1")
+        self.assertEqual(kwargs["route_table_ids"], ["rt-1", "rt-2"])
+        self.assertTrue(kwargs["confirm"])
+
+    def test_deploy_cce_cci_smoke_workload_dispatch_uses_defaults(self):
+        with mock.patch(
+            "huawei_cloud.dispatcher.cce_cci_bursting.deploy_cce_cci_smoke_workload",
+            return_value={"success": False, "requires_confirmation": True},
+        ) as mocked:
+            result = dispatcher.dispatch_action("huawei_deploy_cce_cci_smoke_workload", {
+                "region": "cn-north-4",
+                "cluster_id": "c1",
+            })
+        self.assertTrue(result["requires_confirmation"])
+        kwargs = mocked.call_args.kwargs
+        self.assertEqual(kwargs["namespace"], "cci2-burst-lab")
+        self.assertEqual(kwargs["workload_name"], "cci2-burst-demo")
+        self.assertEqual(kwargs["replicas"], 2)
+        self.assertFalse(kwargs["confirm"])
+
+    def test_cce_cci_bursting_actions_in_action_specs(self):
+        for action in [
+            "huawei_precheck_cce_cci_bursting",
+            "huawei_ensure_cce_cci_vpcep",
+            "huawei_setup_cce_cci_bursting",
+            "huawei_deploy_cce_cci_smoke_workload",
+            "huawei_verify_cce_cci_bursting",
+        ]:
+            self.assertTrue(dispatcher.is_registered_action(action))
+            self.assertEqual(dispatcher.ACTION_SPECS[action][0], ("region", "cluster_id"))
+
 
 if __name__ == "__main__":
     unittest.main()
