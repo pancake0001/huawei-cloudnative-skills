@@ -16,6 +16,8 @@
 - `huawei_bind_cce_cluster_eip`
 - `huawei_unbind_cce_cluster_eip`
 - `huawei_configure_cce_hpa`
+- `huawei_rollback_cce_workload`
+- `huawei_auto_remediation_run`（当策略为 Deployment rollback、scale、resize 等运行态变更时）
 
 规则：必须先预览，禁止自动添加 `confirm=true`。
 

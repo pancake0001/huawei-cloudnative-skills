@@ -2,28 +2,43 @@
 
 ```json
 {
-  "summary": "root cause summary",
-  "incident": {
-    "symptom": "optional",
-    "impact": "optional",
-    "time_window": "optional"
+  "success": true,
+  "analysis_trace_id": "RCA-...",
+  "scope": {
+    "region": "cn-north-4",
+    "cluster_id": "cluster-id",
+    "namespace": "optional",
+    "target_name": "optional workload/app/service"
   },
-  "evidence": {
-    "alarms": [],
-    "events": [],
-    "workloads": [],
-    "nodes": [],
-    "network": []
+  "summary": {
+    "top_cause": {},
+    "cause_count": 3,
+    "data_sources": {
+      "rollout": true,
+      "dependency": true,
+      "change": true,
+      "alarms": true
+    }
   },
   "top_causes": [
     {
-      "cause": "text",
-      "confidence": "high | medium | low",
+      "rank": 1,
+      "type": "ContainerCommandNotFound",
+      "title": "新版本容器启动命令或入口文件不存在",
+      "domain": "workload",
+      "confidence": 0.94,
       "evidence": [],
-      "counter_evidence": []
+      "counter_evidence": [],
+      "recommendation": [],
+      "remediation_hint": {
+        "skill": "auto-remediation-runner",
+        "action": "huawei_auto_remediation_run",
+        "strategy": "rollback_previous_revision",
+        "requires_confirmation": true
+      }
     }
   ],
-  "recommended_actions": []
+  "report_markdown": "# CCE 综合根因分析报告...",
+  "report_file": "optional"
 }
 ```
-

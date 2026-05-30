@@ -16,6 +16,7 @@ from . import chart_generator
 from . import common
 from . import cce_cluster, cce_nodepool, cce_node, cce_addon, cce_k8s, cce_hpa, cce_cost_optimization, cce_availability_risk, cce_capacity_trend, cce_cci_bursting, ops_report_generator
 from . import node_failure_diagnosis, network_failure_diagnosis, storage_failure_diagnosis, autoscaling_diagnosis, change_impact_analysis
+from . import dependency_impact_analysis, root_cause_analysis, auto_remediation
 from . import cce_events_lts
 from . import cce_cluster_monitoring
 
@@ -1523,6 +1524,8 @@ ACTION_SPECS: Dict[str, tuple[tuple[str, ...], Handler]] = {
     "huawei_generate_ops_report": (("region", "cluster_id"), _generate_ops_report),
     "huawei_autoscaling_diagnose": (("region", "cluster_id"), _autoscaling_diagnose),
     "huawei_change_impact_analyze": (("region", "cluster_id"), _change_impact_analyze),
+    "huawei_dependency_impact_analyze": (("region", "cluster_id"), lambda params: dependency_impact_analysis.analyze_dependency_impact_action(params)),
+    "huawei_root_cause_analyze": (("region", "cluster_id"), lambda params: root_cause_analysis.analyze_root_cause_action(params)),
     "huawei_list_aom_instances": (("region",), _list_aom_instances),
     "huawei_get_aom_metrics": (("region", "aom_instance_id", "query"), _get_aom_metrics),
     "huawei_list_aom_alarm_rules": (("region",), _list_aom_alarm_rules),
@@ -1595,6 +1598,8 @@ ACTION_SPECS: Dict[str, tuple[tuple[str, ...], Handler]] = {
 
     # ECS operations
     "huawei_reboot_ecs": (("region", "instance_id"), _reboot_ecs),
+    "huawei_rollback_cce_workload": (("region", "cluster_id", "namespace", "workload_type", "name"), lambda params: auto_remediation.rollback_cce_workload_action(params)),
+    "huawei_auto_remediation_run": (("region", "cluster_id", "namespace"), lambda params: auto_remediation.auto_remediation_run_action(params)),
 
     # CCE EIP operations
     "huawei_bind_cce_cluster_eip": (("region", "cluster_id", "eip_id"), _bind_cce_cluster_eip),

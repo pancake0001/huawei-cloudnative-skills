@@ -30,6 +30,7 @@ PHASE_ONE_SKILLS = {
     "network-failure-diagnoser",
     "storage-failure-diagnoser",
     "root-cause-analyzer",
+    "dependency-impact-analyzer",
     "auto-remediation-runner",
     "daily-cluster-inspector",
     "cost-optimization-advisor",
