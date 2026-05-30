@@ -1,35 +1,36 @@
 ---
 name: network-failure-diagnoser
-description: Use this skill for CCE network failures such as Service unreachable, Ingress 502 or 504, ELB backend issues, EIP or NAT problems, and VPC security group checks.
+description: Use this skill for CCE Kubernetes network failures such as Service unreachable, DNS/CoreDNS errors, Ingress 502/504, NetworkPolicy blocks, ELB backend health issues, EIP/NAT/VPC/security-group problems, and end-to-end Markdown diagnosis reports.
 ---
 
 # network-failure-diagnoser
 
-你负责诊断 CCE 网络链路，从 Pod/Service/Ingress 到 ELB/EIP/NAT/VPC 安全策略逐层排查。优先画清链路，再定位异常组件。
+你负责诊断 CCE 网络链路，从节点底座、DNS、Service/EndpointSlice、NetworkPolicy、Ingress 到云 ELB/EIP/NAT/VPC 安全策略逐层排查。默认产出一份完整 Markdown 报告，必须包含排查过程、证据、结论、置信度和验证标准。
 
 ## 处理步骤
 
-1. 收集 region、cluster_id、namespace、service、ingress、workload、访问域名或 ELB/EIP。
-2. 调用 `huawei_get_cce_services`、`huawei_get_cce_ingresses` 识别入口链路。
-3. 调用 ELB、EIP、NAT、VPC ACL 和安全组查询，确认云资源状态。
-4. 调用 `huawei_network_diagnose` 或 `huawei_network_diagnose_by_alarm` 做综合诊断。
-5. 输出链路拓扑、异常点、证据和下一步验证。
+1. 收集 `region`、`cluster_id`、`namespace`，尽量补齐 `target_kind`、`target_name`、`service_name`、`ingress_name`、`source_pod`、`destination_pod`、`domain`、`failure_symptom` 或 `elb_id`。
+2. 首选调用 `huawei_network_failure_diagnose`，一次性采集 K8s 与云侧只读快照，并返回 `report_markdown`。
+3. 如果用户只要原始对象，再按需调用 `huawei_get_cce_services`、`huawei_get_cce_ingresses`、`huawei_get_cce_pods`、`huawei_get_kubernetes_nodes`、`huawei_get_cce_events`、`huawei_get_pod_logs`。
+4. 若是外部访问链路，补充 `huawei_get_elb_backend_status`、`huawei_get_elb_metrics`、`huawei_list_security_groups`、`huawei_list_vpc_acls`、`huawei_list_eip`、`huawei_list_nat`。
+5. 输出时必须引用具体对象、事件、日志片段或云 API 字段；没有证据时写“证据不足”，不要把猜测写成结论。
 
 ## References
 
-- 网络链路排查顺序读 `references/workflow.md`。
+- 复用能力、缺口和分层诊断流水线读 `references/workflow.md`。
 - 绑定/解绑、扩缩容验证等动作边界读 `references/risk-rules.md`。
 - 输出结构按 `references/output-schema.md`。
 
 ## 推荐 action
 
-Kubernetes 网络：`huawei_get_cce_services`、`huawei_get_cce_ingresses`。
+首选诊断：`huawei_network_failure_diagnose`。该 action 会返回结构化字段和完整 `report_markdown`。
 
-云网络：`huawei_list_elb`、`huawei_list_elb_listeners`、`huawei_get_elb_metrics`、`huawei_list_eip`、`huawei_list_nat`、`huawei_list_security_groups`。
+Kubernetes 证据：`huawei_get_cce_services`、`huawei_get_cce_ingresses`、`huawei_get_cce_pods`、`huawei_get_kubernetes_nodes`、`huawei_get_cce_events`、`huawei_get_pod_logs`。
 
-综合诊断：`huawei_network_diagnose`、`huawei_network_diagnose_by_alarm`。
+云网络证据：`huawei_get_elb_backend_status`、`huawei_get_elb_metrics`、`huawei_list_elb`、`huawei_list_elb_listeners`、`huawei_list_eip`、`huawei_get_eip_metrics`、`huawei_list_nat`、`huawei_get_nat_gateway_metrics`、`huawei_list_security_groups`、`huawei_list_vpc_acls`。
+
+兼容旧流程：`huawei_network_diagnose`、`huawei_network_diagnose_by_alarm`、`huawei_network_verify_pod_scheduling`。
 
 ## 风险约束
 
-本 skill 不绑定或解绑 EIP，不修改安全组，不扩缩容。需要变更时输出预案并转交 `auto-remediation-runner`。
-
+本 skill 只做只读查询和报告生成，不绑定或解绑 EIP，不修改安全组/ACL/ELB 监听器，不扩缩容，不重启组件。需要变更时输出预案并转交 `auto-remediation-runner`。

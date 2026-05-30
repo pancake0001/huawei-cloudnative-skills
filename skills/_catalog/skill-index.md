@@ -92,11 +92,11 @@
 
 ### network-failure-diagnoser
 
-适用：Service 不通、Ingress 502/504、ELB/EIP/NAT 链路问题、Pod 调度后的连通性验证。
+适用：Service 不通、DNS/CoreDNS 异常、Ingress 502/504、NetworkPolicy 拦截、ELB 后端异常、ELB/EIP/NAT 链路问题、Pod 调度后的连通性验证。
 
-常见问题：外部访问 502；Service 没有后端；Ingress 到 ELB 链路异常；节点安全组或网络 ACL 可疑。
+常见问题：外部访问 502；Service 没有后端；域名无法解析；NetworkPolicy 阻断；Ingress 到 ELB 链路异常；节点安全组或网络 ACL 可疑。
 
-常用工具：`huawei_get_cce_services`、`huawei_get_cce_ingresses`、`huawei_list_elb`、`huawei_get_elb_metrics`、`huawei_list_eip`、`huawei_network_diagnose`。
+常用工具：`huawei_network_failure_diagnose`、`huawei_get_cce_services`、`huawei_get_cce_ingresses`、`huawei_get_elb_backend_status`、`huawei_get_elb_metrics`、`huawei_list_eip`、`huawei_network_diagnose`。
 
 关系：定位网络链路；涉及绑定/解绑 EIP 或扩缩容验证时交给 `auto-remediation-runner`。
 
@@ -142,6 +142,36 @@
 
 关系：负责分析、HPA 查询、HPA YAML 生成和配置预览；实际配置 HPA、autoscaler 或缩容节点池时必须经过人工确认流程。
 
+### capacity-trend-forecaster
+
+适用：CCE 周期性容量趋势分析、资源瓶颈预测、HPA 和节点池弹性策略模拟、趋势图和历史对比报告。
+
+常见问题：需要按 1 小时到 1 个月窗口看容量趋势；需要每 6 小时、每日、每周或每月做容量报告；需要评估 HPA 目标利用率或节点 autoscaler 上下限。
+
+常用工具：`huawei_analyze_cce_capacity_trend`、`huawei_list_cce_clusters`、`huawei_get_kubernetes_nodes`、`huawei_list_cce_nodepools`、`huawei_get_cce_deployments`、`huawei_list_cce_hpas`、`huawei_get_cce_node_metrics_topN`、`huawei_get_aom_metrics`、`huawei_generate_cce_hpa_manifest`、`huawei_configure_cce_hpa`。
+
+关系：负责趋势分析、图表、模拟和配置预览；真实 HPA 或节点池变更必须由用户明确授权，并建议变更后再次生成容量记录做对比。
+
+### availability-risk-scanner
+
+适用：CCE 可用性风险扫描，包括单副本、缺失 PDB、探针缺失或异常、AZ 分布不均、网关集中、核心插件反亲和和 request/limit 风险。
+
+常见问题：需要上线前或巡检时检查可用性短板；担心 nginx-ingress、CoreDNS 或关键业务工作负载单点；需要输出整改优先级和人工复核点。
+
+常用工具：`huawei_scan_cce_availability_risk`、`huawei_list_cce_clusters`、`huawei_get_kubernetes_nodes`、`huawei_get_cce_pods`、`huawei_get_cce_deployments`、`huawei_get_cce_services`、`huawei_get_cce_ingresses`、`huawei_list_cce_nodepools`、`huawei_list_cce_daemonsets`、`huawei_list_cce_statefulsets`、`huawei_get_cce_node_metrics_topN`、`huawei_get_aom_metrics`。
+
+关系：负责只读风险识别和整改建议；不自动创建 PDB、不改探针、不迁移节点，执行整改交给授权后的变更流程。
+
+### ops-report-generator
+
+适用：CCE 周报、月报、SLA、容量和稳定性报告，汇总巡检、容量趋势、可用性风险、成本优化和 on-call 上下文。
+
+常见问题：需要给客户或团队输出周期性运维报告；需要把多个诊断/治理结果合成 Markdown 和 HTML；需要在报告里明确数据缺口和后续行动。
+
+常用工具：`huawei_generate_ops_report`、`huawei_cce_auto_inspection`、`huawei_analyze_cce_capacity_trend`、`huawei_scan_cce_availability_risk`、`huawei_analyze_cce_cost_optimization`。
+
+关系：负责汇总评估和报告，不执行写操作；报告中涉及整改时转给对应 skill 或 `auto-remediation-runner`。
+
 ## L5 解决方案与交付专家
 
 第一阶段由 `container-migration-planner` 覆盖容器迁移和交付方案类问题。后续可以扩展容量规划、成本优化、灾备设计等独立 skill。
@@ -170,4 +200,7 @@
 | 需要扩容、重启、drain、漏洞修复等动作 | `auto-remediation-runner` |
 | 做每日巡检或周期性健康检查 | `daily-cluster-inspector` |
 | 做成本优化、Request 过量分析、弹性策略建议 | `cost-optimization-advisor` |
+| 做容量趋势预测、弹性模拟、周期容量图表 | `capacity-trend-forecaster` |
+| 做可用性风险扫描、PDB/探针/AZ 分布检查 | `availability-risk-scanner` |
+| 做周报、月报、SLA、容量或稳定性运维报告 | `ops-report-generator` |
 | 做容器迁移方案和资源盘点 | `container-migration-planner` |
