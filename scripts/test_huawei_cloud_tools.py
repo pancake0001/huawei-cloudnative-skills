@@ -108,6 +108,7 @@ class HuaweiCloudTester:
                 if tool_name in [
                     "huawei_query_application_recent_logs",
                     "huawei_query_application_logs",
+                    "huawei_analyze_application_logs",
                     "huawei_cce_cluster_inspection_parallel",
                 ]:
                     parsed = self._extract_last_json_object(output)
@@ -311,7 +312,7 @@ class HuaweiCloudTester:
 
             if self.app_name:
                 self.log("Fetching application log stream...")
-                result = self.run_tool("huawei_get_application_log_stream", cluster_id=self.cluster_id, app_name=self.app_name, namespace=self.cce_namespace)
+                result = self.run_tool("huawei_get_application_logconfigs", cluster_id=self.cluster_id, app_name=self.app_name, namespace=self.cce_namespace)
                 if result.get("success"):
                     self.log_group_id = result.get("log_group_id") or self.log_group_id
                     self.log_stream_id = result.get("log_stream_id") or self.log_stream_id
@@ -423,7 +424,7 @@ class HuaweiCloudTester:
                 self.run_tool("huawei_get_cce_node_metrics", cluster_id=self.cluster_id, node_ip=self.cce_node_ip)
             self.run_tool("huawei_get_cce_logconfigs", cluster_id=self.cluster_id)
             if self.app_name:
-                self.run_tool("huawei_get_application_log_stream", cluster_id=self.cluster_id, app_name=self.app_name, namespace=self.cce_namespace)
+                self.run_tool("huawei_get_application_logconfigs", cluster_id=self.cluster_id, app_name=self.app_name, namespace=self.cce_namespace)
                 self.run_tool("huawei_query_application_recent_logs", cluster_id=self.cluster_id, app_name=self.app_name, namespace=self.cce_namespace, hours=1, limit=10)
                 self.run_tool("huawei_query_application_logs", cluster_id=self.cluster_id, app_name=self.app_name, namespace=self.cce_namespace, start_time="2026-04-02 00:00:00", end_time="2026-04-02 23:59:59", limit=10)
 
