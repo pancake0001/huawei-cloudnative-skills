@@ -33,6 +33,8 @@ scripts/huawei_cloud/dispatcher.py
 - `auto-remediation-runner`：恢复动作预览、确认、执行后验证。
 - `daily-cluster-inspector`：每日巡检、快检、深度巡检。
 - `cost-optimization-advisor`：空闲资源、过量 Request、低利用率节点、HPA/autoscaler 弹性策略优化建议和 HPA 配置预览；组合 action 为 `huawei_analyze_cce_cost_optimization`。
+- `availability-risk-scanner`：单副本、PDB 缺失、健康检查、亲和性、AZ 均衡、网关和核心插件可用性风险扫描；组合 action 为 `huawei_scan_cce_availability_risk`。
+- `capacity-trend-forecaster`：1 小时到 1 个月的周期性容量趋势分析、资源瓶颈预测、弹性策略模拟、曲线图、历史记录比对和 HPA/autoscaler 优化建议；组合 action 为 `huawei_analyze_cce_capacity_trend`。
 - `container-migration-planner`：迁移盘点、依赖矩阵、交付方案。
 
 ## 初始化链接
@@ -71,5 +73,5 @@ python scripts\test_modular_dispatch.py
 - 禁止把 AK/SK、token、证书、真实 project_id 写入仓库。
 - 禁止在脚本或测试里默认传 `confirm=true`。
 - 所有删除、扩缩容、drain、reboot、HSS 状态变更等动作必须先预览，再由用户明确确认。
-- `auto-remediation-runner` 负责恢复类高风险动作；`cost-optimization-advisor` 只允许 HPA 配置预览，真实应用必须由用户明确确认。
+- `auto-remediation-runner` 负责恢复类高风险动作；`cost-optimization-advisor` 和 `capacity-trend-forecaster` 只允许 HPA 配置预览，真实应用必须由用户明确确认。
 - 诊断类、巡检类、迁移规划类 skill 只执行只读查询和报告生成。

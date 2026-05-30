@@ -1,0 +1,179 @@
+{
+  "version": "1.0.0",
+  "name": "ops-report-generator",
+  "description": "Generate CCE weekly, monthly, SLA, capacity, and stability reports by consolidating outputs from daily inspection, capacity trend forecasting, availability risk scanning, cost optimization analysis, and optional on-call context.",
+  "level": "L4",
+  "domain": "governance-optimization",
+  "tools": [
+    {
+      "name": "huawei_generate_ops_report",
+      "description": "Run huawei_generate_ops_report through the shared Huawei Cloud dispatcher.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region, for example cn-north-4."
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "cluster_id parameter."
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID. Prefer HUAWEI_AK environment variable."
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key. Prefer HUAWEI_SK environment variable."
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Huawei Cloud project ID. Prefer HUAWEI_PROJECT_ID environment variable."
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_cce_auto_inspection",
+      "description": "Run huawei_cce_auto_inspection through the shared Huawei Cloud dispatcher.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region, for example cn-north-4."
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "cluster_id parameter."
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID. Prefer HUAWEI_AK environment variable."
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key. Prefer HUAWEI_SK environment variable."
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Huawei Cloud project ID. Prefer HUAWEI_PROJECT_ID environment variable."
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_analyze_cce_capacity_trend",
+      "description": "Run huawei_analyze_cce_capacity_trend through the shared Huawei Cloud dispatcher.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region, for example cn-north-4."
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "cluster_id parameter."
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID. Prefer HUAWEI_AK environment variable."
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key. Prefer HUAWEI_SK environment variable."
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Huawei Cloud project ID. Prefer HUAWEI_PROJECT_ID environment variable."
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_scan_cce_availability_risk",
+      "description": "Run huawei_scan_cce_availability_risk through the shared Huawei Cloud dispatcher.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region, for example cn-north-4."
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "cluster_id parameter."
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID. Prefer HUAWEI_AK environment variable."
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key. Prefer HUAWEI_SK environment variable."
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Huawei Cloud project ID. Prefer HUAWEI_PROJECT_ID environment variable."
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_analyze_cce_cost_optimization",
+      "description": "Run huawei_analyze_cce_cost_optimization through the shared Huawei Cloud dispatcher.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region, for example cn-north-4."
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "cluster_id parameter."
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID. Prefer HUAWEI_AK environment variable."
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key. Prefer HUAWEI_SK environment variable."
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Huawei Cloud project ID. Prefer HUAWEI_PROJECT_ID environment variable."
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    }
+  ]
+}

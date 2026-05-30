@@ -15,6 +15,7 @@ from . import cce_auto_inspection
 from . import chart_generator
 from . import common
 from . import cce_cluster, cce_nodepool, cce_node, cce_addon, cce_k8s, cce_hpa, cce_cost_optimization
+from . import cce_availability_risk, cce_capacity_trend, ops_report_generator
 from . import node_failure_diagnosis, network_failure_diagnosis
 
 # cce_app_logs and lts require huaweicloudsdklts which may not be installed
@@ -890,6 +891,72 @@ def _analyze_cce_cost_optimization(params: Dict[str, str]) -> Dict[str, Any]:
     )
 
 
+def _scan_cce_availability_risk(params: Dict[str, str]) -> Dict[str, Any]:
+    return cce_availability_risk.scan_cce_availability_risk(
+        region=params["region"],
+        cluster_id=params["cluster_id"],
+        ak=params.get("ak"),
+        sk=params.get("sk"),
+        project_id=params.get("project_id"),
+        exclude_namespaces=params.get("exclude_namespaces"),
+        gateway_keywords=params.get("gateway_keywords"),
+        metrics_hours=_to_int(params.get("metrics_hours"), 24),
+        limit=_to_int(params.get("limit"), 500),
+        cpu_limit_request_ratio=float(params.get("cpu_limit_request_ratio", 4.0)),
+        memory_limit_request_ratio=float(params.get("memory_limit_request_ratio", 2.0)),
+        output_dir=params.get("output_dir"),
+        include_raw=params.get("include_raw", "false").lower() == "true",
+    )
+
+
+def _analyze_cce_capacity_trend(params: Dict[str, str]) -> Dict[str, Any]:
+    return cce_capacity_trend.analyze_cce_capacity_trend(
+        region=params["region"],
+        cluster_id=params["cluster_id"],
+        ak=params.get("ak"),
+        sk=params.get("sk"),
+        project_id=params.get("project_id"),
+        hours=_to_int(params.get("hours"), 168),
+        step_seconds=_to_int(params.get("step_seconds"), 3600),
+        top_n=_to_int(params.get("top_n"), 200),
+        exclude_namespaces=params.get("exclude_namespaces"),
+        business_namespaces=params.get("business_namespaces"),
+        output_dir=params.get("output_dir"),
+        history_dir=params.get("history_dir"),
+        record_history=params.get("record_history", "true").lower() == "true",
+        compare_history_count=_to_int(params.get("compare_history_count"), 8),
+        include_raw=params.get("include_raw", "false").lower() == "true",
+        target_cpu_percent=float(params.get("target_cpu_percent", 60.0)),
+        target_memory_percent=float(params.get("target_memory_percent", 70.0)),
+        bottleneck_percent=float(params.get("bottleneck_percent", 80.0)),
+        headroom_percent=float(params.get("headroom_percent", 15.0)),
+        action_note=params.get("action_note"),
+    )
+
+
+def _generate_ops_report(params: Dict[str, str]) -> Dict[str, Any]:
+    return ops_report_generator.generate_ops_report(
+        region=params["region"],
+        cluster_id=params["cluster_id"],
+        ak=params.get("ak"),
+        sk=params.get("sk"),
+        project_id=params.get("project_id"),
+        report_type=params.get("report_type", "weekly"),
+        hours=_to_optional_int(params.get("hours")),
+        short_hours=_to_optional_int(params.get("short_hours")),
+        long_hours=_to_optional_int(params.get("long_hours")),
+        step_seconds=_to_int(params.get("step_seconds"), 3600),
+        top_n=_to_int(params.get("top_n"), 200),
+        exclude_namespaces=params.get("exclude_namespaces"),
+        business_namespaces=params.get("business_namespaces"),
+        gateway_keywords=params.get("gateway_keywords"),
+        output_dir=params.get("output_dir"),
+        include_raw=params.get("include_raw", "false").lower() == "true",
+        oncall_report_path=params.get("oncall_report_path"),
+        oncall_summary=params.get("oncall_summary"),
+    )
+
+
 # ---- HSS handlers ----
 def _hss_list_vul_host_hosts(params: Dict[str, str]) -> Dict[str, Any]:
     return hss.list_vul_host_hosts(region=params["region"], ak=params.get("ak"), sk=params.get("sk"))
@@ -1279,6 +1346,9 @@ ACTION_SPECS: Dict[str, tuple[tuple[str, ...], Handler]] = {
     "huawei_generate_cce_hpa_manifest": (("workload_name", "namespace", "min_replicas", "max_replicas"), _generate_cce_hpa_manifest),
     "huawei_configure_cce_hpa": (("region", "cluster_id", "workload_name", "namespace", "min_replicas", "max_replicas"), _configure_cce_hpa),
     "huawei_analyze_cce_cost_optimization": (("region", "cluster_id"), _analyze_cce_cost_optimization),
+    "huawei_scan_cce_availability_risk": (("region", "cluster_id"), _scan_cce_availability_risk),
+    "huawei_analyze_cce_capacity_trend": (("region", "cluster_id"), _analyze_cce_capacity_trend),
+    "huawei_generate_ops_report": (("region", "cluster_id"), _generate_ops_report),
     "huawei_list_aom_instances": (("region",), _list_aom_instances),
     "huawei_get_aom_metrics": (("region", "aom_instance_id", "query"), _get_aom_metrics),
     "huawei_list_aom_alarm_rules": (("region",), _list_aom_alarm_rules),

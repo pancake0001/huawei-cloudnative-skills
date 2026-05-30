@@ -32,6 +32,8 @@ PHASE_ONE_SKILLS = {
     "auto-remediation-runner",
     "daily-cluster-inspector",
     "cost-optimization-advisor",
+    "capacity-trend-forecaster",
+    "availability-risk-scanner",
     "container-migration-planner",
 }
 
