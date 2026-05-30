@@ -15,7 +15,7 @@ from . import cce_auto_inspection
 from . import chart_generator
 from . import common
 from . import cce_cluster, cce_nodepool, cce_node, cce_addon, cce_k8s, cce_hpa, cce_cost_optimization, cce_availability_risk, cce_capacity_trend, cce_cci_bursting, ops_report_generator
-from . import node_failure_diagnosis, network_failure_diagnosis, storage_failure_diagnosis
+from . import node_failure_diagnosis, network_failure_diagnosis, storage_failure_diagnosis, autoscaling_diagnosis
 from . import cce_events_lts
 from . import cce_cluster_monitoring
 
@@ -53,6 +53,19 @@ def _to_optional_int(value: str | None) -> int | None:
     if value is None or value.strip().lower() in {"", "none", "null"}:
         return None
     return _to_int(value, 0)
+
+
+def _to_bool(value: str | None, default: bool = False) -> bool:
+    if value is None:
+        return default
+    return value.strip().lower() in {"true", "1", "yes", "y", "on"}
+
+
+def _to_float(value: str | None, default: float) -> float:
+    try:
+        return float(value) if value is not None else default
+    except (TypeError, ValueError):
+        return default
 
 
 def _to_optional_bool(value: str | None) -> bool | None:
@@ -981,6 +994,29 @@ def _generate_ops_report(params: Dict[str, str]) -> Dict[str, Any]:
     )
 
 
+def _autoscaling_diagnose(params: Dict[str, str]) -> Dict[str, Any]:
+    return autoscaling_diagnosis.diagnose_cce_autoscaling(
+        region=params["region"],
+        cluster_id=params["cluster_id"],
+        question=params.get("question", ""),
+        target=params.get("target"),
+        scale_direction=params.get("scale_direction"),
+        namespace=params.get("namespace"),
+        workload_name=params.get("workload_name"),
+        workload_type=params.get("workload_type"),
+        include_metrics=_to_bool(params.get("include_metrics"), True),
+        include_raw=_to_bool(params.get("include_raw"), False),
+        hours=_to_int(params.get("hours"), 1),
+        event_limit=_to_int(params.get("event_limit"), 500),
+        top_n=_to_int(params.get("top_n"), 20),
+        tolerance=_to_float(params.get("tolerance"), 0.1),
+        output_file=params.get("output_file"),
+        ak=params.get("ak"),
+        sk=params.get("sk"),
+        project_id=params.get("project_id"),
+    )
+
+
 # ---- HSS handlers ----
 def _hss_list_vul_host_hosts(params: Dict[str, str]) -> Dict[str, Any]:
     return hss.list_vul_host_hosts(region=params["region"], ak=params.get("ak"), sk=params.get("sk"))
@@ -1481,6 +1517,7 @@ ACTION_SPECS: Dict[str, tuple[tuple[str, ...], Handler]] = {
     "huawei_scan_cce_availability_risk": (("region", "cluster_id"), _scan_cce_availability_risk),
     "huawei_analyze_cce_capacity_trend": (("region", "cluster_id"), _analyze_cce_capacity_trend),
     "huawei_generate_ops_report": (("region", "cluster_id"), _generate_ops_report),
+    "huawei_autoscaling_diagnose": (("region", "cluster_id"), _autoscaling_diagnose),
     "huawei_list_aom_instances": (("region",), _list_aom_instances),
     "huawei_get_aom_metrics": (("region", "aom_instance_id", "query"), _get_aom_metrics),
     "huawei_list_aom_alarm_rules": (("region",), _list_aom_alarm_rules),
