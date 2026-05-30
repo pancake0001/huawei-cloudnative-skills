@@ -29,6 +29,7 @@ scripts/huawei_cloud/dispatcher.py
 - `workload-failure-diagnoser`：发布失败、滚动升级卡住、副本不满足和探针异常诊断。
 - `node-failure-diagnoser`：节点 NotReady、资源压力、NPD、漏洞诊断。
 - `network-failure-diagnoser`：Service、Ingress、ELB、EIP、NAT、VPC 链路诊断。
+- `storage-failure-diagnoser`：PVC Pending、PV 绑定、EVS/SFS/OBS 挂载、容量/Inode、只读文件系统和删除保护诊断。
 - `root-cause-analyzer`：跨域根因分析和诊断报告。
 - `auto-remediation-runner`：恢复动作预览、确认、执行后验证。
 - `daily-cluster-inspector`：每日巡检、快检、深度巡检。

@@ -15,8 +15,7 @@ from . import cce_auto_inspection
 from . import chart_generator
 from . import common
 from . import cce_cluster, cce_nodepool, cce_node, cce_addon, cce_k8s, cce_hpa, cce_cost_optimization, cce_availability_risk, cce_capacity_trend, ops_report_generator
-from . import node_failure_diagnosis
-from . import network_failure_diagnosis
+from . import node_failure_diagnosis, network_failure_diagnosis, storage_failure_diagnosis
 from . import cce_events_lts
 
 # cce_app_logs and lts require huaweicloudsdklts which may not be installed
@@ -610,6 +609,10 @@ def _network_verify_pod_scheduling_action(params):
 
 def _network_failure_diagnose_action(params):
     return network_failure_diagnosis.diagnose_network_failure_action(params)
+
+
+def _storage_failure_diagnose_action(params):
+    return storage_failure_diagnosis.diagnose_storage_failure_action(params)
 
 
 def _node_batch_diagnose_action(params):
@@ -1341,6 +1344,10 @@ ACTION_SPECS: Dict[str, tuple[tuple[str, ...], Handler]] = {
     "huawei_query_k8s_events_from_lts": (("region", "cluster_id", "start_time", "end_time"), _query_k8s_events_from_lts),  # limit is optional
     "huawei_get_cce_pvcs": (("region", "cluster_id"), _get_cce_pvcs),
     "huawei_get_cce_pvs": (("region", "cluster_id"), _get_cce_pvs),
+    "huawei_get_cce_storageclasses": (("region", "cluster_id"), lambda params: storage_failure_diagnosis.list_storage_classes_action(params)),
+    "huawei_get_cce_volumeattachments": (("region", "cluster_id"), lambda params: storage_failure_diagnosis.list_volume_attachments_action(params)),
+    "huawei_get_cce_node_stats_summary": (("region", "cluster_id"), lambda params: storage_failure_diagnosis.get_node_stats_summary_action(params)),
+    "huawei_get_cce_everest_csi_logs": (("region", "cluster_id"), lambda params: storage_failure_diagnosis.get_everest_csi_logs_action(params)),
     "huawei_get_cce_services": (("region", "cluster_id"), _get_cce_services),
     "huawei_get_cce_ingresses": (("region", "cluster_id"), _get_cce_ingresses),
     "huawei_list_cce_configmaps": (("region", "cluster_id"), _list_cce_configmaps),
@@ -1403,6 +1410,7 @@ ACTION_SPECS: Dict[str, tuple[tuple[str, ...], Handler]] = {
     "huawei_network_diagnose": (("region", "cluster_id"), _network_diagnose_action),
     "huawei_network_diagnose_by_alarm": (("region", "cluster_id", "alarm_info"), _network_diagnose_by_alarm_action),
     "huawei_network_failure_diagnose": (("region", "cluster_id"), _network_failure_diagnose_action),
+    "huawei_storage_failure_diagnose": (("region", "cluster_id"), _storage_failure_diagnose_action),
     "huawei_workload_diagnose": (("region", "cluster_id"), _workload_diagnose_action),
     "huawei_workload_diagnose_by_alarm": (("region", "cluster_id", "alarm_info"), _workload_diagnose_by_alarm_action),
     "huawei_hibernate_cce_cluster": (("region", "cluster_id"), _hibernate_cce_cluster_action),
