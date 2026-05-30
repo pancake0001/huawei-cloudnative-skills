@@ -5,6 +5,8 @@ description: |
   Huawei Cloud SWR enterprise instance management skill using hcloud CLI.
   Use this skill when the user wants to: (1) manage SWR enterprise instances - create/list/show/delete/update configuration, (2) manage instance namespaces - create/list/show/update/delete with security scanning settings, (3) manage instance registries (sync targets) - create/list/show/update/delete, (4) manage instance repositories - list/show/delete/update, (5) manage instance artifacts (image versions) - list/show/delete/scan, (6) manage instance credentials - long-term and temporary, (7) manage instance endpoints - internal/public access, (8) manage instance domains - add/list/show/delete/update, (9) check instance statistics and job status.
   Trigger: user mentions "SWR enterprise instance", "SWR 企业实例", "SWR 企业版", "企业仓库实例", "SWR instance", "SWR 专业版", "swr.ee", "instance namespace", "instance registry", "instance repository", "instance artifact", "instance credential", "instance endpoint", "instance domain", "企业仓库", "实例管理"
+tags: [swr, enterprise-instance, container-registry, registry, domain]
+version: 1.0.0
 ---
 
 # Huawei Cloud SWR Enterprise Instance Management
@@ -433,127 +435,11 @@ hcloud SWR DeleteInstanceJob --job_id=<job-id> --cli-region=cn-north-4
 
 ## Output Format
 
-### Instance List
-
-Response format needs verification.
-
-```json
-{
-  "instances": [
-    {
-      "id": "xxx-xxx-xxx",
-      "name": "my-instance",
-      "spec": "swr.ee.professional",
-      "status": "Running",
-      "charge_mode": "postPaid",
-      "vpc_id": "xxx",
-      "subnet_id": "xxx",
-      "created_at": "2026-01-01T00:00:00Z",
-      "updated_at": "2026-05-01T00:00:00Z"
-    }
-  ]
-}
-```
-
-### Instance Details
-
-Response format needs verification.
-
-```json
-{
-  "id": "xxx-xxx-xxx",
-  "name": "my-instance",
-  "spec": "swr.ee.professional",
-  "status": "Running",
-  "charge_mode": "postPaid",
-  "description": "",
-  "internal_endpoint": "xxx.cn-north-4.myhuaweicloud.com",
-  "public_endpoint": "xxx.cn-north-4.myhuaweicloud.com"
-}
-```
-
-### Namespace List
-
-Response format needs verification.
-
-```json
-{
-  "namespaces": [
-    {
-      "id": 1,
-      "name": "group-dev",
-      "metadata": {
-        "public": "false",
-        "auto_scan": "true",
-        "prevent_vul": "true",
-        "severity": "high"
-      },
-      "creation_time": "2026-01-01T00:00:00Z",
-      "update_time": "2026-05-01T00:00:00Z",
-      "repo_count": 5
-    }
-  ]
-}
-```
-
-### Long-term Credential
-
-Response format needs verification — returns credential info including authentication token.
-
-### Internal Endpoint List
-
-Response format needs verification.
-
-```json
-{
-  "internal_endpoints": [
-    {
-      "id": "xxx",
-      "vpc_id": "xxx",
-      "subnet_id": "xxx",
-      "endpoint": "xxx.cn-north-4.myhuaweicloud.com",
-      "status": "Running"
-    }
-  ]
-}
-```
-
-### Domain Name List
-
-Response format needs verification.
-
-```json
-{
-  "domain_names": [
-    {
-      "id": "xxx",
-      "domain_name": "registry.example.com",
-      "status": "Active",
-      "certificate_id": "xxx"
-    }
-  ]
-}
-```
+See [Output Format](references/output-format.md) for detailed response format examples (Instance List, Instance Details, Namespace List, Internal Endpoint List, Domain Name List, Long-term Credential).
 
 ## Verification
 
 See [Verification Method](references/verification-method.md) for step-by-step verification.
-
-## Common Region IDs
-
-| Region Name                    | Region ID        |
-| ------------------------------ | ---------------- |
-| North China - Beijing 4        | `cn-north-4`     |
-| North China - Beijing 1        | `cn-north-1`     |
-| East China - Shanghai 1        | `cn-east-3`      |
-| East China - Shanghai 2        | `cn-east-2`      |
-| South China - Guangzhou        | `cn-south-1`     |
-| South China - Shenzhen         | `cn-south-4`     |
-| Southwest China - Guiyang 1    | `cn-southwest-2` |
-| Asia Pacific - Bangkok         | `ap-southeast-2` |
-| Asia Pacific - Singapore       | `ap-southeast-1` |
-| Asia Pacific - Hong Kong       | `ap-southeast-3` |
-| Europe - Paris                 | `eu-west-0`      |
 
 ## Best Practices
 
@@ -573,6 +459,7 @@ See [Verification Method](references/verification-method.md) for step-by-step ve
 | Document                                               | Description                              |
 | ------------------------------------------------------ | ---------------------------------------- |
 | [SWR Instance API Guide](references/swr-instance-api-guide.md) | hcloud SWR instance API reference |
+| [Output Format](references/output-format.md)          | Response format examples (Instance, Namespace, Endpoint, Domain, Credential) |
 | [IAM Permission Policies](references/iam-policies.md)  | Required permissions and policy JSON     |
 | [Verification Method](references/verification-method.md) | Step-by-step verification              |
 | [Common Pitfalls](references/common-pitfalls.md)       | Troubleshooting guides                   |
@@ -592,9 +479,8 @@ See [Verification Method](references/verification-method.md) for step-by-step ve
 - **Default domain cannot be deleted** — only custom domains can be removed
 - **AK/SK must never be hardcoded** — credentials should only be obtained via environment variables
 - **hcloud CLI is the only supported method** — all operations use `hcloud SWR <Operation>` format
-- **Pagination offset must be multiple of limit** — for instance namespaces, registries, repos, and artifacts: `offset` must be 0 or a multiple of `limit`
+- **Pagination offset must be multiple of limit** — `offset` must be 0 or a multiple of `limit`
 - **Registry credential.access_secret is sensitive** — never expose or log access secrets
-- **Response formats pending verification** — most response formats need live verification against actual API
 
 ## Common Pitfalls
 
@@ -605,10 +491,10 @@ See [Common Pitfalls & Solutions](references/common-pitfalls.md) for detailed tr
 | Pitfall                         | Symptom                         | Quick Fix                                    |
 | ------------------------------- | ------------------------------- | -------------------------------------------- |
 | Invalid instance name           | 400 Bad Request                 | 3-48 chars, lowercase start, no consecutive hyphens |
-| VPC/subnet not found            | Instance creation fails         | Verify VPC and subnet exist in the region    |
-| Instance still creating         | Operations fail                 | Wait for status=Running, check with ListInstance |
+| VPC/subnet not found            | Instance creation fails         | Verify VPC/subnet exist in region            |
+| Instance still creating         | Operations fail                 | Wait for Running, check with ListInstance    |
 | Offset not multiple of limit    | Pagination returns error        | offset must be 0 or multiple of limit        |
-| Registry credential wrong       | Sync fails                      | Verify access_key/access_secret are correct  |
-| Domain cert not found           | Domain creation fails           | Verify certificate_id exists in SCM          |
+| Registry credential wrong       | Sync fails                      | Verify access_key/access_secret              |
+| Domain cert not found           | Domain creation fails           | Verify certificate_id in SCM                 |
 | Cannot delete default domain    | Delete fails                    | Only custom domains can be deleted           |
-| Public access whitelist format  | Whitelist update fails          | Use indexed array: --ip_list.1.ip=value      |
+| Public access whitelist format  | Whitelist update fails          | Use indexed: --ip_list.1.ip=value            |

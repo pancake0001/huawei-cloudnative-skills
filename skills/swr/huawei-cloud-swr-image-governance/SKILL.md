@@ -5,6 +5,8 @@ description: |
   Huawei Cloud SWR (Software Repository for Container) image governance skill using hcloud CLI.
   Use this skill when the user wants to: (1) manage SWR namespace permissions - grant/query/modify/revoke, (2) manage repository permissions - grant/query/modify/revoke, (3) manage image retention rules - create/list/update/delete, (4) manage shared download domains - create/list/update/delete, (5) manage image sharing - list shared repos/query feature gates, (6) check SWR agency status and create agency delegation, (7) list repo accessories and references.
   Trigger: user mentions "SWR image governance", "SWR 镜像治理", "SWR 权限管理", "SWR retention", "SWR 保留策略", "SWR 共享域名", "SWR 共享镜像", "SWR 委托", "SWR agency", "namespace permissions", "repository permissions", "镜像权限", "保留规则", "共享下载", "镜像分享"
+tags: [swr, image-governance, permissions, retention, sharing]
+version: 1.0.0
 ---
 
 # Huawei Cloud SWR Image Governance
@@ -305,186 +307,18 @@ hcloud SWR ListReferences --namespace=pancake --repository=openclaw-sandbox --cl
 
 ## Output Format
 
-### ShowNamespaceAuth (verified)
+See [Output Format](references/output-format.md) for detailed response format examples (NamespaceAuth, RepositoryAuth, RepoDomains, CheckAgency, ShareFeatureGates, GlobalFeatureGates, Retentions, RepoAccessories, ListSharedReposDetails).
 
-```json
-{
-  "id": 3827347,
-  "name": "pancake",
-  "creator_name": "hwstaff_p00506267",
-  "self_auth": {
-    "user_id": "05949eb5350010e21f85c017722182de",
-    "user_name": "hwstaff_p00506267",
-    "auth": 7
-  },
-  "others_auths": [
-    {
-      "user_id": "05949eb5350010e21f85c017722182de",
-      "user_name": "hwstaff_p00506267",
-      "auth": 7
-    }
-  ]
-}
-```
-
-**Key Fields**:
-- `self_auth`: Your own permission level on this namespace
-- `others_auths`: Array of other users' permission levels
+**Key Format Notes**:
 - `auth`: Permission value (7=manage, 3=edit, 1=read)
-- `self_auth` is separate from `others_auths` — check both when auditing permissions
-
-### ShowUserRepositoryAuth (verified)
-
-```json
-{
-  "id": 3374887,
-  "name": "openclaw-sandbox",
-  "self_auth": {
-    "user_id": "...",
-    "user_name": "...",
-    "auth": 7
-  },
-  "others_auths": []
-}
-```
-
-Same structure as namespace auth but with repository `id` and `name`.
-
-### ListRepoDomains (verified — uses `created/updated`, NOT `created_at/updated_at`)
-
-Response is a flat JSON array (not wrapped in an object):
-
-```json
-[
-  {
-    "namespace": "pancake",
-    "repository": "openclaw-sandbox",
-    "access_domain": "shijingcheng_test",
-    "permit": "read",
-    "deadline": "forever",
-    "description": "",
-    "creator_id": "05949eb5350010e21f85c017722182de",
-    "creator_name": "hwstaff_p00506267",
-    "created": "2026-04-28T09:18:19.830309Z",
-    "updated": "2026-04-28T09:18:19.83031Z",
-    "status": true
-  }
-]
-```
-
-**Key Fields**:
-- `access_domain`: Shared download domain name
-- `permit`: Permission type (`read`)
-- `deadline`: Expiration (`forever` or specific date)
-- `status`: Whether the domain is active (boolean)
-- `created`/`updated`: Timestamps (**NOT** `created_at`/`updated_at`)
-
-### CheckAgency (verified)
-
-```json
-{
-  "domain_id": "05949eb4190010e40f36c017b62fafa0",
-  "is_agency": true
-}
-```
-
-**Key Fields**:
-- `is_agency`: Whether agency delegation is enabled (boolean)
-- `domain_id`: Domain ID (hex string)
-
-### ShowShareFeatureGates (verified)
-
-```json
-{
-  "enable_experience": true,
-  "enable_hss_service": true,
-  "enable_image_scan": true,
-  "enable_sm3": false,
-  "enable_image_sync": true,
-  "enable_cci_service": true,
-  "enable_image_label": false,
-  "enable_pipeline": true,
-  "enable_authorization_token": true,
-  "enable_resource": true,
-  "enable_list_v3": true,
-  "enable_image_quota": false,
-  "enable_cosign_signature": true,
-  "enable_enterprise_edition_link": false,
-  "enable_customize_validity_period": true,
-  "swr_util_download_url": ""
-}
-```
-
-**Key Feature Gates**:
-- `enable_experience`: Shared image experience
-- `enable_image_scan`: Security scan
-- `enable_image_sync`: Cross-region sync
-- `enable_cosign_signature`: Cosign signature verification
-- `enable_authorization_token`: Authorization token
-
-### ListGlobalFeatureGates (verified)
-
-```json
-{
-  "enableUserDefObs": true,
-  "enableEnterprise": true,
-  "cerAvailable": true,
-  "enableIntranetAccessSwitch": true,
-  "enableOBSEncryptUserKmsKey": true
-}
-```
-
-**Key Feature Gates**:
-- `enableUserDefObs`: Custom OBS bucket
-- `enableEnterprise`: Enterprise edition features
-- `cerAvailable`: CER available
-- `enableIntranetAccessSwitch`: Intranet access toggle
-- `enableOBSEncryptUserKmsKey`: OBS encryption with user KMS key
-
-### ListRetentions (verified — returns empty flat array when no rules)
-
-```json
-[]
-```
-
-When retention rules exist, response format to be verified with actual API call.
-
-### ListRepoAccessories (verified)
-
-```json
-{
-  "total": 0,
-  "accessories": null
-}
-```
-
-**Key Fields**:
-- `total`: Total count of accessories
-- `accessories`: Array of accessory objects (null when empty)
-
-### ListSharedReposDetails
-
-Returns flat array of repository objects with same fields as ListReposDetails (name, category, description, size, is_public, num_images, num_download, created_at, updated_at, path, internal_path, domain_name, namespace, tags, status, total_range). Response format identical to image-management `ListReposDetails`.
+- `self_auth` vs `others_auths`: Check both when auditing permissions
+- `ListRepoDomains`: Uses `created/updated` (NOT `created_at/updated_at`)
+- `ListRetentions`: Returns flat array (empty `[]` when no rules)
+- `ListRepoAccessories`: Uses `total` + `accessories` (null when empty)
 
 ## Verification
 
 See [Verification Method](references/verification-method.md) for step-by-step verification.
-
-## Common Region IDs
-
-| Region Name                    | Region ID        |
-| ------------------------------ | ---------------- |
-| North China - Beijing 4        | `cn-north-4`     |
-| North China - Beijing 1        | `cn-north-1`     |
-| East China - Shanghai 1        | `cn-east-3`      |
-| East China - Shanghai 2        | `cn-east-2`      |
-| South China - Guangzhou        | `cn-south-1`     |
-| South China - Shenzhen         | `cn-south-4`     |
-| Southwest China - Guiyang 1    | `cn-southwest-2` |
-| Asia Pacific - Bangkok         | `ap-southeast-2` |
-| Asia Pacific - Singapore       | `ap-southeast-1` |
-| Asia Pacific - Hong Kong       | `ap-southeast-3` |
-| Europe - Paris                 | `eu-west-0`      |
 
 ## Best Practices
 
@@ -501,6 +335,7 @@ See [Verification Method](references/verification-method.md) for step-by-step ve
 | Document                                               | Description                              |
 | ------------------------------------------------------ | ---------------------------------------- |
 | [SWR Governance API Guide](references/swr-governance-api-guide.md) | hcloud SWR governance API reference |
+| [Output Format](references/output-format.md) | Response format examples (verified) |
 | [IAM Permission Policies](references/iam-policies.md)  | Required permissions and policy JSON     |
 | [Verification Method](references/verification-method.md) | Step-by-step verification              |
 | [Common Pitfalls](references/common-pitfalls.md)       | Troubleshooting guides                   |

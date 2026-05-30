@@ -6,7 +6,8 @@ description: >-
   Two-step confirmation for all destructive operations (delete namespace cascades all resources under it).
   Use this skill when the user wants to operate CCI serverless containers via command line.
   Triggers: CCI, 云容器实例, serverless container, 容器实例, namespace, deployment, statefulset, pod, EIPPool, CCI负载, 无服务器容器, 创建容器实例, 删除容器实例, 容器状态, 容器日志
-tags: [cci, container-instance, serverless, namespace, deployment, statefulset, pod, eippool]
+tags: [cci, container-instance, serverless, namespace, deployment]
+version: 1.0.0
 ---
 
 # Huawei Cloud CCI Container Instance Lifecycle Management
@@ -371,7 +372,22 @@ Add `--cli-debug=true` to any command for detailed request/response information:
 hcloud CCI <Operation> --cli-debug=true --cli-region=<region>
 ```
 
-## Common Issues
+## 参数确认
+
+在执行任何 CCI 操作前，确认以下参数：
+
+| 参数 | 必需 | 说明 | 来源 |
+|---|---|---|---|
+| `--namespace` | 是 | CCI 命名空间名称 | 已有或新创建 |
+| `--cli-region` | 是 | 华为云区域 ID | `HUAWEI_CLOUD_REGION` 或配置 |
+| `--metadata.name` | 是 | 资源名称 (Pod/Deployment/Network 等) | 用户指定 |
+| `--metadata.annotations.namespace-kubernetes-io/flavor` | 是 (命名空间) | 呟格类型: `general-computing` 或 `gpu-accelerated` | 用户选择 |
+| VPC/Subnet ID | 是 (网络) | 来自 `VPC ListVpcs` / `VPC ShowSubnet` | 查询已有资源 |
+| neutron_network_id | 是 (网络) | 来自 `VPC ShowSubnet` 响应的 `neutron_network_id` 字段 | 查询结果 |
+
+> **⚠️ 建议在执行任何 CCI 命令前先运行 `hcloud CCI <Operation> --help` 确认参数名，再对照上表确认参数值来源。**
+
+## 注意事项
 
 See [references/troubleshooting.md](references/troubleshooting.md) for detailed troubleshooting.
 
@@ -387,6 +403,28 @@ See [references/troubleshooting.md](references/troubleshooting.md) for detailed 
 | Annotation with dots not passed | hcloud CLI treats dots as nested levels | Use Python helper script for Network creation |
 | EIPPool creation fails (400/422) | Missing `--apiVersion=crd.yangtse.cni/v1` or `--kind=EIPPool` or `networkType` | Add all required fields (see EIPPool section) |
 | Deployment "limit and request doesn't equal" error | CCI requires limits == requests | Set requests to same values as limits (e.g., both `500m/1Gi`) |
+
+## 验证方法
+
+参见 [references/verification-method.md](references/verification-method.md) 获取完整验证步骤。
+
+**快速验证清单**：
+
+| 步骤 | 命令 | 预期结果 |
+|---|---|---|
+| 命名空间创建 | `hcloud CCI readCoreV1Namespace --name=<ns> --cli-region=<region>` | status.phase=Active |
+| 网络创建 | `hcloud CCI readNetworkingCciIoV1beta1NamespacedNetworkStatus --name=<net> --namespace=<ns>` | status.phase=Active |
+| Deployment 创建 | `hcloud CCI readAppsV1NamespacedDeploymentStatus --name=<deploy> --namespace=<ns>` | readyReplicas >= 1 |
+| Pod 创建 | `hcloud CCI readCoreV1NamespacedPodStatus --name=<pod> --namespace=<ns>` | status.phase=Running |
+
+## 最佳实践
+
+1. **命名空间隔离**: 不同业务/团队使用不同命名空间，避免资源冲突
+2. **资源限制一致性**: CCI 要求 limits == requests，设置时保持一致（如 `500m/1Gi`）
+3. **VPC CIDR 规避**: 禁止使用 `10.247.0.0/16` 作为 VPC 子网 CIDR，CCI 保留此段用于 Service 网络
+4. **网络先行**: 创建 Deployment/Pod 前必须先创建 Network，否则 Pod 处于 Pending 状态
+5. **删除顺序**: Pod → Deployment/StatefulSet → EIPPool → Network → Namespace
+6. **EIPPool 按需创建**: 仅在需要 Pod 公网访问时创建 EIPPool
 
 ## hcloud CLI Limitations
 

@@ -5,6 +5,8 @@ description: |
   Huawei Cloud SWR (Software Repository for Container) image lifecycle management skill using hcloud CLI.
   Use this skill when the user wants to: (1) manage SWR namespaces (organizations) - create/query/delete, (2) manage image repositories - create/query/update/delete, (3) manage image tags/versions - query/create/delete, (4) obtain docker login credentials for SWR, (5) check SWR quotas and usage limits.
   Trigger: user mentions "SWR image management", "SWR 镜像管理", "container image", "镜像仓库", "SWR 组织", "SWR namespace", "镜像版本", "docker login", "SWR 配额", "SWR tag", "容器镜像", "镜像生命周期", "SWR repository", "SWR 登录", "SWR quota"
+tags: [swr, image-management, namespace, repository, tag]
+version: 1.0.0
 ---
 
 # Huawei Cloud SWR Image Management
