@@ -154,6 +154,16 @@ Use for periodic CCE capacity trend analysis, bottleneck forecasting, simulation
 
 关系：汇总诊断结论；恢复动作交给 `auto-remediation-runner`，巡检入口交给 `daily-cluster-inspector`。
 
+### change-impact-analyzer
+
+适用：故障可能由近期变更引起，需要结合发布、配置、节点、网络、安全策略变更定位诱因，并输出完整 Markdown 证据报告。
+
+常见问题：发布后业务异常；CoreDNS/ConfigMap/Service/Ingress 更新后访问异常；NetworkPolicy/RBAC 变更后连接超时或 403；节点 taint/cordon/drain/扩缩容后 Pod Pending；需要列出故障前后 Top 风险变更。
+
+常用工具：`huawei_change_impact_analyze`、`huawei_query_cce_audit_logs`、`huawei_query_k8s_events_from_lts`、`huawei_analyze_aom_alarms`、`huawei_get_cce_services`、`huawei_get_cce_ingresses`、`huawei_get_kubernetes_nodes`、`huawei_list_security_groups`。
+
+关系：负责只读变更归因、爆炸半径和证据报告；如果 Top 风险需要下钻，转给 `workload-failure-diagnoser`、`network-failure-diagnoser` 或 `node-failure-diagnoser`；恢复动作交给 `auto-remediation-runner`。
+
 ### auto-remediation-runner
 
 适用：用户已经明确要求恢复动作，或诊断结果需要生成可确认的恢复预案。
@@ -244,6 +254,7 @@ Use for periodic CCE capacity trend analysis, bottleneck forecasting, simulation
 | 查询 CCE Pod/Node 指标和资源使用排名 | `metric-analyzer` |
 | 需要先把日志、事件、指标、告警都收集齐 | `observability-context-builder` |
 | 业务不可用，需要综合根因分析 | `root-cause-analyzer` |
+| 发布、配置、网络、安全策略或节点变更后出现故障 | `change-impact-analyzer` |
 | 需要扩容、重启、drain、漏洞修复等动作 | `auto-remediation-runner` |
 | 做每日巡检或周期性健康检查 | `daily-cluster-inspector` |
 | 做成本优化、Request 过量分析、弹性策略建议 | `cost-optimization-advisor` |

@@ -1,3 +1,8 @@
+---
+name: metric-analyzer
+description: Use this skill to query and analyze metrics for CCE clusters and cloud resources, including Pod, Node, ECS, ELB, EIP, and NAT usage, plus threshold-based anomaly detection and status classification.
+---
+
 # Metric Analyzer
 
 Query and analyze metrics for CCE clusters (Pod/Node) and cloud resources (ECS, ELB, EIP, NAT). Supports threshold-based anomaly detection and status classification.
