@@ -16,6 +16,7 @@ from . import chart_generator
 from . import common
 from . import cce_cluster, cce_nodepool, cce_node, cce_addon, cce_k8s, cce_hpa, cce_cost_optimization, cce_availability_risk, cce_capacity_trend, ops_report_generator
 from . import node_failure_diagnosis
+from . import cce_events_lts
 
 # cce_app_logs and lts require huaweicloudsdklts which may not be installed
 try:
@@ -243,6 +244,10 @@ def _get_kubernetes_nodes(params: Dict[str, str]) -> Dict[str, Any]:
 
 def _get_cce_events(params: Dict[str, str]) -> Dict[str, Any]:
     return cce.get_kubernetes_events(params["region"], params["cluster_id"], params.get("ak"), params.get("sk"), params.get("project_id"), params.get("namespace"), _to_int(params.get("limit"), 500))
+
+
+def _query_k8s_events_from_lts(params: Dict[str, str]) -> Dict[str, Any]:
+    return cce_events_lts.query_k8s_events_from_lts_action(params)
 
 
 def _get_cce_pvcs(params: Dict[str, str]) -> Dict[str, Any]:
@@ -1323,6 +1328,7 @@ ACTION_SPECS: Dict[str, tuple[tuple[str, ...], Handler]] = {
     "huawei_delete_cce_workload": (("region", "cluster_id", "workload_type", "name", "namespace"), _delete_cce_workload),
     "huawei_get_kubernetes_nodes": (("region", "cluster_id"), _get_kubernetes_nodes),
     "huawei_get_cce_events": (("region", "cluster_id"), _get_cce_events),
+    "huawei_query_k8s_events_from_lts": (("region", "cluster_id", "start_time", "end_time"), _query_k8s_events_from_lts),  # limit is optional
     "huawei_get_cce_pvcs": (("region", "cluster_id"), _get_cce_pvcs),
     "huawei_get_cce_pvs": (("region", "cluster_id"), _get_cce_pvs),
     "huawei_get_cce_services": (("region", "cluster_id"), _get_cce_services),
