@@ -72,11 +72,11 @@
 
 ### network-failure-diagnoser
 
-适用：Service 不通、Ingress 502/504、ELB/EIP/NAT 链路问题、Pod 调度后的连通性验证。
+适用：Service 不通、DNS/CoreDNS 异常、Ingress 502/504、NetworkPolicy 拦截、ELB 后端异常、ELB/EIP/NAT 链路问题、Pod 调度后的连通性验证。
 
-常见问题：外部访问 502；Service 没有后端；Ingress 到 ELB 链路异常；节点安全组或网络 ACL 可疑。
+常见问题：外部访问 502；Service 没有后端；域名无法解析；NetworkPolicy 阻断；Ingress 到 ELB 链路异常；节点安全组或网络 ACL 可疑。
 
-常用工具：`huawei_get_cce_services`、`huawei_get_cce_ingresses`、`huawei_list_elb`、`huawei_get_elb_metrics`、`huawei_list_eip`、`huawei_network_diagnose`。
+常用工具：`huawei_network_failure_diagnose`、`huawei_get_cce_services`、`huawei_get_cce_ingresses`、`huawei_get_elb_backend_status`、`huawei_get_elb_metrics`、`huawei_list_eip`、`huawei_network_diagnose`。
 
 关系：定位网络链路；涉及绑定/解绑 EIP 或扩缩容验证时交给 `auto-remediation-runner`。
 

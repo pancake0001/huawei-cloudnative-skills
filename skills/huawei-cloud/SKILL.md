@@ -369,6 +369,8 @@ python3 huawei-cloud.py huawei_cce_quick_check \
 | `huawei_network_diagnose` | 工作负载网络问题诊断 | 指定工作负载 |
 | `huawei_network_diagnose_by_alarm` | 基于告警的网络问题诊断 | 触发告警的工作负载 |
 | `huawei_network_verify_pod_scheduling` | 验证Pod调度可达性 | 验证指定工作负载Pod是否可正常调度 |
+| `huawei_network_failure_diagnose` | Service/DNS/Ingress/NetworkPolicy/ELB后端综合诊断，返回完整Markdown报告 | 指定Service/Ingress/Pod/域名/ELB |
+| `huawei_get_elb_backend_status` | 查询ELB后端池、成员、健康检查和负载均衡状态 | 指定ELB |
 
 **诊断流程（近1小时数据）：**
 

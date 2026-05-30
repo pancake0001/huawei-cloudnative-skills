@@ -762,9 +762,18 @@ def check_coredns_status(region: str, cluster_id: str, ak: str, sk: str,
             config.load_kube_config(config_file="/tmp/kubeconfig_" + cluster_id[:8] + ".yaml")
             v1 = client.CoreV1Api()
 
-            pods = v1.list_namespaced_pod("kube-system", label_selector="k8s-app=kube-dns")
+            coredns_items = []
+            seen_pod_uids = set()
+            for selector in ("k8s-app=coredns", "k8s-app=kube-dns", "app=coredns"):
+                selected_pods = v1.list_namespaced_pod("kube-system", label_selector=selector)
+                for pod in selected_pods.items:
+                    uid = getattr(pod.metadata, "uid", None) or pod.metadata.name
+                    if uid in seen_pod_uids:
+                        continue
+                    seen_pod_uids.add(uid)
+                    coredns_items.append(pod)
             coredns_pods = []
-            for pod in pods.items:
+            for pod in coredns_items:
                 coredns_pods.append({
                     "name": pod.metadata.name,
                     "ready": str(pod.status.conditions[-1].status if pod.status.conditions else "Unknown"),
