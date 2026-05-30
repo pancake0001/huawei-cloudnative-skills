@@ -32,6 +32,9 @@ HIGH_RISK_ACTIONS = {
     "huawei_stop_ecs_instance",
     "huawei_hss_change_vul_status",
     "huawei_configure_cce_hpa",
+    "huawei_ensure_cce_cci_vpcep",
+    "huawei_setup_cce_cci_bursting",
+    "huawei_deploy_cce_cci_smoke_workload",
 }
 
 
@@ -54,7 +57,7 @@ class SkillProfileTests(unittest.TestCase):
                 self.assertIn(skill, catalog)
 
     def test_high_risk_actions_are_only_in_remediation_skill(self):
-        allowed = {"auto-remediation-runner", "cost-optimization-advisor", "capacity-trend-forecaster"}
+        allowed = {"auto-remediation-runner", "cost-optimization-advisor", "capacity-trend-forecaster", "cce-cci-bursting-deployer"}
         for profile in discover_profiles():
             risky = HIGH_RISK_ACTIONS.intersection(profile.tools)
             if profile.name not in allowed:
@@ -126,6 +129,27 @@ class SkillProfileTests(unittest.TestCase):
         self.assertIn("node autoscaler", text)
         self.assertIn("simulation", text)
         self.assertIn("history", text)
+        self.assertIn("confirm=true", text)
+
+    def test_cce_cci_bursting_skill_documents_core_rules(self):
+        skill_dir = REPO_ROOT / "skills" / "cce-cci-bursting-deployer"
+        text = "\n".join(
+            [
+                (skill_dir / "SKILL.md").read_text(encoding="utf-8"),
+                (skill_dir / "references" / "workflow.md").read_text(encoding="utf-8"),
+                (skill_dir / "references" / "risk-rules.md").read_text(encoding="utf-8"),
+                (skill_dir / "references" / "troubleshooting.md").read_text(encoding="utf-8"),
+            ]
+        )
+        self.assertIn("huawei_precheck_cce_cci_bursting", text)
+        self.assertIn("huawei_ensure_cce_cci_vpcep", text)
+        self.assertIn("huawei_setup_cce_cci_bursting", text)
+        self.assertIn("huawei_deploy_cce_cci_smoke_workload", text)
+        self.assertIn("huawei_verify_cce_cci_bursting", text)
+        self.assertIn("Neutron subnet", text)
+        self.assertIn("VPC subnet", text)
+        self.assertIn("OBS", text)
+        self.assertIn("SWR", text)
         self.assertIn("confirm=true", text)
 
 

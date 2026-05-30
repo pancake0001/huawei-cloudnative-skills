@@ -1,6 +1,7 @@
 """CCE Addon management functions."""
 
 from typing import Any, Dict, Optional
+from copy import deepcopy
 
 from huaweicloudsdkcore.exceptions.exceptions import ClientRequestException
 from huaweicloudsdkcce.v3 import (
@@ -12,6 +13,7 @@ from huaweicloudsdkcce.v3 import (
     AddonMetadata,
     UpdateAddonInstanceRequest,
     DeleteAddonInstanceRequest,
+    ShowClusterRequest,
 )
 
 from .common import get_credentials, create_cce_client, SDK_AVAILABLE, IMPORT_ERROR
@@ -357,7 +359,7 @@ def uninstall_cce_addon(
 
         request = DeleteAddonInstanceRequest()
         request.cluster_id = cluster_id
-        request.addon_name = addon_id
+        request.id = addon_id
 
         client.delete_addon_instance(request)
 
@@ -390,6 +392,7 @@ def update_cce_addon(
     addon_id: str,
     addon_version: str,
     values: Dict[str, Any],
+    addon_template_name: Optional[str] = None,
     ak: Optional[str] = None,
     sk: Optional[str] = None,
     project_id: Optional[str] = None
@@ -448,11 +451,14 @@ def update_cce_addon(
             annotations={"addon.upgrade/type": "upgrade"}
         )
 
-        spec = InstanceSpec(
-            cluster_id=cluster_id,
-            version=addon_version,
-            values=values
-        )
+        spec_kwargs: Dict[str, Any] = {
+            "cluster_id": cluster_id,
+            "version": addon_version,
+            "values": values,
+        }
+        if addon_template_name:
+            spec_kwargs["addon_template_name"] = addon_template_name
+        spec = InstanceSpec(**spec_kwargs)
 
         body = AddonInstance(
             kind="Addon",
@@ -462,7 +468,7 @@ def update_cce_addon(
         )
 
         request = UpdateAddonInstanceRequest()
-        request.addon_name = addon_id
+        request.id = addon_id
         request.body = body
 
         response = client.update_addon_instance(request)
@@ -480,6 +486,195 @@ def update_cce_addon(
             "addon_id": addon_id,
             "addon_version": addon_version,
             "addon": addon_info
+        }
+
+    except ClientRequestException as e:
+        return {
+            "success": False,
+            "error": f"{e.error_code} - {e.error_msg}",
+            "request_id": getattr(e, 'request_id', None)
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "error_type": type(e).__name__
+        }
+
+
+def _resolve_addon_instance_id(client: Any, cluster_id: str, addon_id: str) -> Optional[str]:
+    """Resolve addon instance uid from uid/name/template name."""
+    request = ListAddonInstancesRequest()
+    request.cluster_id = cluster_id
+    response = client.list_addon_instances(request)
+
+    if not hasattr(response, "items") or not response.items:
+        return None
+
+    for addon in response.items:
+        metadata = getattr(addon, "metadata", None)
+        spec = getattr(addon, "spec", None)
+        uid = getattr(metadata, "uid", None) if metadata else None
+        name = getattr(metadata, "name", None) if metadata else None
+        template = getattr(spec, "addon_template_name", None) if spec else None
+        if addon_id in {uid, name, template}:
+            return uid
+    return None
+
+
+def configure_cce_bursting_addon(
+    region: str,
+    cluster_id: str,
+    subnet_id: str,
+    subnets: Optional[list[str]] = None,
+    addon_id: str = "virtual-kubelet",
+    addon_version: Optional[str] = None,
+    enable_schedule_profile_local_surge: Optional[bool] = None,
+    is_install_proxy: Optional[bool] = None,
+    enable_log_collection: Optional[bool] = None,
+    ak: Optional[str] = None,
+    sk: Optional[str] = None,
+    project_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Configure CCI bursting addon network params for CCE->CCI2.0 scheduling."""
+    access_key, secret_key, proj_id = get_credentials(ak, sk, project_id)
+    if not access_key or not secret_key:
+        return {
+            "success": False,
+            "error": "Credentials not provided. Set HUAWEI_AK and HUAWEI_SK environment variables or pass as parameters."
+        }
+    if not cluster_id:
+        return {"success": False, "error": "cluster_id is required"}
+    if not subnet_id:
+        return {"success": False, "error": "subnet_id is required"}
+    if not SDK_AVAILABLE:
+        return {
+            "success": False,
+            "error": f"Huawei Cloud SDK not installed: {IMPORT_ERROR}"
+        }
+
+    try:
+        client = create_cce_client(region, access_key, secret_key, proj_id)
+
+        resolved_id = _resolve_addon_instance_id(client, cluster_id, addon_id)
+        if not resolved_id:
+            return {
+                "success": False,
+                "error": f"Addon instance not found by id/name/template: {addon_id}"
+            }
+
+        show_request = ShowAddonInstanceRequest()
+        show_request.cluster_id = cluster_id
+        show_request.id = resolved_id
+        addon_detail = client.show_addon_instance(show_request).to_dict()
+
+        spec = addon_detail.get("spec", {})
+        current_values = spec.get("values") or {}
+        if not isinstance(current_values, dict):
+            return {
+                "success": False,
+                "error": "Current addon values are not a JSON object. Cannot patch safely."
+            }
+
+        values = deepcopy(current_values)
+        values.setdefault("custom", {})
+        values.setdefault("basic", {})
+
+        # Fill mandatory basic fields required by virtual-kubelet provider init.
+        cluster_name = None
+        vpc_id = None
+        try:
+            cluster_request = ShowClusterRequest()
+            cluster_request.cluster_id = cluster_id
+            cluster_detail = client.show_cluster(cluster_request).to_dict()
+            cluster_root = cluster_detail.get("cluster", cluster_detail)
+            cluster_name = cluster_root.get("metadata", {}).get("name")
+            host_network = (
+                cluster_root.get("spec", {}).get("host_network")
+                or cluster_root.get("spec", {}).get("hostNetwork")
+                or {}
+            )
+            vpc_id = host_network.get("vpc")
+        except Exception:
+            # Best effort enrichment; keep existing values if cluster lookup fails.
+            pass
+
+        normalized_subnets = [s for s in (subnets or []) if s]
+        if not normalized_subnets:
+            normalized_subnets = [subnet_id]
+        network_subnet_id = normalized_subnets[0]
+        subnet_entries = [{"subnetID": subnet} for subnet in normalized_subnets]
+
+        values["basic"]["cluster_id"] = cluster_id
+        values["basic"]["clusterID"] = cluster_id
+        if cluster_name:
+            values["basic"]["cluster_name"] = cluster_name
+            values["basic"]["clusterName"] = cluster_name
+        if vpc_id:
+            values["basic"]["vpc_id"] = vpc_id
+            values["basic"]["vpcID"] = vpc_id
+        values["basic"]["network_id"] = network_subnet_id
+        values["basic"]["networkID"] = network_subnet_id
+        values["basic"]["project_id"] = proj_id
+        values["basic"]["projectID"] = proj_id
+        values["custom"]["subnet_id"] = subnet_id
+        values["custom"]["subnets"] = subnet_entries
+        values["basic"]["subnet_id"] = network_subnet_id
+
+        if enable_schedule_profile_local_surge is not None:
+            values["custom"]["enableScheduleProfileLocalSurge"] = enable_schedule_profile_local_surge
+        if is_install_proxy is not None:
+            values["custom"]["isInstallProxy"] = is_install_proxy
+        if enable_log_collection is not None:
+            values["custom"]["enableLogCollection"] = enable_log_collection
+
+        target_version = addon_version or spec.get("version")
+        if not target_version:
+            return {
+                "success": False,
+                "error": "addon_version is required but not found from current addon spec"
+            }
+
+        metadata = AddonMetadata(annotations={"addon.upgrade/type": "upgrade"})
+        instance_spec = InstanceSpec(
+            cluster_id=cluster_id,
+            version=target_version,
+            addon_template_name=spec.get("addon_template_name"),
+            values=values
+        )
+        body = AddonInstance(
+            kind="Addon",
+            api_version="v3",
+            metadata=metadata,
+            spec=instance_spec
+        )
+
+        update_request = UpdateAddonInstanceRequest()
+        update_request.id = resolved_id
+        update_request.body = body
+        response = client.update_addon_instance(update_request)
+
+        response_dict = response.to_dict()
+        return {
+            "success": True,
+            "region": region,
+            "cluster_id": cluster_id,
+            "action": "configure_cce_bursting_addon",
+            "addon_id": addon_id,
+            "resolved_addon_id": resolved_id,
+            "addon_version": target_version,
+            "applied": {
+                "subnet_id": subnet_id,
+                "subnets": subnet_entries,
+                "network_id": network_subnet_id,
+                "enableScheduleProfileLocalSurge": values["custom"].get("enableScheduleProfileLocalSurge"),
+                "isInstallProxy": values["custom"].get("isInstallProxy"),
+                "enableLogCollection": values["custom"].get("enableLogCollection"),
+            },
+            "addon": {
+                "uid": response_dict.get("metadata", {}).get("uid"),
+                "name": response_dict.get("metadata", {}).get("name"),
+            }
         }
 
     except ClientRequestException as e:
