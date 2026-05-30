@@ -937,6 +937,156 @@ class DispatcherTests(unittest.TestCase):
         self.assertTrue(dispatcher.is_registered_action("huawei_analyze_cce_cost_optimization"))
         self.assertEqual(dispatcher.ACTION_SPECS["huawei_analyze_cce_cost_optimization"][0], ("region", "cluster_id"))
 
+    # ==================== Availability risk scanner action ====================
+
+    def test_scan_cce_availability_risk_dispatch(self):
+        with mock.patch(
+            "huawei_cloud.dispatcher.cce_availability_risk.scan_cce_availability_risk",
+            return_value={"success": True, "issues": []},
+        ) as mocked:
+            result = dispatcher.dispatch_action("huawei_scan_cce_availability_risk", {
+                "region": "cn-north-4",
+                "cluster_id": "c1",
+                "exclude_namespaces": "kube-system,monitoring",
+                "gateway_keywords": "nginx,gateway",
+                "metrics_hours": "12",
+                "limit": "250",
+                "cpu_limit_request_ratio": "5",
+                "memory_limit_request_ratio": "3",
+                "output_dir": "debug/availability",
+                "include_raw": "true",
+            })
+        self.assertTrue(result["success"])
+        mocked.assert_called_once()
+        kwargs = mocked.call_args.kwargs
+        self.assertEqual(kwargs["region"], "cn-north-4")
+        self.assertEqual(kwargs["cluster_id"], "c1")
+        self.assertEqual(kwargs["exclude_namespaces"], "kube-system,monitoring")
+        self.assertEqual(kwargs["gateway_keywords"], "nginx,gateway")
+        self.assertEqual(kwargs["metrics_hours"], 12)
+        self.assertEqual(kwargs["limit"], 250)
+        self.assertEqual(kwargs["cpu_limit_request_ratio"], 5.0)
+        self.assertEqual(kwargs["memory_limit_request_ratio"], 3.0)
+        self.assertEqual(kwargs["output_dir"], "debug/availability")
+        self.assertTrue(kwargs["include_raw"])
+
+    def test_scan_cce_availability_risk_requires_params(self):
+        result = dispatcher.dispatch_action("huawei_scan_cce_availability_risk", {"region": "cn-north-4"})
+        self.assertFalse(result["success"])
+        self.assertIn("cluster_id", result["error"])
+
+    def test_availability_risk_action_in_action_specs(self):
+        self.assertTrue(dispatcher.is_registered_action("huawei_scan_cce_availability_risk"))
+        self.assertEqual(dispatcher.ACTION_SPECS["huawei_scan_cce_availability_risk"][0], ("region", "cluster_id"))
+
+    # ==================== Capacity trend forecaster action ====================
+
+    def test_analyze_cce_capacity_trend_dispatch(self):
+        with mock.patch(
+            "huawei_cloud.dispatcher.cce_capacity_trend.analyze_cce_capacity_trend",
+            return_value={"success": True, "recommendations": []},
+        ) as mocked:
+            result = dispatcher.dispatch_action("huawei_analyze_cce_capacity_trend", {
+                "region": "cn-north-4",
+                "cluster_id": "c1",
+                "hours": "24",
+                "step_seconds": "900",
+                "top_n": "50",
+                "exclude_namespaces": "kube-system,monitoring",
+                "business_namespaces": "default,prod",
+                "output_dir": "debug/capacity",
+                "history_dir": "debug/capacity/history",
+                "record_history": "false",
+                "compare_history_count": "4",
+                "include_raw": "true",
+                "target_cpu_percent": "55",
+                "target_memory_percent": "65",
+                "bottleneck_percent": "82",
+                "headroom_percent": "20",
+                "action_note": "changed hpa target",
+            })
+        self.assertTrue(result["success"])
+        mocked.assert_called_once()
+        kwargs = mocked.call_args.kwargs
+        self.assertEqual(kwargs["region"], "cn-north-4")
+        self.assertEqual(kwargs["cluster_id"], "c1")
+        self.assertEqual(kwargs["hours"], 24)
+        self.assertEqual(kwargs["step_seconds"], 900)
+        self.assertEqual(kwargs["top_n"], 50)
+        self.assertEqual(kwargs["exclude_namespaces"], "kube-system,monitoring")
+        self.assertEqual(kwargs["business_namespaces"], "default,prod")
+        self.assertEqual(kwargs["output_dir"], "debug/capacity")
+        self.assertEqual(kwargs["history_dir"], "debug/capacity/history")
+        self.assertFalse(kwargs["record_history"])
+        self.assertEqual(kwargs["compare_history_count"], 4)
+        self.assertTrue(kwargs["include_raw"])
+        self.assertEqual(kwargs["target_cpu_percent"], 55.0)
+        self.assertEqual(kwargs["target_memory_percent"], 65.0)
+        self.assertEqual(kwargs["bottleneck_percent"], 82.0)
+        self.assertEqual(kwargs["headroom_percent"], 20.0)
+        self.assertEqual(kwargs["action_note"], "changed hpa target")
+
+    def test_analyze_cce_capacity_trend_requires_params(self):
+        result = dispatcher.dispatch_action("huawei_analyze_cce_capacity_trend", {"region": "cn-north-4"})
+        self.assertFalse(result["success"])
+        self.assertIn("cluster_id", result["error"])
+
+    def test_capacity_trend_action_in_action_specs(self):
+        self.assertTrue(dispatcher.is_registered_action("huawei_analyze_cce_capacity_trend"))
+        self.assertEqual(dispatcher.ACTION_SPECS["huawei_analyze_cce_capacity_trend"][0], ("region", "cluster_id"))
+
+    # ==================== Ops report generator action ====================
+
+    def test_generate_ops_report_dispatch(self):
+        with mock.patch(
+            "huawei_cloud.dispatcher.ops_report_generator.generate_ops_report",
+            return_value={"success": True, "files": {}},
+        ) as mocked:
+            result = dispatcher.dispatch_action("huawei_generate_ops_report", {
+                "region": "cn-north-4",
+                "cluster_id": "c1",
+                "report_type": "monthly",
+                "hours": "720",
+                "short_hours": "24",
+                "long_hours": "720",
+                "step_seconds": "1800",
+                "top_n": "100",
+                "exclude_namespaces": "kube-system,monitoring",
+                "business_namespaces": "default,prod",
+                "gateway_keywords": "nginx,gateway",
+                "output_dir": "debug/ops-report",
+                "include_raw": "true",
+                "oncall_report_path": "debug/oncall/oncall-summary.md",
+                "oncall_summary": "sev1 resolved within sla",
+            })
+        self.assertTrue(result["success"])
+        mocked.assert_called_once()
+        kwargs = mocked.call_args.kwargs
+        self.assertEqual(kwargs["region"], "cn-north-4")
+        self.assertEqual(kwargs["cluster_id"], "c1")
+        self.assertEqual(kwargs["report_type"], "monthly")
+        self.assertEqual(kwargs["hours"], 720)
+        self.assertEqual(kwargs["short_hours"], 24)
+        self.assertEqual(kwargs["long_hours"], 720)
+        self.assertEqual(kwargs["step_seconds"], 1800)
+        self.assertEqual(kwargs["top_n"], 100)
+        self.assertEqual(kwargs["exclude_namespaces"], "kube-system,monitoring")
+        self.assertEqual(kwargs["business_namespaces"], "default,prod")
+        self.assertEqual(kwargs["gateway_keywords"], "nginx,gateway")
+        self.assertEqual(kwargs["output_dir"], "debug/ops-report")
+        self.assertTrue(kwargs["include_raw"])
+        self.assertEqual(kwargs["oncall_report_path"], "debug/oncall/oncall-summary.md")
+        self.assertEqual(kwargs["oncall_summary"], "sev1 resolved within sla")
+
+    def test_generate_ops_report_requires_params(self):
+        result = dispatcher.dispatch_action("huawei_generate_ops_report", {"region": "cn-north-4"})
+        self.assertFalse(result["success"])
+        self.assertIn("cluster_id", result["error"])
+
+    def test_ops_report_action_in_action_specs(self):
+        self.assertTrue(dispatcher.is_registered_action("huawei_generate_ops_report"))
+        self.assertEqual(dispatcher.ACTION_SPECS["huawei_generate_ops_report"][0], ("region", "cluster_id"))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,0 +1,16 @@
+name: ops-report-generator
+level: L4
+domain: governance-optimization
+description: Generate CCE weekly, monthly, SLA, capacity, and stability reports by consolidating outputs from daily inspection, capacity trend forecasting, availability risk scanning, cost optimization analysis, and optional on-call context.
+tools:
+  - huawei_generate_ops_report
+  - huawei_cce_auto_inspection
+  - huawei_analyze_cce_capacity_trend
+  - huawei_scan_cce_availability_risk
+  - huawei_analyze_cce_cost_optimization
+references:
+  - references/workflow.md
+  - references/output-schema.md
+guardrails:
+  max_auto_risk: R1
+
