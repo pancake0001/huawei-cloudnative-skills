@@ -254,7 +254,7 @@ pip install huaweicloudsdkcore huaweicloudsdkecs huaweicloudsdkvpc huaweicloudsd
 | 工具 | 功能 |
 |------|------|
 | `huawei_get_cce_logconfigs` | 从CCE集群获取LogConfig自定义资源（CR），返回应用与日志流的关联关系 |
-| `huawei_get_application_log_stream` | 根据namespace和应用名获取对应的日志组和日志流 |
+| `huawei_get_application_logconfigs` | 根据namespace和应用名获取对应的日志组和日志流 |
 | `huawei_query_application_logs` | 查询CCE集群中应用自定义时间范围的日志信息，自动匹配日志流、自动携带标签过滤 |
 | `huawei_query_application_recent_logs` | CCE集群应用日志快捷查询，查询最近N小时日志，自动匹配日志流、自动携带标签过滤，无需手动查找日志ID |
 

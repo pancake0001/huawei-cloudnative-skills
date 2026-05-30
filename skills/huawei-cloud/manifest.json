@@ -3615,8 +3615,8 @@
       "script": "scripts/huawei-cloud.py"
     },
     {
-      "name": "huawei_get_application_log_stream",
-      "description": "Run huawei_get_application_log_stream through the shared Huawei Cloud dispatcher.",
+      "name": "huawei_get_application_logconfigs",
+      "description": "Run huawei_get_application_logconfigs through the shared Huawei Cloud dispatcher.",
       "parameters": {
         "type": "object",
         "properties": {

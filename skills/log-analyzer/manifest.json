@@ -1,0 +1,757 @@
+{
+  "version": "1.0.0",
+  "name": "log-analyzer",
+  "description": "Query and analyze Kubernetes stdout logs and Huawei Cloud LTS logs for CCE workloads.",
+  "level": "L2",
+  "domain": "observability",
+  "tools": [
+    {
+      "name": "huawei_get_pod_logs",
+      "description": "Query Kubernetes Pod stdout/stderr logs through the CCE Kubernetes API.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region, for example cn-north-4."
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE cluster ID."
+          },
+          "pod_name": {
+            "type": "string",
+            "description": "Kubernetes Pod name."
+          },
+          "namespace": {
+            "type": "string",
+            "description": "Kubernetes namespace. Defaults to default."
+          },
+          "container": {
+            "type": "string",
+            "description": "Optional container name."
+          },
+          "previous": {
+            "type": "string",
+            "description": "Set true to query logs from the previous terminated container."
+          },
+          "tail_lines": {
+            "type": "string",
+            "description": "Number of log lines from the end. Defaults to 100."
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID. Prefer HUAWEI_AK environment variable."
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key. Prefer HUAWEI_SK environment variable."
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Huawei Cloud project ID. Prefer HUAWEI_PROJECT_ID environment variable."
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id",
+          "pod_name"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_get_cce_logconfigs",
+      "description": "List CCE LogConfig resources used for container stdout collection.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region, for example cn-north-4."
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE cluster ID."
+          },
+          "namespace": {
+            "type": "string",
+            "description": "Optional Kubernetes namespace filter."
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID. Prefer HUAWEI_AK environment variable."
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key. Prefer HUAWEI_SK environment variable."
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Huawei Cloud project ID. Prefer HUAWEI_PROJECT_ID environment variable."
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_create_cce_logconfig",
+      "description": "Create a CCE LogConfig for container stdout or container file collection. The tool previews by default and requires confirm=true to create.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region, for example cn-north-4."
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE cluster ID."
+          },
+          "logconfig_name": {
+            "type": "string",
+            "description": "Name of the LogConfig resource to create."
+          },
+          "source_type": {
+            "type": "string",
+            "description": "Log source type: container_stdout or container_file."
+          },
+          "log_group_id": {
+            "type": "string",
+            "description": "Target LTS log group ID."
+          },
+          "log_stream_id": {
+            "type": "string",
+            "description": "Target LTS log stream ID."
+          },
+          "logconfig_namespace": {
+            "type": "string",
+            "description": "Namespace where the LogConfig CR is created. Defaults to kube-system."
+          },
+          "workload_namespace": {
+            "type": "string",
+            "description": "Kubernetes namespace of the target workload. Defaults to namespace or default."
+          },
+          "namespace": {
+            "type": "string",
+            "description": "Alias used as workload namespace when workload_namespace is omitted."
+          },
+          "workload_name": {
+            "type": "string",
+            "description": "Target workload name. Alias app_name can also be used."
+          },
+          "app_name": {
+            "type": "string",
+            "description": "Alias of workload_name."
+          },
+          "workload_kind": {
+            "type": "string",
+            "description": "Target workload kind, for example Deployment, StatefulSet, DaemonSet. Defaults to Deployment."
+          },
+          "container": {
+            "type": "string",
+            "description": "Optional container name. Recommended for container_file."
+          },
+          "all_containers": {
+            "type": "string",
+            "description": "For container_stdout, set true to collect all containers. Defaults to true only when no workload is specified."
+          },
+          "namespaces": {
+            "type": "string",
+            "description": "Comma-separated namespaces when all_containers=true."
+          },
+          "log_path": {
+            "type": "string",
+            "description": "Directory path for container_file collection, for example /var/log."
+          },
+          "file_pattern": {
+            "type": "string",
+            "description": "File pattern for container_file collection, for example *.log. Defaults to *.log."
+          },
+          "files": {
+            "type": "string",
+            "description": "Optional JSON array of file objects, for example [{\"logPath\":\"/var/log\",\"filePattern\":\"*.log\"}]."
+          },
+          "workloads": {
+            "type": "string",
+            "description": "Optional JSON array of workload objects. Overrides singular workload parameters."
+          },
+          "processors": {
+            "type": "string",
+            "description": "Optional JSON object for inputDetail.processors."
+          },
+          "processor_type": {
+            "type": "string",
+            "description": "Processor type when processors is omitted. Defaults to singleline."
+          },
+          "discovered_forward_size": {
+            "type": "string",
+            "description": "container_file discoveredForwardSize. Defaults to 1MB."
+          },
+          "confirm": {
+            "type": "string",
+            "description": "Must be true to actually create the LogConfig. Omit for preview."
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID. Prefer HUAWEI_AK environment variable."
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key. Prefer HUAWEI_SK environment variable."
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Huawei Cloud project ID. Prefer HUAWEI_PROJECT_ID environment variable."
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id",
+          "logconfig_name",
+          "source_type",
+          "log_group_id",
+          "log_stream_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_delete_cce_logconfig",
+      "description": "Delete a CCE LogConfig by name. The tool previews the target by default and requires confirm=true to delete.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region, for example cn-north-4."
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE cluster ID."
+          },
+          "logconfig_name": {
+            "type": "string",
+            "description": "Name of the LogConfig resource to delete."
+          },
+          "logconfig_namespace": {
+            "type": "string",
+            "description": "Namespace where the LogConfig CR exists. Defaults to kube-system."
+          },
+          "namespace": {
+            "type": "string",
+            "description": "Alias of logconfig_namespace when logconfig_namespace is omitted."
+          },
+          "api_group": {
+            "type": "string",
+            "description": "Optional LogConfig CRD API group. Defaults to logging.openvessel.io."
+          },
+          "api_version": {
+            "type": "string",
+            "description": "Optional LogConfig CRD API version. Defaults to v1."
+          },
+          "plural": {
+            "type": "string",
+            "description": "Optional LogConfig CRD plural. Defaults to logconfigs."
+          },
+          "confirm": {
+            "type": "string",
+            "description": "Must be true to actually delete the LogConfig. Omit for preview."
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID. Prefer HUAWEI_AK environment variable."
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key. Prefer HUAWEI_SK environment variable."
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Huawei Cloud project ID. Prefer HUAWEI_PROJECT_ID environment variable."
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id",
+          "logconfig_name"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_get_application_logconfigs",
+      "description": "Find the LTS log group and stream for a CCE application using LogConfig rules.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region, for example cn-north-4."
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE cluster ID."
+          },
+          "app_name": {
+            "type": "string",
+            "description": "Application or workload name."
+          },
+          "namespace": {
+            "type": "string",
+            "description": "Kubernetes namespace."
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID. Prefer HUAWEI_AK environment variable."
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key. Prefer HUAWEI_SK environment variable."
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Huawei Cloud project ID. Prefer HUAWEI_PROJECT_ID environment variable."
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id",
+          "app_name"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_query_cce_audit_logs",
+      "description": "Query CCE Kubernetes audit logs from LTS and summarize Pod deletion, workload changes, users, verbs, resources, namespaces, and response codes.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region, for example cn-north-4."
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE cluster ID."
+          },
+          "log_group_id": {
+            "type": "string",
+            "description": "Optional audit LTS log group ID. Recommended when known."
+          },
+          "log_stream_id": {
+            "type": "string",
+            "description": "Optional audit LTS log stream ID. Recommended when known."
+          },
+          "log_group_name": {
+            "type": "string",
+            "description": "Optional log group name substring for audit stream discovery."
+          },
+          "log_stream_name": {
+            "type": "string",
+            "description": "Optional log stream name substring for audit stream discovery."
+          },
+          "audit_stream_keywords": {
+            "type": "string",
+            "description": "Comma-separated audit stream discovery keywords. Defaults to audit, apiserver, api-server, kube-apiserver."
+          },
+          "audit_type": {
+            "type": "string",
+            "description": "Convenience scenario: pod_delete or workload_change."
+          },
+          "scenario": {
+            "type": "string",
+            "description": "Alias of audit_type."
+          },
+          "namespace": {
+            "type": "string",
+            "description": "Kubernetes namespace keyword. The tool searches audit log content by this value."
+          },
+          "resource_name": {
+            "type": "string",
+            "description": "Kubernetes object name keyword. The tool searches audit log content by this value."
+          },
+          "pod_name": {
+            "type": "string",
+            "description": "Alias of resource_name for Pod audit queries."
+          },
+          "workload_name": {
+            "type": "string",
+            "description": "Alias of resource_name for workload audit queries."
+          },
+          "user": {
+            "type": "string",
+            "description": "Audit user keyword."
+          },
+          "verb": {
+            "type": "string",
+            "description": "Single Kubernetes audit verb keyword, for example delete, patch, update."
+          },
+          "verbs": {
+            "type": "string",
+            "description": "Comma-separated Kubernetes audit verb keywords."
+          },
+          "resource": {
+            "type": "string",
+            "description": "Single Kubernetes resource keyword, for example pods or deployments."
+          },
+          "resources": {
+            "type": "string",
+            "description": "Comma-separated Kubernetes resource keywords."
+          },
+          "status_code": {
+            "type": "string",
+            "description": "Kubernetes audit response status code keyword."
+          },
+          "content_keywords": {
+            "type": "string",
+            "description": "Comma-separated keywords that must exist in the audit log content. Object name and namespace are automatically added when provided."
+          },
+          "start_time": {
+            "type": "string",
+            "description": "Start time, for example 2026-05-30 10:00:00 or epoch milliseconds."
+          },
+          "end_time": {
+            "type": "string",
+            "description": "End time, for example 2026-05-30 11:00:00 or epoch milliseconds."
+          },
+          "hours": {
+            "type": "string",
+            "description": "Recent time window in hours when start_time/end_time are not provided. Defaults to 1."
+          },
+          "keywords": {
+            "type": "string",
+            "description": "Optional LTS keyword prefilter."
+          },
+          "labels": {
+            "type": "string",
+            "description": "Optional JSON object with extra LTS label filters."
+          },
+          "limit": {
+            "type": "string",
+            "description": "Per-page log query limit. Defaults to 500."
+          },
+          "auto_paginate": {
+            "type": "string",
+            "description": "Set true to automatically fetch additional LTS pages. Defaults to true."
+          },
+          "max_pages": {
+            "type": "string",
+            "description": "Maximum number of pages to fetch. Defaults to 5."
+          },
+          "sample_limit": {
+            "type": "string",
+            "description": "Maximum matched audit events to return. Defaults to 50."
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID. Prefer HUAWEI_AK environment variable."
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key. Prefer HUAWEI_SK environment variable."
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Huawei Cloud project ID. Prefer HUAWEI_PROJECT_ID environment variable."
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_query_application_logs",
+      "description": "Query application logs from the matched LTS log stream.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region, for example cn-north-4."
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE cluster ID."
+          },
+          "app_name": {
+            "type": "string",
+            "description": "Application or workload name."
+          },
+          "namespace": {
+            "type": "string",
+            "description": "Kubernetes namespace. Defaults to default."
+          },
+          "logconfig_name": {
+            "type": "string",
+            "description": "Optional CCE LogConfig policy name. When set, query this policy's LTS stream and add logconfig=<name> to label filters."
+          },
+          "policy_name": {
+            "type": "string",
+            "description": "Alias of logconfig_name."
+          },
+          "start_time": {
+            "type": "string",
+            "description": "Start time, for example 2026-05-30 10:00:00 or epoch milliseconds."
+          },
+          "end_time": {
+            "type": "string",
+            "description": "End time, for example 2026-05-30 11:00:00 or epoch milliseconds."
+          },
+          "keywords": {
+            "type": "string",
+            "description": "Optional LTS keyword filter."
+          },
+          "labels": {
+            "type": "string",
+            "description": "Optional JSON object with extra LTS label filters."
+          },
+          "limit": {
+            "type": "string",
+            "description": "Maximum number of logs. Defaults to 1000."
+          },
+          "auto_paginate": {
+            "type": "string",
+            "description": "Set true to automatically fetch additional LTS pages using returned scroll_id. Defaults to false."
+          },
+          "max_pages": {
+            "type": "string",
+            "description": "Maximum number of pages to fetch when auto_paginate=true. Defaults to 10."
+          },
+          "scroll_id": {
+            "type": "string",
+            "description": "Optional LTS scroll ID for continuing a previous query."
+          },
+          "is_iterative": {
+            "type": "string",
+            "description": "Whether to enable iterative LTS query mode. Defaults to true when auto_paginate=true."
+          },
+          "is_desc": {
+            "type": "string",
+            "description": "Whether to return logs in descending order. Defaults to true."
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID. Prefer HUAWEI_AK environment variable."
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key. Prefer HUAWEI_SK environment variable."
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Huawei Cloud project ID. Prefer HUAWEI_PROJECT_ID environment variable."
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id",
+          "app_name"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_query_application_recent_logs",
+      "description": "Query recent application logs from the matched LTS log stream.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region, for example cn-north-4."
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE cluster ID."
+          },
+          "app_name": {
+            "type": "string",
+            "description": "Application or workload name."
+          },
+          "namespace": {
+            "type": "string",
+            "description": "Kubernetes namespace. Defaults to default."
+          },
+          "logconfig_name": {
+            "type": "string",
+            "description": "Optional CCE LogConfig policy name. When set, query this policy's LTS stream and add logconfig=<name> to label filters."
+          },
+          "policy_name": {
+            "type": "string",
+            "description": "Alias of logconfig_name."
+          },
+          "hours": {
+            "type": "string",
+            "description": "Recent time window in hours. Defaults to 1."
+          },
+          "keywords": {
+            "type": "string",
+            "description": "Optional LTS keyword filter."
+          },
+          "labels": {
+            "type": "string",
+            "description": "Optional JSON object with extra LTS label filters."
+          },
+          "limit": {
+            "type": "string",
+            "description": "Maximum number of logs. Defaults to 1000."
+          },
+          "auto_paginate": {
+            "type": "string",
+            "description": "Set true to automatically fetch additional LTS pages using returned scroll_id. Defaults to false."
+          },
+          "max_pages": {
+            "type": "string",
+            "description": "Maximum number of pages to fetch when auto_paginate=true. Defaults to 10."
+          },
+          "scroll_id": {
+            "type": "string",
+            "description": "Optional LTS scroll ID for continuing a previous query."
+          },
+          "is_iterative": {
+            "type": "string",
+            "description": "Whether to enable iterative LTS query mode. Defaults to true when auto_paginate=true."
+          },
+          "is_desc": {
+            "type": "string",
+            "description": "Whether to return logs in descending order. Defaults to true."
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID. Prefer HUAWEI_AK environment variable."
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key. Prefer HUAWEI_SK environment variable."
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Huawei Cloud project ID. Prefer HUAWEI_PROJECT_ID environment variable."
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id",
+          "app_name"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_analyze_application_logs",
+      "description": "Analyze application logs in a time range for abnormal keywords, HTTP errors, incident windows, recovery time, and abnormal ratios.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region, for example cn-north-4."
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "CCE cluster ID."
+          },
+          "app_name": {
+            "type": "string",
+            "description": "Application or workload name."
+          },
+          "namespace": {
+            "type": "string",
+            "description": "Kubernetes namespace. Defaults to default."
+          },
+          "logconfig_name": {
+            "type": "string",
+            "description": "Optional CCE LogConfig policy name. When set, query this policy's LTS stream and add logconfig=<name> to label filters."
+          },
+          "policy_name": {
+            "type": "string",
+            "description": "Alias of logconfig_name."
+          },
+          "start_time": {
+            "type": "string",
+            "description": "Start time, for example 2026-05-30 10:00:00 or epoch milliseconds. If omitted, hours is used."
+          },
+          "end_time": {
+            "type": "string",
+            "description": "End time, for example 2026-05-30 11:00:00 or epoch milliseconds. If omitted, hours is used."
+          },
+          "hours": {
+            "type": "string",
+            "description": "Recent time window in hours when start_time/end_time are not provided. Defaults to 1."
+          },
+          "labels": {
+            "type": "string",
+            "description": "Optional JSON object with extra LTS label filters."
+          },
+          "keywords": {
+            "type": "string",
+            "description": "Optional LTS keyword filter. Ratios are calculated only over keyword-matched logs when set."
+          },
+          "limit": {
+            "type": "string",
+            "description": "Per-page log query limit. Defaults to 1000."
+          },
+          "auto_paginate": {
+            "type": "string",
+            "description": "Set true to automatically fetch additional LTS pages. Defaults to true for analysis."
+          },
+          "max_pages": {
+            "type": "string",
+            "description": "Maximum number of pages to fetch. Defaults to 10."
+          },
+          "error_patterns": {
+            "type": "string",
+            "description": "Optional JSON array or comma-separated regex patterns treated as errors."
+          },
+          "warning_patterns": {
+            "type": "string",
+            "description": "Optional JSON array or comma-separated regex patterns treated as warnings."
+          },
+          "http_error_status_threshold": {
+            "type": "string",
+            "description": "HTTP status code threshold treated as error. Defaults to 500."
+          },
+          "include_http_4xx": {
+            "type": "string",
+            "description": "Set true to include HTTP 4xx responses as warning anomalies. Defaults to false."
+          },
+          "incident_gap_minutes": {
+            "type": "string",
+            "description": "Maximum gap between abnormal logs to group into one incident window. Defaults to 5."
+          },
+          "sample_limit": {
+            "type": "string",
+            "description": "Maximum abnormal sample logs to return. Defaults to 20."
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID. Prefer HUAWEI_AK environment variable."
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key. Prefer HUAWEI_SK environment variable."
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Huawei Cloud project ID. Prefer HUAWEI_PROJECT_ID environment variable."
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id",
+          "app_name"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    }
+  ]
+}
