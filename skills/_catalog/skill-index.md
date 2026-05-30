@@ -90,6 +90,16 @@
 
 关系：定位节点层问题；cordon、drain、reboot 由 `auto-remediation-runner` 预览和确认。
 
+### autoscaling-diagnoser
+
+适用：CCE 自动弹性不生效，HPA 不扩 Pod、Cluster Autoscaler/CCE 弹性引擎不扩节点、指标缺失、资源 request 配置不合理、节点池 max_nodes 到顶、Pending Pod 未触发扩容、调度约束或云资源条件阻断。
+
+常见问题：为什么我的 Pod 不能自动扩容；为什么我的 Node/ECS 不能自动扩容；HPA 已经增加副本但 Pod Pending，节点却不增加；节点为什么不能自动缩容。
+
+常用工具：`huawei_autoscaling_diagnose`、`huawei_list_cce_hpas`、`huawei_list_cce_addons`、`huawei_list_cce_nodepools`、`huawei_get_cce_pods`、`huawei_get_cce_events`、`huawei_get_cce_pod_metrics_topN`、`huawei_get_cce_node_metrics_topN`。
+
+关系：先做意图识别和 HPA/CA 能力发现，再按路径 A/B/C 输出 Markdown 诊断报告；Pod、Workload、Node 细节可转给对应 diagnoser；真实整改交给 `auto-remediation-runner`。
+
 ### network-failure-diagnoser
 
 适用：Service 不通、DNS/CoreDNS 异常、Ingress 502/504、NetworkPolicy 拦截、ELB 后端异常、ELB/EIP/NAT 链路问题、Pod 调度后的连通性验证。
@@ -201,6 +211,7 @@
 | Pod 一直重启、Pending、OOMKilled | `pod-failure-diagnoser` |
 | 发布失败、滚动升级卡住、副本不满足、探针异常 | `workload-failure-diagnoser` |
 | 节点 NotReady、资源压力、节点漏洞 | `node-failure-diagnoser` |
+| HPA 不扩 Pod、CA 不扩节点、自动弹性链路不闭环 | `autoscaling-diagnoser` |
 | Ingress 502、Service 不通、ELB 链路异常 | `network-failure-diagnoser` |
 | PVC Pending、FailedMount、VolumeAttachment、容量/Inode、PVC Terminating | `storage-failure-diagnoser` |
 | CCE 告警很多，需要合并分析 | `alarm-correlation-engine` |
