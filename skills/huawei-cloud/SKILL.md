@@ -483,7 +483,6 @@ print(result['output_file'])  # /tmp/cce_diag_report_xxxx_nginx.html
 | `huawei_list_aom_alarms` | ⭐ 查询所有告警(活跃+历史合并去重) | **推荐首选**：默认查近1小时，同时查 active+history，不会漏掉已恢复的告警 |
 | `huawei_list_aom_current_alarms` | 查询当前活跃/历史告警(单类型) | 需指定 `event_type=active_alert` 或 `history_alert`，一般用 `huawei_list_aom_alarms` 替代 |
 | `huawei_analyze_aom_alarms` | ⭐ 智能告警过滤分析(去重+突发/关注/常态三级分类+同源关联降级) | **已优化**：现在同时查活跃+历史告警，不会漏掉已恢复的CPU/内存等资源告警 |
-| `huawei_list_aom_alerts` | 查询AOM告警列表 | 查询告警规则触发记录 |
 | `huawei_list_aom_alarm_rules` | 查询AOM告警规则列表 | 阈值/事件告警规则 |
 | `huawei_list_aom_action_rules` | 查询AOM动作规则列表 | 告警通知规则 |
 | `huawei_list_aom_mute_rules` | 查询AOM静默规则列表 | 静默规则 |

@@ -263,23 +263,177 @@ def _list_cce_statefulsets(params: Dict[str, str]) -> Dict[str, Any]:
 
 
 def _list_aom_instances(params: Dict[str, str]) -> Dict[str, Any]:
-    return aom.list_aom_instances(params["region"], params.get("ak"), params.get("sk"), params.get("project_id"), params.get("prom_type"))
+    return aom.list_aom_instances(
+        params["region"],
+        params.get("ak"),
+        params.get("sk"),
+        params.get("project_id"),
+        params.get("prom_type"),
+        params.get("enterprise_project_id"),
+    )
 
 
 def _get_aom_metrics(params: Dict[str, str]) -> Dict[str, Any]:
     return aom.get_aom_prom_metrics_http(params["region"], params["aom_instance_id"], params["query"], None if params.get("start") is None else int(params["start"]), None if params.get("end") is None else int(params["end"]), _to_int(params.get("step"), 60), _to_int(params.get("hours"), 1), params.get("ak"), params.get("sk"), params.get("project_id"))
 
 
-def _list_aom_alerts(params: Dict[str, str]) -> Dict[str, Any]:
-    return aom.list_aom_alerts(params["region"], params.get("ak"), params.get("sk"), params.get("project_id"), params.get("alert_status"), params.get("severity"), _to_int(params.get("limit"), 100))
-
-
 def _list_aom_alarm_rules(params: Dict[str, str]) -> Dict[str, Any]:
-    return aom.list_aom_alarm_rules(params["region"], params.get("ak"), params.get("sk"), params.get("project_id"), _to_int(params.get("limit"), 100), _to_int(params.get("offset"), 0))
+    return aom.list_aom_alarm_rules(
+        params["region"],
+        params.get("ak"),
+        params.get("sk"),
+        params.get("project_id"),
+        _to_int(params.get("limit"), 100),
+        _to_int(params.get("offset"), 0),
+        params.get("enterprise_project_id"),
+    )
+
+
+def _alarm_rule_fields(params: Dict[str, str], json_key: str) -> Dict[str, Any]:
+    fields = _parse_json_param(params.get(json_key)) or {}
+    for key in (
+        "action_enabled",
+        "alarm_actions",
+        "alarm_advice",
+        "alarm_description",
+        "alarm_level",
+        "comparison_operator",
+        "dimensions",
+        "evaluation_periods",
+        "is_turn_on",
+        "insufficient_data_actions",
+        "metric_name",
+        "namespace",
+        "ok_actions",
+        "period",
+        "statistic",
+        "threshold",
+        "unit",
+    ):
+        if key in params:
+            value: Any = params[key]
+            if key in {"alarm_actions", "dimensions", "insufficient_data_actions", "ok_actions"}:
+                value = _parse_json_param(value)
+            elif key in {"action_enabled", "is_turn_on"}:
+                value = value.lower() == "true"
+            elif key in {"alarm_level", "evaluation_periods", "period"}:
+                value = _to_int(value, 0)
+            fields[key] = value
+    return fields
+
+
+def _create_aom_alarm_rule(params: Dict[str, str]) -> Dict[str, Any]:
+    fields = _alarm_rule_fields(params, "fields")
+    return aom.create_aom_alarm_rule(
+        region=params["region"],
+        rule_name=params["rule_name"],
+        metric_name=params["metric_name"],
+        namespace=params["namespace"],
+        comparison_operator=params["comparison_operator"],
+        threshold=params["threshold"],
+        period=_to_int(params["period"], 0),
+        evaluation_periods=_to_int(params["evaluation_periods"], 0),
+        statistic=params["statistic"],
+        alarm_level=_to_int(params["alarm_level"], 0),
+        create_fields=fields,
+        confirm=params.get("confirm", "").lower() == "true",
+        ak=params.get("ak"),
+        sk=params.get("sk"),
+        project_id=params.get("project_id"),
+    )
+
+
+def _create_aom_event_alarm_rule(params: Dict[str, str]) -> Dict[str, Any]:
+    bind_notification_rule_id = (
+        params.get("bind_notification_rule_id")
+        or params.get("notification_rule_name")
+    )
+    return aom.create_aom_event_alarm_rule(
+        region=params["region"],
+        cluster_id=params["cluster_id"],
+        rule_name=params["rule_name"],
+        event_name=params["event_name"],
+        bind_notification_rule_id=bind_notification_rule_id,
+        event_label=params.get("event_label"),
+        alarm_level=params.get("alarm_level", "Major"),
+        description=params.get("description"),
+        alias=params.get("alias"),
+        trigger_type=params.get("trigger_type", "immediately"),
+        frequency=params.get("frequency", "-1"),
+        prom_instance_id=params.get("prom_instance_id"),
+        enterprise_project_id=params.get("enterprise_project_id"),
+        confirm=params.get("confirm", "").lower() == "true",
+        ak=params.get("ak"),
+        sk=params.get("sk"),
+        project_id=params.get("project_id"),
+    )
+
+
+def _update_aom_alarm_rule(params: Dict[str, str]) -> Dict[str, Any]:
+    updates = _alarm_rule_fields(params, "updates")
+    return aom.update_aom_alarm_rule(
+        params["region"],
+        params["rule_name"],
+        updates,
+        params.get("confirm", "").lower() == "true",
+        params.get("ak"),
+        params.get("sk"),
+        params.get("project_id"),
+    )
+
+
+def _delete_aom_alarm_rule(params: Dict[str, str]) -> Dict[str, Any]:
+    return aom.delete_aom_alarm_rule(
+        params["region"],
+        params["rule_name"],
+        params.get("confirm", "").lower() == "true",
+        params.get("ak"),
+        params.get("sk"),
+        params.get("project_id"),
+    )
+
+
+def _disable_aom_alarm_rule(params: Dict[str, str]) -> Dict[str, Any]:
+    return aom.disable_aom_alarm_rule(
+        params["region"],
+        params["rule_id"],
+        params.get("confirm", "").lower() == "true",
+        params.get("ak"),
+        params.get("sk"),
+        params.get("project_id"),
+    )
+
+
+def _enable_aom_alarm_rule(params: Dict[str, str]) -> Dict[str, Any]:
+    return aom.enable_aom_alarm_rule(
+        params["region"],
+        params["rule_id"],
+        params.get("confirm", "").lower() == "true",
+        params.get("ak"),
+        params.get("sk"),
+        params.get("project_id"),
+    )
 
 
 def _list_aom_action_rules(params: Dict[str, str]) -> Dict[str, Any]:
-    return aom.list_aom_action_rules(params["region"], params.get("ak"), params.get("sk"), params.get("project_id"))
+    return aom.list_aom_action_rules(
+        params["region"],
+        params.get("ak"),
+        params.get("sk"),
+        params.get("project_id"),
+        params.get("enterprise_project_id"),
+    )
+
+
+def _delete_aom_action_rule(params: Dict[str, str]) -> Dict[str, Any]:
+    return aom.delete_aom_action_rule(
+        params["region"],
+        params["rule_name"],
+        params.get("confirm", "").lower() == "true",
+        params.get("ak"),
+        params.get("sk"),
+        params.get("project_id"),
+    )
 
 
 def _list_aom_mute_rules(params: Dict[str, str]) -> Dict[str, Any]:
@@ -287,7 +441,7 @@ def _list_aom_mute_rules(params: Dict[str, str]) -> Dict[str, Any]:
 
 
 def _list_aom_current_alarms(params: Dict[str, str]) -> Dict[str, Any]:
-    return aom.list_aom_current_alarms(params["region"], params.get("ak"), params.get("sk"), params.get("project_id"), params.get("event_type", "active_alert"), params.get("event_severity"), params.get("time_range"), _to_int(params.get("limit"), 100))
+    return aom.list_aom_current_alarms(params["region"], params.get("ak"), params.get("sk"), params.get("project_id"), params.get("event_type", "active_alert"), params.get("event_severity"), params.get("time_range"), _to_int(params.get("limit"), 100), params.get("cluster_id"))
 
 
 def _list_aom_alarms(params: Dict[str, str]) -> Dict[str, Any]:
@@ -298,6 +452,7 @@ def _list_aom_alarms(params: Dict[str, str]) -> Dict[str, Any]:
         project_id=params.get("project_id"),
         hours=_to_int(params.get("hours"), 1),
         event_severity=params.get("event_severity"),
+        cluster_id=params.get("cluster_id"),
         cluster_name=params.get("cluster_name"),
         limit=_to_int(params.get("limit"), 500),
     )
@@ -692,6 +847,7 @@ def _analyze_aom_alarms(params: Dict[str, str]) -> Dict[str, Any]:
         ak=params.get("ak"),
         sk=params.get("sk"),
         project_id=params.get("project_id"),
+        cluster_id=params.get("cluster_id"),
         cluster_name=params.get("cluster_name"),
         hours=_to_int(params.get("hours"), 1),
         chronic_threshold=_to_int(params.get("chronic_threshold"), 5),
@@ -958,9 +1114,15 @@ ACTION_SPECS: Dict[str, tuple[tuple[str, ...], Handler]] = {
     "huawei_list_cce_cronjobs": (("region", "cluster_id"), _list_cce_cronjobs),
     "huawei_list_aom_instances": (("region",), _list_aom_instances),
     "huawei_get_aom_metrics": (("region", "aom_instance_id", "query"), _get_aom_metrics),
-    "huawei_list_aom_alerts": (("region",), _list_aom_alerts),
     "huawei_list_aom_alarm_rules": (("region",), _list_aom_alarm_rules),
+    "huawei_create_aom_alarm_rule": (("region", "rule_name", "metric_name", "namespace", "comparison_operator", "threshold", "period", "evaluation_periods", "statistic", "alarm_level"), _create_aom_alarm_rule),
+    "huawei_create_aom_event_alarm_rule": (("region", "cluster_id", "rule_name", "event_name"), _create_aom_event_alarm_rule),
+    "huawei_update_aom_alarm_rule": (("region", "rule_name"), _update_aom_alarm_rule),
+    "huawei_delete_aom_alarm_rule": (("region", "rule_name"), _delete_aom_alarm_rule),
+    "huawei_disable_aom_alarm_rule": (("region", "rule_id"), _disable_aom_alarm_rule),
+    "huawei_enable_aom_alarm_rule": (("region", "rule_id"), _enable_aom_alarm_rule),
     "huawei_list_aom_action_rules": (("region",), _list_aom_action_rules),
+    "huawei_delete_aom_action_rule": (("region", "rule_name"), _delete_aom_action_rule),
     "huawei_list_aom_mute_rules": (("region",), _list_aom_mute_rules),
     "huawei_list_aom_current_alarms": (("region",), _list_aom_current_alarms),
     "huawei_list_aom_alarms": (("region",), _list_aom_alarms),

@@ -460,7 +460,6 @@ class HuaweiCloudTester:
         # --------------------------
         self.log("\n--- AOM Application Operations Management ---")
         self.run_tool("huawei_list_aom_instances")
-        self.run_tool("huawei_list_aom_alerts")
         self.run_tool("huawei_list_aom_current_alarms")
         self.run_tool("huawei_list_aom_alarm_rules")
         self.run_tool("huawei_list_aom_action_rules")
