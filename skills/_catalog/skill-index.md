@@ -62,11 +62,11 @@
 
 ### node-failure-diagnoser
 
-适用：Node NotReady、资源压力、NPD 事件、节点漏洞、节点网络连通异常。
+适用：Node NotReady、Ready=Unknown、Lease 超时、资源压力、NPD 事件、CNI/网络异常、kubelet/CRI 异常、节点漏洞。
 
-常见问题：节点 NotReady；Pod 集中调度失败；节点 CPU/内存/磁盘压力；HSS 漏洞影响节点。
+常见问题：节点 NotReady；Pod 集中调度失败；节点 CPU/内存/磁盘压力；FailedCreatePodSandBox/CNI 错误；SystemOOM；ContainerRuntimeNotReady；HSS 漏洞影响节点。
 
-常用工具：`huawei_get_kubernetes_nodes`、`huawei_get_cce_node_metrics`、`huawei_node_diagnose`、`huawei_node_batch_diagnose`、`huawei_hss_list_host_vuls_all`。
+常用工具：`huawei_node_failure_diagnose`、`huawei_get_kubernetes_nodes`、`huawei_get_cce_events`、`huawei_get_cce_pods`、`huawei_get_cce_node_metrics`、`huawei_node_diagnose`、`huawei_node_batch_diagnose`、`huawei_hss_list_host_vuls_all`。
 
 关系：定位节点层问题；cordon、drain、reboot 由 `auto-remediation-runner` 预览和确认。
 

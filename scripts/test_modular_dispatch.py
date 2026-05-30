@@ -257,6 +257,7 @@ class DispatcherTests(unittest.TestCase):
             "huawei_get_application_log_stream",
             "huawei_get_cce_node_metrics",
             "huawei_node_diagnose",
+            "huawei_node_failure_diagnose",
             "huawei_pod_failure_diagnose",
         ]:
             self.assertTrue(dispatcher.is_registered_action(action))
@@ -304,7 +305,7 @@ class DispatcherTests(unittest.TestCase):
         with mock.patch("huawei_cloud.dispatcher.aom.list_aom_instances", return_value={"success": True, "count": 2}) as mocked:
             result = dispatcher.dispatch_action("huawei_list_aom_instances", {"region": "cn-north-4", "prom_type": "CCE"})
         self.assertTrue(result["success"])
-        mocked.assert_called_once_with("cn-north-4", None, None, None, "CCE")
+        mocked.assert_called_once_with("cn-north-4", None, None, None, "CCE", None)
 
     def test_lts_dispatch_calls_target_handler(self):
         with mock.patch("huawei_cloud.dispatcher.lts.list_log_groups", return_value={"success": True, "total": 1}) as mocked:
@@ -333,6 +334,12 @@ class DispatcherTests(unittest.TestCase):
     def test_node_diagnose_dispatch_calls_target_handler(self):
         with mock.patch("huawei_cloud.dispatcher.cce_diagnosis.diagnose_single_node", return_value={"success": True}) as mocked:
             result = dispatcher.dispatch_action("huawei_node_diagnose", {"region": "cn-north-4", "cluster_id": "c1", "node_ip": "192.168.1.1"})
+        self.assertTrue(result["success"])
+        mocked.assert_called_once()
+
+    def test_node_failure_diagnose_dispatch_calls_target_handler(self):
+        with mock.patch("huawei_cloud.dispatcher.node_failure_diagnosis.diagnose_node_failure_action", return_value={"success": True, "report_markdown": "# report"}) as mocked:
+            result = dispatcher.dispatch_action("huawei_node_failure_diagnose", {"region": "cn-north-4", "cluster_id": "c1", "node_name": "node-a"})
         self.assertTrue(result["success"])
         mocked.assert_called_once()
 
