@@ -286,7 +286,7 @@ def main():
 
     modular_result = _dispatch_modular_action(action, params)
     if modular_result is not None:
-        print(json.dumps(modular_result, indent=2, ensure_ascii=False))
+        print(json.dumps(modular_result, indent=2, ensure_ascii=True))
         return
 
     _exit_error(f"Unknown action: {action}")
@@ -409,7 +409,6 @@ def _apply_modular_compat_aliases() -> None:
         "get_project_id_for_region": _common_mod.get_project_id_for_region,
         "list_aom_action_rules": _aom_mod.list_aom_action_rules,
         "list_aom_alarm_rules": _aom_mod.list_aom_alarm_rules,
-        "list_aom_alerts": _aom_mod.list_aom_alerts,
         "list_aom_current_alarms": _aom_mod.list_aom_current_alarms,
         "list_aom_instances": _aom_mod.list_aom_instances,
         "list_aom_mute_rules": _aom_mod.list_aom_mute_rules,

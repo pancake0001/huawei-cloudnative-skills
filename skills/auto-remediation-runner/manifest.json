@@ -202,6 +202,60 @@
       "script": "scripts/huawei-cloud.py"
     },
     {
+      "name": "huawei_configure_cce_hpa",
+      "description": "Run huawei_configure_cce_hpa through the shared Huawei Cloud dispatcher.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region, for example cn-north-4."
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "cluster_id parameter."
+          },
+          "workload_name": {
+            "type": "string",
+            "description": "workload_name parameter."
+          },
+          "namespace": {
+            "type": "string",
+            "description": "namespace parameter."
+          },
+          "min_replicas": {
+            "type": "string",
+            "description": "min_replicas parameter."
+          },
+          "max_replicas": {
+            "type": "string",
+            "description": "max_replicas parameter."
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID. Prefer HUAWEI_AK environment variable."
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key. Prefer HUAWEI_SK environment variable."
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Huawei Cloud project ID. Prefer HUAWEI_PROJECT_ID environment variable."
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id",
+          "workload_name",
+          "namespace",
+          "min_replicas",
+          "max_replicas"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
       "name": "huawei_delete_cce_node",
       "description": "Run huawei_delete_cce_node through the shared Huawei Cloud dispatcher.",
       "parameters": {

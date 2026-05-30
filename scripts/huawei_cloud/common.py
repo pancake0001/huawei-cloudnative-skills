@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import os
+import re
 import sys
 import tempfile
 import uuid
@@ -526,3 +527,26 @@ def create_iam_client(ak: str, sk: str):
         .with_credentials(credentials) \
         .with_endpoint(IAM_ENDPOINT) \
         .build()
+
+
+def get_cce_password() -> tuple[Optional[str], Optional[str]]:
+    """Read node login password from CCE_NODE_PASSWORD env var and validate it.
+
+    Returns:
+        (password, error_message) - password if valid, None with error msg if invalid/missing
+    """
+    password = os.environ.get("CCE_NODE_PASSWORD")
+    if not password:
+        return None, "CCE_NODE_PASSWORD environment variable is not set. Set it before creating nodes/node pools."
+    if len(password) < 8 or len(password) > 26:
+        return None, f"CCE_NODE_PASSWORD length must be 8-26 characters (current: {len(password)})."
+    categories = [
+        bool(re.search(r'[A-Z]', password)),
+        bool(re.search(r'[a-z]', password)),
+        bool(re.search(r'[0-9]', password)),
+        bool(re.search(r'[!@$%^\-_=+\[\]{}:,.\/?]', password)),
+    ]
+    matched = sum(categories)
+    if matched < 3:
+        return None, f"CCE_NODE_PASSWORD must contain at least 3 of: uppercase, lowercase, digits, special chars (current: {matched} types matched)."
+    return password, None

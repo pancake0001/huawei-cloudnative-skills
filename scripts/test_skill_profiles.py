@@ -31,6 +31,7 @@ HIGH_RISK_ACTIONS = {
     "huawei_reboot_ecs",
     "huawei_stop_ecs_instance",
     "huawei_hss_change_vul_status",
+    "huawei_configure_cce_hpa",
 }
 
 
@@ -53,7 +54,7 @@ class SkillProfileTests(unittest.TestCase):
                 self.assertIn(skill, catalog)
 
     def test_high_risk_actions_are_only_in_remediation_skill(self):
-        allowed = {"auto-remediation-runner"}
+        allowed = {"auto-remediation-runner", "cost-optimization-advisor", "capacity-trend-forecaster"}
         for profile in discover_profiles():
             risky = HIGH_RISK_ACTIONS.intersection(profile.tools)
             if profile.name not in allowed:
@@ -71,7 +72,62 @@ class SkillProfileTests(unittest.TestCase):
         self.assertIn("预览", text)
         self.assertIn("禁止自动", text)
 
+    def test_cost_optimization_skill_documents_core_rules(self):
+        skill_dir = REPO_ROOT / "skills" / "cost-optimization-advisor"
+        text = "\n".join(
+            [
+                (skill_dir / "SKILL.md").read_text(encoding="utf-8"),
+                (skill_dir / "references" / "workflow.md").read_text(encoding="utf-8"),
+                (skill_dir / "references" / "risk-rules.md").read_text(encoding="utf-8"),
+            ]
+        )
+        self.assertIn("24 小时", text)
+        self.assertIn("7 天", text)
+        self.assertIn("30%", text)
+        self.assertIn("kube-system", text)
+        self.assertIn("HPA", text)
+        self.assertIn("autoscaler", text)
+        self.assertIn("huawei_analyze_cce_cost_optimization", text)
+        self.assertIn("huawei_list_cce_hpas", text)
+        self.assertIn("huawei_generate_cce_hpa_manifest", text)
+        self.assertIn("huawei_configure_cce_hpa", text)
+
+    def test_availability_risk_skill_documents_core_rules(self):
+        skill_dir = REPO_ROOT / "skills" / "availability-risk-scanner"
+        text = "\n".join(
+            [
+                (skill_dir / "SKILL.md").read_text(encoding="utf-8"),
+                (skill_dir / "references" / "workflow.md").read_text(encoding="utf-8"),
+                (skill_dir / "references" / "risk-rules.md").read_text(encoding="utf-8"),
+            ]
+        )
+        self.assertIn("huawei_scan_cce_availability_risk", text)
+        self.assertIn("PDB", text)
+        self.assertIn("readinessProbe", text)
+        self.assertIn("livenessProbe", text)
+        self.assertIn("CoreDNS", text)
+        self.assertIn("nginx-ingress", text)
+        self.assertIn("AZ", text)
+        self.assertIn("客户明确授权", text)
+
+    def test_capacity_trend_skill_documents_core_rules(self):
+        skill_dir = REPO_ROOT / "skills" / "capacity-trend-forecaster"
+        text = "\n".join(
+            [
+                (skill_dir / "SKILL.md").read_text(encoding="utf-8"),
+                (skill_dir / "references" / "workflow.md").read_text(encoding="utf-8"),
+                (skill_dir / "references" / "simulation-rules.md").read_text(encoding="utf-8"),
+            ]
+        )
+        self.assertIn("huawei_analyze_cce_capacity_trend", text)
+        self.assertIn("1 hour", text)
+        self.assertIn("1 month", text)
+        self.assertIn("HPA", text)
+        self.assertIn("node autoscaler", text)
+        self.assertIn("simulation", text)
+        self.assertIn("history", text)
+        self.assertIn("confirm=true", text)
+
 
 if __name__ == "__main__":
     unittest.main()
-

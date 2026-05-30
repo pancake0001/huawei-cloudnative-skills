@@ -1,5 +1,11 @@
 """CCE Node management functions."""
 
+import base64
+
+try:
+    from passlib.hash import sha512_crypt
+except ImportError:
+    sha512_crypt = None
 from typing import Any, Dict, List, Optional
 from .common import (
     get_credentials,
@@ -8,6 +14,7 @@ from .common import (
     IMPORT_ERROR,
     K8S_AVAILABLE,
     K8S_IMPORT_ERROR,
+    get_cce_password,
 )
 from huaweicloudsdkcore.exceptions.exceptions import ClientRequestException
 
@@ -542,7 +549,6 @@ def create_cce_node(
     node_count: int = 1,
     os_type: str = "EulerOS 2.9",
     ssh_key: Optional[str] = None,
-    password: Optional[str] = None,
     data_volumes: Optional[List[Dict[str, Any]]] = None,
     subnet_id: Optional[str] = None,
     ak: Optional[str] = None,
@@ -561,12 +567,15 @@ def create_cce_node(
         node_count: Number of nodes to create (default: 1)
         os_type: Operating system type (default: EulerOS 2.9)
         ssh_key: SSH key pair name for login
-        password: Password for login (used if ssh_key not provided)
         data_volumes: List of data volume configs [{"size": 100, "type": "SSD"}]
         subnet_id: Subnet ID for the node
         ak: Access Key ID (optional)
         sk: Secret Access Key (optional)
         project_id: Project ID (optional)
+
+    Note:
+        Password login uses the CCE_NODE_PASSWORD environment variable.
+        If ssh_key is not provided, CCE_NODE_PASSWORD must be set.
 
     Returns:
         Dictionary with creation result
@@ -591,10 +600,16 @@ def create_cce_node(
     if not SDK_AVAILABLE:
         return {"success": False, "error": f"Huawei Cloud SDK not installed: {IMPORT_ERROR}"}
 
+    password = None
+    if not ssh_key:
+        password, password_error = get_cce_password()
+        if password_error:
+            return {"success": False, "error": password_error}
+
     try:
         from huaweicloudsdkcce.v3 import (
             CreateNodeRequest,
-            CreateNodeRequestBody,
+            Node,
             NodeMetadata,
             NodeSpec,
             Volume,
@@ -619,30 +634,39 @@ def create_cce_node(
 
         login = None
         if ssh_key:
-            login = Login(sshkey=ssh_key)
-        elif password:
-            login = Login(userPassword=UserPassword(username="root", password=password))
+            login = Login(ssh_key=ssh_key)
+        else:
+            password, password_error = get_cce_password()
+            if password_error:
+                return {"success": False, "error": password_error}
+            if sha512_crypt is None:
+                return {"success": False, "error": "passlib is required to create a node with password login"}
+            hashed = sha512_crypt.using(rounds=5000).hash(password)
+            salted_b64 = base64.b64encode(hashed.encode("utf-8")).decode("utf-8")
+            login = Login(user_password=UserPassword(username="root", password=salted_b64))
 
         node_spec = NodeSpec(
             flavor=flavor,
             az=availability_zone,
             os=os_type,
             login=login,
-            rootVolume=root_volume,
-            dataVolumes=data_volume_list if data_volume_list else None,
-            nodeNicSpec=NodeNicSpec(subnetId=subnet_id) if subnet_id else None,
+            root_volume=root_volume,
+            data_volumes=data_volume_list if data_volume_list else None,
+            node_nic_spec=NodeNicSpec(primary_nic={"subnetId": subnet_id}) if subnet_id else None,
+            count=node_count,
         )
 
         node_metadata = NodeMetadata(name=f"node-{cluster_id[:8]}")
 
-        request_body = CreateNodeRequestBody(
+        body = Node(
+            kind="Node",
+            api_version="v3",
             metadata=node_metadata,
             spec=node_spec,
-            count=node_count,
         )
 
         request = CreateNodeRequest(cluster_id=cluster_id)
-        request.body = request_body
+        request.body = body
 
         response = client.create_node(request)
 

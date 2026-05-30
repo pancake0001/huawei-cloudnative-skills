@@ -97,7 +97,7 @@
 
 | 参数 | 推荐值 | 原因 |
 |------|-------|------|
-| `cluster_type` | `Turbo` | Turbo集群支持云原生网络2.0，性能更高，ENI直通 |
+| `cluster_type` | `VirtualMachine` | 默认都使用虚机类型 |
 | `container_network_type` | `eni` (Turbo) / `overlay_l2` (Standard) | Turbo用eni获得最佳性能 |
 | `flavor` | `cce.s2.small` | 高可用三控制节点，最小规模50节点适合开发 |
 | `cluster_version` | 不指定（API自动选最新） | 避免版本过时 |

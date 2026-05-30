@@ -1,26 +1,26 @@
-# CCE IAM 权限配置
+# CCE IAM Permission Configuration
 
 ## Overview
 
-华为云 CCE 集群管理所需的 IAM 权限策略说明。
+IAM permission policy descriptions required for Huawei Cloud CCE cluster management.
 
 ## Key Parameters
 
-| 权限 | 说明 |
+| Permission | Description |
 |------|------|
-| `cce:cluster:list` | 查询集群列表 |
-| `cce:cluster:get` | 查询集群详情 |
-| `cce:cluster:create` | 创建集群 |
-| `cce:cluster:delete` | 删除集群 |
-| `cce:cluster:update` | 更新集群（休眠/唤醒/EIP 绑定） |
-| `cce:node:list` | 查询节点列表 |
-| `cce:node:get` | 查询节点详情 |
-| `cce:node:delete` | 删除节点 |
-| `cce:node:update` | 更新节点（cordon/uncordon/drain） |
-| `cce:nodepool:list` | 查询节点池列表 |
-| `cce:nodepool:update` | 更新节点池（扩缩容） |
-| `cce:addon:list` | 查询插件列表 |
-| `cce:addon:get` | 查询插件详情 |
+| `cce:cluster:list` | Query cluster list |
+| `cce:cluster:get` | Query cluster details |
+| `cce:cluster:create` | Create cluster |
+| `cce:cluster:delete` | Delete cluster |
+| `cce:cluster:update` | Update cluster (hibernate/wake/bind EIP) |
+| `cce:node:list` | Query node list |
+| `cce:node:get` | Query node details |
+| `cce:node:delete` | Delete node |
+| `cce:node:update` | Update node (cordon/uncordon/drain) |
+| `cce:nodepool:list` | Query node pool list |
+| `cce:nodepool:update` | Update node pool (scale up/down) |
+| `cce:addon:list` | Query addon list |
+| `cce:addon:get` | Query addon details |
 
 ## Minimum Required Policy (JSON)
 
@@ -53,15 +53,15 @@
 
 ## System Policies
 
-| 系统策略 | 适用场景 |
+| System Policy | Applicable Scenario |
 |---------|---------|
-| `CCE Administrator` | 完整集群管理权限 |
-| `CCE Viewer` | 只读权限，查看集群信息 |
-| `CES ReadOnlyAccess` | 查询监控指标 |
+| `CCE Administrator` | Full cluster management permissions |
+| `CCE Viewer` | Read-only permissions, view cluster information |
+| `CES ReadOnlyAccess` | Query monitoring metrics |
 
 ## Example
 
 ```bash
-# 推荐组合：CCE Administrator + CES ReadOnlyAccess
-# 在 IAM 控制台为用户组添加以上策略
+# Recommended combination: CCE Administrator + CES ReadOnlyAccess
+# Add the above policies to user groups in the IAM console
 ```

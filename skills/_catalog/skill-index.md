@@ -54,19 +54,29 @@
 
 适用：CrashLoopBackOff、ImagePullBackOff、OOMKilled、Pending、Evicted、Pod 日志异常。
 
-常见问题：Pod 一直重启；工作负载副本不可用；Pod Pending；用户只给了 namespace 和应用名。
+常见问题：Pod 一直重启；Pod Pending；单个 Pod OOMKilled；用户只给了 namespace 和应用名。
 
-常用工具：`huawei_get_cce_pods`、`huawei_get_pod_logs`、`huawei_get_cce_events`、`huawei_get_cce_pod_metrics`、`huawei_workload_diagnose`。
+常用工具：`huawei_pod_failure_diagnose`、`huawei_get_cce_pods`、`huawei_get_pod_logs`、`huawei_get_cce_events`、`huawei_get_cce_pod_metrics`、`huawei_workload_diagnose`。
 
-关系：定位 Pod/Workload 层问题；如果需要扩缩容或删除重建，交给 `auto-remediation-runner` 预览。
+关系：定位 Pod 运行时问题；如果问题是发布失败、滚动升级卡住或副本不满足，转给 `workload-failure-diagnoser`。
+
+### workload-failure-diagnoser
+
+适用：Deployment/StatefulSet/DaemonSet 发布失败、滚动升级卡住、副本不满足、新 ReplicaSet 无法创建 Pod、探针异常导致不可用。
+
+常见问题：Deployment rollout 卡住；发布后 readyReplicas 不足；NewRS 没有 Pod；StatefulSet updatedReplicas 不增长；Running 但 readiness probe 失败。
+
+常用工具：`huawei_workload_rollout_diagnose`、`huawei_get_workload_rollout_context`、`huawei_pod_failure_diagnose`、`huawei_get_cce_events`、`huawei_get_pod_logs`。
+
+关系：负责控制器、版本、ReplicaSet、Pod 事件漏斗；Pod 运行时细节复用 `pod-failure-diagnoser`；恢复动作交给 `auto-remediation-runner`。
 
 ### node-failure-diagnoser
 
-适用：Node NotReady、资源压力、NPD 事件、节点漏洞、节点网络连通异常。
+适用：Node NotReady、Ready=Unknown、Lease 超时、资源压力、NPD 事件、CNI/网络异常、kubelet/CRI 异常、节点漏洞。
 
-常见问题：节点 NotReady；Pod 集中调度失败；节点 CPU/内存/磁盘压力；HSS 漏洞影响节点。
+常见问题：节点 NotReady；Pod 集中调度失败；节点 CPU/内存/磁盘压力；FailedCreatePodSandBox/CNI 错误；SystemOOM；ContainerRuntimeNotReady；HSS 漏洞影响节点。
 
-常用工具：`huawei_get_kubernetes_nodes`、`huawei_get_cce_node_metrics`、`huawei_node_diagnose`、`huawei_node_batch_diagnose`、`huawei_hss_list_host_vuls_all`。
+常用工具：`huawei_node_failure_diagnose`、`huawei_get_kubernetes_nodes`、`huawei_get_cce_events`、`huawei_get_cce_pods`、`huawei_get_cce_node_metrics`、`huawei_node_diagnose`、`huawei_node_batch_diagnose`、`huawei_hss_list_host_vuls_all`。
 
 关系：定位节点层问题；cordon、drain、reboot 由 `auto-remediation-runner` 预览和确认。
 
@@ -96,7 +106,7 @@
 
 常见问题：扩容工作负载；cordon/drain 节点；重启 ECS；修复 HSS 漏洞；休眠或唤醒 CCE 集群。
 
-常用工具：`huawei_scale_cce_workload`、`huawei_resize_cce_nodepool`、`huawei_cce_node_cordon`、`huawei_cce_node_drain`、`huawei_reboot_ecs`、`huawei_hss_change_vul_status`。
+常用工具：`huawei_scale_cce_workload`、`huawei_configure_cce_hpa`、`huawei_resize_cce_nodepool`、`huawei_cce_node_cordon`、`huawei_cce_node_drain`、`huawei_reboot_ecs`、`huawei_hss_change_vul_status`。
 
 关系：默认只预览，不自动加 `confirm=true`；执行后调用只读诊断工具做验证。
 
@@ -111,6 +121,16 @@
 常用工具：`huawei_cce_quick_check`、`huawei_cce_auto_inspection`、`huawei_cce_cluster_inspection_parallel`、`huawei_pod_status_inspection`、`huawei_aom_alarm_inspection`。
 
 关系：正常时输出简报；异常时转给 `root-cause-analyzer` 或对应诊断 skill。
+
+### cost-optimization-advisor
+
+适用：空闲资源、过量 Request、低利用率节点、HPA/autoscaler 弹性策略优化。
+
+常见问题：集群平均 CPU/内存利用率长期低于 30%；某些节点明显低于整体平均；业务命名空间工作负载 request 明显大于实际使用；需要生成 HPA 或节点池 autoscaler 优化建议。
+
+常用工具：`huawei_analyze_cce_cost_optimization`、`huawei_list_cce_nodes`、`huawei_list_cce_nodepools`、`huawei_get_cce_pods`、`huawei_get_cce_deployments`、`huawei_list_cce_hpas`、`huawei_generate_cce_hpa_manifest`、`huawei_configure_cce_hpa`、`huawei_get_cce_node_metrics_topN`、`huawei_get_cce_pod_metrics_topN`、`huawei_get_aom_metrics`。
+
+关系：负责分析、HPA 查询、HPA YAML 生成和配置预览；实际配置 HPA、autoscaler 或缩容节点池时必须经过人工确认流程。
 
 ## L5 解决方案与交付专家
 
@@ -129,6 +149,7 @@
 | 用户问题 | 推荐 skill |
 | --- | --- |
 | Pod 一直重启、Pending、OOMKilled | `pod-failure-diagnoser` |
+| 发布失败、滚动升级卡住、副本不满足、探针异常 | `workload-failure-diagnoser` |
 | 节点 NotReady、资源压力、节点漏洞 | `node-failure-diagnoser` |
 | Ingress 502、Service 不通、ELB 链路异常 | `network-failure-diagnoser` |
 | CCE 告警很多，需要合并分析 | `alarm-correlation-engine` |
@@ -137,4 +158,5 @@
 | 业务不可用，需要综合根因分析 | `root-cause-analyzer` |
 | 需要扩容、重启、drain、漏洞修复等动作 | `auto-remediation-runner` |
 | 做每日巡检或周期性健康检查 | `daily-cluster-inspector` |
+| 做成本优化、Request 过量分析、弹性策略建议 | `cost-optimization-advisor` |
 | 做容器迁移方案和资源盘点 | `container-migration-planner` |

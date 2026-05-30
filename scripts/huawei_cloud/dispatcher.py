@@ -9,10 +9,13 @@ import json
 from . import aom, cce, cce_metrics, ecs, elb, hss, identity, network, storage
 from . import cce_inspection
 from . import cce_diagnosis
+from . import pod_diagnosis
+from . import workload_rollout_diagnosis
 from . import cce_auto_inspection
 from . import chart_generator
 from . import common
-from . import cce_cluster, cce_nodepool, cce_node, cce_addon, cce_k8s
+from . import cce_cluster, cce_nodepool, cce_node, cce_addon, cce_k8s, cce_hpa, cce_cost_optimization, cce_availability_risk, cce_capacity_trend, ops_report_generator
+from . import node_failure_diagnosis
 
 # cce_app_logs and lts require huaweicloudsdklts which may not be installed
 try:
@@ -44,10 +47,22 @@ def _to_int(value: str | None, default: int) -> int:
         return default
 
 
+def _to_optional_int(value: str | None) -> int | None:
+    if value is None or value.strip().lower() in {"", "none", "null"}:
+        return None
+    return _to_int(value, 0)
+
+
 def _parse_json_param(value: str | None) -> Any:
     if not value:
         return None
     return json.loads(value)
+
+
+def _hpa_cpu_target(params: Dict[str, str]) -> int | None:
+    if "target_cpu_utilization" not in params:
+        return 60
+    return _to_optional_int(params.get("target_cpu_utilization"))
 
 
 def _list_ecs(params: Dict[str, str]) -> Dict[str, Any]:
@@ -263,23 +278,177 @@ def _list_cce_statefulsets(params: Dict[str, str]) -> Dict[str, Any]:
 
 
 def _list_aom_instances(params: Dict[str, str]) -> Dict[str, Any]:
-    return aom.list_aom_instances(params["region"], params.get("ak"), params.get("sk"), params.get("project_id"), params.get("prom_type"))
+    return aom.list_aom_instances(
+        params["region"],
+        params.get("ak"),
+        params.get("sk"),
+        params.get("project_id"),
+        params.get("prom_type"),
+        params.get("enterprise_project_id"),
+    )
 
 
 def _get_aom_metrics(params: Dict[str, str]) -> Dict[str, Any]:
     return aom.get_aom_prom_metrics_http(params["region"], params["aom_instance_id"], params["query"], None if params.get("start") is None else int(params["start"]), None if params.get("end") is None else int(params["end"]), _to_int(params.get("step"), 60), _to_int(params.get("hours"), 1), params.get("ak"), params.get("sk"), params.get("project_id"))
 
 
-def _list_aom_alerts(params: Dict[str, str]) -> Dict[str, Any]:
-    return aom.list_aom_alerts(params["region"], params.get("ak"), params.get("sk"), params.get("project_id"), params.get("alert_status"), params.get("severity"), _to_int(params.get("limit"), 100))
-
-
 def _list_aom_alarm_rules(params: Dict[str, str]) -> Dict[str, Any]:
-    return aom.list_aom_alarm_rules(params["region"], params.get("ak"), params.get("sk"), params.get("project_id"), _to_int(params.get("limit"), 100), _to_int(params.get("offset"), 0))
+    return aom.list_aom_alarm_rules(
+        params["region"],
+        params.get("ak"),
+        params.get("sk"),
+        params.get("project_id"),
+        _to_int(params.get("limit"), 100),
+        _to_int(params.get("offset"), 0),
+        params.get("enterprise_project_id"),
+    )
+
+
+def _alarm_rule_fields(params: Dict[str, str], json_key: str) -> Dict[str, Any]:
+    fields = _parse_json_param(params.get(json_key)) or {}
+    for key in (
+        "action_enabled",
+        "alarm_actions",
+        "alarm_advice",
+        "alarm_description",
+        "alarm_level",
+        "comparison_operator",
+        "dimensions",
+        "evaluation_periods",
+        "is_turn_on",
+        "insufficient_data_actions",
+        "metric_name",
+        "namespace",
+        "ok_actions",
+        "period",
+        "statistic",
+        "threshold",
+        "unit",
+    ):
+        if key in params:
+            value: Any = params[key]
+            if key in {"alarm_actions", "dimensions", "insufficient_data_actions", "ok_actions"}:
+                value = _parse_json_param(value)
+            elif key in {"action_enabled", "is_turn_on"}:
+                value = value.lower() == "true"
+            elif key in {"alarm_level", "evaluation_periods", "period"}:
+                value = _to_int(value, 0)
+            fields[key] = value
+    return fields
+
+
+def _create_aom_alarm_rule(params: Dict[str, str]) -> Dict[str, Any]:
+    fields = _alarm_rule_fields(params, "fields")
+    return aom.create_aom_alarm_rule(
+        region=params["region"],
+        rule_name=params["rule_name"],
+        metric_name=params["metric_name"],
+        namespace=params["namespace"],
+        comparison_operator=params["comparison_operator"],
+        threshold=params["threshold"],
+        period=_to_int(params["period"], 0),
+        evaluation_periods=_to_int(params["evaluation_periods"], 0),
+        statistic=params["statistic"],
+        alarm_level=_to_int(params["alarm_level"], 0),
+        create_fields=fields,
+        confirm=params.get("confirm", "").lower() == "true",
+        ak=params.get("ak"),
+        sk=params.get("sk"),
+        project_id=params.get("project_id"),
+    )
+
+
+def _create_aom_event_alarm_rule(params: Dict[str, str]) -> Dict[str, Any]:
+    bind_notification_rule_id = (
+        params.get("bind_notification_rule_id")
+        or params.get("notification_rule_name")
+    )
+    return aom.create_aom_event_alarm_rule(
+        region=params["region"],
+        cluster_id=params["cluster_id"],
+        rule_name=params["rule_name"],
+        event_name=params["event_name"],
+        bind_notification_rule_id=bind_notification_rule_id,
+        event_label=params.get("event_label"),
+        alarm_level=params.get("alarm_level", "Major"),
+        description=params.get("description"),
+        alias=params.get("alias"),
+        trigger_type=params.get("trigger_type", "immediately"),
+        frequency=params.get("frequency", "-1"),
+        prom_instance_id=params.get("prom_instance_id"),
+        enterprise_project_id=params.get("enterprise_project_id"),
+        confirm=params.get("confirm", "").lower() == "true",
+        ak=params.get("ak"),
+        sk=params.get("sk"),
+        project_id=params.get("project_id"),
+    )
+
+
+def _update_aom_alarm_rule(params: Dict[str, str]) -> Dict[str, Any]:
+    updates = _alarm_rule_fields(params, "updates")
+    return aom.update_aom_alarm_rule(
+        params["region"],
+        params["rule_name"],
+        updates,
+        params.get("confirm", "").lower() == "true",
+        params.get("ak"),
+        params.get("sk"),
+        params.get("project_id"),
+    )
+
+
+def _delete_aom_alarm_rule(params: Dict[str, str]) -> Dict[str, Any]:
+    return aom.delete_aom_alarm_rule(
+        params["region"],
+        params["rule_name"],
+        params.get("confirm", "").lower() == "true",
+        params.get("ak"),
+        params.get("sk"),
+        params.get("project_id"),
+    )
+
+
+def _disable_aom_alarm_rule(params: Dict[str, str]) -> Dict[str, Any]:
+    return aom.disable_aom_alarm_rule(
+        params["region"],
+        params["rule_id"],
+        params.get("confirm", "").lower() == "true",
+        params.get("ak"),
+        params.get("sk"),
+        params.get("project_id"),
+    )
+
+
+def _enable_aom_alarm_rule(params: Dict[str, str]) -> Dict[str, Any]:
+    return aom.enable_aom_alarm_rule(
+        params["region"],
+        params["rule_id"],
+        params.get("confirm", "").lower() == "true",
+        params.get("ak"),
+        params.get("sk"),
+        params.get("project_id"),
+    )
 
 
 def _list_aom_action_rules(params: Dict[str, str]) -> Dict[str, Any]:
-    return aom.list_aom_action_rules(params["region"], params.get("ak"), params.get("sk"), params.get("project_id"))
+    return aom.list_aom_action_rules(
+        params["region"],
+        params.get("ak"),
+        params.get("sk"),
+        params.get("project_id"),
+        params.get("enterprise_project_id"),
+    )
+
+
+def _delete_aom_action_rule(params: Dict[str, str]) -> Dict[str, Any]:
+    return aom.delete_aom_action_rule(
+        params["region"],
+        params["rule_name"],
+        params.get("confirm", "").lower() == "true",
+        params.get("ak"),
+        params.get("sk"),
+        params.get("project_id"),
+    )
 
 
 def _list_aom_mute_rules(params: Dict[str, str]) -> Dict[str, Any]:
@@ -287,7 +456,7 @@ def _list_aom_mute_rules(params: Dict[str, str]) -> Dict[str, Any]:
 
 
 def _list_aom_current_alarms(params: Dict[str, str]) -> Dict[str, Any]:
-    return aom.list_aom_current_alarms(params["region"], params.get("ak"), params.get("sk"), params.get("project_id"), params.get("event_type", "active_alert"), params.get("event_severity"), params.get("time_range"), _to_int(params.get("limit"), 100))
+    return aom.list_aom_current_alarms(params["region"], params.get("ak"), params.get("sk"), params.get("project_id"), params.get("event_type", "active_alert"), params.get("event_severity"), params.get("time_range"), _to_int(params.get("limit"), 100), params.get("cluster_id"))
 
 
 def _list_aom_alarms(params: Dict[str, str]) -> Dict[str, Any]:
@@ -298,6 +467,7 @@ def _list_aom_alarms(params: Dict[str, str]) -> Dict[str, Any]:
         project_id=params.get("project_id"),
         hours=_to_int(params.get("hours"), 1),
         event_severity=params.get("event_severity"),
+        cluster_id=params.get("cluster_id"),
         cluster_name=params.get("cluster_name"),
         limit=_to_int(params.get("limit"), 500),
     )
@@ -524,6 +694,71 @@ def _workload_diagnose_by_alarm_action(params):
         return {"success": False, "error": str(exc), "error_type": type(exc).__name__, "stage": "workload_diagnose_by_alarm"}
 
 
+def _pod_failure_diagnose_action(params):
+    try:
+        return pod_diagnosis.pod_failure_diagnose(
+            region=params["region"],
+            cluster_id=params["cluster_id"],
+            namespace=params.get("namespace"),
+            pod_name=params.get("pod_name"),
+            workload_name=params.get("workload_name"),
+            labels=params.get("labels"),
+            include_logs=params.get("include_logs", "true").lower() != "false",
+            include_metrics=params.get("include_metrics", "false").lower() == "true",
+            tail_lines=_to_int(params.get("tail_lines"), 80),
+            hours=_to_int(params.get("hours"), 1),
+            max_pods=_to_int(params.get("max_pods"), 20),
+            event_limit=_to_int(params.get("event_limit"), 500),
+            ak=params.get("ak"),
+            sk=params.get("sk"),
+            project_id=params.get("project_id"),
+        )
+    except Exception as exc:
+        return {"success": False, "error": str(exc), "error_type": type(exc).__name__, "stage": "pod_failure_diagnose"}
+
+
+def _get_workload_rollout_context_action(params):
+    try:
+        return workload_rollout_diagnosis.get_workload_rollout_context(
+            region=params["region"],
+            cluster_id=params["cluster_id"],
+            namespace=params["namespace"],
+            kind=params["kind"],
+            name=params["name"],
+            event_limit=_to_int(params.get("event_limit"), 500),
+            label_selector=params.get("label_selector"),
+            ak=params.get("ak"),
+            sk=params.get("sk"),
+            project_id=params.get("project_id"),
+        )
+    except Exception as exc:
+        return {"success": False, "error": str(exc), "error_type": type(exc).__name__, "stage": "get_workload_rollout_context"}
+
+
+def _workload_rollout_diagnose_action(params):
+    try:
+        return workload_rollout_diagnosis.workload_rollout_diagnose(
+            region=params["region"],
+            cluster_id=params["cluster_id"],
+            namespace=params["namespace"],
+            kind=params["kind"],
+            name=params["name"],
+            include_pod_diagnosis=params.get("include_pod_diagnosis", "true").lower() != "false",
+            include_logs=params.get("include_logs", "true").lower() != "false",
+            include_metrics=params.get("include_metrics", "false").lower() == "true",
+            tail_lines=_to_int(params.get("tail_lines"), 80),
+            hours=_to_int(params.get("hours"), 1),
+            max_pods=_to_int(params.get("max_pods"), 20),
+            event_limit=_to_int(params.get("event_limit"), 500),
+            label_selector=params.get("label_selector"),
+            ak=params.get("ak"),
+            sk=params.get("sk"),
+            project_id=params.get("project_id"),
+        )
+    except Exception as exc:
+        return {"success": False, "error": str(exc), "error_type": type(exc).__name__, "stage": "workload_rollout_diagnose"}
+
+
 def _hibernate_cce_cluster_action(params):
     if params.get("confirm", "").lower() == "true":
         return cce.hibernate_cce_cluster(
@@ -571,6 +806,145 @@ def _list_cce_cronjobs(params: Dict[str, str]) -> Dict[str, Any]:
         params["region"], params["cluster_id"],
         params.get("namespace"),
         params.get("ak"), params.get("sk"), params.get("project_id")
+    )
+
+
+def _list_cce_hpas(params: Dict[str, str]) -> Dict[str, Any]:
+    return cce_hpa.list_cce_hpas(
+        region=params["region"],
+        cluster_id=params["cluster_id"],
+        ak=params.get("ak"),
+        sk=params.get("sk"),
+        project_id=params.get("project_id"),
+        namespace=params.get("namespace"),
+        include_system=params.get("include_system", "false").lower() == "true",
+    )
+
+
+def _generate_cce_hpa_manifest(params: Dict[str, str]) -> Dict[str, Any]:
+    return cce_hpa.generate_cce_hpa_manifest(
+        workload_name=params["workload_name"],
+        namespace=params["namespace"],
+        min_replicas=_to_int(params["min_replicas"], 1),
+        max_replicas=_to_int(params["max_replicas"], 1),
+        workload_type=params.get("workload_type", "deployment"),
+        hpa_name=params.get("hpa_name"),
+        target_cpu_utilization=_hpa_cpu_target(params),
+        target_memory_utilization=_to_optional_int(params.get("target_memory_utilization")),
+        behavior=_parse_json_param(params.get("behavior")),
+        output_file=params.get("output_file"),
+    )
+
+
+def _configure_cce_hpa(params: Dict[str, str]) -> Dict[str, Any]:
+    return cce_hpa.configure_cce_hpa(
+        region=params["region"],
+        cluster_id=params["cluster_id"],
+        workload_name=params["workload_name"],
+        namespace=params["namespace"],
+        min_replicas=_to_int(params["min_replicas"], 1),
+        max_replicas=_to_int(params["max_replicas"], 1),
+        workload_type=params.get("workload_type", "deployment"),
+        hpa_name=params.get("hpa_name"),
+        target_cpu_utilization=_hpa_cpu_target(params),
+        target_memory_utilization=_to_optional_int(params.get("target_memory_utilization")),
+        behavior=_parse_json_param(params.get("behavior")),
+        confirm=params.get("confirm", "").lower() == "true",
+        ak=params.get("ak"),
+        sk=params.get("sk"),
+        project_id=params.get("project_id"),
+    )
+
+
+def _analyze_cce_cost_optimization(params: Dict[str, str]) -> Dict[str, Any]:
+    return cce_cost_optimization.analyze_cce_cost_optimization(
+        region=params["region"],
+        cluster_id=params["cluster_id"],
+        ak=params.get("ak"),
+        sk=params.get("sk"),
+        project_id=params.get("project_id"),
+        short_hours=_to_int(params.get("short_hours"), 24),
+        long_hours=_to_int(params.get("long_hours"), 168),
+        top_n=_to_int(params.get("top_n"), 50),
+        exclude_namespaces=params.get("exclude_namespaces"),
+        business_namespaces=params.get("business_namespaces"),
+        output_dir=params.get("output_dir"),
+        include_raw=params.get("include_raw", "false").lower() == "true",
+        hpa_workload_name=params.get("hpa_workload_name"),
+        hpa_namespace=params.get("hpa_namespace"),
+        hpa_workload_type=params.get("hpa_workload_type", "deployment"),
+        hpa_min_replicas=_to_int(params.get("hpa_min_replicas"), 1),
+        hpa_max_replicas=_to_int(params.get("hpa_max_replicas"), 3),
+        hpa_target_cpu_utilization=_to_optional_int(params.get("hpa_target_cpu_utilization"))
+        if "hpa_target_cpu_utilization" in params
+        else 60,
+        hpa_target_memory_utilization=_to_optional_int(params.get("hpa_target_memory_utilization")),
+    )
+
+
+def _scan_cce_availability_risk(params: Dict[str, str]) -> Dict[str, Any]:
+    return cce_availability_risk.scan_cce_availability_risk(
+        region=params["region"],
+        cluster_id=params["cluster_id"],
+        ak=params.get("ak"),
+        sk=params.get("sk"),
+        project_id=params.get("project_id"),
+        exclude_namespaces=params.get("exclude_namespaces"),
+        gateway_keywords=params.get("gateway_keywords"),
+        metrics_hours=_to_int(params.get("metrics_hours"), 24),
+        limit=_to_int(params.get("limit"), 500),
+        cpu_limit_request_ratio=float(params.get("cpu_limit_request_ratio", 4.0)),
+        memory_limit_request_ratio=float(params.get("memory_limit_request_ratio", 2.0)),
+        output_dir=params.get("output_dir"),
+        include_raw=params.get("include_raw", "false").lower() == "true",
+    )
+
+
+def _analyze_cce_capacity_trend(params: Dict[str, str]) -> Dict[str, Any]:
+    return cce_capacity_trend.analyze_cce_capacity_trend(
+        region=params["region"],
+        cluster_id=params["cluster_id"],
+        ak=params.get("ak"),
+        sk=params.get("sk"),
+        project_id=params.get("project_id"),
+        hours=_to_int(params.get("hours"), 168),
+        step_seconds=_to_int(params.get("step_seconds"), 3600),
+        top_n=_to_int(params.get("top_n"), 200),
+        exclude_namespaces=params.get("exclude_namespaces"),
+        business_namespaces=params.get("business_namespaces"),
+        output_dir=params.get("output_dir"),
+        history_dir=params.get("history_dir"),
+        record_history=params.get("record_history", "true").lower() == "true",
+        compare_history_count=_to_int(params.get("compare_history_count"), 8),
+        include_raw=params.get("include_raw", "false").lower() == "true",
+        target_cpu_percent=float(params.get("target_cpu_percent", 60.0)),
+        target_memory_percent=float(params.get("target_memory_percent", 70.0)),
+        bottleneck_percent=float(params.get("bottleneck_percent", 80.0)),
+        headroom_percent=float(params.get("headroom_percent", 15.0)),
+        action_note=params.get("action_note"),
+    )
+
+
+def _generate_ops_report(params: Dict[str, str]) -> Dict[str, Any]:
+    return ops_report_generator.generate_ops_report(
+        region=params["region"],
+        cluster_id=params["cluster_id"],
+        ak=params.get("ak"),
+        sk=params.get("sk"),
+        project_id=params.get("project_id"),
+        report_type=params.get("report_type", "weekly"),
+        hours=_to_optional_int(params.get("hours")),
+        short_hours=_to_optional_int(params.get("short_hours")),
+        long_hours=_to_optional_int(params.get("long_hours")),
+        step_seconds=_to_int(params.get("step_seconds"), 3600),
+        top_n=_to_int(params.get("top_n"), 200),
+        exclude_namespaces=params.get("exclude_namespaces"),
+        business_namespaces=params.get("business_namespaces"),
+        gateway_keywords=params.get("gateway_keywords"),
+        output_dir=params.get("output_dir"),
+        include_raw=params.get("include_raw", "false").lower() == "true",
+        oncall_report_path=params.get("oncall_report_path"),
+        oncall_summary=params.get("oncall_summary"),
     )
 
 
@@ -692,6 +1066,7 @@ def _analyze_aom_alarms(params: Dict[str, str]) -> Dict[str, Any]:
         ak=params.get("ak"),
         sk=params.get("sk"),
         project_id=params.get("project_id"),
+        cluster_id=params.get("cluster_id"),
         cluster_name=params.get("cluster_name"),
         hours=_to_int(params.get("hours"), 1),
         chronic_threshold=_to_int(params.get("chronic_threshold"), 5),
@@ -810,9 +1185,8 @@ def _create_cce_nodepool(params: Dict[str, str]) -> Dict[str, Any]:
         root_volume_size=int(params["root_volume_size"]),
         root_volume_type=params["root_volume_type"],
         initial_node_count=_to_int(params.get("initial_node_count"), 1),
-        os_type=params.get("os_type"),
+        os_type=params.get("os_type", "EulerOS"),
         ssh_key=params.get("ssh_key"),
-        password=params.get("password"),
         data_volumes=data_volumes,
         subnet_id=params.get("subnet_id"),
         autoscaling_enabled=autoscaling_enabled,
@@ -848,7 +1222,6 @@ def _create_cce_node(params: Dict[str, str]) -> Dict[str, Any]:
         node_count=_to_int(params.get("node_count"), 1),
         os_type=params.get("os_type"),
         ssh_key=params.get("ssh_key"),
-        password=params.get("password"),
         data_volumes=data_volumes,
         subnet_id=params.get("subnet_id"),
         ak=params.get("ak"),
@@ -939,6 +1312,9 @@ ACTION_SPECS: Dict[str, tuple[tuple[str, ...], Handler]] = {
     "huawei_uninstall_cce_addon": (("region", "cluster_id", "addon_id"), _uninstall_cce_addon),
     "huawei_update_cce_addon": (("region", "cluster_id", "addon_id"), _update_cce_addon),
     "huawei_get_cce_pods": (("region", "cluster_id"), _get_cce_pods),
+    "huawei_pod_failure_diagnose": (("region", "cluster_id"), _pod_failure_diagnose_action),
+    "huawei_get_workload_rollout_context": (("region", "cluster_id", "namespace", "kind", "name"), _get_workload_rollout_context_action),
+    "huawei_workload_rollout_diagnose": (("region", "cluster_id", "namespace", "kind", "name"), _workload_rollout_diagnose_action),
     "huawei_get_pod_logs": (("region", "cluster_id", "pod_name"), _get_pod_logs),
     "huawei_get_cce_namespaces": (("region", "cluster_id"), _get_cce_namespaces),
     "huawei_get_cce_deployments": (("region", "cluster_id"), _get_cce_deployments),
@@ -956,11 +1332,24 @@ ACTION_SPECS: Dict[str, tuple[tuple[str, ...], Handler]] = {
     "huawei_list_cce_daemonsets": (("region", "cluster_id"), _list_cce_daemonsets),
     "huawei_list_cce_statefulsets": (("region", "cluster_id"), _list_cce_statefulsets),
     "huawei_list_cce_cronjobs": (("region", "cluster_id"), _list_cce_cronjobs),
+    "huawei_list_cce_hpas": (("region", "cluster_id"), _list_cce_hpas),
+    "huawei_generate_cce_hpa_manifest": (("workload_name", "namespace", "min_replicas", "max_replicas"), _generate_cce_hpa_manifest),
+    "huawei_configure_cce_hpa": (("region", "cluster_id", "workload_name", "namespace", "min_replicas", "max_replicas"), _configure_cce_hpa),
+    "huawei_analyze_cce_cost_optimization": (("region", "cluster_id"), _analyze_cce_cost_optimization),
+    "huawei_scan_cce_availability_risk": (("region", "cluster_id"), _scan_cce_availability_risk),
+    "huawei_analyze_cce_capacity_trend": (("region", "cluster_id"), _analyze_cce_capacity_trend),
+    "huawei_generate_ops_report": (("region", "cluster_id"), _generate_ops_report),
     "huawei_list_aom_instances": (("region",), _list_aom_instances),
     "huawei_get_aom_metrics": (("region", "aom_instance_id", "query"), _get_aom_metrics),
-    "huawei_list_aom_alerts": (("region",), _list_aom_alerts),
     "huawei_list_aom_alarm_rules": (("region",), _list_aom_alarm_rules),
+    "huawei_create_aom_alarm_rule": (("region", "rule_name", "metric_name", "namespace", "comparison_operator", "threshold", "period", "evaluation_periods", "statistic", "alarm_level"), _create_aom_alarm_rule),
+    "huawei_create_aom_event_alarm_rule": (("region", "cluster_id", "rule_name", "event_name"), _create_aom_event_alarm_rule),
+    "huawei_update_aom_alarm_rule": (("region", "rule_name"), _update_aom_alarm_rule),
+    "huawei_delete_aom_alarm_rule": (("region", "rule_name"), _delete_aom_alarm_rule),
+    "huawei_disable_aom_alarm_rule": (("region", "rule_id"), _disable_aom_alarm_rule),
+    "huawei_enable_aom_alarm_rule": (("region", "rule_id"), _enable_aom_alarm_rule),
     "huawei_list_aom_action_rules": (("region",), _list_aom_action_rules),
+    "huawei_delete_aom_action_rule": (("region", "rule_name"), _delete_aom_action_rule),
     "huawei_list_aom_mute_rules": (("region",), _list_aom_mute_rules),
     "huawei_list_aom_current_alarms": (("region",), _list_aom_current_alarms),
     "huawei_list_aom_alarms": (("region",), _list_aom_alarms),
@@ -1005,6 +1394,7 @@ ACTION_SPECS: Dict[str, tuple[tuple[str, ...], Handler]] = {
     "huawei_network_verify_pod_scheduling": (("region", "cluster_id", "workload_name"), _network_verify_pod_scheduling_action),
     "huawei_node_batch_diagnose": (("region", "cluster_id"), _node_batch_diagnose_action),
     "huawei_node_diagnose": (("region", "cluster_id"), _node_diagnose_action),
+    "huawei_node_failure_diagnose": (("region", "cluster_id"), lambda params: node_failure_diagnosis.diagnose_node_failure_action(params)),
 
     # HSS vulnerability management
     "huawei_hss_list_hosts": (("region",), _hss_list_vul_host_hosts),
