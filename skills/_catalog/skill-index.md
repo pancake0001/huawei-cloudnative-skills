@@ -38,6 +38,16 @@
 
 关系：输出告警线索和时间线；复杂跨域根因交给 `root-cause-analyzer`。
 
+### log-analyzer
+
+适用：需要查询 Kubernetes Pod 标准输出、CCE LogConfig 采集的应用日志、或华为云 LTS 日志并做错误模式分析。
+
+常见问题：查看 Pod 最近日志；查询上一个崩溃容器日志；根据应用名找到 LTS 日志流；按关键词、时间范围或标签查询 LTS 日志。
+
+常用工具：`huawei_get_pod_logs`、`huawei_get_cce_logconfigs`、`huawei_create_cce_logconfig`、`huawei_delete_cce_logconfig`、`huawei_get_application_logconfigs`、`huawei_query_cce_audit_logs`、`huawei_query_application_logs`、`huawei_query_application_recent_logs`、`huawei_analyze_application_logs`。
+
+关系：只读查询和分析日志；如果日志指向 Pod、Node、Network 或恢复动作，转给对应诊断或自愈 skill。
+
 ## L3 故障诊断与自愈恢复
 
 ### pod-failure-diagnoser
@@ -173,6 +183,7 @@
 | 节点 NotReady、资源压力、节点漏洞 | `node-failure-diagnoser` |
 | Ingress 502、Service 不通、ELB 链路异常 | `network-failure-diagnoser` |
 | CCE 告警很多，需要合并分析 | `alarm-correlation-engine` |
+| 查询 Pod 标准输出或 LTS 应用日志 | `log-analyzer` |
 | 需要先把日志、事件、指标、告警都收集齐 | `observability-context-builder` |
 | 业务不可用，需要综合根因分析 | `root-cause-analyzer` |
 | 需要扩容、重启、drain、漏洞修复等动作 | `auto-remediation-runner` |

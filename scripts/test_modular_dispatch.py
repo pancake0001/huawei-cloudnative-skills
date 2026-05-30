@@ -254,7 +254,11 @@ class DispatcherTests(unittest.TestCase):
             "huawei_list_aom_instances",
             "huawei_list_log_groups",
             "huawei_cce_cluster_inspection",
-            "huawei_get_application_log_stream",
+            "huawei_get_application_logconfigs",
+            "huawei_create_cce_logconfig",
+            "huawei_delete_cce_logconfig",
+            "huawei_query_cce_audit_logs",
+            "huawei_analyze_application_logs",
             "huawei_get_cce_node_metrics",
             "huawei_node_diagnose",
             "huawei_node_failure_diagnose",
@@ -319,9 +323,56 @@ class DispatcherTests(unittest.TestCase):
         self.assertTrue(result["success"])
         mocked.assert_called_once()
 
-    def test_app_log_stream_dispatch_calls_target_handler(self):
-        with mock.patch("huawei_cloud.dispatcher.cce_app_logs.get_application_log_stream_action", return_value={"success": True, "log_group_id": "g1"}) as mocked:
-            result = dispatcher.dispatch_action("huawei_get_application_log_stream", {"region": "cn-north-4", "cluster_id": "c1", "app_name": "demo"})
+    def test_app_logconfigs_dispatch_calls_target_handler(self):
+        with mock.patch("huawei_cloud.dispatcher.cce_app_logs.get_application_logconfigs_action", return_value={"success": True, "log_group_id": "g1"}) as mocked:
+            result = dispatcher.dispatch_action("huawei_get_application_logconfigs", {"region": "cn-north-4", "cluster_id": "c1", "app_name": "demo"})
+        self.assertTrue(result["success"])
+        mocked.assert_called_once()
+
+    def test_create_cce_logconfig_dispatch_calls_target_handler(self):
+        with mock.patch("huawei_cloud.dispatcher.cce_app_logs.create_cce_logconfig_action", return_value={"success": False, "requires_confirmation": True}) as mocked:
+            result = dispatcher.dispatch_action(
+                "huawei_create_cce_logconfig",
+                {
+                    "region": "cn-north-4",
+                    "cluster_id": "c1",
+                    "logconfig_name": "demo-stdout",
+                    "source_type": "container_stdout",
+                    "log_group_id": "g1",
+                    "log_stream_id": "s1",
+                },
+            )
+        self.assertTrue(result["requires_confirmation"])
+        mocked.assert_called_once()
+
+    def test_delete_cce_logconfig_dispatch_calls_target_handler(self):
+        with mock.patch("huawei_cloud.dispatcher.cce_app_logs.delete_cce_logconfig_action", return_value={"success": False, "requires_confirmation": True}) as mocked:
+            result = dispatcher.dispatch_action(
+                "huawei_delete_cce_logconfig",
+                {
+                    "region": "cn-north-4",
+                    "cluster_id": "c1",
+                    "logconfig_name": "demo-stdout",
+                },
+            )
+        self.assertTrue(result["requires_confirmation"])
+        mocked.assert_called_once()
+
+    def test_query_cce_audit_logs_dispatch_calls_target_handler(self):
+        with mock.patch("huawei_cloud.dispatcher.cce_app_logs.query_cce_audit_logs_action", return_value={"success": True, "summary": {"matched_events": 0}}) as mocked:
+            result = dispatcher.dispatch_action(
+                "huawei_query_cce_audit_logs",
+                {
+                    "region": "cn-north-4",
+                    "cluster_id": "c1",
+                },
+            )
+        self.assertTrue(result["success"])
+        mocked.assert_called_once()
+
+    def test_analyze_application_logs_dispatch_calls_target_handler(self):
+        with mock.patch("huawei_cloud.dispatcher.cce_app_logs.analyze_application_logs_action", return_value={"success": True, "summary": {"abnormal_logs": 0}}) as mocked:
+            result = dispatcher.dispatch_action("huawei_analyze_application_logs", {"region": "cn-north-4", "cluster_id": "c1", "app_name": "demo"})
         self.assertTrue(result["success"])
         mocked.assert_called_once()
 
