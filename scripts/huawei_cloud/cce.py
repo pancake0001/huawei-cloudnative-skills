@@ -2260,10 +2260,19 @@ def get_kubernetes_nodes(region: str, cluster_id: str, ak: Optional[str] = None,
         for node in nodes.items:
             # Get conditions
             ready = "Unknown"
+            conditions = []
             for c in node.status.conditions:
+                condition_info = {
+                    "type": getattr(c, "type", None),
+                    "status": getattr(c, "status", None),
+                    "reason": getattr(c, "reason", None),
+                    "message": getattr(c, "message", None),
+                    "last_heartbeat_time": str(getattr(c, "last_heartbeat_time", None)) if getattr(c, "last_heartbeat_time", None) else None,
+                    "last_transition_time": str(getattr(c, "last_transition_time", None)) if getattr(c, "last_transition_time", None) else None,
+                }
+                conditions.append(condition_info)
                 if c.type == 'Ready':
                     ready = c.status
-                    break
 
             # Get capacity
             cpu = node.status.capacity.get('cpu', 'unknown') if node.status.capacity else 'unknown'
@@ -2285,7 +2294,13 @@ def get_kubernetes_nodes(region: str, cluster_id: str, ak: Optional[str] = None,
                 "allocatable_memory": allocatable_memory,
                 "created": str(node.metadata.creation_timestamp) if node.metadata.creation_timestamp else None,
                 "labels": node.metadata.labels,
+                "conditions": conditions,
             }
+            condition_map = {cond.get("type"): cond.get("status") for cond in conditions}
+            node_info["memory_pressure"] = condition_map.get("MemoryPressure")
+            node_info["disk_pressure"] = condition_map.get("DiskPressure")
+            node_info["pid_pressure"] = condition_map.get("PIDPressure")
+            node_info["network_unavailable"] = condition_map.get("NetworkUnavailable")
 
             # Get taints
             if node.spec:

@@ -441,16 +441,17 @@ print(result['output_file'])  # /tmp/cce_diag_report_xxxx_nginx.html
 
 | 工具 | 功能 | 诊断对象 |
 |------|------|----------|
+| `huawei_node_failure_diagnose` | 节点故障自动诊断，输出 Markdown 报告（Ready/Lease/Event/Pod 症状/指标证据） | 指定节点 |
 | `huawei_node_batch_diagnose` | 批量节点诊断 | 指定节点或异常节点 |
 | `huawei_node_diagnose` | 单个节点详细诊断 | 指定节点IP |
 
 **诊断流程（近1小时数据）：**
 
-1. **检查节点状态** - 节点Ready/NotReady状态，异常事件
-2. **检查NPD插件** - Node Problem Detector上报的事件
-3. **分析节点监控** - CPU/内存/磁盘IO/网络流量
-4. **分析工作负载** - 节点上Pod的资源占用情况
-5. **检查VPC安全组** - 针对NotReady节点检查Master-Node通信
+1. **控制面存活状态分流** - 检查 Node Ready 条件与 `kube-node-lease` 续约，区分控制面失联、kubelet 主动上报异常、基础通信正常三类。
+2. **事件时序回溯** - 分析 Node Event 与 NPD 事件，重点关注 `SystemOOM`、`EvictionThresholdMet`、`KubeletSetupFailed`、`ContainerRuntimeNotReady`。
+3. **分析节点监控** - CPU/内存/磁盘IO/网络流量。
+4. **分析工作负载** - 聚合节点上 Pod 的 Evicted、OOMKilled、ContainerCreating、Unknown、核心 DaemonSet 重启等症状。
+5. **检查VPC安全组** - 针对 NotReady 或网络异常候选，检查 Master-Node 通信、安全组和网络 ACL。
 
 **特别注意：**
 先罗列以上5个步骤的任务清单，每完成一项后，在任务清单中标记已完成，并输出当前进度百分比，直到所有任务都标记已完成执行，最后再输出完整诊断报告，避免诊断步骤遗漏或顺序错误。 

@@ -15,6 +15,7 @@ from . import cce_auto_inspection
 from . import chart_generator
 from . import common
 from . import cce_cluster, cce_nodepool, cce_node, cce_addon, cce_k8s, cce_hpa, cce_cost_optimization
+from . import node_failure_diagnosis
 
 # cce_app_logs and lts require huaweicloudsdklts which may not be installed
 try:
@@ -1320,6 +1321,7 @@ ACTION_SPECS: Dict[str, tuple[tuple[str, ...], Handler]] = {
     "huawei_network_verify_pod_scheduling": (("region", "cluster_id", "workload_name"), _network_verify_pod_scheduling_action),
     "huawei_node_batch_diagnose": (("region", "cluster_id"), _node_batch_diagnose_action),
     "huawei_node_diagnose": (("region", "cluster_id"), _node_diagnose_action),
+    "huawei_node_failure_diagnose": (("region", "cluster_id"), lambda params: node_failure_diagnosis.diagnose_node_failure_action(params)),
 
     # HSS vulnerability management
     "huawei_hss_list_hosts": (("region",), _hss_list_vul_host_hosts),
