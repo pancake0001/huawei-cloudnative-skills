@@ -1,5 +1,19 @@
 # Skill Index
 
+## L1 CCE to CCI elasticity
+
+### cce-cci-bursting-deployer
+
+Use for fast CCE to CCI 2.0 bursting setup, including subnet precheck, SWR and OBS VPCEP readiness, `virtual-kubelet` configuration, smoke workload deployment, and verification on `bursting-node`.
+
+### availability-risk-scanner
+
+Use for CCE availability risk checks covering replicas, PDBs, probes, affinity, AZ distribution, gateway workloads, and resource configuration.
+
+### capacity-trend-forecaster
+
+Use for periodic CCE capacity trend analysis, bottleneck forecasting, simulation, and elasticity tuning recommendations.
+
 `skills/_catalog` 是总目录，不是可触发 skill，因此不放 `SKILL.md`。第一阶段采用简化架构：agent 通过各 skill 的 `description` 自动触发；需要人工查找时先看本文件，再进入对应 skill 的 `SKILL.md` 和 `references/*`。
 
 第一阶段不实现复杂 `skill-router`，也不建立完整 runtime 平台。工具边界由每个 skill 的 `skill-profile.yaml` 声明，`manifest.json` 由 `scripts/dev/generate_manifests.py` 生成。

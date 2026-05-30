@@ -3,6 +3,7 @@ huaweicloudsdkecs
 huaweicloudsdkvpc
 huaweicloudsdkces
 huaweicloudsdkcce
+huaweicloudsdkvpcep
 huaweicloudsdkevs
 huaweicloudsdkeip
 huaweicloudsdkelb

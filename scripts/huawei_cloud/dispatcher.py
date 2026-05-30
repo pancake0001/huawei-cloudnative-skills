@@ -14,7 +14,7 @@ from . import workload_rollout_diagnosis
 from . import cce_auto_inspection
 from . import chart_generator
 from . import common
-from . import cce_cluster, cce_nodepool, cce_node, cce_addon, cce_k8s, cce_hpa, cce_cost_optimization, cce_availability_risk, cce_capacity_trend, ops_report_generator
+from . import cce_cluster, cce_nodepool, cce_node, cce_addon, cce_k8s, cce_hpa, cce_cost_optimization, cce_availability_risk, cce_capacity_trend, cce_cci_bursting, ops_report_generator
 from . import node_failure_diagnosis, network_failure_diagnosis, storage_failure_diagnosis
 from . import cce_events_lts
 
@@ -52,6 +52,17 @@ def _to_optional_int(value: str | None) -> int | None:
     if value is None or value.strip().lower() in {"", "none", "null"}:
         return None
     return _to_int(value, 0)
+
+
+def _to_optional_bool(value: str | None) -> bool | None:
+    if value is None or value.strip().lower() in {"", "none", "null"}:
+        return None
+    normalized = value.strip().lower()
+    if normalized in {"true", "1", "yes", "y"}:
+        return True
+    if normalized in {"false", "0", "no", "n"}:
+        return False
+    return None
 
 
 def _parse_json_param(value: str | None) -> Any:
@@ -1281,6 +1292,102 @@ def _update_cce_addon(params: Dict[str, str]) -> Dict[str, Any]:
         addon_id=params["addon_id"],
         addon_version=params.get("addon_version"),
         values=values,
+        addon_template_name=params.get("addon_template_name"),
+        ak=params.get("ak"),
+        sk=params.get("sk"),
+        project_id=params.get("project_id"),
+    )
+
+
+def _configure_cce_bursting_addon(params: Dict[str, str]) -> Dict[str, Any]:
+    subnets = None
+    if params.get("subnets"):
+        subnets = [item.strip() for item in params["subnets"].split(",") if item.strip()]
+
+    return cce_addon.configure_cce_bursting_addon(
+        region=params["region"],
+        cluster_id=params["cluster_id"],
+        subnet_id=params["subnet_id"],
+        subnets=subnets,
+        addon_id=params.get("addon_id", "virtual-kubelet"),
+        addon_version=params.get("addon_version"),
+        enable_schedule_profile_local_surge=_to_optional_bool(params.get("enable_schedule_profile_local_surge")),
+        is_install_proxy=_to_optional_bool(params.get("is_install_proxy")),
+        enable_log_collection=_to_optional_bool(params.get("enable_log_collection")),
+        ak=params.get("ak"),
+        sk=params.get("sk"),
+        project_id=params.get("project_id"),
+    )
+
+
+def _csv_param(value: str | None) -> list[str] | None:
+    if not value:
+        return None
+    return [item.strip() for item in value.split(",") if item.strip()]
+
+
+def _precheck_cce_cci_bursting(params: Dict[str, str]) -> Dict[str, Any]:
+    return cce_cci_bursting.precheck_cce_cci_bursting(
+        region=params["region"],
+        cluster_id=params["cluster_id"],
+        vpcep_subnet_id=params.get("vpcep_subnet_id"),
+        ak=params.get("ak"),
+        sk=params.get("sk"),
+        project_id=params.get("project_id"),
+    )
+
+
+def _ensure_cce_cci_vpcep(params: Dict[str, str]) -> Dict[str, Any]:
+    return cce_cci_bursting.ensure_cce_cci_vpcep(
+        region=params["region"],
+        cluster_id=params["cluster_id"],
+        vpcep_subnet_id=params.get("vpcep_subnet_id"),
+        obs_endpoint_service_name=params.get("obs_endpoint_service_name"),
+        route_table_ids=_csv_param(params.get("route_table_ids")),
+        confirm=params.get("confirm", "").lower() == "true",
+        ak=params.get("ak"),
+        sk=params.get("sk"),
+        project_id=params.get("project_id"),
+    )
+
+
+def _setup_cce_cci_bursting(params: Dict[str, str]) -> Dict[str, Any]:
+    return cce_cci_bursting.setup_cce_cci_bursting(
+        region=params["region"],
+        cluster_id=params["cluster_id"],
+        vpcep_subnet_id=params.get("vpcep_subnet_id"),
+        cci_subnet_id=params.get("cci_subnet_id"),
+        obs_endpoint_service_name=params.get("obs_endpoint_service_name"),
+        route_table_ids=_csv_param(params.get("route_table_ids")),
+        addon_version=params.get("addon_version"),
+        confirm=params.get("confirm", "").lower() == "true",
+        ak=params.get("ak"),
+        sk=params.get("sk"),
+        project_id=params.get("project_id"),
+    )
+
+
+def _deploy_cce_cci_smoke_workload(params: Dict[str, str]) -> Dict[str, Any]:
+    return cce_cci_bursting.deploy_cce_cci_smoke_workload(
+        region=params["region"],
+        cluster_id=params["cluster_id"],
+        namespace=params.get("namespace", cce_cci_bursting.DEFAULT_SMOKE_NAMESPACE),
+        workload_name=params.get("workload_name", cce_cci_bursting.DEFAULT_SMOKE_WORKLOAD),
+        image=params.get("image"),
+        replicas=_to_int(params.get("replicas"), 2),
+        confirm=params.get("confirm", "").lower() == "true",
+        ak=params.get("ak"),
+        sk=params.get("sk"),
+        project_id=params.get("project_id"),
+    )
+
+
+def _verify_cce_cci_bursting(params: Dict[str, str]) -> Dict[str, Any]:
+    return cce_cci_bursting.verify_cce_cci_bursting(
+        region=params["region"],
+        cluster_id=params["cluster_id"],
+        namespace=params.get("namespace"),
+        workload_name=params.get("workload_name"),
         ak=params.get("ak"),
         sk=params.get("sk"),
         project_id=params.get("project_id"),
@@ -1329,6 +1436,12 @@ ACTION_SPECS: Dict[str, tuple[tuple[str, ...], Handler]] = {
     "huawei_install_cce_addon": (("region", "cluster_id", "addon_template_name"), _install_cce_addon),
     "huawei_uninstall_cce_addon": (("region", "cluster_id", "addon_id"), _uninstall_cce_addon),
     "huawei_update_cce_addon": (("region", "cluster_id", "addon_id"), _update_cce_addon),
+    "huawei_configure_cce_bursting_addon": (("region", "cluster_id", "subnet_id"), _configure_cce_bursting_addon),
+    "huawei_precheck_cce_cci_bursting": (("region", "cluster_id"), _precheck_cce_cci_bursting),
+    "huawei_ensure_cce_cci_vpcep": (("region", "cluster_id"), _ensure_cce_cci_vpcep),
+    "huawei_setup_cce_cci_bursting": (("region", "cluster_id"), _setup_cce_cci_bursting),
+    "huawei_deploy_cce_cci_smoke_workload": (("region", "cluster_id"), _deploy_cce_cci_smoke_workload),
+    "huawei_verify_cce_cci_bursting": (("region", "cluster_id"), _verify_cce_cci_bursting),
     "huawei_get_cce_pods": (("region", "cluster_id"), _get_cce_pods),
     "huawei_pod_failure_diagnose": (("region", "cluster_id"), _pod_failure_diagnose_action),
     "huawei_get_workload_rollout_context": (("region", "cluster_id", "namespace", "kind", "name"), _get_workload_rollout_context_action),

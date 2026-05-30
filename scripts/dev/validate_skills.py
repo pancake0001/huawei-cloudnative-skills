@@ -36,6 +36,7 @@ PHASE_ONE_SKILLS = {
     "capacity-trend-forecaster",
     "availability-risk-scanner",
     "container-migration-planner",
+    "cce-cci-bursting-deployer",
 }
 
 
