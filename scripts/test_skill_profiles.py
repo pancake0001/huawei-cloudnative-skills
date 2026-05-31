@@ -37,6 +37,12 @@ HIGH_RISK_ACTIONS = {
     "huawei_ensure_cce_cci_vpcep",
     "huawei_setup_cce_cci_bursting",
     "huawei_deploy_cce_cci_smoke_workload",
+    "huawei_deploy_cce_pressure_test_java_sample",
+    "huawei_prepare_cce_pressure_test_route",
+    "huawei_deploy_cce_pressure_test_java_sample",
+    "huawei_run_cce_pressure_test",
+    "huawei_create_elb",
+    "huawei_inject_cce_apm_javaagent",
 }
 
 
@@ -59,7 +65,7 @@ class SkillProfileTests(unittest.TestCase):
                 self.assertIn(skill, catalog)
 
     def test_high_risk_actions_are_only_in_remediation_skill(self):
-        allowed = {"auto-remediation-runner", "cost-optimization-advisor", "capacity-trend-forecaster", "cce-cci-bursting-deployer"}
+        allowed = {"auto-remediation-runner", "cost-optimization-advisor", "capacity-trend-forecaster", "cce-cci-bursting-deployer", "pressure-test"}
         for profile in discover_profiles():
             risky = HIGH_RISK_ACTIONS.intersection(profile.tools)
             if profile.name not in allowed:
@@ -152,6 +158,33 @@ class SkillProfileTests(unittest.TestCase):
         self.assertIn("VPC subnet", text)
         self.assertIn("OBS", text)
         self.assertIn("SWR", text)
+        self.assertIn("confirm=true", text)
+
+    def test_pressure_test_skill_documents_core_rules(self):
+        skill_dir = REPO_ROOT / "skills" / "pressure-test"
+        text = "\n".join(
+            [
+                (skill_dir / "SKILL.md").read_text(encoding="utf-8"),
+                (skill_dir / "references" / "workflow.md").read_text(encoding="utf-8"),
+                (skill_dir / "references" / "risk-rules.md").read_text(encoding="utf-8"),
+                (skill_dir / "references" / "output-schema.md").read_text(encoding="utf-8"),
+                (skill_dir / "references" / "java-apm-example.md").read_text(encoding="utf-8"),
+            ]
+        )
+        self.assertIn("huawei_prepare_cce_pressure_test_route", text)
+        self.assertIn("huawei_deploy_cce_pressure_test_java_sample", text)
+        self.assertIn("huawei_create_elb", text)
+        self.assertIn("huawei_inject_cce_apm_javaagent", text)
+        self.assertIn("huawei_resolve_cce_aom_instance", text)
+        self.assertIn("huawei_get_apm_master_address", text)
+        self.assertIn("huawei_generate_cce_pressure_test_client", text)
+        self.assertIn("huawei_run_cce_pressure_test", text)
+        self.assertIn("huawei_collect_cce_pressure_test_observability", text)
+        self.assertIn("huawei_generate_cce_pressure_test_report", text)
+        self.assertIn("pod -> service -> nginx-ingress -> elb", text)
+        self.assertIn("APM", text)
+        self.assertIn("huawei_create_cce_logconfig", text)
+        self.assertIn("LTS", text)
         self.assertIn("confirm=true", text)
 
 

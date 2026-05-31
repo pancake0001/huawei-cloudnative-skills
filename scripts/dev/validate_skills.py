@@ -38,6 +38,7 @@ PHASE_ONE_SKILLS = {
     "availability-risk-scanner",
     "container-migration-planner",
     "cce-cci-bursting-deployer",
+    "pressure-test",
 }
 
 

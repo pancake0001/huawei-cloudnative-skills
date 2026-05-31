@@ -272,3 +272,8 @@ Use for periodic CCE capacity trend analysis, bottleneck forecasting, simulation
 | 做可用性风险扫描、PDB/探针/AZ 分布检查 | `availability-risk-scanner` |
 | 做周报、月报、SLA、容量或稳定性运维报告 | `ops-report-generator` |
 | 做容器迁移方案和资源盘点 | `container-migration-planner` |
+## L5 Performance engineering
+
+### pressure-test
+
+Use for controlled CCE workload traffic tests, isolated Java sample deployment, reviewed ELB creation, APM Java agent injection, `pod -> service -> nginx-ingress -> elb` route preparation, k6 traffic, AOM and ELB curve collection, elasticity phase comparison, and Markdown or HTML performance reports.
