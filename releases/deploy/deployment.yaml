@@ -39,6 +39,11 @@ spec:
                 secretKeyRef:
                   name: aicli-credentials
                   key: secretKey
+            - name: HW_REGION_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: aicli-credentials
+                  key: regionId
 ---
 apiVersion: v1
 kind: Secret
@@ -49,5 +54,4 @@ type: Opaque
 stringData:
   accessKey: ""
   secretKey: ""
-  securityToken: ""
-  bailianApiKey: ""
+  regionId: "cn-north-4"
