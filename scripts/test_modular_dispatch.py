@@ -312,6 +312,54 @@ class DispatcherTests(unittest.TestCase):
         self.assertTrue(result["success"])
         mocked.assert_called_once_with("cn-north-4", None, None, None, "CCE", None)
 
+    def test_configure_cce_aom_alarm_rules_dispatch(self):
+        with mock.patch("huawei_cloud.dispatcher.aom.configure_cce_aom_alarm_rules", return_value={"success": True, "planned_rules_count": 50}) as mocked:
+            result = dispatcher.dispatch_action(
+                "huawei_configure_cce_aom_alarm_rules",
+                {
+                    "region": "cn-north-4",
+                    "cluster_id": "cluster-1",
+                    "bind_notification_rule_id": "notify-1",
+                    "rule_name_prefix": "demo",
+                    "include_metric_alarms": "false",
+                    "include_event_alarms": "true",
+                    "alarm_items": "节点磁盘空间不足",
+                    "skip_existing": "false",
+                    "prom_instance_id": "prom-1",
+                    "enterprise_project_id": "0",
+                    "smn_topic_urn": "urn:smn:cn-north-4:project:topic",
+                    "smn_topic_name": "topic",
+                    "smn_topic_display_name": "Topic Display",
+                    "confirm": "true",
+                },
+            )
+        self.assertTrue(result["success"])
+        mocked.assert_called_once_with(
+            region="cn-north-4",
+            cluster_id="cluster-1",
+            bind_notification_rule_id="notify-1",
+            rule_name_prefix="demo",
+            include_metric_alarms=False,
+            include_event_alarms=True,
+            alarm_items="节点磁盘空间不足",
+            skip_existing=False,
+            prom_instance_id="prom-1",
+            enterprise_project_id="0",
+            smn_topic_urn="urn:smn:cn-north-4:project:topic",
+            smn_topic_name="topic",
+            smn_topic_display_name="Topic Display",
+            confirm=True,
+            ak=None,
+            sk=None,
+            project_id=None,
+        )
+
+    def test_configure_cce_aom_alarm_rules_notification_rule_optional(self):
+        self.assertEqual(
+            dispatcher.ACTION_SPECS["huawei_configure_cce_aom_alarm_rules"][0],
+            ("region", "cluster_id"),
+        )
+
     def test_lts_dispatch_calls_target_handler(self):
         with mock.patch("huawei_cloud.dispatcher.lts.list_log_groups", return_value={"success": True, "total": 1}) as mocked:
             result = dispatcher.dispatch_action("huawei_list_log_groups", {"region": "cn-north-4"})
