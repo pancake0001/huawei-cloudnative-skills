@@ -9,12 +9,12 @@ Use this skill to configure CCE workloads to burst into CCI 2.0 capacity. Keep t
 
 ## Workflow
 
-1. Run `huawei_precheck_cce_cci_bursting`.
+1. Run `huawei_precheck_cce_cci_bursting`, then inspect its NodeCheck result. If physical-node addon headroom is low, use `huawei_list_cce_nodepools` and preview `huawei_resize_cce_nodepool` or `huawei_create_cce_nodepool`. Apply a capacity change only after explicit user approval.
 2. Inspect the two subnet roles. `cci_subnet_id` is a Neutron subnet ID for the addon. `vpcep_subnet_id` is a VPC subnet ID for VPCEP. Never swap them.
 3. Run `huawei_ensure_cce_cci_vpcep` without confirmation. If the report asks for `obs_endpoint_service_name`, obtain the exact OBS endpoint service name through the Huawei Cloud service ticket. Do not guess it from a similar regional public service.
-4. After explicit user approval, run `huawei_setup_cce_cci_bursting` with `confirm=true`. This ensures VPCEP dependencies and installs or updates `virtual-kubelet`.
-5. Run `huawei_verify_cce_cci_bursting`.
-6. After explicit user approval, run `huawei_deploy_cce_cci_smoke_workload` with `confirm=true`. Use a regional SWR image, then run verification again with the smoke namespace and workload name.
+4. After explicit user approval, run `huawei_setup_cce_cci_bursting` with `confirm=true`. This ensures VPCEP dependencies, writes the resolved project ID, and installs or updates `virtual-kubelet`.
+5. Run `huawei_verify_cce_cci_bursting`. When verification fails, inspect the returned diagnostics or call `huawei_diagnose_cce_cci_bursting_addon`.
+6. Run `huawei_discover_cce_cci_smoke_images` to discover tenant-owned SWR basic images. After explicit user approval, run `huawei_deploy_cce_cci_smoke_workload` with `confirm=true`. The smoke action selects a tenant-owned image automatically when `image` is omitted, then run verification again with the smoke namespace and workload name.
 
 ## References
 

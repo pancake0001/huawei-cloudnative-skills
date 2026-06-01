@@ -29,6 +29,7 @@ All dangerous operations require `confirm=true` parameter to execute. Otherwise,
 | `huawei_delete_cce_cluster` | Delete | 🔴 Critical | Deletes entire CCE cluster, irreversible |
 | `huawei_hibernate_cce_cluster` | Hibernate | 🟠 High | Stops all workloads, pauses control plane billing |
 | `huawei_awake_cce_cluster` | Awake | 🟠 High | Resumes cluster from hibernation |
+| `huawei_create_cce_nodepool` | Create | 🟡 Medium | Creates billable ECS and EVS resources |
 | `huawei_resize_cce_nodepool` | Scale | 🟡 Medium | Adjusts node pool size, affects capacity |
 | `huawei_delete_cce_nodepool` | Delete | 🟠 High | Deletes node pool, affects business capacity |
 | `huawei_delete_cce_node` | Delete | 🟠 High | Removes node from cluster, affects scheduling |
@@ -161,7 +162,7 @@ Ensure the IAM user has the minimum required permissions:
 | Tool | Function | Risk Level | Requires Confirmation |
 |------|----------|------------|----------------------|
 | `huawei_list_cce_nodepools` | List node pools | 🟢 Low | No |
-| `huawei_create_cce_nodepool` | Create node pool | 🟢 Low | No |
+| `huawei_create_cce_nodepool` | Create node pool | 🟡 Medium | **Yes** |
 | `huawei_delete_cce_nodepool` | Delete node pool | 🟠 High | **Yes** |
 | `huawei_resize_cce_nodepool` | Resize node pool | 🟡 Medium | **Yes** |
 

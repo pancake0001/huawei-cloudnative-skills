@@ -355,6 +355,7 @@ def create_node_pool(
     autoscaling_enabled: bool = False,
     min_node_count: Optional[int] = None,
     max_node_count: Optional[int] = None,
+    confirm: bool = False,
     ak: Optional[str] = None,
     sk: Optional[str] = None,
     project_id: Optional[str] = None
@@ -377,6 +378,7 @@ def create_node_pool(
         autoscaling_enabled: Enable autoscaling (default: False)
         min_node_count: Minimum node count for autoscaling
         max_node_count: Maximum node count for autoscaling
+        confirm: True to confirm and execute creation (default: False)
         ak: Access Key ID (optional)
         sk: Secret Access Key (optional)
         project_id: Project ID (optional)
@@ -388,14 +390,6 @@ def create_node_pool(
     Returns:
         Dictionary with operation result
     """
-    access_key, secret_key, proj_id = get_credentials(ak, sk, project_id)
-
-    if not access_key or not secret_key:
-        return {
-            "success": False,
-            "error": "Credentials not provided. Set HUAWEI_AK and HUAWEI_SK environment variables or pass as parameters."
-        }
-
     if not cluster_id:
         return {
             "success": False,
@@ -424,6 +418,38 @@ def create_node_pool(
         return {
             "success": False,
             "error": "initial_node_count must be a non-negative integer"
+        }
+
+    if not confirm:
+        return {
+            "success": False,
+            "requires_confirmation": True,
+            "operation": "create_nodepool",
+            "warning": f"Warning: Creating node pool '{nodepool_name}' may create billable ECS and EVS resources.",
+            "cluster_id": cluster_id,
+            "nodepool_name": nodepool_name,
+            "plan": {
+                "flavor": flavor,
+                "availability_zone": availability_zone,
+                "root_volume_size": root_volume_size,
+                "root_volume_type": root_volume_type,
+                "initial_node_count": initial_node_count,
+                "os_type": os_type,
+                "ssh_key": ssh_key,
+                "subnet_id": subnet_id,
+                "autoscaling_enabled": autoscaling_enabled,
+                "min_node_count": min_node_count,
+                "max_node_count": max_node_count,
+            },
+            "hint": "Add confirm=true parameter only after explicit user approval.",
+        }
+
+    access_key, secret_key, proj_id = get_credentials(ak, sk, project_id)
+
+    if not access_key or not secret_key:
+        return {
+            "success": False,
+            "error": "Credentials not provided. Set HUAWEI_AK and HUAWEI_SK environment variables or pass as parameters."
         }
 
     if not SDK_AVAILABLE:

@@ -29,6 +29,7 @@ version: 1.0.0
 | `huawei_delete_cce_cluster` | 删除 | 🔴 极高 | 删除整个 CCE 集群，不可恢复 |
 | `huawei_hibernate_cce_cluster` | 休眠 | 🟠 高 | 休眠集群，停止所有工作负载，暂停控制面计费 |
 | `huawei_awake_cce_cluster` | 唤醒 | 🟠 高 | 唤醒休眠集群，恢复工作负载和控制面计费 |
+| `huawei_create_cce_nodepool` | 创建 | 🟡 中 | 创建计费 ECS 和 EVS 资源 |
 | `huawei_resize_cce_nodepool` | 扩缩容 | 🟡 中 | 调整节点池节点数量，影响业务容量 |
 | `huawei_delete_cce_nodepool` | 删除 | 🟠 高 | 删除节点池，影响业务容量 |
 | `huawei_delete_cce_node` | 删除 | 🟠 高 | 从集群删除节点，影响业务调度 |
@@ -232,7 +233,7 @@ python3 huawei-cloud.py huawei_get_cce_kubeconfig \
 | 工具 | 功能 | 风险等级 | 需确认 |
 |------|------|---------|-------|
 | `huawei_list_cce_nodepools` | 查询节点池列表 | 🟢 低 | 否 |
-| `huawei_create_cce_nodepool` | 创建节点池 | 🟢 低 | 否 |
+| `huawei_create_cce_nodepool` | 创建节点池 | 🟡 中 | **是** |
 | `huawei_resize_cce_nodepool` | 调整节点池节点数量 | 🟡 中 | **是** |
 | `huawei_delete_cce_nodepool` | 删除节点池 | 🟠 高 | **是** |
 

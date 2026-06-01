@@ -80,6 +80,8 @@ Node pools in Turbo (ENI network) clusters must use ENI-compatible flavors. Inco
 
 ## Operation Instructions
 
+Node pool creation is preview-first because it may create billable ECS and EVS resources. Run the command without `confirm=true`, review the plan, obtain explicit approval, then rerun the same command with `confirm=true`.
+
 ### Create Node Pool (Standard Cluster)
 
 ```bash
