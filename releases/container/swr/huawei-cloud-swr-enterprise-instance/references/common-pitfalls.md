@@ -45,6 +45,7 @@ hcloud SWR ShowInstance --instance_id=<instance-id> --cli-region=cn-north-4
 **Root Cause**: Instance name violates naming rules
 
 **Naming Rules**:
+
 - Start with lowercase letter
 - Followed by lowercase letters, digits, or hyphens (`-`)
 - No consecutive hyphens (`--` is invalid)
@@ -52,6 +53,7 @@ hcloud SWR ShowInstance --instance_id=<instance-id> --cli-region=cn-north-4
 - Length: 3-48 characters
 
 **Common Mistakes**:
+
 - ❌ `MyInstance` — starts with uppercase
 - ❌ `my--instance` — consecutive hyphens
 - ❌ `my-instance-` — ends with hyphen
@@ -64,7 +66,9 @@ hcloud SWR ShowInstance --instance_id=<instance-id> --cli-region=cn-north-4
 
 **Symptom**: `ListInstanceNamespaces`, `ListInstanceRegistries`, `ListInstanceRepositories`, or `ListInstanceArtifacts` pagination returns errors or unexpected results
 
-**Root Cause**: For instance-specific list operations (namespace, registry, repository, artifact), the `offset` parameter must be 0 or a multiple of `limit`. This is different from the basic SWR pagination which allows any offset value.
+**Root Cause**: For instance-specific list operations (namespace, registry, repository, artifact),
+the `offset` parameter must be 0 or a multiple of `limit`.
+This is different from the basic SWR pagination which allows any offset value.
 
 **Solution**: Always use offset values that are multiples of limit:
 
@@ -82,7 +86,9 @@ hcloud SWR ListInstanceNamespaces --instance_id=<id> --limit=20 --offset=40 --cl
 hcloud SWR ListInstanceNamespaces --instance_id=<id> --limit=20 --offset=10 --cli-region=cn-north-4
 ```
 
-⚠️ **Note**: `ListInstance` and `ListInstanceLtCredentials` use standard offset/limit pagination (offset does not need to be multiple of limit). Only instance namespace, registry, repository, and artifact lists require the offset-to-be-multiple constraint.
+⚠️ **Note**: `ListInstance` and `ListInstanceLtCredentials` use standard offset/limit
+pagination (offset does not need to be multiple of limit).
+Only instance namespace, registry, repository, and artifact lists require the offset-to-be-multiple constraint.
 
 ## Pitfall 5: Namespace metadata.public Required for Update
 
@@ -104,7 +110,9 @@ hcloud SWR UpdateInstanceNamespace --instance_id=<id> --namespace_name=group-dev
 
 **Symptom**: `CreateInstanceRegistry` with type `swr-pro-internal` fails with missing parameters
 
-**Root Cause**: When creating a registry of type `swr-pro-internal`, `--instance_id` appears both as a path parameter (the source instance) and a body parameter (the target instance ID). Both must be provided.
+**Root Cause**: When creating a registry of type `swr-pro-internal`,
+`--instance_id` appears both as a path parameter (the source instance)
+and a body parameter (the target instance ID). Both must be provided.
 
 **Solution**: Provide both instance IDs when creating `swr-pro-internal` registry:
 
@@ -187,6 +195,7 @@ hcloud SWR ShowInstanceArtifact --instance_id=<id> --namespace_name=group-dev --
 **Symptom**: `CreateInstanceEndpointPolicy` fails when trying to enable or disable public access
 
 **Root Cause**: The enable/disable operation has status constraints:
+
 - Can only enable (`--enable=true`) when status is `Disable` or `EnableFailed`
 - Can only disable (`--enable=false`) when status is `Enable` or `DisableFailed`
 
@@ -207,6 +216,7 @@ hcloud SWR CreateInstanceEndpointPolicy --instance_id=<id> --enable=true --cli-r
 **Root Cause**: Registry credentials (`--credential.access_key` and `--credential.access_secret`) must be correct and current. If the target registry changes its credentials, sync will fail.
 
 **Solution**:
+
 - Never expose or log credential values
 - Update registry credentials when they change on the target side
 - Verify credentials work by testing manually before configuring in SWR
@@ -220,7 +230,10 @@ hcloud SWR UpdateInstanceRegistry --instance_id=<id> --registry_id=<reg-id> --na
 
 **Symptom**: `CreateInstance` or `CreateInstanceInternalEndpoint` fails with project ID errors
 
-**Root Cause**: The `--project_id` body parameter for VPC/subnet configuration may differ from the auto-filled path `--project_id`. If the VPC/subnet is in a different project, the body `--project_id` must specify the VPC/subnet project.
+**Root Cause**: The `--project_id` body parameter for VPC/subnet configuration
+may differ from the auto-filled path `--project_id`.
+If the VPC/subnet is in a different project, the body `--project_id`
+must specify the VPC/subnet project.
 
 **Solution**: Ensure the body `--project_id` matches the project where the VPC and subnet reside:
 
@@ -252,7 +265,11 @@ hcloud SWR ListAllInstanceRepositories --limit=20 --offset=0 --cli-region=cn-nor
 
 **Symptom**: `hcloud SWR CreateInstance` fails with `[USE_ERROR]重复的参数:project_id` or `[USE_ERROR]缺少必填参数:project_id`
 
-**Root Cause**: The `CreateInstance` API has two `--project_id` parameters with the same name — one as a path parameter (auto-filled from `cli-project-id`) and one as a body parameter (VPC/subnet project). hcloud CLI (version 7.2.2) does not support duplicate parameter names:
+**Root Cause**: The `CreateInstance` API has two `--project_id` parameters
+with the same name — one as a path parameter (auto-filled from `cli-project-id`)
+and one as a body parameter (VPC/subnet project).
+hcloud CLI (version 7.2.2) does not support duplicate parameter names:
+
 - Passing `--project_id` once fills only the path parameter, leaving the body parameter missing → `缺少必填参数:project_id`
 - Passing `--project_id` twice triggers duplicate parameter detection → `重复的参数:project_id`
 
@@ -271,13 +288,21 @@ All other hcloud CLI SWR operations (ListInstance, ShowInstance, DeleteInstance,
 
 ## Pitfall 16: SWR Service Tenant Quota Exceeded (Misleading Error)
 
-**Symptom**: `CreateInstance` (via SDK or API) returns job status `Failed` with reason containing `"Quota exceeded for instances: Requested 1, but already used 200 of 200 instances"` (error code `Ecs.0204`, HTTP 403)
+**Symptom**: `CreateInstance` (via SDK or API) returns job status `Failed`
+with reason containing `"Quota exceeded for instances: Requested 1,
+but already used 200 of 200 instances"` (error code `Ecs.0204`, HTTP 403)
 
-**Root Cause**: SWR enterprise instances are hosted on a shared CCE cluster managed by the SWR service tenant. When the service tenant's ECS quota is full (e.g., 200/200 instances used by other users' enterprise instances), new instance creation fails. The error message is misleading — it refers to the **SWR service tenant's** quota, not the user's own ECS quota. The user's quota may show 0/200 used while still encountering this error.
+**Root Cause**: SWR enterprise instances are hosted on a shared CCE cluster
+managed by the SWR service tenant. When the service tenant's ECS quota is full
+(e.g., 200/200 instances used by other users' enterprise instances),
+new instance creation fails. The error message is misleading — it refers to
+the **SWR service tenant's** quota, not the user's own ECS quota.
+The user's quota may show 0/200 used while still encountering this error.
 
 **Diagnosis Steps**:
 
 1. Check the job status to see the full error:
+
 ```bash
 # Via SDK script
 python scripts/swr_instance_helper.py show --instance_id=<instance-id>
@@ -286,9 +311,10 @@ python scripts/swr_instance_helper.py show --instance_id=<instance-id>
 hcloud SWR ShowInstanceJob --job_id=<job-id> --cli-region=cn-north-4
 ```
 
-2. Verify the error message contains `"Quota exceeded for instances"` with `"Ecs.0204"` error code
+1. Verify the error message contains `"Quota exceeded for instances"` with `"Ecs.0204"` error code
 
-3. Confirm the user's own ECS quota is NOT the issue:
+2. Confirm the user's own ECS quota is NOT the issue:
+
 ```bash
 # User's quota is separate from the service tenant's quota
 hcloud ECS ShowServerLimits --cli-region=cn-north-4
@@ -298,6 +324,7 @@ hcloud ECS ShowServerLimits --cli-region=cn-north-4
 **Solution**: This is a SWR service-side quota issue. Contact Huawei Cloud SWR team to expand the service tenant's ECS quota. No action is required on the user side.
 
 **Error Log Example** (from `ShowInstanceJob`):
+
 ```
 reason: [[CreateServiceTenantCCENode.DoError] wait cycle error, failed to create cce node:
   [[CreateNodeVM.DoError] wait create user node(name: swr-ee-<id>-registry-1, ...)

@@ -20,6 +20,7 @@ SWR enterprise instances provide dedicated, isolated container registry environm
 ### W1: Create an Enterprise Instance
 
 **Pre-creation Checklist**:
+
 1. Verify VPC exists and is in the target region
 2. Verify subnet exists within the VPC
 3. Decide instance spec: `swr.ee.basic` or `swr.ee.professional`
@@ -44,6 +45,7 @@ hcloud SWR CreateInstance --name=tagged-instance --spec=swr.ee.professional --ch
 ```
 
 **Instance Creation Parameters**:
+
 - `--name`: Instance name (3-48 chars, lowercase start, no consecutive hyphens, no ending hyphen)
 - `--spec`: `swr.ee.basic` or `swr.ee.professional`
 - `--charge_mode`: Only `postPaid` (on-demand) supported currently
@@ -83,6 +85,7 @@ hcloud SWR ListInstance --limit=20 --offset=0 --cli-region=cn-north-4
 ```
 
 **Use Cases**:
+
 - Find instance ID for subsequent operations
 - Check instance status after creation
 - Audit all enterprise instances in a project
@@ -95,6 +98,7 @@ hcloud SWR ShowInstance --instance_id=<instance-id> --cli-region=cn-north-4
 ```
 
 **Use Cases**:
+
 - Get instance ID, name, spec, and status
 - View VPC/subnet configuration
 - Check instance endpoints (internal and public)
@@ -114,6 +118,7 @@ hcloud SWR UpdateInstanceConfiguration --instance_id=<instance-id> --anonymous_a
 ```
 
 **Configuration Options**:
+
 - `anonymous_access`: Whether unauthenticated users can pull images. Default is `false` for security.
 
 ### W5: Delete an Instance
@@ -121,12 +126,15 @@ hcloud SWR UpdateInstanceConfiguration --instance_id=<instance-id> --anonymous_a
 ⚠️ **CAUTION**: Deleting an instance permanently removes ALL data — namespaces, repositories, artifacts, credentials, endpoints, domains. This is irreversible.
 
 **Pre-deletion Checklist**:
+
 1. List all namespaces to verify what will be deleted:
+
 ```bash
 hcloud SWR ListInstanceNamespaces --instance_id=<instance-id> --cli-region=cn-north-4
 ```
-2. Confirm with the user that ALL data will be permanently deleted
-3. If data needs to be preserved, migrate/sync to another instance first
+
+1. Confirm with the user that ALL data will be permanently deleted
+2. If data needs to be preserved, migrate/sync to another instance first
 
 ```bash
 # Delete instance (basic — does not delete OBS bucket or DNS)

@@ -2,7 +2,10 @@
 
 ## Overview
 
-SWR enterprise instance artifacts represent image versions (tags) within repositories. Enterprise instances provide advanced artifact management including vulnerability scanning, build history viewing, and security blocking. This task covers listing, viewing, scanning, and deleting artifacts.
+SWR enterprise instance artifacts represent image versions (tags) within
+repositories. Enterprise instances provide advanced artifact management
+including vulnerability scanning, build history viewing, and security blocking.
+This task covers listing, viewing, scanning, and deleting artifacts.
 
 ## Operations Catalog
 
@@ -62,6 +65,7 @@ hcloud SWR ShowInstanceArtifact --instance_id=<instance-id> --namespace_name=gro
 ```
 
 **Key Fields** (response format needs verification):
+
 - Artifact digest (SHA256 hash)
 - Artifact size
 - Push time
@@ -76,6 +80,7 @@ hcloud SWR ShowInstanceArtifactAddition --instance_id=<instance-id> --namespace_
 ```
 
 **Use Cases**:
+
 - View Docker build history layers
 - Check build commands and creation timestamps
 - Debug image build issues
@@ -87,6 +92,7 @@ hcloud SWR ListInstanceArtifactVulnerabilities --instance_id=<instance-id> --nam
 ```
 
 **Use Cases**:
+
 - Review detailed vulnerability report for an artifact
 - Identify specific CVEs affecting an image
 - Determine which vulnerabilities need remediation
@@ -99,6 +105,7 @@ hcloud SWR StartManualScanning --instance_id=<instance-id> --namespace_name=grou
 ```
 
 **Use Cases**:
+
 - Re-scan an image after it was initially pushed without auto-scan
 - Verify vulnerability status before promoting to production
 - Trigger scan after updating vulnerability database
@@ -110,12 +117,15 @@ hcloud SWR StartManualScanning --instance_id=<instance-id> --namespace_name=grou
 ⚠️ **CAUTION**: Deleting an artifact permanently removes the image version. This is irreversible.
 
 **Pre-deletion Checklist**:
+
 1. Verify artifact exists and get its digest:
+
 ```bash
 hcloud SWR ListInstanceArtifacts --instance_id=<instance-id> --namespace_name=group-dev --repository_name=my-app --cli-region=cn-north-4
 ```
-2. Check if artifact is still being used (pulled by running containers)
-3. Confirm with the user that the artifact will be permanently deleted
+
+1. Check if artifact is still being used (pulled by running containers)
+2. Confirm with the user that the artifact will be permanently deleted
 
 ```bash
 hcloud SWR DeleteInstanceArtifact --instance_id=<instance-id> --namespace_name=group-dev --repository_name=my-app --reference=sha256:abc123def456... --cli-region=cn-north-4

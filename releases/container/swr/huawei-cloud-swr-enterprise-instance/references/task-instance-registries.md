@@ -2,7 +2,10 @@
 
 ## Overview
 
-SWR enterprise instance registries define target repositories for image synchronization (replication). Instance repositories hold container images within namespaces. This task covers registry CRUD operations and repository management.
+SWR enterprise instance registries define target repositories for image
+synchronization (replication). Instance repositories hold container images
+within namespaces. This task covers registry CRUD operations and repository
+management.
 
 ## Part 1: Instance Registries (Sync Targets)
 
@@ -23,6 +26,7 @@ SWR enterprise instance registries define target repositories for image synchron
 Registries define external target repositories for image replication/sync.
 
 **Pre-creation Checklist**:
+
 1. Verify the target registry URL is accessible
 2. Obtain authentication credentials for the target registry
 3. Decide registry type: `swr-pro` (Harbor), `swr-pro-internal` (SWR enterprise), `huawei-SWR` (basic SWR)
@@ -45,11 +49,13 @@ hcloud SWR CreateInstanceRegistry --instance_id=<instance-id> --name=self-signed
 ```
 
 **Registry Types**:
+
 - `swr-pro`: Open-source Harbor registry (third-party)
 - `swr-pro-internal`: Another Huawei Cloud SWR enterprise instance
 - `huawei-SWR`: Basic Huawei Cloud SWR (shared instance)
 
 **Type-Specific Requirements**:
+
 - `swr-pro-internal`: Requires `--instance_id` (body, target instance), `--project_id` (body, target project), `--region_id`
 - `swr-pro` and `huawei-SWR`: No additional required fields
 
@@ -164,6 +170,7 @@ hcloud SWR ShowInstanceRepository --instance_id=<instance-id> --namespace_name=g
 ```
 
 **Use Cases**:
+
 - Check repository artifact count
 - View repository description
 - Verify repository before updating or deleting
@@ -181,11 +188,14 @@ hcloud SWR UpdateInstanceRepository --instance_id=<instance-id> --namespace_name
 ⚠️ **CAUTION**: Deleting a repository permanently removes ALL artifacts (image versions). This is irreversible.
 
 **Pre-deletion Checklist**:
+
 1. List all artifacts to verify what will be deleted:
+
 ```bash
 hcloud SWR ListInstanceArtifacts --instance_id=<instance-id> --namespace_name=group-dev --repository_name=my-app --cli-region=cn-north-4
 ```
-2. Confirm with the user that all artifacts will be permanently deleted
+
+1. Confirm with the user that all artifacts will be permanently deleted
 
 ```bash
 hcloud SWR DeleteInstanceRepository --instance_id=<instance-id> --namespace_name=group-dev --repository_name=my-app --cli-region=cn-north-4
