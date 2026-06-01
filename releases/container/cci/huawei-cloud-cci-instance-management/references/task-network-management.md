@@ -54,7 +54,7 @@ metadata.annotations:
 
 **hcloud CLI cannot pass annotation keys containing dots (`.`) as CLI parameters** — hcloud treats dots as nested object delimiters rather than literal annotation key names. The `--cli-jsonInput` approach also fails because hcloud does not properly transmit annotations from JSON input files as part of the request body.
 
-Additionally, `--cli-jsonInput` files must use **ASCII encoding** (not UTF-8 with BOM). UTF-8 with BOM causes the error: `解析cli-jsonInput参数文件失败`.
+Additionally, `--cli-jsonInput` files must use **ASCII encoding** (not UTF-8 with BOM). UTF-8 with BOM causes the error: `Failed to parse cli-jsonInput parameter file`.
 
 ### Primary Method: Python Helper Script
 

@@ -103,13 +103,13 @@ hcloud CCI readCoreV1NamespacedPodLog --name=<pod> --namespace=<ns> --container=
 
 **Fix:** Use the Python helper script for Network creation instead of hcloud CLI. The Python SDK correctly handles annotation keys with dots.
 
-## 12. hcloud CLI "不正确的参数" for Annotation Keys with Dots
+## 12. hcloud CLI "Incorrect parameter" Error for Annotation Keys with Dots
 
 **Cause:** When using `--metadata.annotations.network.alpha.kubernetes.io/key=value`, hcloud treats each dot as a nested object level delimiter. No escaping mechanism (backslash, quotes, etc.) works.
 
 **Fix:** This is an hcloud CLI limitation. Use the Python helper script for any CCI resource creation that requires annotation keys with dots (especially Network). hcloud CLI is usable only for annotation keys without dots (e.g., hyphenated keys on Namespace).
 
-## 13. hcloud `--cli-jsonInput` "解析cli-jsonInput参数文件失败" Error
+## 13. hcloud `--cli-jsonInput` "Failed to parse cli-jsonInput parameter file" Error
 
 **Cause:** Multiple possible causes for this JSON input parsing failure.
 
