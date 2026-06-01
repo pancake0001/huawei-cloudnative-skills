@@ -1,279 +1,118 @@
 # Skill Index
 
-## L1 CCE to CCI elasticity
-
-### cce-cci-bursting-deployer
-
-Use for fast CCE to CCI 2.0 bursting setup, including subnet precheck, SWR and OBS VPCEP readiness, `virtual-kubelet` configuration, smoke workload deployment, and verification on `bursting-node`.
-
-### availability-risk-scanner
-
-Use for CCE availability risk checks covering replicas, PDBs, probes, affinity, AZ distribution, gateway workloads, and resource configuration.
-
-### capacity-trend-forecaster
-
-Use for periodic CCE capacity trend analysis, bottleneck forecasting, simulation, and elasticity tuning recommendations.
-
-`skills/_catalog` 是总目录，不是可触发 skill，因此不放 `SKILL.md`。第一阶段采用简化架构：agent 通过各 skill 的 `description` 自动触发；需要人工查找时先看本文件，再进入对应 skill 的 `SKILL.md` 和 `references/*`。
-
-第一阶段不实现复杂 `skill-router`，也不建立完整 runtime 平台。工具边界由每个 skill 的 `skill-profile.yaml` 声明，`manifest.json` 由 `scripts/dev/generate_manifests.py` 生成。
-
-## L1 产品与资源生命周期管理
-
-### container-migration-planner
-
-适用：CCE 集群迁移、容器平台交付方案、资源盘点、迁移风险评估。
-
-常见问题：需要从一个集群迁移到另一个集群；需要评估 VPC、ELB、EIP、存储和工作负载依赖；需要输出迁移方案。
-
-常用工具：`huawei_list_cce_clusters`、`huawei_list_cce_nodes`、`huawei_get_cce_deployments`、`huawei_get_cce_services`、`huawei_get_cce_ingresses`、`huawei_get_cce_pvcs`、`huawei_list_vpc`、`huawei_list_elb`。
-
-关系：只做盘点和方案，不执行真实迁移；如发现运行态异常，转给 `root-cause-analyzer`。
-
-## L2 可观测与告警智能
-
-### observability-context-builder
-
-适用：需要汇聚指标、日志、事件、告警，建立故障上下文。
-
-常见问题：Pod 异常但不知道先看什么；用户提供 CCE 告警需要补齐上下文；服务变慢需要拉取 AOM、LTS、Events、TopN 指标。
-
-常用工具：`huawei_list_aom_alarms`、`huawei_get_aom_metrics`、`huawei_query_aom_logs`、`huawei_get_cce_events`、`huawei_get_cce_pod_metrics_topN`、`huawei_get_cce_node_metrics_topN`。
-
-关系：负责收集证据，不给最终恢复动作；根因判断交给 `root-cause-analyzer`。
-
-### alarm-correlation-engine
-
-适用：AOM 告警很多，需要合并、去重、分级和关联分析。
-
-常见问题：CCE 告警风暴；active/history 告警需要一起看；规则、静默、动作规则需要核对。
-
-常用工具：`huawei_list_aom_alarms`、`huawei_list_aom_current_alarms`、`huawei_analyze_aom_alarms`、`huawei_list_aom_alarm_rules`、`huawei_aom_alarm_inspection`。
-
-关系：输出告警线索和时间线；复杂跨域根因交给 `root-cause-analyzer`。
-
-### log-analyzer
-
-适用：需要查询 Kubernetes Pod 标准输出、CCE LogConfig 采集的应用日志、或华为云 LTS 日志并做错误模式分析。
-
-常见问题：查看 Pod 最近日志；查询上一个崩溃容器日志；根据应用名找到 LTS 日志流；按关键词、时间范围或标签查询 LTS 日志。
-
-常用工具：`huawei_get_pod_logs`、`huawei_get_cce_logconfigs`、`huawei_create_cce_logconfig`、`huawei_delete_cce_logconfig`、`huawei_get_application_logconfigs`、`huawei_query_cce_audit_logs`、`huawei_query_application_logs`、`huawei_query_application_recent_logs`、`huawei_analyze_application_logs`。
-
-关系：只读查询和分析日志；如果日志指向 Pod、Node、Network 或恢复动作，转给对应诊断或自愈 skill。
-
-### kubernetes-event-analyzer
-
-适用：需要查询和分析 Kubernetes 事件，发现 Warning 事件、节点/Pod/工作负载异常、以及事件模式。
-
-常见问题：查看集群最近的 Warning 事件；查找重复的 ImagePullBackOff、Evicted、FailedScheduling 事件；按 namespace 或时间窗口分析事件趋势；关联事件与具体 Pod/Node/Workload。
-
-常用工具：`huawei_get_cce_events`、`huawei_query_k8s_events_from_lts`。
-
-关系：只读查询事件；如果事件指向具体故障，转给对应诊断 skill（Pod 问题 -> `pod-failure-diagnoser`，Node 问题 -> `node-failure-diagnoser`，工作负载问题 -> `workload-failure-diagnoser`）。当集群开启 K8s 事件 LTS 采集时，可使用 `huawei_query_k8s_events_from_lts` 从 LTS 查询历史事件；否则使用 `huawei_get_cce_events` 从 K8s API 实时查询。
-
-### metric-analyzer
-
-适用：需要查询和分析 CCE 集群指标（Pod/Node TopN）和云资源指标（ECS、ELB、EIP、NAT），发现资源异常（CPU/内存/磁盘使用率偏高），获取排名和时序数据。
-
-常见问题：查看 CPU/内存使用最高的 Pod；查看节点资源使用排名；查询 ECS/ELB/EIP/NAT 指标；检测资源阈值异常。
-
-常用工具：`huawei_get_cce_pod_metrics_topN`、`huawei_get_cce_pod_metrics`、`huawei_get_cce_node_metrics_topN`、`huawei_get_cce_node_metrics`、`huawei_get_ecs_metrics`、`huawei_get_elb_metrics`、`huawei_get_eip_metrics`、`huawei_get_nat_gateway_metrics`、`huawei_cce_cluster_monitoring_aggregation`。聚合分析工具 `huawei_cce_cluster_monitoring_aggregation` 可一次性获取集群所有监控数据（Pod/Node/ELB/NAT/EIP）并进行异常检测（阈值 80%）。
-
-关系：只读查询指标；如果发现严重资源异常，转给对应诊断 skill（Node 问题 -> `node-failure-diagnoser`，Pod 问题 -> `pod-failure-diagnoser`）。
-
-## L3 故障诊断与自愈恢复
-
-### pod-failure-diagnoser
-
-适用：CrashLoopBackOff、ImagePullBackOff、OOMKilled、Pending、Evicted、Pod 日志异常。
-
-常见问题：Pod 一直重启；Pod Pending；单个 Pod OOMKilled；用户只给了 namespace 和应用名。
-
-常用工具：`huawei_pod_failure_diagnose`、`huawei_get_cce_pods`、`huawei_get_pod_logs`、`huawei_get_cce_events`、`huawei_get_cce_pod_metrics`、`huawei_workload_diagnose`。
-
-关系：定位 Pod 运行时问题；如果问题是发布失败、滚动升级卡住或副本不满足，转给 `workload-failure-diagnoser`。
-
-### workload-failure-diagnoser
-
-适用：Deployment/StatefulSet/DaemonSet 发布失败、滚动升级卡住、副本不满足、新 ReplicaSet 无法创建 Pod、探针异常导致不可用。
-
-常见问题：Deployment rollout 卡住；发布后 readyReplicas 不足；NewRS 没有 Pod；StatefulSet updatedReplicas 不增长；Running 但 readiness probe 失败。
-
-常用工具：`huawei_workload_rollout_diagnose`、`huawei_get_workload_rollout_context`、`huawei_pod_failure_diagnose`、`huawei_get_cce_events`、`huawei_get_pod_logs`。
-
-关系：负责控制器、版本、ReplicaSet、Pod 事件漏斗；Pod 运行时细节复用 `pod-failure-diagnoser`；恢复动作交给 `auto-remediation-runner`。
-
-### node-failure-diagnoser
-
-适用：Node NotReady、Ready=Unknown、Lease 超时、资源压力、NPD 事件、CNI/网络异常、kubelet/CRI 异常、节点漏洞。
-
-常见问题：节点 NotReady；Pod 集中调度失败；节点 CPU/内存/磁盘压力；FailedCreatePodSandBox/CNI 错误；SystemOOM；ContainerRuntimeNotReady；HSS 漏洞影响节点。
-
-常用工具：`huawei_node_failure_diagnose`、`huawei_get_kubernetes_nodes`、`huawei_get_cce_events`、`huawei_get_cce_pods`、`huawei_get_cce_node_metrics`、`huawei_node_diagnose`、`huawei_node_batch_diagnose`、`huawei_hss_list_host_vuls_all`。
-
-关系：定位节点层问题；cordon、drain、reboot 由 `auto-remediation-runner` 预览和确认。
-
-### autoscaling-diagnoser
-
-适用：CCE 自动弹性不生效，HPA 不扩 Pod、Cluster Autoscaler/CCE 弹性引擎不扩节点、指标缺失、资源 request 配置不合理、节点池 max_nodes 到顶、Pending Pod 未触发扩容、调度约束或云资源条件阻断。
-
-常见问题：为什么我的 Pod 不能自动扩容；为什么我的 Node/ECS 不能自动扩容；HPA 已经增加副本但 Pod Pending，节点却不增加；节点为什么不能自动缩容。
-
-常用工具：`huawei_autoscaling_diagnose`、`huawei_list_cce_hpas`、`huawei_list_cce_addons`、`huawei_list_cce_nodepools`、`huawei_get_cce_pods`、`huawei_get_cce_events`、`huawei_get_cce_pod_metrics_topN`、`huawei_get_cce_node_metrics_topN`。
-
-关系：先做意图识别和 HPA/CA 能力发现，再按路径 A/B/C 输出 Markdown 诊断报告；Pod、Workload、Node 细节可转给对应 diagnoser；真实整改交给 `auto-remediation-runner`。
-
-### network-failure-diagnoser
-
-适用：Service 不通、DNS/CoreDNS 异常、Ingress 502/504、NetworkPolicy 拦截、ELB 后端异常、ELB/EIP/NAT 链路问题、Pod 调度后的连通性验证。
-
-常见问题：外部访问 502；Service 没有后端；域名无法解析；NetworkPolicy 阻断；Ingress 到 ELB 链路异常；节点安全组或网络 ACL 可疑。
-
-常用工具：`huawei_network_failure_diagnose`、`huawei_get_cce_services`、`huawei_get_cce_ingresses`、`huawei_get_elb_backend_status`、`huawei_get_elb_metrics`、`huawei_list_eip`、`huawei_network_diagnose`。
-
-关系：定位网络链路；涉及绑定/解绑 EIP 或扩缩容验证时交给 `auto-remediation-runner`。
-
-### storage-failure-diagnoser
-
-适用：PVC Pending、PV/PVC 绑定异常、EVS 可用区调度冲突、VolumeAttachment 挂载失败、SFS/SFS Turbo NFS timeout、OBS 403/签名错误、容量或 Inode 耗尽、只读文件系统、ConfigMap/Secret subPath 挂载异常、PVC Terminating 删除保护。
-
-常见问题：为什么我的卷挂不上；PVC 为什么一直 Pending；Pod 卡在 ContainerCreating 且 FailedMount；EVS 云盘 attach 失败；SFS 挂载超时；OBS 挂载 403；应用写入报 no space left/read-only file system；PVC 删除不掉。
-
-常用工具：`huawei_storage_failure_diagnose`、`huawei_get_cce_pvcs`、`huawei_get_cce_pvs`、`huawei_get_cce_storageclasses`、`huawei_get_cce_volumeattachments`、`huawei_get_cce_node_stats_summary`、`huawei_get_cce_everest_csi_logs`、`huawei_list_evs`、`huawei_list_sfs`、`huawei_list_sfs_turbo`。
-
-关系：定位存储生命周期问题；若证据落到节点 NotReady/资源压力，转给 `node-failure-diagnoser`；若落到安全组/ACL/VPC 链路，转给 `network-failure-diagnoser`；删除残留 Pod、扩容、迁移、detach 等动作转给 `auto-remediation-runner`。
-
-### root-cause-analyzer
-
-适用：跨 Pod、Workload rollout、Service 拓扑、近期变更、Node、Network、AOM 告警的综合根因分析。
-
-常见问题：用户只描述业务不可用；多个告警同时出现；需要 Top3 根因、证据链和报告。
-
-常用工具：`huawei_root_cause_analyze`、`huawei_workload_rollout_diagnose`、`huawei_dependency_impact_analyze`、`huawei_change_impact_analyze`、`huawei_generate_diagnosis_report`、`huawei_analyze_aom_alarms`。
-
-关系：汇总诊断结论；恢复动作交给 `auto-remediation-runner`，巡检入口交给 `daily-cluster-inspector`。
-
-### dependency-impact-analyzer
-
-适用：基于 CCE Service/Ingress/Pod/Node 拓扑判断故障传播路径、上下游影响和爆炸半径。
-
-常见问题：某个 Deployment 不可用会影响哪些入口；Service 后端异常会影响哪些 Ingress host；需要判断上游入口和集群内调用风险；需要输出影响面报告。
-
-常用工具：`huawei_dependency_impact_analyze`、`huawei_get_cce_pods`、`huawei_get_cce_services`、`huawei_get_cce_ingresses`、`huawei_get_kubernetes_nodes`。
-
-关系：只读拓扑影响分析；根因判断交给 `root-cause-analyzer`，恢复动作交给 `auto-remediation-runner`。
-
-### change-impact-analyzer
-
-适用：故障可能由近期变更引起，需要结合发布、配置、节点、网络、安全策略变更定位诱因，并输出完整 Markdown 证据报告。
-
-常见问题：发布后业务异常；CoreDNS/ConfigMap/Service/Ingress 更新后访问异常；NetworkPolicy/RBAC 变更后连接超时或 403；节点 taint/cordon/drain/扩缩容后 Pod Pending；需要列出故障前后 Top 风险变更。
-
-常用工具：`huawei_change_impact_analyze`、`huawei_query_cce_audit_logs`、`huawei_query_k8s_events_from_lts`、`huawei_analyze_aom_alarms`、`huawei_get_cce_services`、`huawei_get_cce_ingresses`、`huawei_get_kubernetes_nodes`、`huawei_list_security_groups`。
-
-关系：负责只读变更归因、爆炸半径和证据报告；如果 Top 风险需要下钻，转给 `workload-failure-diagnoser`、`network-failure-diagnoser` 或 `node-failure-diagnoser`；恢复动作交给 `auto-remediation-runner`。
-
-### auto-remediation-runner
-
-适用：用户已经明确要求恢复动作，或诊断结果需要生成可确认的恢复预案。
-
-常见问题：根据高置信发布故障回滚 Deployment；扩容工作负载；cordon/drain 节点；重启 ECS；修复 HSS 漏洞；休眠或唤醒 CCE 集群。
-
-常用工具：`huawei_auto_remediation_run`、`huawei_rollback_cce_workload`、`huawei_scale_cce_workload`、`huawei_configure_cce_hpa`、`huawei_resize_cce_nodepool`、`huawei_cce_node_cordon`、`huawei_cce_node_drain`、`huawei_reboot_ecs`、`huawei_hss_change_vul_status`。
-
-关系：默认只预览，不自动加 `confirm=true`；执行后调用只读诊断工具做验证。
-
-## L4 巡检、治理与连续运维
-
-### daily-cluster-inspector
-
-适用：每日巡检、快速健康检查、自动巡检任务、巡检报告生成。
-
-常见问题：每天早上检查 CCE 集群；只想快速知道是否异常；需要在异常时再深度诊断。
-
-常用工具：`huawei_cce_quick_check`、`huawei_cce_auto_inspection`、`huawei_cce_cluster_inspection_parallel`、`huawei_pod_status_inspection`、`huawei_aom_alarm_inspection`。
-
-关系：正常时输出简报；异常时转给 `root-cause-analyzer` 或对应诊断 skill。
-
-### cost-optimization-advisor
-
-适用：空闲资源、过量 Request、低利用率节点、HPA/autoscaler 弹性策略优化。
-
-常见问题：集群平均 CPU/内存利用率长期低于 30%；某些节点明显低于整体平均；业务命名空间工作负载 request 明显大于实际使用；需要生成 HPA 或节点池 autoscaler 优化建议。
-
-常用工具：`huawei_analyze_cce_cost_optimization`、`huawei_list_cce_nodes`、`huawei_list_cce_nodepools`、`huawei_get_cce_pods`、`huawei_get_cce_deployments`、`huawei_list_cce_hpas`、`huawei_generate_cce_hpa_manifest`、`huawei_configure_cce_hpa`、`huawei_get_cce_node_metrics_topN`、`huawei_get_cce_pod_metrics_topN`、`huawei_get_aom_metrics`。
-
-关系：负责分析、HPA 查询、HPA YAML 生成和配置预览；实际配置 HPA、autoscaler 或缩容节点池时必须经过人工确认流程。
-
-### capacity-trend-forecaster
-
-适用：CCE 周期性容量趋势分析、资源瓶颈预测、HPA 和节点池弹性策略模拟、趋势图和历史对比报告。
-
-常见问题：需要按 1 小时到 1 个月窗口看容量趋势；需要每 6 小时、每日、每周或每月做容量报告；需要评估 HPA 目标利用率或节点 autoscaler 上下限。
-
-常用工具：`huawei_analyze_cce_capacity_trend`、`huawei_list_cce_clusters`、`huawei_get_kubernetes_nodes`、`huawei_list_cce_nodepools`、`huawei_get_cce_deployments`、`huawei_list_cce_hpas`、`huawei_get_cce_node_metrics_topN`、`huawei_get_aom_metrics`、`huawei_generate_cce_hpa_manifest`、`huawei_configure_cce_hpa`。
-
-关系：负责趋势分析、图表、模拟和配置预览；真实 HPA 或节点池变更必须由用户明确授权，并建议变更后再次生成容量记录做对比。
-
-### availability-risk-scanner
-
-适用：CCE 可用性风险扫描，包括单副本、缺失 PDB、探针缺失或异常、AZ 分布不均、网关集中、核心插件反亲和和 request/limit 风险。
-
-常见问题：需要上线前或巡检时检查可用性短板；担心 nginx-ingress、CoreDNS 或关键业务工作负载单点；需要输出整改优先级和人工复核点。
-
-常用工具：`huawei_scan_cce_availability_risk`、`huawei_list_cce_clusters`、`huawei_get_kubernetes_nodes`、`huawei_get_cce_pods`、`huawei_get_cce_deployments`、`huawei_get_cce_services`、`huawei_get_cce_ingresses`、`huawei_list_cce_nodepools`、`huawei_list_cce_daemonsets`、`huawei_list_cce_statefulsets`、`huawei_get_cce_node_metrics_topN`、`huawei_get_aom_metrics`。
-
-关系：负责只读风险识别和整改建议；不自动创建 PDB、不改探针、不迁移节点，执行整改交给授权后的变更流程。
-
-### ops-report-generator
-
-适用：CCE 周报、月报、SLA、容量和稳定性报告，汇总巡检、容量趋势、可用性风险、成本优化和 on-call 上下文。
-
-常见问题：需要给客户或团队输出周期性运维报告；需要把多个诊断/治理结果合成 Markdown 和 HTML；需要在报告里明确数据缺口和后续行动。
-
-常用工具：`huawei_generate_ops_report`、`huawei_cce_auto_inspection`、`huawei_analyze_cce_capacity_trend`、`huawei_scan_cce_availability_risk`、`huawei_analyze_cce_cost_optimization`。
-
-关系：负责汇总评估和报告，不执行写操作；报告中涉及整改时转给对应 skill 或 `auto-remediation-runner`。
-
-## L5 解决方案与交付专家
-
-第一阶段由 `container-migration-planner` 覆盖容器迁移和交付方案类问题。后续可以扩展容量规划、成本优化、灾备设计等独立 skill。
-
-## L6 多云、多集群与混合云管理
-
-第一阶段暂不实现多云控制面。多集群清单和迁移盘点先由 `container-migration-planner` 处理。
-
-## L7 知识库、Runbook 与智能体底座
-
-第一阶段以各 skill 的 `references/workflow.md`、`references/risk-rules.md`、`references/output-schema.md` 承载 runbook。后续如果 skill 数量超过 20 个，再评估独立 router 或知识库索引。
+`skills/_catalog` 是人工查找用的总目录，不是可触发 Skill。Agent 通过各 Skill 的 `SKILL.md` 中的 `description` 自动匹配能力。
+
+当前展示 **33 个业务 Skill**。`huawei-cloud` 是兼容历史调用的聚合入口，不作为独立业务 Skill 展示，也不计入数量。
+
+## 1. 生命周期与资源管理
+
+### CCE
+
+| Skill | 能力说明 |
+| --- | --- |
+| `huawei-cloud-cce-cluster-management` | 管理 CCE 集群、节点池、节点、插件、EIP 和 kubeconfig 的全生命周期。 |
+| `cce-cluster-upgrade-planner` | 规划 CCE Kubernetes 版本升级，检查升级路径、插件兼容性、差异项和升级窗口。 |
+| `cce-workload-manager` | 管理 CCE 工作负载及 Kubernetes 资源，包括 Deployment、StatefulSet、DaemonSet、Job、CronJob、HPA、Service、Ingress 和配置资源。 |
+
+### CCI
+
+| Skill | 能力说明 |
+| --- | --- |
+| `huawei-cloud-cci-instance-management` | 管理 CCI 容器实例，包括 Namespace、网络、Deployment、StatefulSet、Pod、EIPPool、日志和指标。 |
+
+### SWR
+
+| Skill | 能力说明 |
+| --- | --- |
+| `huawei-cloud-swr-image-management` | 管理 SWR 命名空间、镜像仓库、标签、登录凭证和配额。 |
+| `huawei-cloud-swr-image-governance` | 管理 SWR 权限、保留策略、共享策略、委托和不可变规则。 |
+| `huawei-cloud-swr-image-automation` | 管理 SWR 镜像同步、触发器和自动部署流程。 |
+| `huawei-cloud-swr-enterprise-instance` | 管理 SWR 企业实例、实例内命名空间、仓库、制品、凭证、端点和域名。 |
+
+## 2. 可观测与智能告警
+
+| Skill | 能力说明 |
+| --- | --- |
+| `observability-context-builder` | 汇聚 AOM 告警、指标、LTS 日志、Pod 日志和 Kubernetes 事件，形成诊断上下文。 |
+| `alarm-correlation-engine` | 关联分析 AOM active/history 告警，完成去重归并、严重级别分组和告警规则核对。 |
+| `log-analyzer` | 查询和分析 Pod 标准输出、CCE LogConfig 应用日志和 LTS 日志。 |
+| `kubernetes-event-analyzer` | 查询和分析 Kubernetes Warning 事件、重复模式及 Pod、Node、Workload 异常。 |
+| `metric-analyzer` | 查询和分析 CCE Pod、Node 及 ECS、ELB、EIP、NAT 指标，识别阈值异常。 |
+
+## 3. 故障诊断与自愈恢复
+
+| Skill | 能力说明 |
+| --- | --- |
+| `pod-failure-diagnoser` | 诊断 CrashLoopBackOff、ImagePullBackOff、OOMKilled、Pending、Evicted 和频繁重启等 Pod 故障。 |
+| `workload-failure-diagnoser` | 诊断 Deployment、StatefulSet、DaemonSet 发布失败、滚动升级卡住、副本不足和探针异常。 |
+| `node-failure-diagnoser` | 诊断 Node NotReady、资源压力、NPD、CNI、kubelet 和容器运行时异常。 |
+| `autoscaling-diagnoser` | 诊断 HPA、Cluster Autoscaler 和 CCE 弹性引擎链路故障。 |
+| `network-failure-diagnoser` | 诊断 Service、DNS、Ingress、NetworkPolicy、ELB、EIP、NAT 和 VPC 网络故障。 |
+| `storage-failure-diagnoser` | 诊断 PVC、PV、EVS、SFS、OBS、挂载、容量和删除保护相关故障。 |
+| `root-cause-analyzer` | 汇总跨域证据，输出 Top 根因、影响范围、置信度和恢复交接。 |
+| `change-impact-analyzer` | 分析发布、配置、网络、安全策略和节点变更造成的故障影响。 |
+| `dependency-impact-analyzer` | 基于 Service、Ingress、Pod 和 Node 拓扑分析故障传播路径和上下游影响。 |
+| `auto-remediation-runner` | 生成并执行受控恢复动作，所有高风险变更默认预览并要求明确确认。 |
+
+## 4. 巡检、治理与持续运维
+
+| Skill | 能力说明 |
+| --- | --- |
+| `daily-cluster-inspector` | 执行周期性 CCE 健康检查、快速巡检和持续运维摘要。 |
+| `availability-risk-scanner` | 扫描高可用、AZ 分布、单副本、PDB、探针、亲和性、网关和资源超配风险。 |
+| `capacity-trend-forecaster` | 分析周期性容量趋势，预测资源瓶颈，模拟 HPA 和节点弹性策略。 |
+| `cost-optimization-advisor` | 分析空闲资源、过量 Request、低利用率节点和弹性策略优化机会。 |
+| `ops-report-generator` | 汇总巡检、容量、可用性、成本和 on-call 上下文，生成周报、月报、SLA、容量和稳定性报告。 |
+
+## 5. 解决方案与交付
+
+| Skill | 能力说明 |
+| --- | --- |
+| `cce-cci-bursting-deployer` | 配置、部署并验证 CCE 到 CCI 2.0 的弹性扩容能力，包括 VPCEP、virtual-kubelet 和冒烟验证。 |
+| `container-migration-planner` | 盘点容器平台资源和依赖，输出迁移批次、风险和验证方案，不执行真实迁移。 |
+| `全链路压测` | 构建从 k6 客户端经 ELB、nginx-ingress 到业务 Pod 的压测链路，收集观测数据并输出性能报告。 |
+
+## 6. 多云、多集群管理
+
+| Skill | 能力说明 |
+| --- | --- |
+| `ucs-cluster-onboarding-manager` | 管理 UCS 集群纳管、生命周期、舰队分组、kubeconfig 和资源配额。 |
+| `ucs-policy-governor` | 管理 UCS 策略实例、策略定义、启停操作、执行状态和舰队合规审计。 |
 
 ## 常见问题路由
 
-| 用户问题 | 推荐 skill |
+| 用户问题 | 推荐 Skill |
 | --- | --- |
 | Pod 一直重启、Pending、OOMKilled | `pod-failure-diagnoser` |
-| 发布失败、滚动升级卡住、副本不满足、探针异常 | `workload-failure-diagnoser` |
+| 发布失败、滚动升级卡住、副本不满足 | `workload-failure-diagnoser` |
 | 节点 NotReady、资源压力、节点漏洞 | `node-failure-diagnoser` |
-| HPA 不扩 Pod、CA 不扩节点、自动弹性链路不闭环 | `autoscaling-diagnoser` |
+| HPA 不扩 Pod、CA 不扩节点 | `autoscaling-diagnoser` |
 | Ingress 502、Service 不通、ELB 链路异常 | `network-failure-diagnoser` |
-| PVC Pending、FailedMount、VolumeAttachment、容量/Inode、PVC Terminating | `storage-failure-diagnoser` |
-| CCE 告警很多，需要合并分析 | `alarm-correlation-engine` |
+| PVC Pending、FailedMount、容量耗尽 | `storage-failure-diagnoser` |
+| 告警很多，需要合并分析 | `alarm-correlation-engine` |
 | 查询 Pod 标准输出或 LTS 应用日志 | `log-analyzer` |
-| 需要分析 Kubernetes 事件趋势和 Warning 事件 | `kubernetes-event-analyzer` |
-| 查询 CCE Pod/Node 指标和资源使用排名 | `metric-analyzer` |
-| 需要先把日志、事件、指标、告警都收集齐 | `observability-context-builder` |
+| 分析 Kubernetes 事件趋势 | `kubernetes-event-analyzer` |
+| 查询 Pod、Node 或云资源指标 | `metric-analyzer` |
+| 汇聚日志、事件、指标和告警 | `observability-context-builder` |
 | 业务不可用，需要综合根因分析 | `root-cause-analyzer` |
-| 发布、配置、网络、安全策略或节点变更后出现故障 | `change-impact-analyzer` |
-| 需要扩容、重启、drain、漏洞修复等动作 | `auto-remediation-runner` |
+| 变更后出现故障 | `change-impact-analyzer` |
+| 分析服务故障影响范围 | `dependency-impact-analyzer` |
+| 执行扩容、重启、drain 或恢复动作 | `auto-remediation-runner` |
 | 做每日巡检或周期性健康检查 | `daily-cluster-inspector` |
-| 做成本优化、Request 过量分析、弹性策略建议 | `cost-optimization-advisor` |
-| 做容量趋势预测、弹性模拟、周期容量图表 | `capacity-trend-forecaster` |
-| 做可用性风险扫描、PDB/探针/AZ 分布检查 | `availability-risk-scanner` |
-| 做周报、月报、SLA、容量或稳定性运维报告 | `ops-report-generator` |
+| 做成本优化分析 | `cost-optimization-advisor` |
+| 做容量趋势预测和弹性模拟 | `capacity-trend-forecaster` |
+| 做可用性风险扫描 | `availability-risk-scanner` |
+| 生成周报、月报或 SLA 报告 | `ops-report-generator` |
 | 做容器迁移方案和资源盘点 | `container-migration-planner` |
-## L5 Performance engineering
-
-### pressure-test
-
-Use for controlled CCE workload traffic tests, isolated Java sample deployment, reviewed ELB creation, APM Java agent injection, `pod -> service -> nginx-ingress -> elb` route preparation, k6 traffic, AOM and ELB curve collection, elasticity phase comparison, and Markdown or HTML performance reports.
+| 配置 CCE 到 CCI 弹性扩容 | `cce-cci-bursting-deployer` |
+| 做全链路压测和性能评估 | `全链路压测` |
+| 管理 CCE 集群生命周期 | `huawei-cloud-cce-cluster-management` |
+| 规划 CCE 集群版本升级 | `cce-cluster-upgrade-planner` |
+| 管理 CCE 工作负载 | `cce-workload-manager` |
+| 管理 CCI 容器实例 | `huawei-cloud-cci-instance-management` |
+| 管理 SWR 镜像生命周期 | `huawei-cloud-swr-image-management` |
+| 管理 SWR 镜像治理策略 | `huawei-cloud-swr-image-governance` |
+| 管理 SWR 镜像同步和触发器 | `huawei-cloud-swr-image-automation` |
+| 管理 SWR 企业实例 | `huawei-cloud-swr-enterprise-instance` |
+| 管理 UCS 集群纳管和舰队 | `ucs-cluster-onboarding-manager` |
+| 管理 UCS 策略和合规审计 | `ucs-policy-governor` |
