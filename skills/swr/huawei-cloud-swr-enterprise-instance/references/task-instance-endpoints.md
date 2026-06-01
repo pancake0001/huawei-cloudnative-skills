@@ -8,13 +8,13 @@ SWR enterprise instance endpoints define network access paths for the registry. 
 
 | Operation                        | Method | Description              | Key Parameters                                  |
 | -------------------------------- | ------ | ------------------------ | ----------------------------------------------- |
-| `CreateInstanceInternalEndpoint` | POST   | 新增内网访问             | `--instance_id`, `--vpc_id`, `--subnet_id`, `--project_id`, `--description` |
-| `ListInstanceInternalEndpoints`  | GET    | 获取内网访问列表         | `--instance_id`, `--limit`, `--offset`          |
-| `ShowInstanceInternalEndpoint`   | GET    | 查询内网访问详情         | `--instance_id`, `--internal_endpoints_id`      |
-| `DeleteInstanceInternalEndpoint` | DELETE | 删除内网访问             | `--instance_id`, `--internal_endpoints_id`      |
-| `CreateInstanceEndpointPolicy`   | POST   | 开启或关闭公网访问       | `--instance_id`, `--enable`                     |
-| `ShowInstanceEndpointPolicy`     | GET    | 获取公网访问信息         | `--instance_id`                                 |
-| `UpdateInstanceEndpointPolicy`   | PUT    | 更新公网访问白名单       | `--instance_id`, `--ip_list.[N].ip`, `--ip_list.[N].description` |
+| `CreateInstanceInternalEndpoint` | POST   | Create internal endpoint | `--instance_id`, `--vpc_id`, `--subnet_id`, `--project_id`, `--description` |
+| `ListInstanceInternalEndpoints`  | GET    | List internal endpoints  | `--instance_id`, `--limit`, `--offset`          |
+| `ShowInstanceInternalEndpoint`   | GET    | Show internal endpoint details | `--instance_id`, `--internal_endpoints_id`      |
+| `DeleteInstanceInternalEndpoint` | DELETE | Delete internal endpoint | `--instance_id`, `--internal_endpoints_id`      |
+| `CreateInstanceEndpointPolicy`   | POST   | Enable or disable public access | `--instance_id`, `--enable`                     |
+| `ShowInstanceEndpointPolicy`     | GET    | Show public access info  | `--instance_id`                                 |
+| `UpdateInstanceEndpointPolicy`   | PUT    | Update public access whitelist | `--instance_id`, `--ip_list.[N].ip`, `--ip_list.[N].description` |
 
 ## Workflows
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import Counter
+import re
 import time
 from typing import Any, Dict, Iterable, Optional
 
@@ -10,7 +11,7 @@ from huaweicloudsdkcce.v3 import ShowClusterRequest
 from huaweicloudsdkcore.auth.credentials import BasicCredentials
 from huaweicloudsdkvpc.v2 import ListRouteTablesRequest
 
-from . import cce, cce_addon, cce_k8s, network
+from . import cce, cce_addon, cce_k8s, network, swr
 from .common import (
     K8S_AVAILABLE,
     K8S_IMPORT_ERROR,
@@ -50,6 +51,9 @@ DEFAULT_SMOKE_NAMESPACE = "cci2-burst-lab"
 DEFAULT_SMOKE_WORKLOAD = "cci2-burst-demo"
 SWR_SERVICE_SUFFIXES = ("swr", "swr-api")
 ACTIVE_ENDPOINT_STATUSES = {"accepted", "creating", "pending"}
+NODE_CAPACITY_WARNING_CPU_MILLICORES = 2000
+NODE_CAPACITY_WARNING_MEMORY_BYTES = 4 * 1024**3
+ADDON_POD_NAME_MARKERS = ("bursting-cceaddon", "virtual-kubelet")
 
 
 def _error(message: str, **details: Any) -> Dict[str, Any]:
@@ -216,7 +220,7 @@ def _create_endpoint(
         "enable_dns": True,
         "description": "Created by cce-cci-bursting-deployer",
     }
-    if service_type == "gateway":
+    if "gateway" in str(service_type or "").lower():
         kwargs["routetables"] = route_table_ids or []
     request = CreateEndpointRequest(body=CreateEndpointRequestBody(**kwargs))
     response = client.create_endpoint(request).to_dict()
@@ -226,6 +230,169 @@ def _create_endpoint(
         "action": "created",
         "endpoint": _endpoint_summary(response),
     }
+
+
+def _cpu_millicores(value: Any) -> int:
+    text = str(value or "0").strip()
+    try:
+        if text.endswith("n"):
+            return int(float(text[:-1]) / 1_000_000)
+        if text.endswith("u"):
+            return int(float(text[:-1]) / 1000)
+        if text.endswith("m"):
+            return int(float(text[:-1]))
+        return int(float(text) * 1000)
+    except ValueError:
+        return 0
+
+
+def _memory_bytes(value: Any) -> int:
+    text = str(value or "0").strip()
+    units = {
+        "Ki": 1024,
+        "Mi": 1024**2,
+        "Gi": 1024**3,
+        "Ti": 1024**4,
+        "K": 1000,
+        "M": 1000**2,
+        "G": 1000**3,
+        "T": 1000**4,
+    }
+    try:
+        for suffix, multiplier in units.items():
+            if text.endswith(suffix):
+                return int(float(text[: -len(suffix)]) * multiplier)
+        return int(float(text))
+    except ValueError:
+        return 0
+
+
+def _physical_node_name(node: Any) -> Optional[str]:
+    metadata = getattr(node, "metadata", None)
+    labels = getattr(metadata, "labels", None) or {}
+    name = getattr(metadata, "name", None)
+    if (
+        name in {"bursting-node", "virtual-kubelet"}
+        or labels.get("type") == "virtual-kubelet"
+        or labels.get("bursting.cci.io/node-type") == "virtual-kubelet"
+    ):
+        return None
+    return name
+
+
+def check_cce_cci_node_capacity(
+    region: str,
+    cluster_id: str,
+    ak: Optional[str] = None,
+    sk: Optional[str] = None,
+    project_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Inspect physical node capacity for hosting the bursting addon.
+
+    The 2C/4GiB values are conservative small-cluster warnings, not platform
+    hard limits. Production sizing must follow the addon resource formula.
+    """
+    access_key, secret_key, proj_id, error = _credentials(region, ak, sk, project_id)
+    if error:
+        return error
+    if not K8S_AVAILABLE:
+        return _error(f"Kubernetes SDK not installed: {K8S_IMPORT_ERROR}")
+
+    cert_file = None
+    key_file = None
+    try:
+        _, cert_file, key_file = cce_k8s._setup_k8s_client(
+            region, cluster_id, access_key, secret_key, proj_id, "cci_burst_capacity"
+        )
+        core_v1 = k8s_client.CoreV1Api()
+        nodes = core_v1.list_node().items
+        pods = core_v1.list_pod_for_all_namespaces().items
+        pod_requests: Dict[str, Dict[str, int]] = {}
+        for pod in pods:
+            phase = str(getattr(getattr(pod, "status", None), "phase", ""))
+            if phase in {"Succeeded", "Failed"}:
+                continue
+            node_name = getattr(getattr(pod, "spec", None), "node_name", None)
+            if not node_name:
+                continue
+            requested = pod_requests.setdefault(node_name, {"cpu_millicores": 0, "memory_bytes": 0})
+            for container in getattr(getattr(pod, "spec", None), "containers", None) or []:
+                resources = getattr(container, "resources", None)
+                requests = getattr(resources, "requests", None) or {}
+                requested["cpu_millicores"] += _cpu_millicores(requests.get("cpu"))
+                requested["memory_bytes"] += _memory_bytes(requests.get("memory"))
+
+        physical_nodes = []
+        for node in nodes:
+            name = _physical_node_name(node)
+            if not name:
+                continue
+            spec = getattr(node, "spec", None)
+            status = getattr(node, "status", None)
+            allocatable = getattr(status, "allocatable", None) or {}
+            requested = pod_requests.get(name, {"cpu_millicores": 0, "memory_bytes": 0})
+            cpu_allocatable = _cpu_millicores(allocatable.get("cpu"))
+            memory_allocatable = _memory_bytes(allocatable.get("memory"))
+            physical_nodes.append(
+                {
+                    "name": name,
+                    "schedulable": not bool(getattr(spec, "unschedulable", False)),
+                    "allocatable_cpu_millicores": cpu_allocatable,
+                    "allocatable_memory_bytes": memory_allocatable,
+                    "requested_cpu_millicores": requested["cpu_millicores"],
+                    "requested_memory_bytes": requested["memory_bytes"],
+                    "available_cpu_millicores": max(0, cpu_allocatable - requested["cpu_millicores"]),
+                    "available_memory_bytes": max(0, memory_allocatable - requested["memory_bytes"]),
+                }
+            )
+
+        schedulable = [item for item in physical_nodes if item["schedulable"]]
+        aggregate_cpu = sum(item["available_cpu_millicores"] for item in schedulable)
+        aggregate_memory = sum(item["available_memory_bytes"] for item in schedulable)
+        nodes_with_conservative_headroom = [
+            item
+            for item in schedulable
+            if item["available_cpu_millicores"] >= NODE_CAPACITY_WARNING_CPU_MILLICORES
+            and item["available_memory_bytes"] >= NODE_CAPACITY_WARNING_MEMORY_BYTES
+        ]
+        warnings = []
+        if len(schedulable) < 2:
+            warnings.append(
+                "Fewer than 2 schedulable physical nodes were found. Addon availability and maintenance resilience are limited."
+            )
+        if not nodes_with_conservative_headroom:
+            warnings.append(
+                "No physical node currently has the conservative 2C/4GiB free headroom used for a small bursting-addon deployment."
+            )
+        if aggregate_cpu < NODE_CAPACITY_WARNING_CPU_MILLICORES or aggregate_memory < NODE_CAPACITY_WARNING_MEMORY_BYTES:
+            warnings.append(
+                "Aggregate free physical-node capacity is below the conservative 2C/4GiB warning baseline."
+            )
+
+        return {
+            "success": True,
+            "action": "check_cce_cci_node_capacity",
+            "region": region,
+            "cluster_id": cluster_id,
+            "ready": not warnings,
+            "warning_baseline": {
+                "scope": "small-cluster conservative warning only",
+                "cpu_millicores": NODE_CAPACITY_WARNING_CPU_MILLICORES,
+                "memory_bytes": NODE_CAPACITY_WARNING_MEMORY_BYTES,
+                "note": "Size production addons with the official resource formula and expected synchronized resources.",
+            },
+            "schedulable_physical_node_count": len(schedulable),
+            "nodes_with_conservative_headroom": [item["name"] for item in nodes_with_conservative_headroom],
+            "aggregate_available_cpu_millicores": aggregate_cpu,
+            "aggregate_available_memory_bytes": aggregate_memory,
+            "physical_nodes": physical_nodes,
+            "warnings": warnings,
+        }
+    except Exception as exc:
+        return _error(str(exc), action="check_cce_cci_node_capacity", error_type=type(exc).__name__)
+    finally:
+        _safe_delete_file(cert_file)
+        _safe_delete_file(key_file)
 
 
 def precheck_cce_cci_bursting(
@@ -272,6 +439,9 @@ def precheck_cce_cci_bursting(
             issues.append("vpcep_subnet_id is not a VPC subnet in the cluster VPC.")
         if not VPCEP_AVAILABLE:
             issues.append(f"huaweicloudsdkvpcep is not installed: {VPCEP_IMPORT_ERROR}")
+        node_capacity = check_cce_cci_node_capacity(
+            region, cluster_id, access_key, secret_key, proj_id
+        )
 
         return {
             "success": not issues,
@@ -286,7 +456,10 @@ def precheck_cce_cci_bursting(
             },
             "virtual_kubelet": virtual_kubelet,
             "vpc_subnets": vpc_subnets,
+            "node_capacity": node_capacity,
             "issues": issues,
+            "warnings": node_capacity.get("warnings", []) if node_capacity.get("success") else [],
+            "data_gap": [] if node_capacity.get("success") else [node_capacity.get("error")],
         }
     except Exception as exc:
         return _error(str(exc), error_type=type(exc).__name__)
@@ -484,10 +657,27 @@ def setup_cce_cci_bursting(
             "warning": "This action creates missing VPCEPs and installs or updates virtual-kubelet. Re-run with confirm=true after explicit user approval.",
             "precheck": precheck,
             "vpcep": vpcep,
+            "change_list": [
+                "Review physical-node headroom and resize a node pool first when NodeCheck warns.",
+                "Create missing SWR, SWR API, and OBS-compatible VPCEPs after explicit approval.",
+                "Install or update the virtual-kubelet addon.",
+                "Write the resolved project ID and CCI Neutron subnet to the addon values.",
+                "Do not patch the internal bursting-status ConfigMap automatically.",
+            ],
             "addon_plan": {
                 "addon": "virtual-kubelet",
                 "addon_version": effective_addon_version,
                 "cci_neutron_subnet_id": effective_cci_subnet,
+                "project_id": proj_id,
+                "values": {
+                    "basic.project_id": proj_id,
+                    "basic.networkID": effective_cci_subnet,
+                    "custom.subnet_id": effective_cci_subnet,
+                    "custom.subnets": [{"subnetID": effective_cci_subnet}],
+                    "custom.enableScheduleProfileLocalSurge": True,
+                    "custom.isInstallProxy": False,
+                    "custom.enableLogCollection": False,
+                },
             },
         }
     if not vpcep.get("success"):
@@ -562,9 +752,6 @@ def deploy_cce_cci_smoke_workload(
     """Create or update a small Deployment that is forced onto CCI bursting capacity."""
     if replicas < 1:
         return _error("replicas must be at least 1")
-    effective_image = image or (DEFAULT_SMOKE_IMAGE if region == "cn-north-4" else None)
-    if not effective_image:
-        return _error("image is required outside cn-north-4. Pass a regional SWR image.")
     if not confirm:
         return {
             "success": False,
@@ -573,12 +760,36 @@ def deploy_cce_cci_smoke_workload(
             "warning": "This action creates or updates a namespace and Deployment. Re-run with confirm=true after explicit user approval.",
             "namespace": namespace,
             "workload_name": workload_name,
-            "image": effective_image,
+            "image": image,
+            "image_selection": {
+                "policy": "Use an explicitly supplied image, otherwise discover a tenant-owned SWR basic image before falling back to a regional public image.",
+                "fallback_image": DEFAULT_SMOKE_IMAGE if region == "cn-north-4" else None,
+                "note": "Tenant-owned SWR images are preferred because CCI image pulling through VPCEP may not work for public namespaces.",
+            },
             "replicas": replicas,
         }
     access_key, secret_key, proj_id, error = _credentials(region, ak, sk, project_id)
     if error:
         return error
+    image_discovery = None
+    effective_image = image
+    image_source = "explicit"
+    if not effective_image:
+        image_discovery = swr.discover_swr_smoke_images(
+            region, access_key, secret_key, proj_id
+        )
+        candidates = image_discovery.get("candidates", []) if image_discovery.get("success") else []
+        if candidates:
+            effective_image = candidates[0]["image"]
+            image_source = "tenant-owned-swr-basic"
+        elif region == "cn-north-4":
+            effective_image = DEFAULT_SMOKE_IMAGE
+            image_source = "regional-public-fallback"
+        else:
+            return _error(
+                "No tenant-owned SWR image was discovered. Pass image explicitly with a regional tenant-owned SWR image.",
+                image_discovery=image_discovery,
+            )
     if not K8S_AVAILABLE:
         return _error(f"Kubernetes SDK not installed: {K8S_IMPORT_ERROR}")
 
@@ -643,12 +854,163 @@ def deploy_cce_cci_smoke_workload(
             "workload_name": workload_name,
             "deployment_action": deployment_action,
             "image": effective_image,
+            "image_source": image_source,
+            "image_discovery": image_discovery,
             "replicas": replicas,
             "deployment_uid": getattr(response.metadata, "uid", None),
             "next_action": "Run huawei_verify_cce_cci_bursting with the same namespace and workload_name.",
         }
     except Exception as exc:
         return _error(str(exc), action="deploy_cce_cci_smoke_workload", error_type=type(exc).__name__)
+    finally:
+        _safe_delete_file(cert_file)
+        _safe_delete_file(key_file)
+
+
+def _redact_log_text(value: str) -> str:
+    text = value or ""
+    text = re.sub(r"(?i)(access[_-]?key|secret[_-]?key|authorization|token)\s*[:=]\s*\S+", r"\1=<redacted>", text)
+    text = re.sub(r"(?i)(AK|SK)\s*[:=]\s*\S+", r"\1=<redacted>", text)
+    return text
+
+
+def _log_findings(text: str) -> list[Dict[str, str]]:
+    rules = [
+        (
+            "region-mismatch",
+            r"(?i)(region.{0,80}(mismatch|invalid|wrong|not match)|southchina|northchina|eastchina)",
+            "The addon log suggests a region setting mismatch. Check the installed addon version and its documented region setting before updating the addon values.",
+        ),
+        (
+            "project-id-or-iam",
+            r"(?i)(project[_ -]?id.{0,80}(missing|empty|invalid|not found)|HUAWEI_PROJECT_ID|iam.{0,80}(denied|forbidden)|\b403\b)",
+            "Check the resolved Huawei Cloud project ID and the CCI bursting agency permissions.",
+        ),
+        (
+            "subnet-or-network",
+            r"(?i)(subnet|networkID|network_id|eni).{0,80}(invalid|not found|mismatch|failed|error)",
+            "Check that the addon receives the CCI Neutron subnet ID from the cluster ENI network, not the VPCEP VPC subnet ID.",
+        ),
+        (
+            "resource-pressure",
+            r"(?i)(insufficient (cpu|memory)|out of (cpu|memory)|failedscheduling|pending)",
+            "Check physical-node addon headroom and resize a node pool after explicit approval when needed.",
+        ),
+    ]
+    findings = []
+    for code, pattern, recommendation in rules:
+        if re.search(pattern, text):
+            findings.append({"code": code, "recommendation": recommendation})
+    return findings
+
+
+def diagnose_cce_cci_bursting_addon(
+    region: str,
+    cluster_id: str,
+    tail_lines: int = 120,
+    ak: Optional[str] = None,
+    sk: Optional[str] = None,
+    project_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Collect read-only diagnostics for virtual-kubelet addon failures."""
+    access_key, secret_key, proj_id, error = _credentials(region, ak, sk, project_id)
+    if error:
+        return error
+    if not K8S_AVAILABLE:
+        return _error(f"Kubernetes SDK not installed: {K8S_IMPORT_ERROR}")
+
+    cert_file = None
+    key_file = None
+    try:
+        _, cert_file, key_file = cce_k8s._setup_k8s_client(
+            region, cluster_id, access_key, secret_key, proj_id, "cci_burst_diag"
+        )
+        core_v1 = k8s_client.CoreV1Api()
+        apps_v1 = k8s_client.AppsV1Api()
+        pods = core_v1.list_namespaced_pod("kube-system").items
+        addon_pods = [
+            pod
+            for pod in pods
+            if any(marker in str(getattr(getattr(pod, "metadata", None), "name", "")).lower() for marker in ADDON_POD_NAME_MARKERS)
+        ]
+        log_samples = []
+        findings = []
+        for pod in addon_pods:
+            pod_name = str(getattr(getattr(pod, "metadata", None), "name", ""))
+            try:
+                raw = core_v1.read_namespaced_pod_log(
+                    pod_name,
+                    "kube-system",
+                    tail_lines=max(1, tail_lines),
+                    timestamps=True,
+                )
+                safe = _redact_log_text(str(raw))
+                for finding in _log_findings(safe):
+                    findings.append({**finding, "pod": pod_name})
+                log_samples.append({"pod": pod_name, "tail": safe[-1200:]})
+            except Exception as exc:
+                log_samples.append({"pod": pod_name, "error": str(exc)})
+
+        bursting_status = None
+        try:
+            config_map = core_v1.read_namespaced_config_map("bursting-status", "kube-system")
+            data = getattr(config_map, "data", None) or {}
+            enable = data.get("enableBurstingNode")
+            bursting_status = {"enableBurstingNode": enable}
+            if str(enable).lower() == "false":
+                findings.append(
+                    {
+                        "code": "bursting-node-disabled",
+                        "recommendation": "The internal bursting-status ConfigMap reports enableBurstingNode=false. Do not patch it automatically; verify the installed addon version and apply the vendor-supported configuration path.",
+                    }
+                )
+        except Exception:
+            pass
+
+        active_replicasets = []
+        try:
+            for item in apps_v1.list_namespaced_replica_set("kube-system").items:
+                name = str(getattr(getattr(item, "metadata", None), "name", ""))
+                replicas = int(getattr(getattr(item, "status", None), "replicas", 0) or 0)
+                if "bursting-cceaddon" in name and replicas > 0:
+                    active_replicasets.append({"name": name, "replicas": replicas})
+            if len(active_replicasets) > 1:
+                findings.append(
+                    {
+                        "code": "multiple-active-addon-replicasets",
+                        "recommendation": "Multiple active bursting addon ReplicaSets were found. Inspect their owning Deployment and rollout state before any cleanup; do not delete rollback history automatically.",
+                    }
+                )
+        except Exception:
+            pass
+
+        deduplicated = []
+        seen = set()
+        for finding in findings:
+            key = (finding.get("code"), finding.get("pod"))
+            if key not in seen:
+                seen.add(key)
+                deduplicated.append(finding)
+        return {
+            "success": True,
+            "action": "diagnose_cce_cci_bursting_addon",
+            "region": region,
+            "cluster_id": cluster_id,
+            "addon_pods": [
+                {
+                    "name": getattr(getattr(pod, "metadata", None), "name", None),
+                    "phase": getattr(getattr(pod, "status", None), "phase", None),
+                    "node": getattr(getattr(pod, "spec", None), "node_name", None),
+                }
+                for pod in addon_pods
+            ],
+            "bursting_status": bursting_status,
+            "active_replicasets": active_replicasets,
+            "findings": deduplicated,
+            "log_samples": log_samples,
+        }
+    except Exception as exc:
+        return _error(str(exc), action="diagnose_cce_cci_bursting_addon", error_type=type(exc).__name__)
     finally:
         _safe_delete_file(cert_file)
         _safe_delete_file(key_file)
@@ -720,6 +1082,11 @@ def verify_cce_cci_bursting(
         and all(item.get("node") in virtual_node_names for item in workload_pods)
     )
     ready = bool(virtual_kubelet and ready_virtual_nodes and (workload_ready or not workload_requested))
+    diagnostics = None
+    if not ready:
+        diagnostics = diagnose_cce_cci_bursting_addon(
+            region, cluster_id, ak=access_key, sk=secret_key, project_id=proj_id
+        )
     return {
         "success": ready,
         "ready": ready,
@@ -739,4 +1106,5 @@ def verify_cce_cci_bursting(
             "ready": workload_ready if workload_requested else None,
         },
         "warning_events": warning_events[-20:],
+        "diagnostics": diagnostics,
     }

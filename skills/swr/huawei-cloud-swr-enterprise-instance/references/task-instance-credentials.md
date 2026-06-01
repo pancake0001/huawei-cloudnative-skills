@@ -8,11 +8,11 @@ SWR enterprise instance credentials provide authentication for accessing the ins
 
 | Operation                    | Method | Description              | Key Parameters                                  |
 | ---------------------------- | ------ | ------------------------ | ----------------------------------------------- |
-| `CreateInstanceLtCredential` | POST   | 创建长期访问凭证         | `--instance_id`, `--name`                       |
-| `CreateInstanceTempCredential` | POST | 获取临时访问凭证         | `--instance_id`                                 |
-| `ListInstanceLtCredentials`  | GET    | 查询长期访问凭证列表     | `--instance_id`, `--limit`, `--offset`, `--self_only` |
-| `UpdateInstanceLtCredential` | PUT    | 启用/停用长期访问凭证    | `--instance_id`, `--credential_id`, `--enable`  |
-| `DeleteInstanceLtCredential` | DELETE | 删除长期访问凭证         | `--instance_id`, `--credential_id`              |
+| `CreateInstanceLtCredential` | POST   | Create long-term credential | `--instance_id`, `--name`                       |
+| `CreateInstanceTempCredential` | POST | Get temporary credential  | `--instance_id`                                 |
+| `ListInstanceLtCredentials`  | GET    | List long-term credentials | `--instance_id`, `--limit`, `--offset`, `--self_only` |
+| `UpdateInstanceLtCredential` | PUT    | Enable/disable long-term credential | `--instance_id`, `--credential_id`, `--enable`  |
+| `DeleteInstanceLtCredential` | DELETE | Delete long-term credential | `--instance_id`, `--credential_id`              |
 
 ## Workflows
 

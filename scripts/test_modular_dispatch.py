@@ -1287,15 +1287,19 @@ class DispatcherTests(unittest.TestCase):
         self.assertFalse(kwargs["confirm"])
 
     def test_cce_cci_bursting_actions_in_action_specs(self):
-        for action in [
-            "huawei_precheck_cce_cci_bursting",
-            "huawei_ensure_cce_cci_vpcep",
-            "huawei_setup_cce_cci_bursting",
-            "huawei_deploy_cce_cci_smoke_workload",
-            "huawei_verify_cce_cci_bursting",
-        ]:
+        expected_required_args = {
+            "huawei_precheck_cce_cci_bursting": ("region", "cluster_id"),
+            "huawei_check_cce_cci_node_capacity": ("region", "cluster_id"),
+            "huawei_ensure_cce_cci_vpcep": ("region", "cluster_id"),
+            "huawei_setup_cce_cci_bursting": ("region", "cluster_id"),
+            "huawei_discover_cce_cci_smoke_images": ("region",),
+            "huawei_deploy_cce_cci_smoke_workload": ("region", "cluster_id"),
+            "huawei_diagnose_cce_cci_bursting_addon": ("region", "cluster_id"),
+            "huawei_verify_cce_cci_bursting": ("region", "cluster_id"),
+        }
+        for action, required_args in expected_required_args.items():
             self.assertTrue(dispatcher.is_registered_action(action))
-            self.assertEqual(dispatcher.ACTION_SPECS[action][0], ("region", "cluster_id"))
+            self.assertEqual(dispatcher.ACTION_SPECS[action][0], required_args)
 
 
 if __name__ == "__main__":

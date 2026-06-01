@@ -8,11 +8,11 @@ SWR enterprise instance namespaces organize repositories within an instance. Unl
 
 | Operation                    | Method | Description              | Key Parameters                                  |
 | ---------------------------- | ------ | ------------------------ | ----------------------------------------------- |
-| `CreateInstanceNamespace`    | POST   | 创建命名空间             | `--instance_id`, `--namespace_name`, `--metadata.public`, `--metadata.auto_scan`, `--metadata.prevent_vul`, `--metadata.severity` |
-| `ListInstanceNamespaces`     | GET    | 获取命名空间列表         | `--instance_id`, `--limit`, `--offset`, `--name`, `--public` |
-| `ShowInstanceNamespace`      | GET    | 获取命名空间详情         | `--instance_id`, `--namespace_name`             |
-| `UpdateInstanceNamespace`    | PUT    | 修改命名空间             | `--instance_id`, `--namespace_name`, `--metadata.public`, `--metadata.auto_scan`, `--metadata.prevent_vul`, `--metadata.severity`, `--cve_allowlist` |
-| `DeleteInstanceNamespace`    | DELETE | 删除命名空间             | `--instance_id`, `--namespace_name`             |
+| `CreateInstanceNamespace`    | POST   | Create namespace         | `--instance_id`, `--namespace_name`, `--metadata.public`, `--metadata.auto_scan`, `--metadata.prevent_vul`, `--metadata.severity` |
+| `ListInstanceNamespaces`     | GET    | List namespaces          | `--instance_id`, `--limit`, `--offset`, `--name`, `--public` |
+| `ShowInstanceNamespace`      | GET    | Show namespace details   | `--instance_id`, `--namespace_name`             |
+| `UpdateInstanceNamespace`    | PUT    | Update namespace         | `--instance_id`, `--namespace_name`, `--metadata.public`, `--metadata.auto_scan`, `--metadata.prevent_vul`, `--metadata.severity`, `--cve_allowlist` |
+| `DeleteInstanceNamespace`    | DELETE | Delete namespace         | `--instance_id`, `--namespace_name`             |
 
 ## Workflows
 

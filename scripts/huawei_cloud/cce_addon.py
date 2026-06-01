@@ -667,6 +667,7 @@ def configure_cce_bursting_addon(
                 "subnet_id": subnet_id,
                 "subnets": subnet_entries,
                 "network_id": network_subnet_id,
+                "project_id": values["basic"].get("project_id"),
                 "enableScheduleProfileLocalSurge": values["custom"].get("enableScheduleProfileLocalSurge"),
                 "isInstallProxy": values["custom"].get("isInstallProxy"),
                 "enableLogCollection": values["custom"].get("enableLogCollection"),

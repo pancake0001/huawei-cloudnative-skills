@@ -19,6 +19,7 @@ from validate_skills import PHASE_ONE_SKILLS  # noqa: E402
 HIGH_RISK_ACTIONS = {
     "huawei_delete_cce_cluster",
     "huawei_delete_cce_node",
+    "huawei_create_cce_nodepool",
     "huawei_resize_cce_nodepool",
     "huawei_scale_cce_workload",
     "huawei_resize_cce_workload",
@@ -150,10 +151,13 @@ class SkillProfileTests(unittest.TestCase):
             ]
         )
         self.assertIn("huawei_precheck_cce_cci_bursting", text)
+        self.assertIn("huawei_check_cce_cci_node_capacity", text)
         self.assertIn("huawei_ensure_cce_cci_vpcep", text)
         self.assertIn("huawei_setup_cce_cci_bursting", text)
+        self.assertIn("huawei_discover_cce_cci_smoke_images", text)
         self.assertIn("huawei_deploy_cce_cci_smoke_workload", text)
         self.assertIn("huawei_verify_cce_cci_bursting", text)
+        self.assertIn("huawei_diagnose_cce_cci_bursting_addon", text)
         self.assertIn("Neutron subnet", text)
         self.assertIn("VPC subnet", text)
         self.assertIn("OBS", text)

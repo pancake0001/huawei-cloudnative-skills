@@ -12,11 +12,14 @@ tags: [swr, enterprise-instance, container-registry, registry, domain]
 
 ## Overview
 
-This skill provides lifecycle management capabilities for Huawei Cloud SWR (Software Repository for Container) enterprise instances using the `hcloud` CLI. Enterprise instances provide dedicated, isolated container registry environments with advanced features like security scanning, replication policies, and custom domain support.
+This skill provides lifecycle management capabilities for Huawei Cloud SWR (Software Repository for Container)
+enterprise instances using the `hcloud` CLI. Enterprise instances provide dedicated, isolated container registry
+environments with advanced features like security scanning, replication policies, and custom domain support.
 
 **Architecture**: hcloud CLI → SWR Service API → Instance/Namespace/Registry/Repository/Artifact/Credential/Endpoint/Domain resources
 
 **Related Skills**:
+
 - `huawei-cloud-swr-image-management` - Image lifecycle management (basic SWR namespaces, repos, tags, auth, quotas)
 - `huawei-cloud-swr-image-governance` - Image governance (permissions, retention, sharing, tags, immutable rules)
 - `huawei-cloud-swr-image-automation` - Image automation ops (sync, triggers, domains)
@@ -44,6 +47,24 @@ This skill provides lifecycle management capabilities for Huawei Cloud SWR (Soft
 - "Check instance statistics and resource usage"
 
 ## Prerequisites
+
+### 0. Enterprise Repository Service Authorization (MANDATORY)
+
+Before using this skill, you **must** first authorize the SWR Enterprise Repository feature on the Huawei Cloud console. Without this authorization, all enterprise instance API operations will fail.
+
+**Authorization Link**: [https://console.huaweicloud.com/swr-instance](https://console.huaweicloud.com/swr-instance)
+
+**Steps**:
+
+1. Log in to the Huawei Cloud console
+2. Visit the SWR enterprise repository console at the link above
+3. Complete the service authorization process (grant SWR the necessary service permissions)
+4. Confirm the authorization is successful before proceeding with any CLI operations
+
+**Authorization Failure Handling**:
+
+- If any API call returns an authorization-related error, direct the user to visit the authorization link above
+- Pause execution and wait for the user to confirm authorization is complete
 
 ### 1. hcloud CLI Requirements (MANDATORY)
 
@@ -137,9 +158,21 @@ See [IAM Permission Policies](references/iam-policies.md) for complete policy JS
 
 See [Task: Instance Lifecycle](references/task-instance-lifecycle.md) for detailed workflows.
 
+**⚠️ hcloud CLI CreateInstance Bug**: The `hcloud SWR CreateInstance` command has a known bug where the
+`--project_id` parameter appears twice (path and body) with the same name. hcloud CLI rejects duplicate
+parameter names (`重复的参数:project_id`), making it impossible to use hcloud CLI for instance creation.
+Use the Python SDK script as an alternative:
+
 ```bash
-# Create an enterprise instance
-hcloud SWR CreateInstance --name=my-instance --spec=swr.ee.professional --charge_mode=postPaid --vpc_id=<vpc-id> --subnet_id=<subnet-id> --enterprise_project_id=0 --cli-region=cn-north-4
+# ✅ CORRECT - Use Python SDK script for CreateInstance (bypasses hcloud bug)
+python scripts/swr_instance_helper.py create --name=my-instance --spec=swr.ee.basic \
+    --vpc_id=<vpc-id> --subnet_id=<subnet-id> \
+    --enterprise_project_id=0 --description="My enterprise registry"
+
+# ❌ BROKEN - hcloud CLI CreateInstance fails due to duplicate --project_id bug
+# hcloud SWR CreateInstance --name=my-instance --spec=swr.ee.professional ...
+
+# Other instance lifecycle commands work fine with hcloud CLI
 
 # List all instances
 hcloud SWR ListInstance --cli-region=cn-north-4
@@ -161,6 +194,7 @@ hcloud SWR DeleteInstance --instance_id=<instance-id> --cli-region=cn-north-4
 ```
 
 **Instance Naming Rules**:
+
 - Start with lowercase letter
 - Followed by lowercase letters, digits, or hyphens (`-`)
 - No consecutive hyphens
@@ -196,6 +230,7 @@ hcloud SWR DeleteInstanceNamespace --instance_id=<instance-id> --namespace_name=
 ```
 
 **Namespace Naming Rules**:
+
 - Start with lowercase letter or digit
 - Followed by lowercase letters, digits, dots, underscores, or hyphens
 - Dots, underscores, hyphens cannot be directly connected
@@ -396,7 +431,7 @@ hcloud SWR DeleteInstanceJob --job_id=<job-id> --cli-region=cn-north-4
 | `--description`            | No       | Instance description       | Free text                                      |
 | `--enable_intranet_access` | No       | Create internal access     | Default `true`                                 |
 | `--obs_encrypt`            | No       | Enable OBS encryption      | `true` or `false`                              |
-| `--encrypt_type`           | No       | OBS encryption algorithm   | `gm` (国密), empty for AES-256                 |
+| `--encrypt_type`           | No       | OBS encryption algorithm   | `gm` (Chinese national encryption SM), empty for AES-256 |
 | `--obs_bucket_name`        | No       | Custom OBS bucket name     | If specified, OBS encryption not needed        |
 | `--obs_enc_kms_key_id`     | No       | KMS key ID for OBS         | Required if obs_encrypt=true (no custom bucket) |
 
@@ -448,16 +483,17 @@ See [Verification Method](references/verification-method.md) for step-by-step ve
 4. **Severity blocking**: Set `severity=high` or `critical` for production; use `none` or `low` for development
 5. **Registry credentials**: Store registry credentials securely; rotate access keys periodically
 6. **Public access whitelist**: Always configure IP whitelist when enabling public access; use `UpdateInstanceEndpointPolicy` for full whitelist management
-6. **Custom domains**: Use SCM (SSL Certificate Manager) certificates for custom domain HTTPS
-7. **Delete with caution**: Deleting an instance removes ALL data permanently; deleting a namespace removes ALL repositories
-8. **Long-term credentials**: Use `CreateInstanceLtCredential` for CI/CD pipelines; use `CreateInstanceTempCredential` for temporary access
-9. **Instance spec selection**: Use `swr.ee.basic` for small teams; `swr.ee.professional` for enterprise requirements with advanced features
+7. **Custom domains**: Use SCM (SSL Certificate Manager) certificates for custom domain HTTPS
+8. **Delete with caution**: Deleting an instance removes ALL data permanently; deleting a namespace removes ALL repositories
+9. **Long-term credentials**: Use `CreateInstanceLtCredential` for CI/CD pipelines; use `CreateInstanceTempCredential` for temporary access
+10. **Instance spec selection**: Use `swr.ee.basic` for small teams; `swr.ee.professional` for enterprise requirements with advanced features
 
 ## Reference Documents
 
 | Document                                               | Description                              |
 | ------------------------------------------------------ | ---------------------------------------- |
 | [SWR Instance API Guide](references/swr-instance-api-guide.md) | hcloud SWR instance API reference |
+| [SDK Helper Script](scripts/swr_instance_helper.py) | Python SDK wrapper for CreateInstance (bypasses hcloud CLI bug) |
 | [Output Format](references/output-format.md)          | Response format examples (Instance, Namespace, Endpoint, Domain, Credential) |
 | [IAM Permission Policies](references/iam-policies.md)  | Required permissions and policy JSON     |
 | [Verification Method](references/verification-method.md) | Step-by-step verification              |
@@ -477,7 +513,8 @@ See [Verification Method](references/verification-method.md) for step-by-step ve
 - **Artifact deletion is irreversible** — the image version cannot be recovered
 - **Default domain cannot be deleted** — only custom domains can be removed
 - **AK/SK must never be hardcoded** — credentials should only be obtained via environment variables
-- **hcloud CLI is the only supported method** — all operations use `hcloud SWR <Operation>` format
+- **hcloud CLI has a known bug for CreateInstance** — `--project_id` duplicate parameter makes hcloud CLI
+  unusable for instance creation; use the Python SDK script (`scripts/swr_instance_helper.py`) as an alternative
 - **Pagination offset must be multiple of limit** — `offset` must be 0 or a multiple of `limit`
 - **Registry credential.access_secret is sensitive** — never expose or log access secrets
 
@@ -497,3 +534,5 @@ See [Common Pitfalls & Solutions](references/common-pitfalls.md) for detailed tr
 | Domain cert not found           | Domain creation fails           | Verify certificate_id in SCM                 |
 | Cannot delete default domain    | Delete fails                    | Only custom domains can be deleted           |
 | Public access whitelist format  | Whitelist update fails          | Use indexed: --ip_list.1.ip=value            |
+| hcloud CreateInstance bug      | `重复的参数:project_id`         | Use Python SDK script `swr_instance_helper.py create` |
+| SWR service quota exceeded     | "Quota exceeded 200 of 200"    | Contact SWR team to expand service tenant quota |
