@@ -6,7 +6,6 @@ description: |
   Use this skill when the user wants to: (1) scan CCE clusters for availability risks including single replicas, missing PodDisruptionBudgets, unhealthy probes, unreasonable affinity or nodepool pinning, (2) assess master HA and utilization, node and workload AZ balance, gateway workload distribution, and core addon anti-affinity, (3) detect resource request/limit overcommit and capacity illusions, (4) produce risk-rated reports with remediation plans and YAML suggestions, (5) check control-plane visibility, node AZ distribution, nodepool distribution, and Pod spread.
   Trigger: user mentions "availability risk", "可用性风险", "availability scanner", "可用性扫描", "cluster inspection", "集群巡检", "risk assessment", "风险评估", "single point of failure", "单点故障", "availability gap", "可用性缺口", "PDB missing", "单副本", "AZ imbalance", "AZ 不均衡", "gateway concentration", "网关集中", "resource overcommit", "资源超配", "health probe missing", "探针缺失"
 tags: [cce, availability, risk-scanner, inspection]
-version: 1.0.0
 ---
 
 # Huawei Cloud CCE Availability Risk Scanner

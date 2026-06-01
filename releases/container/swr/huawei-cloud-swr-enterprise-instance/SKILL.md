@@ -6,7 +6,6 @@ description: |
   Use this skill when the user wants to: (1) manage SWR enterprise instances - create/list/show/delete/update configuration, (2) manage instance namespaces - create/list/show/update/delete with security scanning settings, (3) manage instance registries (sync targets) - create/list/show/update/delete, (4) manage instance repositories - list/show/delete/update, (5) manage instance artifacts (image versions) - list/show/delete/scan, (6) manage instance credentials - long-term and temporary, (7) manage instance endpoints - internal/public access, (8) manage instance domains - add/list/show/delete/update, (9) check instance statistics and job status.
   Trigger: user mentions "SWR enterprise instance", "SWR 企业实例", "SWR 企业版", "企业仓库实例", "SWR instance", "SWR 专业版", "swr.ee", "instance namespace", "instance registry", "instance repository", "instance artifact", "instance credential", "instance endpoint", "instance domain", "企业仓库", "实例管理"
 tags: [swr, enterprise-instance, container-registry, registry, domain]
-version: 1.0.0
 ---
 
 # Huawei Cloud SWR Enterprise Instance Management

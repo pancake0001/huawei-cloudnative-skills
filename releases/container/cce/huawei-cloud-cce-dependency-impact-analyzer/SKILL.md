@@ -6,7 +6,6 @@ description: |
   Use this skill when a CCE incident needs service topology impact analysis, including Service/Ingress/Pod/Node propagation paths, upstream/downstream blast radius, affected entrypoints, and a complete Markdown impact report with evidence and confidence limits.
   Trigger: "dependency impact", "依赖影响", "dependency analysis", "依赖分析", "cascade failure", "级联故障", "blast radius", "爆炸半径", "service topology", "服务拓扑", "propagation path", "传播路径", "upstream downstream impact", "上下游影响", "dependency mapping", "依赖映射"
 tags: [cce, dependency, impact, cascade]
-version: 1.0.0
 ---
 
 # CCE Dependency Impact Analyzer

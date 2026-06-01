@@ -6,7 +6,6 @@ description: |
   Use this skill when a CCE incident may be caused by recent changes, including workload releases, ConfigMap/Secret updates, Service/Ingress/Gateway route changes, NetworkPolicy/RBAC/security policy changes, node taints or infrastructure changes, and the user needs a complete Markdown report with timeline, evidence matrix, blast radius, risk score, and conclusion.
   Trigger: "change impact analysis", "变更影响分析", "change risk", "变更风险", "deployment impact", "发布影响", "config change", "配置变更", "network policy change", "网络策略变更", "node taint change", "节点污点变更", "blast radius", "爆炸半径", "recent changes", "近期变更", "audit log correlation", "审计日志关联"
 tags: [cce, change-impact, risk-assessment, preview]
-version: 1.0.0
 ---
 
 # CCE Change Impact Analyzer

@@ -6,7 +6,6 @@ description: |
   Use this skill when the user wants to: (1) diagnose CCE autoscaling failures across HPA not increasing Pod replicas, CCE elastic engine or Cluster Autoscaler not adding/removing nodes, missing metrics, missing CPU/memory requests, maxReplicas or max_nodes limits, Pending Pods, scheduling constraints, subnet IP exhaustion, ECS quota, or IAM agency permission issues, (2) perform HPA-to-CA cascade diagnosis linking workload-level and node-level scaling failures, (3) analyze CA Pod logs for Cluster Autoscaler signals (NoExpansionOptions, MaxNodeGroupSizeReached, QuotaExceeded, SubnetIPExhausted, IAM denied), (4) generate a complete Markdown diagnosis report with process, evidence, conclusion, confidence, and recommendations.
   Trigger: user mentions "autoscaling diagnosis", "弹性伸缩诊断", "HPA diagnosis", "HPA 诊断", "scaling failure", "伸缩失败", "HPA not scaling", "HPA 不伸缩", "replica scaling", "副本伸缩", "autoscaling issue", "伸缩问题"
 tags: [cce, autoscaling, hpa, diagnosis]
-version: 1.0.0
 ---
 
 # Huawei Cloud CCE Autoscaling Diagnoser

@@ -10,7 +10,6 @@ description: |
   "resource exhaustion", "资源耗尽", "HPA tuning", "node autoscaler", "capacity report",
   "capacity simulation"
 tags: [cce, capacity, forecast, trend]
-version: 1.0.0
 ---
 
 # Huawei Cloud CCE Capacity Trend Forecaster

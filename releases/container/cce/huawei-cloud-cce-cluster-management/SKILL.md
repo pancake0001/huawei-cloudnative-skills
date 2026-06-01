@@ -5,7 +5,6 @@ description: |
   Use this skill when the user wants to: (1) create, delete, hibernate, or awake CCE clusters, (2) list clusters and query cluster/node/nodepool/addon information, (3) manage node pools (create, delete, resize), (4) manage nodes (create, delete, cordon, uncordon, drain), (5) manage addons (install, uninstall, update), (6) bind/unbind cluster EIP for public access, (7) get cluster kubeconfig.
   Trigger: user mentions "CCE cluster", "create cluster", "delete cluster", "node pool", "node management", "hibernate cluster", "awake cluster", "addon", "kubeconfig", "EIP binding", "CCE 集群", "创建集群", "删除集群", "节点池", "节点管理", "休眠集群", "唤醒集群", "插件", "kubeconfig", "EIP 绑定"
 tags: [cce, kubernetes, cluster-management, nodepool, addon]
-version: 1.0.0
 ---
 
 # Huawei Cloud CCE Cluster Management

@@ -6,7 +6,6 @@ description: |
   This skill prioritizes quick checks first, escalating to deep diagnosis only when anomalies are found. Read-only only — no mutation actions.
   Trigger: "cluster inspection", "集群巡检", "daily inspection", "日常巡检", "health check", "健康检查", "cluster heartbeat", "集群心跳", "quick check", "快检", "CCE inspection", "CCE 巡检"
 tags: [cce, inspection, health-check, daily]
-version: 1.0.0
 ---
 
 # CCE Daily Cluster Inspector

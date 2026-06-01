@@ -7,7 +7,6 @@ description: |
   This skill performs MUTATION actions (drain, cordon, scale, restart, delete, reboot, hibernate) that require preview+confirm workflow. NEVER auto-add confirm=true.
   Trigger: "auto remediation", "自动恢复", "remediation action", "恢复动作", "node drain", "节点 drain", "node cordon", "节点 cordon", "scale workload", "扩缩容", "restart pod", "重启 Pod", "remediation preview", "恢复预览", "confirm remediation", "确认恢复"
 tags: [cce, remediation, auto-heal, mutation]
-version: 1.0.0
 ---
 
 # CCE Auto Remediation Runner

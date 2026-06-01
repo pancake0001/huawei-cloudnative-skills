@@ -6,7 +6,6 @@ description: |
   Use this skill when the user wants to: (1) enable CCE elasticity to CCI, (2) install or configure virtual-kubelet bursting addon, (3) create required OBS or SWR VPCEP endpoints for CCI image pulling, (4) run a CCI bursting smoke test deployment, (5) verify virtual node readiness and workload pod status, (6) diagnose why CCE pods do not reach Running on bursting-node.
   Trigger: "CCI bursting", "CCI 弹性", "burst deployment", "弹性部署", "burst to CCI", "弹出到 CCI", "hybrid scheduling", "混合调度", "CCE-CCI burst", "CCE-CCI 弹性", "CCI workload", "CCI 工作负载"
 tags: [cce, cci, bursting, hybrid-scheduling]
-version: 1.0.0
 ---
 
 # Huawei Cloud CCE-CCI Bursting Deployer

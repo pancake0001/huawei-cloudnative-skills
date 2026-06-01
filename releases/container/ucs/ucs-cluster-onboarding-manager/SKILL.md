@@ -6,7 +6,6 @@ description: |
   Use this skill when the user wants to: (1) register self-managed or CCE clusters to UCS - register/query/remove, (2) manage cluster lifecycle - update/query/list clusters, (3) manage fleet groups - create/delete/query cluster groups, (4) obtain cluster access information and kubeconfig, (5) download federation kubeconfig for multi-cluster access, (6) check UCS resource quotas.
   Trigger: user mentions "UCS cluster onboarding", "UCS 集群纳管", "UCS cluster registration", "UCS 注册集群", "UCS fleet", "UCS 舰队", "UCS 集群组", "cluster group", "fleet grouping", "UCS kubeconfig", "UCS 集群接入", "UCS federation", "UCS 联邦", "UCS 配额", "cluster lifecycle", "集群生命周期", "managed clusters", "纳管集群", "集群管理"
 tags: [ucs, cluster-onboarding, fleet, kubeconfig, cluster-lifecycle]
-version: 1.0.0
 ---
 
 # Huawei Cloud UCS Cluster Onboarding Manager

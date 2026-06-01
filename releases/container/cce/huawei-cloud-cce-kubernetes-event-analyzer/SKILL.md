@@ -3,7 +3,6 @@ id: huawei-cloud-cce-kubernetes-event-analyzer
 name: huawei-cloud-cce-kubernetes-event-analyzer
 description: Use this skill when the user wants to query and analyze Kubernetes events in Huawei Cloud CCE clusters. Trigger: user mentions Kubernetes events, "Kubernetes 事件", CCE events, "CCE 事件", event analysis, "事件分析", "FailedScheduling", "FailedMount", event query, "事件查询", cluster events, "集群事件"
 tags: [cce, kubernetes, events, observability, analysis]
-version: 1.0.0
 ---
 
 # Kubernetes Event Analyzer
