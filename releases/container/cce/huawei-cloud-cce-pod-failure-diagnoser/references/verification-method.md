@@ -24,9 +24,9 @@ This document defines the verification steps for the CCE Pod Failure Diagnoser s
 
 | Item                    | Command                | Success Criteria                        |
 | ----------------------- | ---------------------- | --------------------------------------- |
-| Credentials configured  | Environment variables  | `HUAWEI_CLOUD_AK`, `HUAWEI_CLOUD_SK`, `HUAWEI_CLOUD_REGION` set |
+| Credentials configured  | Environment variables  | `HUAWEI_AK`/`HUAWEI_SK` or `HW_ACCESS_KEY`/`HW_SECRET_KEY` set; pass `region=...` or `--region=...` explicitly |
 
-Never use `echo $HUAWEI_CLOUD_AK` to check credentials.
+Never use `echo $HUAWEI_AK`, `echo $HUAWEI_SK`, `echo $HW_ACCESS_KEY`, or `echo $HW_SECRET_KEY` to check credentials.
 
 ### 2.2 API Connectivity Test
 

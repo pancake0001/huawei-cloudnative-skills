@@ -30,7 +30,7 @@ pip show huaweicloudsdkcce
 
 ```bash
 # Query cluster list
-python3 huawei-cloud.py huawei_list_cce_clusters region=cn-north-4
+python3 scripts/huawei-cloud.py huawei_list_cce_clusters region=cn-north-4
 
 # Expected result: Returns cluster list, including cluster_id, name, status, etc.
 ```
@@ -39,7 +39,7 @@ python3 huawei-cloud.py huawei_list_cce_clusters region=cn-north-4
 
 ```bash
 # Query node scheduling status
-python3 huawei-cloud.py huawei_cce_node_status \
+python3 scripts/huawei-cloud.py huawei_cce_node_status \
   region=cn-north-4 \
   cluster_id=<cluster_id> \
   node_id=<node_id>
@@ -51,7 +51,7 @@ python3 huawei-cloud.py huawei_cce_node_status \
 
 ```bash
 # Call delete command without confirm parameter
-python3 huawei-cloud.py huawei_delete_cce_cluster \
+python3 scripts/huawei-cloud.py huawei_delete_cce_cluster \
   region=cn-north-4 \
   cluster_id=xxx
 
@@ -62,6 +62,6 @@ python3 huawei-cloud.py huawei_delete_cce_cluster \
 
 ```bash
 # Complete verification flow
-python3 huawei-cloud.py huawei_list_cce_clusters region=cn-north-4
-python3 huawei-cloud.py huawei_list_cce_nodes region=cn-north-4 cluster_id=<cluster_id>
+python3 scripts/huawei-cloud.py huawei_list_cce_clusters region=cn-north-4
+python3 scripts/huawei-cloud.py huawei_list_cce_nodes region=cn-north-4 cluster_id=<cluster_id>
 ```
