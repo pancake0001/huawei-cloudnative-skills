@@ -16,12 +16,6 @@
 | [使用OpenClaw进行CCE集群定期巡检](openclaw-cce-periodic-inspection.md) | 生产集群需要周期性健康检查、报告归档和异常通知。 | 定时巡检、告警/指标/事件汇聚、报告生成、邮件通知 |
 | [基于AICLI和Skill实现CCE到CCI 2.0 Bursting](aicli-cce-cci-bursting.md) | CCE 集群突发流量或资源不足时，将符合条件的 Pod 弹性调度到 CCI 2.0。 | 预检查、VPCEP 创建、bursting 插件配置、虚拟节点验证、冒烟测试 |
 
-## 规划与缺口分析
-
-| 文档 | 用途 |
-| --- | --- |
-| [整体能力与最佳实践缺口](capability-and-best-practice-gap-analysis.md) | 梳理 `releases` 已有能力、当前最佳实践覆盖情况，以及后续建议补齐的最佳实践案例。 |
-
 ## 编写规范
 
 - 每个最佳实践应包含应用场景、前提条件、操作步骤、诊断结论、预期结果、约束限制和后续建议。
