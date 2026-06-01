@@ -18,6 +18,7 @@ description: 华为云 AOM 告警关联分析技能，支持查询 active/histor
 | 工具 | 操作类型 | 风险等级 | 说明 |
 |------|---------|---------|------|
 | `huawei_create_aom_alarm_rule` | 创建 | 🟡 中 | 创建新的 AOM 告警规则，可能引入新的告警通知 |
+| `huawei_configure_cce_aom_alarm_rules` | 批量创建 | 🟡 中 | 按 CCE 告警中心默认模板为指定集群一键创建 AOM 告警规则 |
 | `huawei_update_aom_alarm_rule` | 修改 | 🟠 高 | 修改 AOM 告警规则阈值、开关、通知动作、描述等配置 |
 | `huawei_delete_aom_alarm_rule` | 删除 | 🔴 高 | 删除 AOM 告警规则，可能导致后续告警无法触发 |
 | `huawei_disable_aom_alarm_rule` | 停用 | 🔴 高 | 停用 AOM 告警规则，可能导致相关告警不再触发 |
@@ -179,6 +180,7 @@ python3 huawei-cloud.py huawei_analyze_aom_alarms \
 |------|------|---------|-------|------|
 | `huawei_list_aom_alarm_rules` | 查询 AOM 告警规则 | 🟢 低 | 否 | `region` |
 | `huawei_create_aom_alarm_rule` | 创建 AOM 告警规则 | 🟡 中 | **是** | `region`, `rule_name`, `metric_name`, `namespace`, `comparison_operator`, `threshold`, `period`, `evaluation_periods`, `statistic`, `alarm_level` |
+| `huawei_configure_cce_aom_alarm_rules` | 一键创建 CCE 默认告警规则 | 🟡 中 | **是** | `region`, `cluster_id` |
 | `huawei_update_aom_alarm_rule` | 修改 AOM 告警规则 | 🟠 高 | **是** | `region`, `rule_name` |
 | `huawei_delete_aom_alarm_rule` | 删除 AOM 告警规则 | 🔴 高 | **是** | `region`, `rule_name` |
 | `huawei_disable_aom_alarm_rule` | 停用 AOM 告警规则 | 🔴 高 | **是** | `region`, `rule_id` |
@@ -203,6 +205,15 @@ python3 huawei-cloud.py huawei_analyze_aom_alarms \
 - `rule_id` (required for enable): 需要启用的告警规则 ID
 - `rule_name` (required for delete action rule): AOM 通知动作规则名称
 - `enterprise_project_id` (optional for list action rules): 企业项目范围，默认 `all_granted_eps`
+- `bind_notification_rule_id` (optional for configure): 一键创建 CCE 告警规则时绑定的 AOM 通知规则名称/ID；不传时默认使用 `auto-cluster-{cluster_id}`
+- `smn_topic_urn` (conditionally required for configure): 当未指定 `bind_notification_rule_id` 且 `auto-cluster-{cluster_id}` 通知规则不存在时，用于自动创建通知规则的 SMN 主题 URN
+- `smn_topic_name` (optional for configure): SMN 主题名称；不传时从 `smn_topic_urn` 最后一段自动推导
+- `smn_topic_display_name` (optional for configure): SMN 主题显示名
+- `rule_name_prefix` (optional for configure): 批量创建规则名前缀，默认使用 `cluster_id`
+- `include_metric_alarms` / `include_event_alarms` (optional for configure): 是否创建指标类/事件类告警，默认都创建
+- `alarm_items` (optional for configure): 逗号分隔的告警项白名单，仅创建指定告警项
+- `skip_existing` (optional for configure): 是否跳过已存在同名规则，默认 `true`
+- `prom_instance_id` (optional for configure): 指定 AOM Prometheus 实例；不传时按 `cluster_id` 自动匹配
 - `fields` (optional): 创建规则时的额外 JSON 字段，例如 `{"unit":"%","is_turn_on":true}`
 - `updates` (optional): JSON 格式的批量更新字段，例如 `{"threshold":"80","is_turn_on":true}`
 - `confirm` (optional): 创建、修改或删除时必须显式设置为 `true` 才会执行
@@ -241,6 +252,26 @@ python3 huawei-cloud.py huawei_create_aom_alarm_rule \
   evaluation_periods=3 \
   statistic=average \
   alarm_level=2 \
+  confirm=true
+
+# 预览一键创建 CCE 告警中心默认规则，不执行
+python3 huawei-cloud.py huawei_configure_cce_aom_alarm_rules \
+  region=cn-north-4 \
+  cluster_id=xxx
+
+# 确认一键创建 CCE 告警中心默认规则
+python3 huawei-cloud.py huawei_configure_cce_aom_alarm_rules \
+  region=cn-north-4 \
+  cluster_id=xxx \
+  bind_notification_rule_id=auto-cluster-xxx \
+  confirm=true
+
+# 不指定通知规则时，工具会优先使用 auto-cluster-{cluster_id}；
+# 如果该通知规则不存在，则使用 smn_topic_urn 自动创建通知规则后再创建告警规则
+python3 huawei-cloud.py huawei_configure_cce_aom_alarm_rules \
+  region=cn-north-4 \
+  cluster_id=xxx \
+  smn_topic_urn=urn:smn:cn-north-4:project-id:topic-name \
   confirm=true
 
 # 预览修改告警规则，不执行

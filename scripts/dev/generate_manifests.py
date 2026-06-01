@@ -155,10 +155,29 @@ def _param_description(name: str) -> str:
     return descriptions.get(name, f"{name} parameter.")
 
 
-def _param_schema(required: Iterable[str]) -> dict[str, object]:
+OPTIONAL_PARAMS_BY_ACTION = {
+    "huawei_configure_cce_aom_alarm_rules": (
+        "bind_notification_rule_id",
+        "rule_name_prefix",
+        "include_metric_alarms",
+        "include_event_alarms",
+        "alarm_items",
+        "skip_existing",
+        "prom_instance_id",
+        "enterprise_project_id",
+        "smn_topic_urn",
+        "smn_topic_name",
+        "smn_topic_display_name",
+        "confirm",
+    ),
+}
+
+
+def _param_schema(required: Iterable[str], action_name: str | None = None) -> dict[str, object]:
     required_list = list(required)
     properties: dict[str, dict[str, str]] = {}
-    for name in [*required_list, "ak", "sk", "project_id"]:
+    optional_list = list(OPTIONAL_PARAMS_BY_ACTION.get(action_name or "", ()))
+    for name in [*required_list, *optional_list, "ak", "sk", "project_id"]:
         if name not in properties:
             properties[name] = {"type": "string", "description": _param_description(name)}
     return {
@@ -183,7 +202,7 @@ def build_manifest(profile: SkillProfile, action_specs: dict[str, ActionSpec]) -
             {
                 "name": tool,
                 "description": f"Run {tool} through the shared Huawei Cloud dispatcher.",
-                "parameters": _param_schema(action_specs[tool].required),
+                "parameters": _param_schema(action_specs[tool].required, tool),
                 "script": SCRIPT_PATH,
             }
             for tool in profile.tools
@@ -200,7 +219,7 @@ def build_legacy_manifest(action_specs: dict[str, ActionSpec]) -> dict[str, obje
             {
                 "name": spec.name,
                 "description": f"Run {spec.name} through the shared Huawei Cloud dispatcher.",
-                "parameters": _param_schema(spec.required),
+                "parameters": _param_schema(spec.required, spec.name),
                 "script": SCRIPT_PATH,
             }
             for spec in action_specs.values()
@@ -261,4 +280,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

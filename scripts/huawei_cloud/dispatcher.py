@@ -465,6 +465,32 @@ def _create_aom_event_alarm_rule(params: Dict[str, str]) -> Dict[str, Any]:
     )
 
 
+def _configure_cce_aom_alarm_rules(params: Dict[str, str]) -> Dict[str, Any]:
+    bind_notification_rule_id = (
+        params.get("bind_notification_rule_id")
+        or params.get("notification_rule_name")
+    )
+    return aom.configure_cce_aom_alarm_rules(
+        region=params["region"],
+        cluster_id=params["cluster_id"],
+        bind_notification_rule_id=bind_notification_rule_id,
+        rule_name_prefix=params.get("rule_name_prefix"),
+        include_metric_alarms=_to_bool(params.get("include_metric_alarms"), True),
+        include_event_alarms=_to_bool(params.get("include_event_alarms"), True),
+        alarm_items=params.get("alarm_items"),
+        skip_existing=_to_bool(params.get("skip_existing"), True),
+        prom_instance_id=params.get("prom_instance_id"),
+        enterprise_project_id=params.get("enterprise_project_id"),
+        smn_topic_urn=params.get("smn_topic_urn"),
+        smn_topic_name=params.get("smn_topic_name"),
+        smn_topic_display_name=params.get("smn_topic_display_name"),
+        confirm=_to_bool(params.get("confirm"), False),
+        ak=params.get("ak"),
+        sk=params.get("sk"),
+        project_id=params.get("project_id"),
+    )
+
+
 def _update_aom_alarm_rule(params: Dict[str, str]) -> Dict[str, Any]:
     updates = _alarm_rule_fields(params, "updates")
     return aom.update_aom_alarm_rule(
@@ -1713,6 +1739,7 @@ ACTION_SPECS: Dict[str, tuple[tuple[str, ...], Handler]] = {
     "huawei_list_aom_alarm_rules": (("region",), _list_aom_alarm_rules),
     "huawei_create_aom_alarm_rule": (("region", "rule_name", "metric_name", "namespace", "comparison_operator", "threshold", "period", "evaluation_periods", "statistic", "alarm_level"), _create_aom_alarm_rule),
     "huawei_create_aom_event_alarm_rule": (("region", "cluster_id", "rule_name", "event_name"), _create_aom_event_alarm_rule),
+    "huawei_configure_cce_aom_alarm_rules": (("region", "cluster_id"), _configure_cce_aom_alarm_rules),
     "huawei_update_aom_alarm_rule": (("region", "rule_name"), _update_aom_alarm_rule),
     "huawei_delete_aom_alarm_rule": (("region", "rule_name"), _delete_aom_alarm_rule),
     "huawei_disable_aom_alarm_rule": (("region", "rule_id"), _disable_aom_alarm_rule),
