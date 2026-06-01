@@ -50,6 +50,7 @@
 | `huawei-cloud-cce-storage-failure-diagnoser` | 通过 | 存储诊断成功，findings=0，未命中明确存储根因 | 输出合理 |
 | `huawei-cloud-cce-workload-failure-diagnoser` | 通过 | 发布诊断成功，Deployment `abclient` 当前 20/20 ready | 历史 Evicted 不影响当前发布状态 |
 | `huawei-cloud-cce-workload-manager` | 通过 | hcloud 获取短期 kubeconfig 成功，kubectl 只读列出 3 Deployment、5 Service、1 Ingress 和 Pod | 首次 in-cluster SA RBAC 不足为环境限制 |
+| `huawei-cloud-cce-pressure-test` | 通过 | k6 client manifest 生成成功；run/route preview 均返回 `requires_confirmation=true`；Service 只读查询成功 | 新增 skill，未执行 `confirm=true`，未发压 |
 
 ## 复验修正
 
@@ -63,10 +64,11 @@
 
 | 编号 | 问题 | 修复 | 复验 |
 | --- | --- | --- | --- |
-| CCE-COMMON-001 | 多个 `scripts/huawei-cloud.py` 的 CLI dispatcher 原本只稳定支持 `key=value`，与部分验证文档中的 `--key=value` / `--key value` 示例不一致 | 已统一增强 `_parse_cli_params`，支持 `key=value`、`--key=value`、`--key value`，并将 `--cluster-id` 归一为 `cluster_id` | 已在 pod-failure-diagnoser 容器内用 `--region=...` 与 `--region ...` 复验通过；本地 22 个 CCE script 已通过 `py_compile` |
+| CCE-COMMON-001 | 多个 `scripts/huawei-cloud.py` 的 CLI dispatcher 原本只稳定支持 `key=value`，与部分验证文档中的 `--key=value` / `--key value` 示例不一致 | 已统一增强 `_parse_cli_params`，支持 `key=value`、`--key=value`、`--key value`，并将 `--cluster-id` 归一为 `cluster_id` | 已在 pod-failure-diagnoser 与 pressure-test 容器内用 `--region=...`、`--region ...`、`--cluster-id` 复验通过；本地含 script 的 CCE skill 已通过 `py_compile` |
 | CCE-COMMON-002 | `huawei-cloud-cce-cluster-management` 文档示例使用 `python3 huawei-cloud.py`，与实际包内 `scripts/huawei-cloud.py` 不一致 | 已修正 `SKILL.md` 与 `references/verification-method.md` | aicli 真实环境已使用 `scripts/huawei-cloud.py` 验证通过 |
 | CCE-COMMON-003 | pod diagnoser 文档凭证变量说明与实际支持变量不一致 | 已校正文档为 `HUAWEI_AK`/`HUAWEI_SK` 或 `HW_ACCESS_KEY`/`HW_SECRET_KEY` | 已复验 |
+| CCE-COMMON-004 | 主干新增 `huawei-cloud-cce-pressure-test` 后，其 dispatcher 未包含前述参数兼容修复 | 已补齐 `_parse_cli_params`，并同步到真实 aicli 容器复验 | `--region`、`--cluster-id`、`--target-url` 复验通过 |
 
 ## 结论
 
-25 个 CCE skill 均已在真实 `aicli` 容器环境完成验证，最终状态全部通过。发现的问题均为低风险文档/参数兼容性或验证入口问题，未发现不可用、会误执行变更、泄露凭证或安全边界失效的问题。
+26 个 CCE skill 均已在真实 `aicli` 容器环境完成验证，最终状态全部通过。发现的问题均为低风险文档/参数兼容性或验证入口问题，未发现不可用、会误执行变更、泄露凭证或安全边界失效的问题。`huawei-cloud-cce-pressure-test` 按压力测试安全边界仅做 preview/只读验证，未执行真实发压。

@@ -6,13 +6,13 @@
 
 | 项目 | 值 |
 | --- | --- |
-| Skill 总数 | 33（含 DevTools）；云原生业务 skill 为 32 |
+| Skill 总数 | 34（含 DevTools）；云原生业务 skill 为 33 |
 | aicli 环境 | CCE 集群 `aicli` 命名空间，Pod `aicli-dcfcf5595-4gf22` |
 | aicli 版本 | `v1.0.0-beta.2` |
 | 当前验证日期 | 2026-06-01 |
 | 默认区域 | `cn-north-4` |
 | 默认集群 ID | `1d450236-5b28-11f1-a7f6-0255ac10026a` |
-| CCE 验证进度 | 25/25 已通过 |
+| CCE 验证进度 | 26/26 已通过 |
 
 状态枚举：
 
@@ -128,21 +128,22 @@ kubectl cp <local-file> aicli/aicli-dcfcf5595-4gf22:<container-file>
 | 23 | CCE | `huawei-cloud-cce-storage-failure-diagnoser` | `releases/container/cce/huawei-cloud-cce-storage-failure-diagnoser` | 通过 | 存储诊断成功，findings=0，未命中明确存储根因 | 输出合理，无风险 | CCE-COMMON-001 | 是 | [报告](verification-reports/huawei-cloud-cce-storage-failure-diagnoser-2026-06-01.md) |
 | 24 | CCE | `huawei-cloud-cce-workload-failure-diagnoser` | `releases/container/cce/huawei-cloud-cce-workload-failure-diagnoser` | 通过 | 发布诊断成功，Deployment abclient 当前 20/20 ready | 历史 Evicted 不影响当前发布状态 | CCE-COMMON-001 | 是 | [报告](verification-reports/huawei-cloud-cce-workload-failure-diagnoser-2026-06-01.md) |
 | 25 | CCE | `huawei-cloud-cce-workload-manager` | `releases/container/cce/huawei-cloud-cce-workload-manager` | 通过 | hcloud 获取短期 kubeconfig 成功，kubectl 只读列出资源 | 首次 in-cluster SA RBAC 不足为环境限制 | 使用 hcloud kubeconfig 流程（非 script 类 skill） | 是 | [报告](verification-reports/huawei-cloud-cce-workload-manager-2026-06-01.md) |
-| 26 | CCI | `huawei-cloud-cci-instance-management` | `releases/container/cci/huawei-cloud-cci-instance-management` | 待验证 | - | - | - | - | - |
-| 27 | SWR | `huawei-cloud-swr-enterprise-instance` | `releases/container/swr/huawei-cloud-swr-enterprise-instance` | 待验证 | - | - | - | - | - |
-| 28 | SWR | `huawei-cloud-swr-image-automation` | `releases/container/swr/huawei-cloud-swr-image-automation` | 待验证 | - | - | - | - | - |
-| 29 | SWR | `huawei-cloud-swr-image-governance` | `releases/container/swr/huawei-cloud-swr-image-governance` | 待验证 | - | - | - | - | - |
-| 30 | SWR | `huawei-cloud-swr-image-management` | `releases/container/swr/huawei-cloud-swr-image-management` | 待验证 | - | - | - | - | - |
-| 31 | UCS | `ucs-cluster-onboarding-manager` | `releases/container/ucs/ucs-cluster-onboarding-manager` | 待验证 | - | - | - | - | - |
-| 32 | UCS | `ucs-policy-governor` | `releases/container/ucs/ucs-policy-governor` | 待验证 | - | - | - | - | - |
-| 33 | DevTools | `huawei-cloud-cli-guidance` | `releases/devtools/huawei-cloud-cli-guidance` | 待验证 | - | - | - | - | - |
+| 26 | CCE | `huawei-cloud-cce-pressure-test` | `releases/container/cce/huawei-cloud-cce-pressure-test` | 通过 | client manifest 生成成功；run/route 不带 confirm 均正确返回 `requires_confirmation=true`；Service 只读查询成功 | 压测类变更保护生效；aicli 原始输出已入库 | CCE-COMMON-001（补齐新增 skill 参数解析） | 是 | [报告](verification-reports/huawei-cloud-cce-pressure-test-2026-06-01.md) |
+| 27 | CCI | `huawei-cloud-cci-instance-management` | `releases/container/cci/huawei-cloud-cci-instance-management` | 待验证 | - | - | - | - | - |
+| 28 | SWR | `huawei-cloud-swr-enterprise-instance` | `releases/container/swr/huawei-cloud-swr-enterprise-instance` | 待验证 | - | - | - | - | - |
+| 29 | SWR | `huawei-cloud-swr-image-automation` | `releases/container/swr/huawei-cloud-swr-image-automation` | 待验证 | - | - | - | - | - |
+| 30 | SWR | `huawei-cloud-swr-image-governance` | `releases/container/swr/huawei-cloud-swr-image-governance` | 待验证 | - | - | - | - | - |
+| 31 | SWR | `huawei-cloud-swr-image-management` | `releases/container/swr/huawei-cloud-swr-image-management` | 待验证 | - | - | - | - | - |
+| 32 | UCS | `ucs-cluster-onboarding-manager` | `releases/container/ucs/ucs-cluster-onboarding-manager` | 待验证 | - | - | - | - | - |
+| 33 | UCS | `ucs-policy-governor` | `releases/container/ucs/ucs-policy-governor` | 待验证 | - | - | - | - | - |
+| 34 | DevTools | `huawei-cloud-cli-guidance` | `releases/devtools/huawei-cloud-cli-guidance` | 待验证 | - | - | - | - | - |
 
-备注：`releases/test-prompts.md` 中写的是 32 个云原生 skill，统计口径为 25 CCE + 1 CCI + 4 SWR + 2 UCS；如果把 DevTools 的 `huawei-cloud-cli-guidance` 也纳入 `releases` 目录 skill 清单，则总表为 33 行。
+备注：`releases/test-prompts.md` 原写的是 32 个云原生 skill；主干新增 `huawei-cloud-cce-pressure-test` 后统计口径为 26 CCE + 1 CCI + 4 SWR + 2 UCS。如果把 DevTools 的 `huawei-cloud-cli-guidance` 也纳入 `releases` 目录 skill 清单，则总表为 34 行。
 
 ## 通用修复记录
 
 | 编号 | 问题 | 修复 | 影响范围 |
 | --- | --- | --- | --- |
-| CCE-COMMON-001 | 多个 `scripts/huawei-cloud.py` 的 CLI dispatcher 原本只稳定支持 `key=value`，与部分验证文档中的 `--key=value` / `--key value` 示例不一致 | 已增强 `_parse_cli_params`，支持 `key=value`、`--key=value`、`--key value`，并将 `--cluster-id` 归一为 `cluster_id` | 全 24 个含 `scripts/huawei-cloud.py` 的 CCE skill |
+| CCE-COMMON-001 | 多个 `scripts/huawei-cloud.py` 的 CLI dispatcher 原本只稳定支持 `key=value`，与部分验证文档中的 `--key=value` / `--key value` 示例不一致；主干新增 `pressure-test` 后也命中同类问题 | 已增强 `_parse_cli_params`，支持 `key=value`、`--key=value`、`--key value`，并将 `--cluster-id` 归一为 `cluster_id` | 含 `scripts/huawei-cloud.py` 的 CCE skill（含本次 pressure-test 补齐） |
 | CCE-COMMON-002 | `huawei-cloud-cce-cluster-management` 文档示例使用 `python3 huawei-cloud.py`，与实际 `scripts/huawei-cloud.py` 不一致 | 已修正 SKILL.md 与 references/verification-method.md | cluster-management |
 | CCE-COMMON-003 | pod-failure-diagnoser 文档凭证变量说明与实际支持变量不一致 | 已校正为 HUAWEI_AK/HUAWEI_SK 或 HW_ACCESS_KEY/HW_SECRET_KEY | pod-failure-diagnoser |
