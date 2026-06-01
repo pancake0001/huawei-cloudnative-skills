@@ -40,7 +40,8 @@ Manage Huawei Cloud CCI (Cloud Container Instance) full lifecycle using hcloud C
 
 > Detailed breakdowns of these rules are in [Security Constraints](#security-constraints), [hcloud CLI Limitations](#hcloud-cli-limitations), and [Precautions](#precautions).
 
-**Standard workflow**:
+## Standard Workflow
+
 ```
 1. Create Namespace (with flavor annotation)
 2. Create Network (requires Python helper script for annotation — see hcloud CLI Limitations)
