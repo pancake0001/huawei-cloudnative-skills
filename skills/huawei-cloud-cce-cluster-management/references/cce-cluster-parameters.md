@@ -201,6 +201,8 @@ python3 huawei-cloud.py huawei_create_cce_cluster \
 
 ### Create a Node Pool
 
+Node pool creation is preview-first because it may create billable ECS and EVS resources. Review the plan and rerun with `confirm=true` only after explicit approval.
+
 ```bash
 export CCE_NODE_PASSWORD="your_password"
 
