@@ -71,6 +71,10 @@ python scripts\test_modular_dispatch.py
 
 `validate_skills.py` 和 manifest 生成器只做静态校验，不访问华为云 API，不需要 AK/SK。
 
+## 最佳实践
+
+项目最佳实践案例沉淀在 [docs/best-practices](docs/best-practices/README.md)，用于展示云原生 Skill 在 CCE 工作负载诊断、Pod/Node 故障恢复、容量治理和自动化恢复等场景中的端到端使用流程。
+
 ## 安全约束
 
 - 禁止把 AK/SK、token、证书、真实 project_id 写入仓库。
