@@ -10,7 +10,6 @@ description: |
   "stability report", "operations summary", "运营总结", "consolidated report", "综合报告",
   "CCE reporting", "oncall report", "值班报告"
 tags: [cce, ops-report, report, dashboard]
-version: 1.0.0
 ---
 
 # Huawei Cloud CCE Ops Report Generator

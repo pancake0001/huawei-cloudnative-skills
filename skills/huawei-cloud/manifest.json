@@ -1513,6 +1513,40 @@
       "script": "scripts/huawei-cloud.py"
     },
     {
+      "name": "huawei_check_cce_cci_node_capacity",
+      "description": "Run huawei_check_cce_cci_node_capacity through the shared Huawei Cloud dispatcher.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region, for example cn-north-4."
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "cluster_id parameter."
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID. Prefer HUAWEI_AK environment variable."
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key. Prefer HUAWEI_SK environment variable."
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Huawei Cloud project ID. Prefer HUAWEI_PROJECT_ID environment variable."
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
       "name": "huawei_ensure_cce_cci_vpcep",
       "description": "Run huawei_ensure_cce_cci_vpcep through the shared Huawei Cloud dispatcher.",
       "parameters": {
@@ -1581,6 +1615,35 @@
       "script": "scripts/huawei-cloud.py"
     },
     {
+      "name": "huawei_discover_cce_cci_smoke_images",
+      "description": "Run huawei_discover_cce_cci_smoke_images through the shared Huawei Cloud dispatcher.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region, for example cn-north-4."
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID. Prefer HUAWEI_AK environment variable."
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key. Prefer HUAWEI_SK environment variable."
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Huawei Cloud project ID. Prefer HUAWEI_PROJECT_ID environment variable."
+          }
+        },
+        "required": [
+          "region"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
       "name": "huawei_deploy_cce_cci_smoke_workload",
       "description": "Run huawei_deploy_cce_cci_smoke_workload through the shared Huawei Cloud dispatcher.",
       "parameters": {
@@ -1617,6 +1680,40 @@
     {
       "name": "huawei_verify_cce_cci_bursting",
       "description": "Run huawei_verify_cce_cci_bursting through the shared Huawei Cloud dispatcher.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region, for example cn-north-4."
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "cluster_id parameter."
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID. Prefer HUAWEI_AK environment variable."
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key. Prefer HUAWEI_SK environment variable."
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Huawei Cloud project ID. Prefer HUAWEI_PROJECT_ID environment variable."
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_diagnose_cce_cci_bursting_addon",
+      "description": "Run huawei_diagnose_cce_cci_bursting_addon through the shared Huawei Cloud dispatcher.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -3627,6 +3724,88 @@
           "cluster_id",
           "rule_name",
           "event_name"
+        ]
+      },
+      "script": "scripts/huawei-cloud.py"
+    },
+    {
+      "name": "huawei_configure_cce_aom_alarm_rules",
+      "description": "Run huawei_configure_cce_aom_alarm_rules through the shared Huawei Cloud dispatcher.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "description": "Huawei Cloud region, for example cn-north-4."
+          },
+          "cluster_id": {
+            "type": "string",
+            "description": "cluster_id parameter."
+          },
+          "bind_notification_rule_id": {
+            "type": "string",
+            "description": "bind_notification_rule_id parameter."
+          },
+          "rule_name_prefix": {
+            "type": "string",
+            "description": "rule_name_prefix parameter."
+          },
+          "include_metric_alarms": {
+            "type": "string",
+            "description": "include_metric_alarms parameter."
+          },
+          "include_event_alarms": {
+            "type": "string",
+            "description": "include_event_alarms parameter."
+          },
+          "alarm_items": {
+            "type": "string",
+            "description": "alarm_items parameter."
+          },
+          "skip_existing": {
+            "type": "string",
+            "description": "skip_existing parameter."
+          },
+          "prom_instance_id": {
+            "type": "string",
+            "description": "prom_instance_id parameter."
+          },
+          "enterprise_project_id": {
+            "type": "string",
+            "description": "enterprise_project_id parameter."
+          },
+          "smn_topic_urn": {
+            "type": "string",
+            "description": "smn_topic_urn parameter."
+          },
+          "smn_topic_name": {
+            "type": "string",
+            "description": "smn_topic_name parameter."
+          },
+          "smn_topic_display_name": {
+            "type": "string",
+            "description": "smn_topic_display_name parameter."
+          },
+          "confirm": {
+            "type": "string",
+            "description": "Must be true only after explicit user confirmation."
+          },
+          "ak": {
+            "type": "string",
+            "description": "Access Key ID. Prefer HUAWEI_AK environment variable."
+          },
+          "sk": {
+            "type": "string",
+            "description": "Secret Access Key. Prefer HUAWEI_SK environment variable."
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Huawei Cloud project ID. Prefer HUAWEI_PROJECT_ID environment variable."
+          }
+        },
+        "required": [
+          "region",
+          "cluster_id"
         ]
       },
       "script": "scripts/huawei-cloud.py"

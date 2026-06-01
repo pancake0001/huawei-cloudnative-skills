@@ -6,7 +6,6 @@ description: |
   Use this skill when the user wants to: (1) query AOM active and historical alarms, (2) analyze alarm deduplication, severity grouping, and burst/steady alarm identification, (3) inspect CCE cluster alarm health, (4) manage AOM alarm rules (query, create, update, delete, enable, disable), (5) check AOM action rules and mute rules for notification gaps, (6) create event alarm rules referencing CCE event lists or Prometheus metric alarms.
   Trigger: user mentions "alarm correlation", "告警关联", "AOM alarm", "AOM 告警", "alarm deduplication", "告警去重", "alarm storm", "告警风暴", "alarm inspection", "告警巡检", "alarm rules", "告警规则"
 tags: [cce, alarm-correlation, aom, observability, alarm-management]
-version: 1.0.0
 ---
 
 # Huawei Cloud CCE Alarm Correlation Engine

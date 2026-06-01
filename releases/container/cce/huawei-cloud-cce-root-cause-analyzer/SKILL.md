@@ -6,7 +6,6 @@ description: |
   Use this skill when a CCE incident spans alarms, workload rollout, Pod events/logs, recent changes, service topology, nodes, network, or metrics, and the user needs a complete Markdown root-cause report with investigation steps, evidence chain, impact scope, Top3 causes, confidence, and remediation handoff.
   Trigger: user mentions "root cause analysis", "根因分析", "multiple failures", "多类告警", "cross-resource diagnosis", "跨资源诊断", "comprehensive diagnosis", "综合诊断", "RCA", "故障定位", "impact scope", "影响面分析", "change correlation", "变更关联"
 tags: [cce, root-cause-analysis, cross-domain-diagnosis, kubernetes, fault-diagnosis]
-version: 1.0.0
 ---
 
 # CCE Root Cause Analysis

@@ -6,7 +6,6 @@ description: |
   Use this skill when the user wants to: (1) diagnose Pod CrashLoopBackOff, ImagePullBackOff, OOMKilled, Pending, Evicted failures, (2) analyze Pod restart storms, (3) check Pod logs and events, (4) view Pod metrics and resource usage.
   Trigger: user mentions "Pod failure", "Pod 故障", "CrashLoopBackOff", "ImagePullBackOff", "OOMKilled", "Pod Pending", "Pod Evicted", "Pod 重启", "容器异常", "Pod 诊断", "Pod crash", "Pod 无法启动", "Pod 状态异常"
 tags: [cce, pod-diagnosis, kubernetes, fault-diagnosis]
-version: 1.0.0
 ---
 
 # Huawei Cloud CCE Pod Failure Diagnoser

@@ -146,10 +146,21 @@ def _resolve_cluster_and_prom_for_alarm(
 
     target = None
     for item in clusters:
-        if cluster_id and str(item.get("metadata", {}).get("uuid")) == str(cluster_id):
+        metadata = item.get("metadata", {}) or {}
+        item_ids = {
+            str(value)
+            for value in (
+                metadata.get("uid"),
+                metadata.get("uuid"),
+                metadata.get("id"),
+                item.get("id"),
+            )
+            if value
+        }
+        if cluster_id and str(cluster_id) in item_ids:
             target = item
             break
-        if cluster_name and str(item.get("metadata", {}).get("name")) == str(cluster_name):
+        if cluster_name and str(metadata.get("name")) == str(cluster_name):
             target = item
             break
     if not target:
@@ -158,8 +169,14 @@ def _resolve_cluster_and_prom_for_alarm(
             "error": f"Cluster not found: cluster_id={cluster_id}, cluster_name={cluster_name}",
         }
 
-    resolved_cluster_id = target.get("metadata", {}).get("uuid")
-    resolved_cluster_name = target.get("metadata", {}).get("name")
+    target_metadata = target.get("metadata", {}) or {}
+    resolved_cluster_id = (
+        target_metadata.get("uid")
+        or target_metadata.get("uuid")
+        or target_metadata.get("id")
+        or target.get("id")
+    )
+    resolved_cluster_name = target_metadata.get("name")
 
     from huaweicloudsdkaom.v2 import ListPromInstanceRequest
     aom_client = create_aom_client(region, access_key, secret_key, proj_id)
@@ -192,6 +209,23 @@ def _resolve_cluster_and_prom_for_alarm(
 
 def _normalize_alarm_rule_name(rule_name: str) -> str:
     return "_".join(str(rule_name).split())
+
+
+def _sanitize_aom_alarm_text(value: str) -> str:
+    """Return text acceptable to AOM v4 alarm rule validation."""
+    return str(value).replace("%", "pct")
+
+
+def _sanitize_aom_alarm_description(value: str) -> str:
+    return str(value).replace("%", "percent")
+
+
+def _metric_labels_for_cce_alarm(alarm_item: str, promql: str) -> List[str]:
+    if "container" in promql or "pod" in promql or "namespace" in promql:
+        return ["cluster", "cluster_name", "namespace", "pod", "node", "container"]
+    if "device" in promql:
+        return ["cluster", "cluster_name", "node", "device"]
+    return ["cluster", "cluster_name", "node"]
 
 
 def _resolve_prom_instance_id_for_cluster(
@@ -229,6 +263,134 @@ def _build_direct_alarm_notification(bind_notification_rule_id: str, notify_freq
         notify_triggered=False,
         notify_frequency=notify_frequency,
     )
+
+
+def _smn_topic_name_from_urn(topic_urn: str) -> str:
+    return str(topic_urn).rsplit(":", 1)[-1] if topic_urn else ""
+
+
+def _find_aom_action_rule_by_name(client: Any, rule_name: str) -> Optional[Dict[str, Any]]:
+    try:
+        from huaweicloudsdkaom.v2 import ListActionRuleRequest
+
+        response = client.list_action_rule(ListActionRuleRequest())
+        for rule in getattr(response, "action_rules", []) or []:
+            if getattr(rule, "rule_name", None) == rule_name:
+                return rule.to_dict() if hasattr(rule, "to_dict") else {"rule_name": rule_name}
+    except Exception:
+        return None
+    return None
+
+
+def _create_aom_action_rule_for_cluster(
+    client: Any,
+    rule_name: str,
+    project_id: str,
+    smn_topic_urn: str,
+    smn_topic_name: Optional[str] = None,
+    smn_topic_display_name: Optional[str] = None,
+) -> Dict[str, Any]:
+    from huaweicloudsdkaom.v2 import ActionRule, AddActionRuleRequest, ListActionRuleRequest, SmnTopics
+
+    topic_name = smn_topic_name or _smn_topic_name_from_urn(smn_topic_urn)
+    user_name = None
+    try:
+        existing_rules = client.list_action_rule(ListActionRuleRequest())
+        for item in getattr(existing_rules, "action_rules", []) or []:
+            user_name = getattr(item, "user_name", None)
+            if user_name:
+                break
+    except Exception:
+        user_name = None
+
+    body = ActionRule(
+        rule_name=rule_name,
+        project_id=project_id,
+        user_name=user_name,
+        desc="集群告警规则自动通知",
+        type="1",
+        notification_template="aom.built-in.template.zh",
+        time_zone="Asia/Shanghai",
+        smn_topics=[
+            SmnTopics(
+                display_name=smn_topic_display_name,
+                name=topic_name,
+                push_policy=0,
+                topic_urn=smn_topic_urn,
+            )
+        ],
+    )
+    response = client.add_action_rule(AddActionRuleRequest(body=body))
+    return {
+        "rule_name": rule_name,
+        "smn_topic_name": topic_name,
+        "smn_topic_urn": smn_topic_urn,
+        "request_body": body.to_dict(),
+        "response": response.to_dict() if hasattr(response, "to_dict") else str(response),
+    }
+
+
+CCE_DEFAULT_PROMETHEUS_ALARM_RULES: List[Dict[str, str]] = [
+    {
+        "rule_set": "负载规则集",
+        "alarm_item": "Pod状态异常",
+        "description": "检查 Pod 状态是否异常",
+        "promql": 'sum(min_over_time(kube_pod_status_phase{phase=~"Pending|Unknown|Failed"}[10m]) and count_over_time(kube_pod_status_phase{phase=~"Pending|Unknown|Failed"}[10m]) > 18 ) by (namespace,pod,phase,cluster_name,cluster) > 0',
+    },
+    {"rule_set": "负载规则集", "alarm_item": "Pod频繁重启", "description": "检查 Pod 是否频繁重启", "promql": "increase(kube_pod_container_status_restarts_total[5m]) > 3"},
+    {"rule_set": "负载规则集", "alarm_item": "Deployment副本数不匹配", "description": "检查无状态负载副本是否匹配", "promql": "(kube_deployment_spec_replicas != kube_deployment_status_replicas_available) and (changes(kube_deployment_status_replicas_updated[5m]) == 0)"},
+    {"rule_set": "负载规则集", "alarm_item": "Statefulset副本数不匹配", "description": "检查有状态负载副本是否匹配", "promql": "(kube_statefulset_status_replicas_ready != kube_statefulset_status_replicas) and (changes(kube_statefulset_status_replicas_updated[5m]) == 0)"},
+    {"rule_set": "负载规则集", "alarm_item": "容器CPU使用率大于80%", "description": "检查容器 CPU 使用率是否大于 80%", "promql": '100 * (sum(rate(container_cpu_usage_seconds_total{image!="",container!="POD"}[1m])) by (cluster_name,pod,node,namespace,container,cluster) / sum(kube_pod_container_resource_limits{resource="cpu"}) by (cluster_name,pod,node,namespace,container,cluster)) > 80'},
+    {"rule_set": "负载规则集", "alarm_item": "容器内存使用率大于80%", "description": "检查容器内存使用率是否大于 80%", "promql": '(sum(container_memory_working_set_bytes{image!="",container!="POD"}) by (cluster_name,node,container,pod,namespace,cluster) / sum(container_spec_memory_limit_bytes > 0) by (cluster_name,node,container,pod,namespace,cluster) * 100) > 80'},
+    {"rule_set": "负载规则集", "alarm_item": "容器状态异常", "description": "检查容器状态是否异常", "promql": "sum by (namespace,pod,container,cluster_name,cluster) (kube_pod_container_status_waiting_reason) > 0"},
+    {"rule_set": "节点资源规则集", "alarm_item": "Kube持久卷使用率高", "description": "检查节点持久卷使用率是否过高", "promql": '(kubelet_volume_stats_available_bytes{job="kubelet"} / kubelet_volume_stats_capacity_bytes{job="kubelet"}) < 0.03 and kubelet_volume_stats_used_bytes{job="kubelet"} > 0'},
+    {"rule_set": "节点资源规则集", "alarm_item": "Kube持久卷声明状态异常", "description": "检查 PVC 状态是否异常", "promql": 'kube_persistentvolumeclaim_status_phase{phase=~"Failed|Pending|Lost"} > 0'},
+    {"rule_set": "节点资源规则集", "alarm_item": "Kube持久卷状态异常", "description": "检查 PV 状态是否异常", "promql": 'kube_persistentvolume_status_phase{phase=~"Failed|Pending"} > 0'},
+    {"rule_set": "节点资源规则集", "alarm_item": "节点CPU使用率超过80%", "description": "检查节点 CPU 使用率是否大于 80%", "promql": '100 - (avg by(node,cluster_name,cluster) (rate(node_cpu_seconds_total{mode="idle"}[2m])) * 100) > 80'},
+    {"rule_set": "节点资源规则集", "alarm_item": "节点内存可用率不足10%", "description": "检查节点可用内存是否不足 10%", "promql": "node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes * 100 < 10"},
+    {"rule_set": "节点资源规则集", "alarm_item": "节点磁盘可用率不足10%", "description": "检查节点可用磁盘是否不足 10%", "promql": "avg((node_filesystem_avail_bytes * 100) / node_filesystem_size_bytes) by (device,node,cluster_name,cluster) < 10"},
+    {"rule_set": "节点资源规则集", "alarm_item": "节点EmptyDir存储池异常", "description": "检查临时卷存储池是否异常", "promql": 'problem_gauge{type="EmptyDirVolumeGroupStatusError"} >= 1'},
+    {"rule_set": "节点资源规则集", "alarm_item": "节点内存资源不足", "description": "检查节点整体内存是否充足", "promql": 'problem_gauge{type="MemoryProblem"} >= 1'},
+    {"rule_set": "节点资源规则集", "alarm_item": "节点持久卷存储池异常", "description": "检查持久卷存储池是否异常", "promql": 'problem_gauge{type="LocalPvVolumeGroupStatusError"} >= 1'},
+    {"rule_set": "节点资源规则集", "alarm_item": "节点挂载点异常", "description": "检查挂载点是否异常", "promql": 'problem_gauge{type="MountPointProblem"} >= 1'},
+    {"rule_set": "节点资源规则集", "alarm_item": "节点文件句柄数不足", "description": "检查 FD 资源是否充足", "promql": 'problem_gauge{type="FDProblem"} >= 1'},
+    {"rule_set": "节点资源规则集", "alarm_item": "节点磁盘卡IO", "description": "检查磁盘卡 IO 故障", "promql": 'problem_gauge{type="DiskHung"} >= 1'},
+    {"rule_set": "节点资源规则集", "alarm_item": "节点磁盘只读", "description": "检查磁盘是否只读", "promql": 'problem_gauge{type="DiskReadonly"} >= 1'},
+    {"rule_set": "节点资源规则集", "alarm_item": "节点磁盘异常", "description": "检查系统盘/数据盘异常", "promql": 'problem_gauge{type="DiskProblem"} >= 1'},
+    {"rule_set": "节点资源规则集", "alarm_item": "节点磁盘慢IO", "description": "检查磁盘慢 IO 故障", "promql": 'problem_gauge{type="DiskSlow"} >= 1'},
+    {"rule_set": "节点资源规则集", "alarm_item": "节点进程资源不足", "description": "检查 PID 资源是否充足", "promql": 'problem_gauge{type="PIDProblem"} >= 1'},
+    {"rule_set": "节点资源规则集", "alarm_item": "节点连接跟踪表不足", "description": "检查 conntrack 表是否充足", "promql": 'problem_gauge{type="ConntrackFullProblem"} >= 1'},
+    {"rule_set": "节点状态规则集", "alarm_item": "ResolvConf配置文件异常", "description": "检查 ResolvConf 配置异常", "promql": 'problem_gauge{type="ResolvConfFileProblem"} >= 1'},
+    {"rule_set": "节点状态规则集", "alarm_item": "节点CNI组件异常", "description": "检查 CNI 组件状态", "promql": 'problem_gauge{type="CNIProblem"} >= 1'},
+    {"rule_set": "节点状态规则集", "alarm_item": "节点CRI组件异常", "description": "检查 Docker/Containerd 运行状态", "promql": 'problem_gauge{type="CRIProblem"} >= 1'},
+    {"rule_set": "节点状态规则集", "alarm_item": "节点Kube-proxy故障", "description": "检查 kube-proxy 运行状态", "promql": 'problem_gauge{type="KUBEPROXYProblem"} >= 1'},
+    {"rule_set": "节点状态规则集", "alarm_item": "节点Kubelet异常", "description": "检查 kubelet 状态", "promql": 'problem_gauge{type="KUBELETProblem"} >= 1'},
+    {"rule_set": "节点状态规则集", "alarm_item": "节点存在计划事件", "description": "检查主机计划事件", "promql": 'problem_gauge{type="ScheduledEvent"} >= 1'},
+    {"rule_set": "节点状态规则集", "alarm_item": "Node状态抖动", "description": "检查 Ready 状态频繁波动", "promql": 'sum(changes(kube_node_status_condition{status="true",condition="Ready"}[15m])) by (cluster_name,node,cluster) > 2'},
+    {"rule_set": "节点状态规则集", "alarm_item": "节点Containerd频繁重启", "description": "检查 Containerd 频繁重启", "promql": 'problem_gauge{type="FrequentContainerdRestart"} >= 1'},
+    {"rule_set": "节点状态规则集", "alarm_item": "节点进程D异常", "description": "检查 D 进程异常", "promql": 'problem_gauge{type="ProcessD"} >= 1'},
+    {"rule_set": "节点状态规则集", "alarm_item": "节点进程Z异常", "description": "检查 Z 进程异常", "promql": 'problem_gauge{type="ProcessZ"} >= 1'},
+    {"rule_set": "节点状态规则集", "alarm_item": "节点CRI频繁重启", "description": "检查 CRI 频繁重启", "promql": 'problem_gauge{type="FrequentCRIRestart"} >= 1'},
+    {"rule_set": "节点状态规则集", "alarm_item": "节点Docker频繁重启", "description": "检查 Docker 频繁重启", "promql": 'problem_gauge{type="FrequentDockerRestart"} >= 1'},
+    {"rule_set": "节点状态规则集", "alarm_item": "节点Kubelet频繁重启", "description": "检查 Kubelet 频繁重启", "promql": 'problem_gauge{type="FrequentKubeletRestart"} >= 1'},
+    {"rule_set": "节点状态规则集", "alarm_item": "节点NTP服务故障", "description": "检查 ntpd/chronyd 服务状态", "promql": 'problem_gauge{type="NTPProblem"} >= 1'},
+]
+
+
+CCE_DEFAULT_EVENT_ALARM_RULES: List[Dict[str, str]] = [
+    {"rule_set": "负载规则集", "alarm_item": "更新负载均衡失败", "description": "检查更新负载均衡是否成功", "event_name": "更新负载均衡失败##UpdateLoadBalancerFailed"},
+    {"rule_set": "负载规则集", "alarm_item": "Pod内存不足OOM", "description": "检查 Pod 是否 OOM", "event_name": "Pod内存不足OOM##PodOOMKilling"},
+    {"rule_set": "节点资源规则集", "alarm_item": "节点磁盘空间不足", "description": "检查节点磁盘空间是否充足", "event_name": "节点磁盘空间不足##NodeHasDiskPressure"},
+    {"rule_set": "节点状态规则集", "alarm_item": "节点任务夯住", "description": "检查节点是否存在任务夯住", "event_name": "节点任务夯住##TaskHung"},
+    {"rule_set": "节点状态规则集", "alarm_item": "节点存储池配置有误", "description": "检查节点临时卷及持久卷存储池配置是否异常", "event_name": "节点存储池配置有误##InvalidStoragePool"},
+    {"rule_set": "节点状态规则集", "alarm_item": "节点状态异常", "description": "检查节点状态是否异常", "event_name": "节点状态异常##NodeNotReady"},
+    {"rule_set": "节点状态规则集", "alarm_item": "节点内存不足强杀进程", "description": "检查节点是否存在 OOM 事件", "event_name": "节点内存不足强杀进程##OOMKilling"},
+    {"rule_set": "节点扩缩容规则集", "alarm_item": "节点池资源售罄", "description": "检查节点池资源是否充足", "event_name": "节点池资源售罄##NodePoolSoldOut"},
+    {"rule_set": "节点扩缩容规则集", "alarm_item": "扩容节点超时", "description": "检查节点池扩容节点是否超时", "event_name": "扩容节点超时##ScaleUpTimedOut"},
+    {"rule_set": "节点扩缩容规则集", "alarm_item": "节点池扩容节点失败", "description": "检查节点池扩容节点是否异常", "event_name": "节点池扩容节点失败##FailedToScaleUpGroup"},
+    {"rule_set": "节点扩缩容规则集", "alarm_item": "节点池缩容节点失败", "description": "检查节点池缩容节点是否异常", "event_name": "节点池缩容节点失败##ScaleDownFailed"},
+    {"rule_set": "集群状态规则集", "alarm_item": "集群状态不可用", "description": "检查集群状态是否可用", "event_name": "集群状态不可用##Cluster status is Unavailable"},
+]
 
 
 
@@ -1410,6 +1572,305 @@ def create_aom_event_alarm_rule(
             "error": str(e),
             "error_type": type(e).__name__,
         }
+
+
+def configure_cce_aom_alarm_rules(
+    region: str,
+    cluster_id: str,
+    bind_notification_rule_id: Optional[str] = None,
+    rule_name_prefix: Optional[str] = None,
+    include_metric_alarms: bool = True,
+    include_event_alarms: bool = True,
+    alarm_items: Optional[str] = None,
+    skip_existing: bool = True,
+    prom_instance_id: Optional[str] = None,
+    enterprise_project_id: Optional[str] = None,
+    smn_topic_urn: Optional[str] = None,
+    smn_topic_name: Optional[str] = None,
+    smn_topic_display_name: Optional[str] = None,
+    confirm: bool = False,
+    ak: Optional[str] = None,
+    sk: Optional[str] = None,
+    project_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Configure the default CCE AOM alarm center rules for a cluster."""
+    if not cluster_id:
+        return {"success": False, "error": "cluster_id is required"}
+    if not include_metric_alarms and not include_event_alarms:
+        return {"success": False, "error": "At least one of include_metric_alarms or include_event_alarms must be true"}
+
+    requested_items = {
+        item.strip()
+        for item in str(alarm_items or "").split(",")
+        if item.strip()
+    }
+    prefix = _normalize_alarm_rule_name(rule_name_prefix or cluster_id)
+    requested_notification_rule = bind_notification_rule_id
+    effective_notification_rule = bind_notification_rule_id or f"auto-cluster-{cluster_id}"
+    notification_rule_auto_create = not bool(bind_notification_rule_id)
+
+    planned_rules: List[Dict[str, Any]] = []
+    if include_metric_alarms:
+        for rule in CCE_DEFAULT_PROMETHEUS_ALARM_RULES:
+            if requested_items and rule["alarm_item"] not in requested_items:
+                continue
+            safe_alarm_item = _sanitize_aom_alarm_text(rule["alarm_item"])
+            planned_rules.append({
+                "rule_type": "metric",
+                "rule_name": _normalize_alarm_rule_name(f"{prefix}_{safe_alarm_item}"),
+                "metric_name": safe_alarm_item,
+                "safe_description": _sanitize_aom_alarm_description(rule["description"]),
+                "metric_labels": _metric_labels_for_cce_alarm(rule["alarm_item"], rule["promql"]),
+                **rule,
+            })
+    if include_event_alarms:
+        for rule in CCE_DEFAULT_EVENT_ALARM_RULES:
+            if requested_items and rule["alarm_item"] not in requested_items:
+                continue
+            planned_rules.append({
+                "rule_type": "event",
+                "rule_name": _normalize_alarm_rule_name(f"{prefix}_{rule['alarm_item']}"),
+                **rule,
+            })
+
+    unknown_requested_items = sorted(requested_items - {rule["alarm_item"] for rule in planned_rules})
+    preview = {
+        "success": True,
+        "action": "configure_cce_aom_alarm_rules",
+        "region": region,
+        "cluster_id": cluster_id,
+        "bind_notification_rule_id": effective_notification_rule,
+        "requested_bind_notification_rule_id": requested_notification_rule,
+        "notification_rule_auto_create": notification_rule_auto_create,
+        "smn_topic_urn": smn_topic_urn,
+        "smn_topic_name": smn_topic_name or _smn_topic_name_from_urn(smn_topic_urn or ""),
+        "enterprise_project_id": enterprise_project_id or "0",
+        "prom_instance_id": prom_instance_id,
+        "rule_name_prefix": prefix,
+        "confirm_required": True,
+        "will_execute": bool(confirm),
+        "risk": "MEDIUM",
+        "source_document": "https://support.huaweicloud.com/usermanual-cce/cce_10_0724.html",
+        "metric_alarm_rules_count": sum(1 for rule in planned_rules if rule["rule_type"] == "metric"),
+        "event_alarm_rules_count": sum(1 for rule in planned_rules if rule["rule_type"] == "event"),
+        "planned_rules_count": len(planned_rules),
+        "planned_rules": [
+            {
+                "rule_name": rule["rule_name"],
+                "rule_type": rule["rule_type"],
+                "rule_set": rule["rule_set"],
+                "alarm_item": rule["alarm_item"],
+                "metric_name": rule.get("metric_name"),
+                "description": rule["description"],
+                "promql": rule.get("promql"),
+                "event_name": rule.get("event_name"),
+            }
+            for rule in planned_rules
+        ],
+    }
+    if unknown_requested_items:
+        preview["unknown_alarm_items"] = unknown_requested_items
+    if notification_rule_auto_create and not smn_topic_urn:
+        preview["notification_rule_input_required"] = {
+            "message": "bind_notification_rule_id was not provided. The tool will use auto-cluster-{cluster_id}; if it does not already exist, smn_topic_urn is required to create it.",
+            "required_parameter": "smn_topic_urn",
+            "optional_parameters": ["smn_topic_name", "smn_topic_display_name"],
+            "example": (
+                f"python3 huawei-cloud.py huawei_configure_cce_aom_alarm_rules "
+                f"region={region} cluster_id={cluster_id} "
+                f"smn_topic_urn=urn:smn:{region}:<project_id>:<topic_name> confirm=true"
+            ),
+        }
+    if not confirm:
+        preview.update({
+            "executed": False,
+            "message": "Preview only. Add confirm=true to create the CCE AOM alarm rules.",
+            "confirm_example": (
+                f"python3 huawei-cloud.py huawei_configure_cce_aom_alarm_rules "
+                f"region={region} cluster_id={cluster_id} "
+                f"bind_notification_rule_id={effective_notification_rule} confirm=true"
+            ),
+        })
+        return preview
+
+    if not SDK_AVAILABLE:
+        return {"success": False, "error": f"Huawei Cloud SDK not installed: {IMPORT_ERROR}"}
+
+    access_key, secret_key, proj_id = get_credentials_with_region(region, ak, sk, project_id)
+    if not access_key or not secret_key:
+        return {"success": False, "error": "Credentials not provided"}
+    if not proj_id:
+        return {"success": False, "error": f"Project ID not found for region={region}"}
+
+    aom_client = create_aom_client(region, access_key, secret_key, proj_id)
+    notification_rule_created = None
+    notification_rule_existing = None
+    if notification_rule_auto_create:
+        notification_rule_existing = _find_aom_action_rule_by_name(aom_client, effective_notification_rule)
+        if not notification_rule_existing:
+            if not smn_topic_urn:
+                return {
+                    **preview,
+                    "success": False,
+                    "executed": False,
+                    "requires_input": True,
+                    "error": (
+                        f"Notification rule {effective_notification_rule} does not exist. "
+                        "Please provide smn_topic_urn to create it automatically."
+                    ),
+                    "required_parameter": "smn_topic_urn",
+                    "example": (
+                        f"python3 huawei-cloud.py huawei_configure_cce_aom_alarm_rules "
+                        f"region={region} cluster_id={cluster_id} "
+                        f"smn_topic_urn=urn:smn:{region}:<project_id>:<topic_name> confirm=true"
+                    ),
+                }
+            notification_rule_created = _create_aom_action_rule_for_cluster(
+                aom_client,
+                effective_notification_rule,
+                proj_id,
+                smn_topic_urn,
+                smn_topic_name,
+                smn_topic_display_name,
+            )
+
+    resolved_cluster = _resolve_cluster_and_prom_for_alarm(
+        region=region,
+        access_key=access_key,
+        secret_key=secret_key,
+        proj_id=proj_id,
+        cluster_id=cluster_id,
+        enterprise_project_id=enterprise_project_id,
+    )
+    resolved_prom_instance_id = prom_instance_id
+    effective_enterprise_project_id = enterprise_project_id or "0"
+    if resolved_cluster.get("success"):
+        resolved_prom_instance_id = resolved_prom_instance_id or resolved_cluster.get("prom_instance_id")
+        effective_enterprise_project_id = enterprise_project_id or resolved_cluster.get("enterprise_project_id") or "0"
+    elif not resolved_prom_instance_id:
+        return {
+            "success": False,
+            "action": "configure_cce_aom_alarm_rules",
+            "region": region,
+            "cluster_id": cluster_id,
+            "error": resolved_cluster.get("error") or "Failed to resolve cluster Prometheus instance",
+        }
+
+    existing_rule_names = set()
+    existing_warning = None
+    if skip_existing:
+        existing = list_aom_alarm_rules(
+            region,
+            access_key,
+            secret_key,
+            proj_id,
+            limit=200,
+            offset=0,
+            enterprise_project_id=enterprise_project_id or "all_granted_eps",
+        )
+        if existing.get("success"):
+            existing_rule_names = {
+                _normalize_alarm_rule_name(rule.get("rule_name") or "")
+                for rule in existing.get("alarm_rules", [])
+                if rule.get("rule_name")
+            }
+        else:
+            existing_warning = existing.get("error") or "Failed to list existing alarm rules"
+
+    created: List[Dict[str, Any]] = []
+    skipped: List[Dict[str, Any]] = []
+    failed: List[Dict[str, Any]] = []
+    for rule in planned_rules:
+        if skip_existing and rule["rule_name"] in existing_rule_names:
+            skipped.append({
+                "rule_name": rule["rule_name"],
+                "rule_type": rule["rule_type"],
+                "reason": "already_exists",
+            })
+            continue
+
+        if rule["rule_type"] == "metric":
+            result = create_aom_alarm_rule(
+                region=region,
+                rule_name=rule["rule_name"],
+                metric_name=rule.get("metric_name") or rule["alarm_item"],
+                namespace="AOM_CCE_PROMETHEUS",
+                comparison_operator=">",
+                threshold="0",
+                period=60,
+                evaluation_periods=1,
+                statistic="raw",
+                alarm_level=2,
+                create_fields={
+                    "promql": rule["promql"],
+                    "cluster_id": cluster_id,
+                    "prom_instance_id": resolved_prom_instance_id,
+                    "bind_notification_rule_id": effective_notification_rule,
+                    "enterprise_project_id": effective_enterprise_project_id,
+                    "alarm_rule_description": rule.get("safe_description") or rule["description"],
+                    "metric_query_mode": "NATIVE_PROM",
+                    "metric_labels": rule.get("metric_labels") or ["cluster", "cluster_name", "namespace", "pod", "node", "container"],
+                    "custom_tags": [f"cluster_id={cluster_id}", f"rule_set={rule['rule_set']}"],
+                    "trigger_times": 1,
+                    "trigger_interval": "1m",
+                    "promql_for": "1m",
+                    "threshold_value": 0,
+                    "severity": "Major",
+                },
+                confirm=True,
+                ak=access_key,
+                sk=secret_key,
+                project_id=proj_id,
+            )
+        else:
+            result = create_aom_event_alarm_rule(
+                region=region,
+                cluster_id=cluster_id,
+                rule_name=rule["rule_name"],
+                event_name=rule["event_name"],
+                bind_notification_rule_id=effective_notification_rule,
+                alarm_level="Major",
+                description=rule["description"],
+                prom_instance_id=resolved_prom_instance_id,
+                enterprise_project_id=effective_enterprise_project_id,
+                confirm=True,
+                ak=access_key,
+                sk=secret_key,
+                project_id=proj_id,
+            )
+
+        summary = {
+            "rule_name": rule["rule_name"],
+            "rule_type": rule["rule_type"],
+            "alarm_item": rule["alarm_item"],
+            "success": bool(result.get("success")),
+            "message": result.get("message"),
+            "error": result.get("error"),
+        }
+        if result.get("success"):
+            created.append(summary)
+            existing_rule_names.add(rule["rule_name"])
+        else:
+            failed.append(summary)
+
+    return {
+        **preview,
+        "executed": True,
+        "success": not failed,
+        "prom_instance_id": resolved_prom_instance_id,
+        "enterprise_project_id": effective_enterprise_project_id,
+        "bind_notification_rule_id": effective_notification_rule,
+        "notification_rule_existing": notification_rule_existing,
+        "notification_rule_created": notification_rule_created,
+        "created_count": len(created),
+        "skipped_count": len(skipped),
+        "failed_count": len(failed),
+        "created_rules": created,
+        "skipped_rules": skipped,
+        "failed_rules": failed,
+        "existing_rules_warning": existing_warning,
+        "message": "CCE AOM alarm rule configuration completed." if not failed else "CCE AOM alarm rule configuration completed with failures.",
+    }
 
 
 def list_aom_action_rules(

@@ -9,7 +9,6 @@ description: |
   "cost reduction", "成本降低", "billing analysis", "账单分析", "over-provisioned", "超配", "CCE cost", "idle nodes",
   "oversized request", "HPA recommendation", "autoscaler policy"
 tags: [cce, cost-optimization, resource-utilization, hpa, autoscaler]
-version: 1.0.0
 ---
 
 # Huawei Cloud CCE Cost Optimization Advisor

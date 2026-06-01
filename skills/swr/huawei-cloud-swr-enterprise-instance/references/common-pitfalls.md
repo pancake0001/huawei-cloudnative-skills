@@ -248,6 +248,65 @@ hcloud SWR ListAllInstanceRepositories --limit=20 --marker=<next_marker> --cli-r
 hcloud SWR ListAllInstanceRepositories --limit=20 --offset=0 --cli-region=cn-north-4
 ```
 
+## Pitfall 15: hcloud CLI CreateInstance Duplicate --project_id Bug
+
+**Symptom**: `hcloud SWR CreateInstance` fails with `[USE_ERROR]重复的参数:project_id` or `[USE_ERROR]缺少必填参数:project_id`
+
+**Root Cause**: The `CreateInstance` API has two `--project_id` parameters with the same name — one as a path parameter (auto-filled from `cli-project-id`) and one as a body parameter (VPC/subnet project). hcloud CLI (version 7.2.2) does not support duplicate parameter names:
+- Passing `--project_id` once fills only the path parameter, leaving the body parameter missing → `缺少必填参数:project_id`
+- Passing `--project_id` twice triggers duplicate parameter detection → `重复的参数:project_id`
+
+**Solution**: Use the Python SDK helper script (`scripts/swr_instance_helper.py`) which bypasses this bug by calling the SDK `CreateInstanceRequestBody` directly, where `project_id` is a single body field:
+
+```bash
+# ✅ CORRECT - Use Python SDK script for CreateInstance
+python scripts/swr_instance_helper.py create --name=my-instance --spec=swr.ee.basic \
+    --vpc_id=<vpc-id> --subnet_id=<subnet-id> --enterprise_project_id=0 --description="My registry"
+
+# ❌ BROKEN - hcloud CLI CreateInstance cannot handle duplicate --project_id
+# hcloud SWR CreateInstance --name=my-instance --spec=swr.ee.basic ...
+```
+
+All other hcloud CLI SWR operations (ListInstance, ShowInstance, DeleteInstance, namespace/credential/endpoint/domain management) work correctly.
+
+## Pitfall 16: SWR Service Tenant Quota Exceeded (Misleading Error)
+
+**Symptom**: `CreateInstance` (via SDK or API) returns job status `Failed` with reason containing `"Quota exceeded for instances: Requested 1, but already used 200 of 200 instances"` (error code `Ecs.0204`, HTTP 403)
+
+**Root Cause**: SWR enterprise instances are hosted on a shared CCE cluster managed by the SWR service tenant. When the service tenant's ECS quota is full (e.g., 200/200 instances used by other users' enterprise instances), new instance creation fails. The error message is misleading — it refers to the **SWR service tenant's** quota, not the user's own ECS quota. The user's quota may show 0/200 used while still encountering this error.
+
+**Diagnosis Steps**:
+
+1. Check the job status to see the full error:
+```bash
+# Via SDK script
+python scripts/swr_instance_helper.py show --instance_id=<instance-id>
+
+# Via hcloud CLI (for job details, use ShowInstanceJob)
+hcloud SWR ShowInstanceJob --job_id=<job-id> --cli-region=cn-north-4
+```
+
+2. Verify the error message contains `"Quota exceeded for instances"` with `"Ecs.0204"` error code
+
+3. Confirm the user's own ECS quota is NOT the issue:
+```bash
+# User's quota is separate from the service tenant's quota
+hcloud ECS ShowServerLimits --cli-region=cn-north-4
+# maxTotalInstances: 200, totalInstancesUsed: 0 ← NOT the issue
+```
+
+**Solution**: This is a SWR service-side quota issue. Contact Huawei Cloud SWR team to expand the service tenant's ECS quota. No action is required on the user side.
+
+**Error Log Example** (from `ShowInstanceJob`):
+```
+reason: [[CreateServiceTenantCCENode.DoError] wait cycle error, failed to create cce node:
+  [[CreateNodeVM.DoError] wait create user node(name: swr-ee-<id>-registry-1, ...)
+    job <job-id> failed: create machine job failed:
+    {"sub_jobs":[{"entities":{"errorcode_message":"{\"forbidden\": {\"code\": 403,
+      \"message\": \"Quota exceeded for instances: Requested 1, but already used 200 of 200 instances\"}}"},
+    "error_code":"Ecs.0204","fail_reason":"CreateServerWithRootVolumeAndDataVolumeTask-fail: ..."}]}]
+```
+
 ## Common Error Response Reference
 
 | Error Code          | HTTP Status | Description                  | Recommended Action                    |

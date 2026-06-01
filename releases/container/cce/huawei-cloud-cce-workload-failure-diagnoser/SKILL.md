@@ -6,7 +6,6 @@ description: |
   Use this skill when the user wants to: (1) diagnose Deployment/StatefulSet/DaemonSet rollout failures, (2) analyze workload replica shortages and update rollback issues, (3) diagnose probe-related readiness failures (startup, liveness, readiness), (4) identify ReplicaSet creation blocked by quota, admission, or webhook rejection, (5) detect control-plane-not-observed issues (observedGeneration lag), (6) check workload status, events and metrics comprehensively.
   Trigger: user mentions "workload failure", "工作负载故障", "Deployment rollback", "Deployment 回滚", "rollout stuck", "发布失败", "replica unavailable", "副本不可用", "workload diagnosis", "工作负载诊断", "workload unavailable", "负载异常", "Service unreachable", "Service 不通", "probe failure", "探针失败", "ReplicaSet blocked", "ReplicaSet 阻塞", "observedGeneration lag", "控制面未观测"
 tags: [cce, workload, diagnosis, rollout]
-version: 1.0.0
 ---
 
 # Huawei Cloud CCE Workload Failure Diagnoser

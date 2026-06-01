@@ -6,7 +6,6 @@ description: |
   Use this skill when the user wants to: (1) manage SWR namespace permissions - grant/query/modify/revoke, (2) manage repository permissions - grant/query/modify/revoke, (3) manage image retention rules - create/list/update/delete, (4) manage shared download domains - create/list/update/delete, (5) manage image sharing - list shared repos/query feature gates, (6) check SWR agency status and create agency delegation, (7) list repo accessories and references.
   Trigger: user mentions "SWR image governance", "SWR 镜像治理", "SWR 权限管理", "SWR retention", "SWR 保留策略", "SWR 共享域名", "SWR 共享镜像", "SWR 委托", "SWR agency", "namespace permissions", "repository permissions", "镜像权限", "保留规则", "共享下载", "镜像分享"
 tags: [swr, image-governance, permissions, retention, sharing]
-version: 1.0.0
 ---
 
 # Huawei Cloud SWR Image Governance

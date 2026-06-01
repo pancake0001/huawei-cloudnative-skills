@@ -6,7 +6,6 @@ description: |
   Use this skill when the user wants to: (1) diagnose CCE network connectivity issues, Service/Ingress failures, (2) analyze ELB configuration, VPC/Subnet issues, (3) diagnose DNS resolution failures, (4) check network policies and security group rules.
   Trigger: user mentions "network failure", "网络故障", "Service unreachable", "Service 不通", "Ingress 502", "Ingress 504", "ELB error", "ELB 异常", "DNS failure", "DNS 解析失败", "network diagnosis", "网络诊断", "VPC", "subnet", "子网", "安全组", "网络策略"
 tags: [cce, network-diagnosis, elb, vpc, fault-diagnosis]
-version: 1.0.0
 ---
 
 # Huawei Cloud CCE Network Failure Diagnoser

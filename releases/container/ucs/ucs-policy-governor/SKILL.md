@@ -6,7 +6,6 @@ description: |
   Use this skill when the user wants to: (1) manage UCS policy instances - create/update/query/delete, (2) manage UCS policy definitions - query/list, (3) enable/disable policies on clusters or fleet groups, (4) check policy enforcement job status, (5) audit fleet compliance and review policy enforcement status.
   Trigger: user mentions "UCS policy", "UCS 策略", "UCS governance", "UCS 治理", "UCS compliance", "UCS 合规", "policy instance", "策略实例", "policy definition", "策略定义", "enable policy", "启用策略", "disable policy", "禁用策略", "fleet compliance", "舰队合规", "policy audit", "策略审计", "UCS 策略管理", "UCS 合规治理", "policy governance", "策略治理"
 tags: [ucs, policy-governance, compliance, policy-instance, fleet]
-version: 1.0.0
 ---
 
 # Huawei Cloud UCS Policy Governor

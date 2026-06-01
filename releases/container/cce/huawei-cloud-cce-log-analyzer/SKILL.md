@@ -4,7 +4,6 @@ description: >-
   Use when querying or analyzing Kubernetes Pod stdout/stderr logs, CCE LogConfig-collected application logs, Huawei Cloud LTS log streams, CCE audit logs for Pod deletion or workload change events, or when creating/deleting CCE LogConfig collection rules with preview confirmation. Covers Pod log retrieval, LogConfig discovery, LTS group/stream mapping, keyword search, time-range queries, abnormality analysis with error ratios and incident windows, and audit event summarization.
   Trigger: log analysis, 日志分析, CCE logs, CCE 日志, LTS query, LTS 查询, application log, 应用日志, container log, 容器日志, log search, 日志搜索, Pod stdout, Pod 日志, LogConfig, audit log, 审计日志, abnormal log, 异常日志
 tags: [cce, logs, lts, analysis]
-version: 1.0.0
 ---
 
 # Huawei Cloud CCE Log Analyzer

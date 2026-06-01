@@ -14,7 +14,7 @@ from . import workload_rollout_diagnosis
 from . import cce_auto_inspection
 from . import chart_generator
 from . import common
-from . import cce_cluster, cce_nodepool, cce_node, cce_addon, cce_k8s, cce_hpa, cce_cost_optimization, cce_availability_risk, cce_capacity_trend, cce_cci_bursting, cce_pressure_test, cce_apm, ops_report_generator
+from . import cce_cluster, cce_nodepool, cce_node, cce_addon, cce_k8s, cce_hpa, cce_cost_optimization, cce_availability_risk, cce_capacity_trend, cce_cci_bursting, cce_pressure_test, cce_apm, ops_report_generator, swr
 from . import node_failure_diagnosis, network_failure_diagnosis, storage_failure_diagnosis, autoscaling_diagnosis, change_impact_analysis
 from . import dependency_impact_analysis, root_cause_analysis, auto_remediation
 from . import cce_events_lts
@@ -459,6 +459,32 @@ def _create_aom_event_alarm_rule(params: Dict[str, str]) -> Dict[str, Any]:
         prom_instance_id=params.get("prom_instance_id"),
         enterprise_project_id=params.get("enterprise_project_id"),
         confirm=params.get("confirm", "").lower() == "true",
+        ak=params.get("ak"),
+        sk=params.get("sk"),
+        project_id=params.get("project_id"),
+    )
+
+
+def _configure_cce_aom_alarm_rules(params: Dict[str, str]) -> Dict[str, Any]:
+    bind_notification_rule_id = (
+        params.get("bind_notification_rule_id")
+        or params.get("notification_rule_name")
+    )
+    return aom.configure_cce_aom_alarm_rules(
+        region=params["region"],
+        cluster_id=params["cluster_id"],
+        bind_notification_rule_id=bind_notification_rule_id,
+        rule_name_prefix=params.get("rule_name_prefix"),
+        include_metric_alarms=_to_bool(params.get("include_metric_alarms"), True),
+        include_event_alarms=_to_bool(params.get("include_event_alarms"), True),
+        alarm_items=params.get("alarm_items"),
+        skip_existing=_to_bool(params.get("skip_existing"), True),
+        prom_instance_id=params.get("prom_instance_id"),
+        enterprise_project_id=params.get("enterprise_project_id"),
+        smn_topic_urn=params.get("smn_topic_urn"),
+        smn_topic_name=params.get("smn_topic_name"),
+        smn_topic_display_name=params.get("smn_topic_display_name"),
+        confirm=_to_bool(params.get("confirm"), False),
         ak=params.get("ak"),
         sk=params.get("sk"),
         project_id=params.get("project_id"),
@@ -1308,6 +1334,7 @@ def _create_cce_nodepool(params: Dict[str, str]) -> Dict[str, Any]:
         autoscaling_enabled=autoscaling_enabled,
         min_node_count=_to_int(params.get("min_node_count"), 0) if autoscaling_enabled else None,
         max_node_count=_to_int(params.get("max_node_count"), 0) if autoscaling_enabled else None,
+        confirm=params.get("confirm", "").lower() == "true",
         ak=params.get("ak"),
         sk=params.get("sk"),
         project_id=params.get("project_id"),
@@ -1425,6 +1452,16 @@ def _precheck_cce_cci_bursting(params: Dict[str, str]) -> Dict[str, Any]:
     )
 
 
+def _check_cce_cci_node_capacity(params: Dict[str, str]) -> Dict[str, Any]:
+    return cce_cci_bursting.check_cce_cci_node_capacity(
+        region=params["region"],
+        cluster_id=params["cluster_id"],
+        ak=params.get("ak"),
+        sk=params.get("sk"),
+        project_id=params.get("project_id"),
+    )
+
+
 def _ensure_cce_cci_vpcep(params: Dict[str, str]) -> Dict[str, Any]:
     return cce_cci_bursting.ensure_cce_cci_vpcep(
         region=params["region"],
@@ -1470,12 +1507,35 @@ def _deploy_cce_cci_smoke_workload(params: Dict[str, str]) -> Dict[str, Any]:
     )
 
 
+def _discover_cce_cci_smoke_images(params: Dict[str, str]) -> Dict[str, Any]:
+    return swr.discover_swr_smoke_images(
+        region=params["region"],
+        ak=params.get("ak"),
+        sk=params.get("sk"),
+        project_id=params.get("project_id"),
+        max_namespaces=_to_int(params.get("max_namespaces"), 20),
+        max_repositories=_to_int(params.get("max_repositories"), 20),
+        max_tags_per_repository=_to_int(params.get("max_tags_per_repository"), 5),
+    )
+
+
 def _verify_cce_cci_bursting(params: Dict[str, str]) -> Dict[str, Any]:
     return cce_cci_bursting.verify_cce_cci_bursting(
         region=params["region"],
         cluster_id=params["cluster_id"],
         namespace=params.get("namespace"),
         workload_name=params.get("workload_name"),
+        ak=params.get("ak"),
+        sk=params.get("sk"),
+        project_id=params.get("project_id"),
+    )
+
+
+def _diagnose_cce_cci_bursting_addon(params: Dict[str, str]) -> Dict[str, Any]:
+    return cce_cci_bursting.diagnose_cce_cci_bursting_addon(
+        region=params["region"],
+        cluster_id=params["cluster_id"],
+        tail_lines=_to_int(params.get("tail_lines"), 120),
         ak=params.get("ak"),
         sk=params.get("sk"),
         project_id=params.get("project_id"),
@@ -1657,10 +1717,13 @@ ACTION_SPECS: Dict[str, tuple[tuple[str, ...], Handler]] = {
     "huawei_update_cce_addon": (("region", "cluster_id", "addon_id"), _update_cce_addon),
     "huawei_configure_cce_bursting_addon": (("region", "cluster_id", "subnet_id"), _configure_cce_bursting_addon),
     "huawei_precheck_cce_cci_bursting": (("region", "cluster_id"), _precheck_cce_cci_bursting),
+    "huawei_check_cce_cci_node_capacity": (("region", "cluster_id"), _check_cce_cci_node_capacity),
     "huawei_ensure_cce_cci_vpcep": (("region", "cluster_id"), _ensure_cce_cci_vpcep),
     "huawei_setup_cce_cci_bursting": (("region", "cluster_id"), _setup_cce_cci_bursting),
+    "huawei_discover_cce_cci_smoke_images": (("region",), _discover_cce_cci_smoke_images),
     "huawei_deploy_cce_cci_smoke_workload": (("region", "cluster_id"), _deploy_cce_cci_smoke_workload),
     "huawei_verify_cce_cci_bursting": (("region", "cluster_id"), _verify_cce_cci_bursting),
+    "huawei_diagnose_cce_cci_bursting_addon": (("region", "cluster_id"), _diagnose_cce_cci_bursting_addon),
     "huawei_deploy_cce_pressure_test_java_sample": (("region", "cluster_id"), _deploy_cce_pressure_test_java_sample),
     "huawei_prepare_cce_pressure_test_route": (("region", "cluster_id", "namespace", "workload_name"), _prepare_cce_pressure_test_route),
     "huawei_generate_cce_pressure_test_client": (("target_url",), _generate_cce_pressure_test_client),
@@ -1713,6 +1776,7 @@ ACTION_SPECS: Dict[str, tuple[tuple[str, ...], Handler]] = {
     "huawei_list_aom_alarm_rules": (("region",), _list_aom_alarm_rules),
     "huawei_create_aom_alarm_rule": (("region", "rule_name", "metric_name", "namespace", "comparison_operator", "threshold", "period", "evaluation_periods", "statistic", "alarm_level"), _create_aom_alarm_rule),
     "huawei_create_aom_event_alarm_rule": (("region", "cluster_id", "rule_name", "event_name"), _create_aom_event_alarm_rule),
+    "huawei_configure_cce_aom_alarm_rules": (("region", "cluster_id"), _configure_cce_aom_alarm_rules),
     "huawei_update_aom_alarm_rule": (("region", "rule_name"), _update_aom_alarm_rule),
     "huawei_delete_aom_alarm_rule": (("region", "rule_name"), _delete_aom_alarm_rule),
     "huawei_disable_aom_alarm_rule": (("region", "rule_id"), _disable_aom_alarm_rule),

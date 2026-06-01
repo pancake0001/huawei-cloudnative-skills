@@ -3,7 +3,6 @@ id: huawei-cloud-cce-observability-context-builder
 name: huawei-cloud-cce-observability-context-builder
 description: Use this skill when the user wants to collect AOM alarms, metrics, LTS logs, Pod logs, or Kubernetes events and build a comprehensive observability context package before handing off to diagnosis skills. Trigger: user mentions observability context, "可观测性上下文", context builder, "上下文构建", metric+log+event, "指标+日志+事件", comprehensive observability, "综合可观测", diagnosis context, "诊断上下文"
 tags: [cce, observability, context, alarms]
-version: 1.0.0
 ---
 
 # Huawei Cloud CCE Observability Context Builder

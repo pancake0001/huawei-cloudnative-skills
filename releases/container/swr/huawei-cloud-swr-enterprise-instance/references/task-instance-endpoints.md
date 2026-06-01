@@ -2,19 +2,23 @@
 
 ## Overview
 
-SWR enterprise instance endpoints define network access paths for the registry. Enterprise instances support two types of access: internal VPC endpoints (for within-network access) and public access endpoints (with IP whitelist for controlled external access). This task covers creating, listing, showing, deleting internal endpoints, and managing public access.
+SWR enterprise instance endpoints define network access paths for the registry.
+Enterprise instances support two types of access: internal VPC endpoints
+(for within-network access) and public access endpoints (with IP whitelist
+for controlled external access). This task covers creating, listing, showing,
+deleting internal endpoints, and managing public access.
 
 ## Operations Catalog
 
 | Operation                        | Method | Description              | Key Parameters                                  |
 | -------------------------------- | ------ | ------------------------ | ----------------------------------------------- |
-| `CreateInstanceInternalEndpoint` | POST   | 新增内网访问             | `--instance_id`, `--vpc_id`, `--subnet_id`, `--project_id`, `--description` |
-| `ListInstanceInternalEndpoints`  | GET    | 获取内网访问列表         | `--instance_id`, `--limit`, `--offset`          |
-| `ShowInstanceInternalEndpoint`   | GET    | 查询内网访问详情         | `--instance_id`, `--internal_endpoints_id`      |
-| `DeleteInstanceInternalEndpoint` | DELETE | 删除内网访问             | `--instance_id`, `--internal_endpoints_id`      |
-| `CreateInstanceEndpointPolicy`   | POST   | 开启或关闭公网访问       | `--instance_id`, `--enable`                     |
-| `ShowInstanceEndpointPolicy`     | GET    | 获取公网访问信息         | `--instance_id`                                 |
-| `UpdateInstanceEndpointPolicy`   | PUT    | 更新公网访问白名单       | `--instance_id`, `--ip_list.[N].ip`, `--ip_list.[N].description` |
+| `CreateInstanceInternalEndpoint` | POST   | Create internal endpoint | `--instance_id`, `--vpc_id`, `--subnet_id`, `--project_id`, `--description` |
+| `ListInstanceInternalEndpoints`  | GET    | List internal endpoints  | `--instance_id`, `--limit`, `--offset`          |
+| `ShowInstanceInternalEndpoint`   | GET    | Show internal endpoint details | `--instance_id`, `--internal_endpoints_id`      |
+| `DeleteInstanceInternalEndpoint` | DELETE | Delete internal endpoint | `--instance_id`, `--internal_endpoints_id`      |
+| `CreateInstanceEndpointPolicy`   | POST   | Enable or disable public access | `--instance_id`, `--enable`                     |
+| `ShowInstanceEndpointPolicy`     | GET    | Show public access info  | `--instance_id`                                 |
+| `UpdateInstanceEndpointPolicy`   | PUT    | Update public access whitelist | `--instance_id`, `--ip_list.[N].ip`, `--ip_list.[N].description` |
 
 ## Workflows
 
@@ -23,6 +27,7 @@ SWR enterprise instance endpoints define network access paths for the registry. 
 Internal endpoints provide private access to the registry from within a VPC, without traversing the public internet.
 
 **Pre-creation Checklist**:
+
 1. Verify VPC and subnet exist
 2. Verify the VPC/subnet project ID matches the VPC location
 3. Ensure the VPC is in the same region as the instance
@@ -36,13 +41,17 @@ hcloud SWR CreateInstanceInternalEndpoint --instance_id=<instance-id> --vpc_id=<
 ```
 
 **Parameters**:
+
 - `--instance_id` (required, path): Instance ID
 - `--vpc_id` (required, body): VPC ID where access is needed
 - `--subnet_id` (required, body): Subnet ID within the VPC
 - `--project_id` (required, body): Project ID where VPC/subnet reside (may differ from auto-filled path project_id)
 - `--description` (optional, body): Endpoint description
 
-⚠️ **Note**: The body `--project_id` specifies the project where the VPC/subnet reside. This may be different from the instance project. If the VPC/subnet are in the same project as the instance, they can be the same value.
+⚠️ **Note**: The body `--project_id` specifies the project where the
+VPC/subnet reside. This may be different from the instance project.
+If the VPC/subnet are in the same project as the instance, they can be
+the same value.
 
 **Post-creation Verification**:
 
@@ -67,6 +76,7 @@ hcloud SWR ShowInstanceInternalEndpoint --instance_id=<instance-id> --internal_e
 ```
 
 **Use Cases**:
+
 - Get the endpoint URL for docker login configuration
 - Verify endpoint status (active/inactive)
 - Check VPC/subnet mapping for the endpoint
@@ -91,6 +101,7 @@ hcloud SWR CreateInstanceEndpointPolicy --instance_id=<instance-id> --enable=tru
 ```
 
 **Status Constraints**:
+
 - Can only enable when current status is `Disable` or `EnableFailed`
 - Cannot enable if status is `Enable` (already enabled)
 
@@ -108,6 +119,7 @@ hcloud SWR CreateInstanceEndpointPolicy --instance_id=<instance-id> --enable=fal
 ```
 
 **Status Constraints**:
+
 - Can only disable when current status is `Enable` or `DisableFailed`
 - Cannot disable if status is `Disable` (already disabled)
 
@@ -118,6 +130,7 @@ hcloud SWR ShowInstanceEndpointPolicy --instance_id=<instance-id> --cli-region=c
 ```
 
 **Use Cases**:
+
 - Check if public access is enabled or disabled
 - View current IP whitelist configuration
 - Verify whitelist entries before updating
@@ -127,11 +140,14 @@ hcloud SWR ShowInstanceEndpointPolicy --instance_id=<instance-id> --cli-region=c
 ⚠️ **Important**: Whitelist update is a **full replacement** operation. All existing entries are replaced by the new entries provided. To add entries, include all existing ones plus the new ones.
 
 **Pre-update Checklist**:
+
 1. View current whitelist:
+
 ```bash
 hcloud SWR ShowInstanceEndpointPolicy --instance_id=<instance-id> --cli-region=cn-north-4
 ```
-2. Include all existing entries plus any new entries in the update command
+
+1. Include all existing entries plus any new entries in the update command
 
 ```bash
 # Set a single IP whitelist entry
@@ -149,6 +165,7 @@ hcloud SWR UpdateInstanceEndpointPolicy --instance_id=<instance-id> --ip_list.1.
 ```
 
 **IP Whitelist Format**:
+
 - `--ip_list.[N].ip`: IP address or CIDR range (e.g., `10.0.1.100` or `10.0.0.0/8`)
 - `--ip_list.[N].description`: Description for the entry
 - Indexed array format starting from 1

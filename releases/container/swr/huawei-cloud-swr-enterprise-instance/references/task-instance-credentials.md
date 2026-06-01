@@ -2,17 +2,21 @@
 
 ## Overview
 
-SWR enterprise instance credentials provide authentication for accessing the instance registry via Docker CLI or other container tools. Enterprise instances support both long-term credentials (for CI/CD) and temporary credentials (for short-lived access). This task covers creating, listing, enabling/disabling, and deleting credentials.
+SWR enterprise instance credentials provide authentication for accessing
+the instance registry via Docker CLI or other container tools.
+Enterprise instances support both long-term credentials (for CI/CD)
+and temporary credentials (for short-lived access).
+This task covers creating, listing, enabling/disabling, and deleting credentials.
 
 ## Operations Catalog
 
 | Operation                    | Method | Description              | Key Parameters                                  |
 | ---------------------------- | ------ | ------------------------ | ----------------------------------------------- |
-| `CreateInstanceLtCredential` | POST   | 创建长期访问凭证         | `--instance_id`, `--name`                       |
-| `CreateInstanceTempCredential` | POST | 获取临时访问凭证         | `--instance_id`                                 |
-| `ListInstanceLtCredentials`  | GET    | 查询长期访问凭证列表     | `--instance_id`, `--limit`, `--offset`, `--self_only` |
-| `UpdateInstanceLtCredential` | PUT    | 启用/停用长期访问凭证    | `--instance_id`, `--credential_id`, `--enable`  |
-| `DeleteInstanceLtCredential` | DELETE | 删除长期访问凭证         | `--instance_id`, `--credential_id`              |
+| `CreateInstanceLtCredential` | POST   | Create long-term credential | `--instance_id`, `--name`                       |
+| `CreateInstanceTempCredential` | POST | Get temporary credential  | `--instance_id`                                 |
+| `ListInstanceLtCredentials`  | GET    | List long-term credentials | `--instance_id`, `--limit`, `--offset`, `--self_only` |
+| `UpdateInstanceLtCredential` | PUT    | Enable/disable long-term credential | `--instance_id`, `--credential_id`, `--enable`  |
+| `DeleteInstanceLtCredential` | DELETE | Delete long-term credential | `--instance_id`, `--credential_id`              |
 
 ## Workflows
 
@@ -32,6 +36,7 @@ hcloud SWR CreateInstanceLtCredential --instance_id=<instance-id> --name=team-ba
 ```
 
 **Credential Naming Rules**:
+
 - Start with lowercase letter or digit
 - Followed by lowercase letters, digits, dots, underscores, or hyphens
 - Dots, underscores, hyphens cannot be directly connected
@@ -39,6 +44,7 @@ hcloud SWR CreateInstanceLtCredential --instance_id=<instance-id> --name=team-ba
 - Length: 1-64 characters
 
 **Post-creation**:
+
 - Response format needs verification — returns credential information including authentication details
 - Store the credential securely; the secret/token is only returned once during creation
 
@@ -54,11 +60,13 @@ hcloud SWR CreateInstanceTempCredential --instance_id=<instance-id> --cli-region
 ```
 
 **Use Cases**:
+
 - Developer testing for a limited time
 - One-time image push or pull
 - Debugging access issues
 
 **Post-creation**:
+
 - Response format needs verification — returns temporary authentication details
 - Temporary credentials have limited validity period
 
@@ -76,6 +84,7 @@ hcloud SWR ListInstanceLtCredentials --instance_id=<instance-id> --limit=20 --of
 ```
 
 **Use Cases**:
+
 - Audit all credentials in the instance
 - Verify credential creation was successful
 - Check credential enable/disable status
@@ -94,6 +103,7 @@ hcloud SWR UpdateInstanceLtCredential --instance_id=<instance-id> --credential_i
 ```
 
 **Common Use Cases**:
+
 - Temporarily disable credentials during security incidents
 - Disable credentials for maintenance windows
 - Re-enable after incident resolution

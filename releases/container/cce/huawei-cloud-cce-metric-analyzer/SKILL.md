@@ -6,7 +6,6 @@ description: |
   Use this skill when the user wants to: (1) query Pod/Node CPU/memory/disk metrics, (2) get resource usage TopN rankings, (3) query ECS/ELB/EIP/NAT cloud resource metrics, (4) aggregate cluster monitoring data with anomaly detection, (5) detect threshold-based resource anomalies.
   Trigger: user mentions "metric analysis", "指标分析", "CCE metrics", "CCE 指标", "AOM metrics", "AOM 指标", "resource metrics", "资源指标", "CPU usage", "CPU 使用率", "memory usage", "内存使用率", "performance monitoring", "性能监控", "TopN", "resource ranking", "资源排名"
 tags: [cce, metrics, aom, observability, analysis]
-version: 1.0.0
 ---
 
 # Huawei Cloud CCE Metric Analyzer

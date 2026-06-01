@@ -6,7 +6,6 @@ description: |
   Use this skill when the user wants to: (1) obtain kubeconfig for CCE clusters, (2) obtain federation kubeconfig for UCS fleet (multi-cluster operations), (3) manage Deployment/StatefulSet/DaemonSet/Job/CronJob lifecycle, (4) configure HPA autoscaling, (5) manage Service/Ingress/ConfigMap/Secret/PVC, (6) observe Pod status/logs/events, (7) manage namespaces, (8) install and configure kubectl.
   Trigger: user mentions "CCE workload", "k8s workload", "UCS fleet workload", "Deployment", "StatefulSet", "DaemonSet", "Job", "CronJob", "HPA", "kubectl", "kubeconfig", "federation kubeconfig", "Pod logs", "CCE 负载", "UCS 联邦负载", "工作负载", "部署", "有状态副本集", "守护进程集", "任务", "定时任务", "弹性伸缩", "服务", "路由", "配置项", "密钥", "存储卷", "Pod 日志", "命名空间"
 tags: [cce, kubernetes, workload, kubeconfig, kubectl]
-version: 1.0.0
 ---
 
 # Huawei Cloud CCE/UCS Workload Manager

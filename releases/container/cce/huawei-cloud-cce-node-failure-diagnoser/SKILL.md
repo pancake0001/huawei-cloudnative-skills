@@ -6,7 +6,6 @@ description: |
   Use this skill when the user wants to: (1) diagnose CCE node NotReady, node resource pressure, node failure events, (2) analyze node disk/memory/CPU pressure, (3) check node status and conditions, (4) view node metrics and events.
   Trigger: user mentions "node failure", "节点故障", "NodeNotReady", "节点 NotReady", "node pressure", "节点压力", "node disk pressure", "磁盘压力", "node eviction", "节点驱逐", "节点异常", "节点诊断", "CCE node", "CCE 节点", "节点状态"
 tags: [cce, node-diagnosis, kubernetes, fault-diagnosis]
-version: 1.0.0
 ---
 
 # Huawei Cloud CCE Node Failure Diagnoser

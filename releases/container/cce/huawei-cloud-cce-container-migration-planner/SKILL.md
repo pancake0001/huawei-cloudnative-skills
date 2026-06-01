@@ -13,7 +13,6 @@ description: |
   "迁移方案", "migration inventory", "迁移盘点", "dependency mapping", "依赖梳理", "migration batch",
   "迁移批次", "migration risk", "迁移风险"
 tags: [cce, migration, planning, assessment]
-version: 1.0.0
 ---
 
 # Huawei Cloud CCE Container Migration Planner

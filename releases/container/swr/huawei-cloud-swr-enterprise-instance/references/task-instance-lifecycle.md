@@ -8,18 +8,19 @@ SWR enterprise instances provide dedicated, isolated container registry environm
 
 | Operation                    | Method | Description              | Key Parameters                                  |
 | ---------------------------- | ------ | ------------------------ | ----------------------------------------------- |
-| `CreateInstance`             | POST   | 创建企业仓库实例          | `--name`, `--spec`, `--charge_mode`, `--vpc_id`, `--subnet_id`, `--enterprise_project_id` |
-| `ListInstance`               | GET    | 查询实例列表             | `--status`, `--limit`, `--offset`, `--enterprise_project_id` |
-| `ShowInstance`               | GET    | 获取实例详情             | `--instance_id`                                 |
-| `ShowInstanceConfiguration`  | GET    | 查看实例配置             | `--instance_id`                                 |
-| `UpdateInstanceConfiguration`| PUT    | 修改实例配置             | `--instance_id`, `--anonymous_access`           |
-| `DeleteInstance`             | DELETE | 删除实例                 | `--instance_id`, `--delete_obs`, `--delete_dns` |
+| `CreateInstance`             | POST   | Create enterprise instance | `--name`, `--spec`, `--charge_mode`, `--vpc_id`, `--subnet_id`, `--enterprise_project_id` |
+| `ListInstance`               | GET    | List instances           | `--status`, `--limit`, `--offset`, `--enterprise_project_id` |
+| `ShowInstance`               | GET    | Show instance details    | `--instance_id`                                 |
+| `ShowInstanceConfiguration`  | GET    | Show instance configuration | `--instance_id`                                 |
+| `UpdateInstanceConfiguration`| PUT    | Update instance configuration | `--instance_id`, `--anonymous_access`           |
+| `DeleteInstance`             | DELETE | Delete instance          | `--instance_id`, `--delete_obs`, `--delete_dns` |
 
 ## Workflows
 
 ### W1: Create an Enterprise Instance
 
 **Pre-creation Checklist**:
+
 1. Verify VPC exists and is in the target region
 2. Verify subnet exists within the VPC
 3. Decide instance spec: `swr.ee.basic` or `swr.ee.professional`
@@ -36,7 +37,7 @@ hcloud SWR CreateInstance --name=prod-instance --spec=swr.ee.professional --char
 # Create instance with OBS encryption (AES-256)
 hcloud SWR CreateInstance --name=secure-instance --spec=swr.ee.professional --charge_mode=postPaid --vpc_id=<vpc-id> --subnet_id=<subnet-id> --enterprise_project_id=0 --obs_encrypt=true --obs_enc_kms_key_id=<kms-key-id> --cli-region=cn-north-4
 
-# Create instance with 国密 encryption
+# Create instance with Chinese national encryption (SM)
 hcloud SWR CreateInstance --name=gm-instance --spec=swr.ee.professional --charge_mode=postPaid --vpc_id=<vpc-id> --subnet_id=<subnet-id> --enterprise_project_id=0 --obs_encrypt=true --encrypt_type=gm --cli-region=cn-north-4
 
 # Create instance with resource tags
@@ -44,6 +45,7 @@ hcloud SWR CreateInstance --name=tagged-instance --spec=swr.ee.professional --ch
 ```
 
 **Instance Creation Parameters**:
+
 - `--name`: Instance name (3-48 chars, lowercase start, no consecutive hyphens, no ending hyphen)
 - `--spec`: `swr.ee.basic` or `swr.ee.professional`
 - `--charge_mode`: Only `postPaid` (on-demand) supported currently
@@ -83,6 +85,7 @@ hcloud SWR ListInstance --limit=20 --offset=0 --cli-region=cn-north-4
 ```
 
 **Use Cases**:
+
 - Find instance ID for subsequent operations
 - Check instance status after creation
 - Audit all enterprise instances in a project
@@ -95,6 +98,7 @@ hcloud SWR ShowInstance --instance_id=<instance-id> --cli-region=cn-north-4
 ```
 
 **Use Cases**:
+
 - Get instance ID, name, spec, and status
 - View VPC/subnet configuration
 - Check instance endpoints (internal and public)
@@ -114,6 +118,7 @@ hcloud SWR UpdateInstanceConfiguration --instance_id=<instance-id> --anonymous_a
 ```
 
 **Configuration Options**:
+
 - `anonymous_access`: Whether unauthenticated users can pull images. Default is `false` for security.
 
 ### W5: Delete an Instance
@@ -121,12 +126,15 @@ hcloud SWR UpdateInstanceConfiguration --instance_id=<instance-id> --anonymous_a
 ⚠️ **CAUTION**: Deleting an instance permanently removes ALL data — namespaces, repositories, artifacts, credentials, endpoints, domains. This is irreversible.
 
 **Pre-deletion Checklist**:
+
 1. List all namespaces to verify what will be deleted:
+
 ```bash
 hcloud SWR ListInstanceNamespaces --instance_id=<instance-id> --cli-region=cn-north-4
 ```
-2. Confirm with the user that ALL data will be permanently deleted
-3. If data needs to be preserved, migrate/sync to another instance first
+
+1. Confirm with the user that ALL data will be permanently deleted
+2. If data needs to be preserved, migrate/sync to another instance first
 
 ```bash
 # Delete instance (basic — does not delete OBS bucket or DNS)

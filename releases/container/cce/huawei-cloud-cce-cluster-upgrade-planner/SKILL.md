@@ -4,7 +4,6 @@ description: >-
   Use when planning CCE Kubernetes cluster version upgrades, evaluating upgrade path compatibility, addon compatibility, pre-upgrade difference checks, and estimating upgrade window duration to avoid insufficient upgrade windows. Covers version-specific breaking changes, deprecated APIs, 76-item pre-check checklist, in-place upgrade vs migration strategy comparison, and execution preview with two-step confirmation.
   Triggers: CCE 集群升级, 升级评估, 版本兼容, 升级窗口, 升级前检查, Kubernetes升级, addon升级, 差异检查, 升级方案, cluster upgrade, version upgrade, upgrade window, compatibility check
 tags: [cce, kubernetes, upgrade, compatibility, assessment]
-version: 1.0.0
 ---
 
 # CCE Cluster Upgrade Planner

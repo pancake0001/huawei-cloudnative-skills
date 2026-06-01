@@ -6,7 +6,6 @@ description: |
   Use this skill when the user wants to: (1) diagnose PVC Pending, volume mount failures, (2) analyze EVS disk issues, (3) diagnose storage class and CSI driver errors, (4) check PV/PVC binding status and storage capacity.
   Trigger: user mentions "storage failure", "存储故障", "PVC Pending", "PVC 挂载失败", "volume mount error", "卷挂载错误", "EVS disk", "云硬盘", "PV failure", "PV 异常", "CSI driver error", "CSI 驱动异常", "存储诊断", "FailedMount", "FailedAttachVolume"
 tags: [cce, storage-diagnosis, evs, pvc, fault-diagnosis]
-version: 1.0.0
 ---
 
 # Huawei Cloud CCE Storage Failure Diagnoser
