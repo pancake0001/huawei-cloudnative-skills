@@ -30,27 +30,25 @@ hcloud configure list
 
 ### 1. Create Instance
 
+**⚠️ hcloud CLI Bug**: `hcloud SWR CreateInstance` has a known bug where `--project_id` appears as both a path parameter and a body parameter with the same name. hcloud CLI rejects duplicate parameters, making this command unusable. Use the Python SDK script instead:
+
 ```bash
-# Create basic edition instance
-hcloud SWR CreateInstance --name=my-instance --spec=swr.ee.basic --charge_mode=postPaid --vpc_id=<vpc-id> --subnet_id=<subnet-id> --enterprise_project_id=0 --cli-region=cn-north-4
+# ✅ CORRECT - Use Python SDK script (bypasses hcloud CLI duplicate --project_id bug)
+python scripts/swr_instance_helper.py create --name=my-instance --spec=swr.ee.basic \
+    --vpc_id=<vpc-id> --subnet_id=<subnet-id> --enterprise_project_id=0
 
 # Create professional edition instance with description
-hcloud SWR CreateInstance --name=prod-instance --spec=swr.ee.professional --charge_mode=postPaid --vpc_id=<vpc-id> --subnet_id=<subnet-id> --enterprise_project_id=0 --description="Production enterprise registry" --cli-region=cn-north-4
+python scripts/swr_instance_helper.py create --name=prod-instance --spec=swr.ee.professional \
+    --vpc_id=<vpc-id> --subnet_id=<subnet-id> --enterprise_project_id=0 \
+    --description="Production enterprise registry"
 
 # Create instance with OBS encryption
-hcloud SWR CreateInstance --name=secure-instance --spec=swr.ee.professional --charge_mode=postPaid --vpc_id=<vpc-id> --subnet_id=<subnet-id> --enterprise_project_id=0 --obs_encrypt=true --obs_enc_kms_key_id=<kms-key-id> --cli-region=cn-north-4
+python scripts/swr_instance_helper.py create --name=secure-instance --spec=swr.ee.professional \
+    --vpc_id=<vpc-id> --subnet_id=<subnet-id> --enterprise_project_id=0 \
+    --obs_encrypt=true --obs_enc_kms_key_id=<kms-key-id>
 
-# Create instance with 国密 encryption
-hcloud SWR CreateInstance --name=gm-instance --spec=swr.ee.professional --charge_mode=postPaid --vpc_id=<vpc-id> --subnet_id=<subnet-id> --enterprise_project_id=0 --obs_encrypt=true --encrypt_type=gm --cli-region=cn-north-4
-
-# Create instance without intranet access
-hcloud SWR CreateInstance --name=public-instance --spec=swr.ee.basic --charge_mode=postPaid --vpc_id=<vpc-id> --subnet_id=<subnet-id> --enterprise_project_id=0 --enable_intranet_access=false --cli-region=cn-north-4
-
-# Create instance with custom OBS bucket
-hcloud SWR CreateInstance --name=custom-obs-instance --spec=swr.ee.professional --charge_mode=postPaid --vpc_id=<vpc-id> --subnet_id=<subnet-id> --enterprise_project_id=0 --obs_bucket_name=my-obs-bucket --cli-region=cn-north-4
-
-# Create instance with tags
-hcloud SWR CreateInstance --name=tagged-instance --spec=swr.ee.professional --charge_mode=postPaid --vpc_id=<vpc-id> --subnet_id=<subnet-id> --enterprise_project_id=0 --resource_tags.1.key=Environment --resource_tags.1.value=Production --resource_tags.2.key=Team --resource_tags.2.value=Backend --cli-region=cn-north-4
+# ❌ BROKEN - hcloud CLI CreateInstance fails with "重复的参数:project_id" or "缺少必填参数:project_id"
+# hcloud SWR CreateInstance --name=my-instance --spec=swr.ee.basic ...
 ```
 
 **Parameters**:
@@ -64,7 +62,7 @@ hcloud SWR CreateInstance --name=tagged-instance --spec=swr.ee.professional --ch
 - `--description` (optional, body): Instance description
 - `--enable_intranet_access` (optional, body): Create internal access, default `true`
 - `--obs_encrypt` (optional, body): Enable OBS bucket encryption
-- `--encrypt_type` (optional, body): Encryption algorithm, `gm` for 国密, empty for AES-256
+- `--encrypt_type` (optional, body): Encryption algorithm, `gm` for Chinese national encryption (SM), empty for AES-256
 - `--obs_bucket_name` (optional, body): Custom OBS bucket name (skips OBS encryption config)
 - `--obs_enc_kms_key_id` (optional, body): KMS key ID for OBS encryption
 - `--resource_tags.[N].key` (optional, body): Tag key in indexed format

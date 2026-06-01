@@ -8,12 +8,12 @@ SWR enterprise instances provide dedicated, isolated container registry environm
 
 | Operation                    | Method | Description              | Key Parameters                                  |
 | ---------------------------- | ------ | ------------------------ | ----------------------------------------------- |
-| `CreateInstance`             | POST   | 创建企业仓库实例          | `--name`, `--spec`, `--charge_mode`, `--vpc_id`, `--subnet_id`, `--enterprise_project_id` |
-| `ListInstance`               | GET    | 查询实例列表             | `--status`, `--limit`, `--offset`, `--enterprise_project_id` |
-| `ShowInstance`               | GET    | 获取实例详情             | `--instance_id`                                 |
-| `ShowInstanceConfiguration`  | GET    | 查看实例配置             | `--instance_id`                                 |
-| `UpdateInstanceConfiguration`| PUT    | 修改实例配置             | `--instance_id`, `--anonymous_access`           |
-| `DeleteInstance`             | DELETE | 删除实例                 | `--instance_id`, `--delete_obs`, `--delete_dns` |
+| `CreateInstance`             | POST   | Create enterprise instance | `--name`, `--spec`, `--charge_mode`, `--vpc_id`, `--subnet_id`, `--enterprise_project_id` |
+| `ListInstance`               | GET    | List instances           | `--status`, `--limit`, `--offset`, `--enterprise_project_id` |
+| `ShowInstance`               | GET    | Show instance details    | `--instance_id`                                 |
+| `ShowInstanceConfiguration`  | GET    | Show instance configuration | `--instance_id`                                 |
+| `UpdateInstanceConfiguration`| PUT    | Update instance configuration | `--instance_id`, `--anonymous_access`           |
+| `DeleteInstance`             | DELETE | Delete instance          | `--instance_id`, `--delete_obs`, `--delete_dns` |
 
 ## Workflows
 
@@ -36,7 +36,7 @@ hcloud SWR CreateInstance --name=prod-instance --spec=swr.ee.professional --char
 # Create instance with OBS encryption (AES-256)
 hcloud SWR CreateInstance --name=secure-instance --spec=swr.ee.professional --charge_mode=postPaid --vpc_id=<vpc-id> --subnet_id=<subnet-id> --enterprise_project_id=0 --obs_encrypt=true --obs_enc_kms_key_id=<kms-key-id> --cli-region=cn-north-4
 
-# Create instance with 国密 encryption
+# Create instance with Chinese national encryption (SM)
 hcloud SWR CreateInstance --name=gm-instance --spec=swr.ee.professional --charge_mode=postPaid --vpc_id=<vpc-id> --subnet_id=<subnet-id> --enterprise_project_id=0 --obs_encrypt=true --encrypt_type=gm --cli-region=cn-north-4
 
 # Create instance with resource tags

@@ -8,13 +8,13 @@ SWR enterprise instance artifacts represent image versions (tags) within reposit
 
 | Operation                            | Method | Description              | Key Parameters                                  |
 | ------------------------------------ | ------ | ------------------------ | ----------------------------------------------- |
-| `ListInstanceArtifacts`              | GET    | 获取制品版本列表         | `--instance_id`, `--namespace_name`, `--repository_name`, `--limit`, `--offset`, `--tags`, `--type` |
-| `ListInstanceAllArtifacts`           | GET    | 获取所有制品版本列表     | `--instance_id`, `--limit`, `--marker`          |
-| `ShowInstanceArtifact`               | GET    | 获取制品版本详情         | `--instance_id`, `--namespace_name`, `--repository_name`, `--reference`, `--with_scan_overview` |
-| `ShowInstanceArtifactAddition`       | GET    | 获取制品附加信息         | `--instance_id`, `--namespace_name`, `--repository_name`, `--reference`, `--addition` |
-| `ListInstanceArtifactVulnerabilities`| GET    | 获取制品漏洞信息         | `--instance_id`, `--namespace_name`, `--repository_name`, `--reference` |
-| `StartManualScanning`                | POST   | 手动启动制品扫描         | `--instance_id`, `--namespace_name`, `--repository_name`, `--reference` |
-| `DeleteInstanceArtifact`             | DELETE | 删除制品版本             | `--instance_id`, `--namespace_name`, `--repository_name`, `--reference` |
+| `ListInstanceArtifacts`              | GET    | List artifact versions   | `--instance_id`, `--namespace_name`, `--repository_name`, `--limit`, `--offset`, `--tags`, `--type` |
+| `ListInstanceAllArtifacts`           | GET    | List all artifact versions | `--instance_id`, `--limit`, `--marker`          |
+| `ShowInstanceArtifact`               | GET    | Show artifact version details | `--instance_id`, `--namespace_name`, `--repository_name`, `--reference`, `--with_scan_overview` |
+| `ShowInstanceArtifactAddition`       | GET    | Show artifact additional info | `--instance_id`, `--namespace_name`, `--repository_name`, `--reference`, `--addition` |
+| `ListInstanceArtifactVulnerabilities`| GET    | List artifact vulnerabilities | `--instance_id`, `--namespace_name`, `--repository_name`, `--reference` |
+| `StartManualScanning`                | POST   | Start manual artifact scan | `--instance_id`, `--namespace_name`, `--repository_name`, `--reference` |
+| `DeleteInstanceArtifact`             | DELETE | Delete artifact version   | `--instance_id`, `--namespace_name`, `--repository_name`, `--reference` |
 
 ## Workflows
 
