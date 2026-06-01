@@ -42,7 +42,7 @@ All dangerous operations require `confirm=true` parameter to execute. Otherwise,
 
 ```bash
 # Example: Preview cluster deletion
-python3 huawei-cloud.py huawei_delete_cce_cluster \
+python3 scripts/huawei-cloud.py huawei_delete_cce_cluster \
   region=cn-north-4 \
   cluster_id=xxx
 ```
@@ -53,7 +53,7 @@ Returns: operation preview, risk warning, confirmation example
 
 ```bash
 # Example: Confirm and execute deletion
-python3 huawei-cloud.py huawei_delete_cce_cluster \
+python3 scripts/huawei-cloud.py huawei_delete_cce_cluster \
   region=cn-north-4 \
   cluster_id=xxx \
   confirm=true
