@@ -38,6 +38,26 @@
 
 **通过**。核心只读预览链路可用，保护逻辑正确，无安全风险。
 
+## 补充验证截图
+
+以下截图来自同一轮 CCE 工作负载发布故障验证中的 ProbeFailure 回滚恢复场景，用于补充展示 `huawei-cloud-cce-auto-remediation-runner` 的恢复预览、风险确认、执行后验证和端到端联动流程。该补充场景用于说明自动恢复 Skill 的受控恢复闭环，主验证输出仍以下方 preview 模式记录为准。
+
+### 回滚方案预览
+
+![回滚方案预览](assets/huawei-cloud-cce-auto-remediation-runner/01-rollback-preview.png)
+
+### 回滚风险与用户确认
+
+![回滚风险与用户确认](assets/huawei-cloud-cce-auto-remediation-runner/02-rollback-risk-review.png)
+
+### 回滚执行结果与恢复验证
+
+![回滚执行结果与恢复验证](assets/huawei-cloud-cce-auto-remediation-runner/03-rollback-verification.png)
+
+### 诊断与恢复整体流程
+
+![诊断与恢复整体流程](assets/huawei-cloud-cce-auto-remediation-runner/04-overall-workflow.png)
+
 
 ## aicli 实际输出（Skill 生成的报告）
 
@@ -79,5 +99,4 @@
 
 - 确认业务入口和 Service endpoints 恢复后，复盘错误 command/args 的发布来源。
 - 如果回滚后仍不健康，回到 root-cause-analyzer 继续检查节点、网络、存储和配置变更。
-
 

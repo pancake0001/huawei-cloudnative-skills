@@ -36,6 +36,26 @@
 
 **通过**。工作负载故障诊断功能正常。
 
+## 补充验证截图
+
+以下截图来自同一轮 CCE 工作负载发布故障验证中的 ProbeFailure 场景，用于补充展示 `huawei-cloud-cce-workload-failure-diagnoser` 的自然语言触发、诊断总览、Rollout 漏斗分析、版本历史和修复建议输出。该补充场景用于说明 Skill 的故障诊断链路，主验证输出仍以上文和下方 JSON 记录为准。
+
+### 自然语言触发诊断
+
+![自然语言触发工作负载故障诊断](assets/huawei-cloud-cce-workload-failure-diagnoser/01-diagnosis-request.png)
+
+### 工作负载诊断总览
+
+![工作负载诊断总览](assets/huawei-cloud-cce-workload-failure-diagnoser/02-diagnosis-summary.png)
+
+### Rollout 漏斗与探针失败分析
+
+![Rollout 漏斗与探针失败分析](assets/huawei-cloud-cce-workload-failure-diagnoser/03-rollout-probe-failure-analysis.png)
+
+### 版本历史与修复建议
+
+![版本历史与修复建议](assets/huawei-cloud-cce-workload-failure-diagnoser/04-revision-history-remediation-advice.png)
+
 
 ## aicli 实际输出（Skill 生成的报告）
 

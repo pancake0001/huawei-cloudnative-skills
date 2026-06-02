@@ -6,7 +6,7 @@
 
 | 最佳实践 | 场景 | 关键能力 |
 | --- | --- | --- |
-| [使用alcli对CCE工作负载进行故障诊断与恢复](alcli-cce-workload-diagnosis-recovery.md) | Deployment 更新后新版本 Pod 未就绪，Rollout 卡住，需要定位根因并快速恢复业务。 | 工作负载故障诊断、Readiness 探针分析、版本历史分析、回滚预览、确认执行、恢复验证 |
+| [使用AICLI对CCE工作负载进行故障诊断与恢复](aicli-cce-workload-diagnosis-recovery.md) | Deployment 更新后新版本 Pod 未就绪，Rollout 卡住，需要定位根因并快速恢复业务。 | 工作负载故障诊断、Readiness 探针分析、版本历史分析、恢复预览、确认执行、恢复验证 |
 | [使用OpenClaw诊断应用CPU上涨并扩容](openclaw-cce-cpu-diagnosis-scaling.md) | 应用 CPU 使用率异常升高，需要汇聚指标、日志和事件定位根因，并通过受控扩容恢复业务。 | 可观测上下文汇聚、Pod 运行状态分析、根因分析、扩容预览、确认执行、效果验证 |
 
 ## CCE集群运维与弹性
