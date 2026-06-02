@@ -1,5 +1,4 @@
 ---
-id: huawei-cloud-cce-cci-bursting-deployer
 name: huawei-cloud-cce-cci-bursting-deployer
 description: |
   Configure, deploy, and verify Huawei Cloud CCE to CCI 2.0 bursting for fast elastic capacity using python3 scripts/huawei-cloud.py.
@@ -10,18 +9,37 @@ tags: [cce, cci, bursting, hybrid-scheduling]
 
 # Huawei Cloud CCE-CCI Bursting Deployer
 
+**Trigger keywords**: CCI bursting, CCI 弹性, burst deployment, 弹性部署,
+burst to CCI, 弹出到 CCI, hybrid scheduling, 混合调度, CCE-CCI burst,
+CCE-CCI 弹性, CCI workload, CCI 工作负载
+
 ## Overview
 
-This skill configures CCE workloads to burst into CCI 2.0 serverless capacity for elastic scaling. It automates the full workflow: precheck cluster readiness, ensure VPCEP dependencies for image pulling, install or update the `virtual-kubelet` addon, deploy a smoke workload, and verify the virtual node and pod status.
+This skill configures CCE workloads to burst into CCI 2.0 serverless
+capacity for elastic scaling. It automates the full workflow: precheck
+cluster readiness including NodeCheck for physical-node headroom, ensure
+VPCEP dependencies for image pulling, install or update the
+`virtual-kubelet` addon, discover tenant-owned smoke images, deploy a
+smoke workload, verify the virtual node and pod status, and diagnose
+addon failures.
 
-**Architecture**: python3 scripts/huawei-cloud.py → CCE/VPCEP/VPC API → Precheck → VPCEP creation → Addon install → Smoke deployment → Verification
+**Architecture**: python3 scripts/huawei-cloud.py → CCE/VPCEP/VPC API →
+Precheck → NodeCheck → VPCEP creation → Addon install → Image discovery → Smoke deployment → Verification → Diagnosis
 
-**Key Principle**: Preview-first. Read-only checks run immediately, but VPCEP creation, addon installation, and smoke workload deployment require explicit user approval with `confirm=true` before execution.
+**Key Principle**: Preview-first. Read-only checks (precheck,
+NodeCheck, verify, discover images, diagnose addon) run immediately,
+but VPCEP creation, addon installation, node pool changes, and smoke
+workload deployment require explicit user approval with `confirm=true`
+before execution.
 
 **Related Skills**:
-- `huawei-cloud-cce-cluster-management` - Cluster lifecycle, addon listing, kubeconfig retrieval
-- `huawei-cloud-cce-pod-failure-diagnoser` - Pod failure diagnosis when bursting pods fail to reach Running
-- `huawei-cloud-cce-network-failure-diagnoser` - Network diagnosis for VPCEP connectivity issues
+
+- `huawei-cloud-cce-cluster-management` - Cluster lifecycle,
+addon listing, kubeconfig retrieval
+- `huawei-cloud-cce-pod-failure-diagnoser` - Pod failure diagnosis
+when bursting pods fail to reach Running
+- `huawei-cloud-cce-network-failure-diagnoser` - Network diagnosis
+for VPCEP connectivity issues
 
 ## Prerequisites
 
@@ -65,9 +83,12 @@ export HUAWEI_PROJECT_ID=<your-project-id>
 | `vpc:subnet:list` | List subnets | Validate subnet IDs in cluster VPC |
 | `vpc:routetable:list` | List route tables | Find route table IDs for OBS gateway VPCEP |
 
-**Permission Failure Handling**: When any command fails due to IAM permission errors, verify the permissions listed above, guide the user to create custom IAM policies, and pause execution until permissions are confirmed.
+**Permission Failure Handling**: When any command fails due to IAM
+permission errors, verify the permissions listed above, guide the
+user to create custom IAM policies, and pause execution until
+permissions are confirmed.
 
-## Core Tools
+## Core Commands
 
 All tools are invoked through `python3 scripts/huawei-cloud.py` with key=value parameters.
 
@@ -89,7 +110,10 @@ python3 scripts/huawei-cloud.py huawei_ensure_cce_cci_vpcep region=cn-north-4 cl
 python3 scripts/huawei-cloud.py huawei_ensure_cce_cci_vpcep region=cn-north-4 cluster_id=<cluster-id> vpcep_subnet_id=<vpc-subnet-id> confirm=true
 ```
 
-Creates or reuses SWR, SWR-API, and OBS-compatible VPCEP interface endpoints in the cluster VPC. If OBS information is missing, pass `obs_endpoint_service_name` obtained from the Huawei Cloud service ticket (do not guess).
+Creates or reuses SWR, SWR-API, and OBS-compatible VPCEP interface
+endpoints in the cluster VPC. If OBS information is missing, pass
+`obs_endpoint_service_name` obtained from the Huawei Cloud service
+ticket (do not guess).
 
 ### 3. Setup CCI Bursting
 
@@ -130,6 +154,64 @@ python3 scripts/huawei-cloud.py huawei_verify_cce_cci_bursting region=cn-north-4
 ```
 
 Confirms test pods reach `Running` on the virtual node (`bursting-node` or `virtual-kubelet`).
+
+### 7. Check Node Capacity (Read-Only)
+
+```bash
+python3 scripts/huawei-cloud.py huawei_check_cce_cci_node_capacity region=cn-north-4 cluster_id=<cluster-id>
+```
+
+Inspects physical-node addon headroom. The precheck includes NodeCheck automatically, warning when schedulable capacity is below the 2C/4GiB conservative baseline. Preview node pool expansion
+when the baseline is not met.
+
+### 8. List Node Pools (Read-Only)
+
+```bash
+python3 scripts/huawei-cloud.py huawei_list_cce_nodepools region=cn-north-4 cluster_id=<cluster-id>
+```
+
+Lists CCE node pools in the cluster. Used after NodeCheck warns about insufficient headroom to identify existing pools for resize.
+
+### 9. Resize Node Pool
+
+```bash
+# Preview
+python3 scripts/huawei-cloud.py huawei_resize_cce_nodepool region=cn-north-4 cluster_id=<cluster-id> nodepool_id=<nodepool-id> node_count=3
+
+# Apply after user approval
+python3 scripts/huawei-cloud.py huawei_resize_cce_nodepool region=cn-north-4 cluster_id=<cluster-id> nodepool_id=<nodepool-id> node_count=3 confirm=true
+```
+
+Resizes an existing node pool to increase physical-node capacity. Apply only after explicit user approval with `confirm=true`.
+
+### 10. Create Node Pool
+
+```bash
+# Preview
+python3 scripts/huawei-cloud.py huawei_create_cce_nodepool region=cn-north-4 cluster_id=<cluster-id> nodepool_name=<name> flavor=<flavor> availability_zone=<az> root_volume_size=40 root_volume_type=SSD
+
+# Apply after user approval
+python3 scripts/huawei-cloud.py huawei_create_cce_nodepool region=cn-north-4 cluster_id=<cluster-id> nodepool_name=<name> flavor=<flavor> availability_zone=<az> root_volume_size=40 root_volume_type=SSD confirm=true
+```
+
+Creates a new node pool. Prefer SSH keypair authentication. Apply only after explicit user approval with `confirm=true`.
+
+### 11. Discover Smoke Images (Read-Only)
+
+```bash
+python3 scripts/huawei-cloud.py huawei_discover_cce_cci_smoke_images region=cn-north-4
+```
+
+Discover tenant-owned SWR basic images through namespace, repository, and tag queries. The smoke deployment automatically selects a discovered tenant-owned image when `image` is omitted.
+
+### 12. Diagnose Bursting Addon (Read-Only)
+
+```bash
+python3 scripts/huawei-cloud.py huawei_diagnose_cce_cci_bursting_addon region=cn-north-4 cluster_id=<cluster-id>
+```
+
+Returns read-only addon diagnostics when verification fails or the virtual node does not become Ready. Inspect the returned diagnostics to identify region mismatches, missing project IDs,
+or configuration issues.
 
 ## Parameter Reference
 
@@ -193,7 +275,10 @@ Confirms test pods reach `Running` on the virtual node (`bursting-node` or `virt
 | `cci_subnet_id` | Neutron subnet UUID | `virtual-kubelet` addon `networkID`, `subnet_id`, `subnets[].subnetID` |
 | `vpcep_subnet_id` | VPC subnet UUID | VPCEP interface endpoint placement |
 
-**These are different ID namespaces. Never swap them.** For a Turbo/ENI cluster, `huawei_precheck_cce_cci_bursting` resolves `cci_subnet_id` from `spec.eni_network`. Pass `vpcep_subnet_id` explicitly when a dedicated endpoint subnet is preferred.
+**These are different ID namespaces. Never swap them.** For a
+Turbo/ENI cluster, `huawei_precheck_cce_cci_bursting` resolves
+`cci_subnet_id` from `spec.eni_network`. Pass `vpcep_subnet_id`
+explicitly when a dedicated endpoint subnet is preferred.
 
 ## Output Format
 
@@ -246,12 +331,16 @@ All tools return JSON with the following structure:
 1. **Always precheck first**: Run `huawei_precheck_cce_cci_bursting` before any mutation to identify blocking issues
 2. **Preview before apply**: Always run mutation actions without `confirm=true` first, review the plan, then re-run with `confirm=true` after explicit user approval
 3. **Never swap subnet IDs**: `cci_subnet_id` (Neutron UUID) and `vpcep_subnet_id` (VPC UUID) are different ID namespaces; swapping them causes addon failure
-4. **Use regional SWR images**: Docker Hub images timeout in CCI capacity; always use a regional SWR image for verification workloads
+4. **Prefer tenant-owned SWR images**: Docker Hub images and public namespace images timeout in CCI capacity; prefer a tenant-owned regional SWR image via `huawei_discover_cce_cci_smoke_images`;
+   public namespace images are fallback-only
 5. **Obtain OBS service name from service ticket**: Never guess the `obs_endpoint_service_name` from a similar regional public service
 6. **Verify after each change**: Run `huawei_verify_cce_cci_bursting` after each applied change to confirm progress
 7. **Setup is idempotent**: `huawei_setup_cce_cci_bursting` updates existing addon configuration without uninstalling; safe to re-run
 8. **Reuse existing VPCEPs**: The tool reuses accepted VPCEPs in the cluster VPC; no duplicate creation
-9. **Do not delete resources automatically**: Never auto-delete VPCEPs, namespaces, workloads, or addons
+9. **Do not delete resources automatically**: Never auto-delete VPCEPs, namespaces, workloads, addons, or addon ReplicaSets
+10. **Diagnose addon failures**: When verification fails, run `huawei_diagnose_cce_cci_bursting_addon` for read-only diagnostics; never patch the internal `bursting-status` ConfigMap automatically
+11. **Node headroom is a warning**: The 2C/4GiB NodeCheck is a conservative small-cluster warning, not a platform hard limit; size production resources with the official addon formula
+12. **Explicit project ID when needed**: Pass `project_id` explicitly when IAM auto-resolution is unavailable
 
 ## Reference Documents
 
@@ -263,11 +352,14 @@ All tools return JSON with the following structure:
 
 ## Notes
 
-- **Preview-first by design** — VPCEP creation, addon installation, and workload deployment return a preview without `confirm=true`; apply only after explicit user approval
-- **Idempotent setup** — `huawei_setup_cce_cci_bursting` may update the existing `virtual-kubelet` addon configuration but never uninstalls it
+- **Preview-first by design** — VPCEP creation, addon installation, node pool changes, and workload deployment return a preview without `confirm=true`; apply only after explicit user approval
+- **Idempotent setup** — `huawei_setup_cce_cci_bursting` may update the existing `virtual-kubelet` addon configuration but never uninstalls it; it resolves and writes the regional project ID
 - **Turbo/ENI required** — CCE to CCI bursting requires a Turbo cluster with ENI container network mode
 - **No credential persistence** — AK/SK exists only during API calls; never written to disk, logs, or reports
 - **Cross-skill escalation** — If bursting pods show CrashLoopBackOff or ImagePullBackOff, hand off to `huawei-cloud-cce-pod-failure-diagnoser`; if VPCEP connectivity fails, hand off to `huawei-cloud-cce-network-failure-diagnoser`
+- **Tenant-owned smoke images** — Prefer a tenant-owned SWR image discovered via `huawei_discover_cce_cci_smoke_images`; public namespace images are fallback-only because CCI pulling through
+  VPCEP may fail
+- **NodeCheck warning baseline** — The 2C/4GiB value is a conservative small-cluster warning; size production addon resources with the official formula
 
 ## Common Pitfalls
 
@@ -275,7 +367,16 @@ All tools return JSON with the following structure:
 | --- | --- | --- |
 | Swapped subnet IDs | virtual-kubelet restarts, virtual node never Ready | Run precheck; use `cci_subnet_id` from `spec.eni_network` (Neutron UUID), not the VPC subnet UUID |
 | Missing SWR VPCEPs | CCI pod `ImagePullBackOff` or image pull timeout | Run `huawei_ensure_cce_cci_vpcep` to create SWR endpoints |
-| Docker Hub image in CCI | Image pull timeout | Use a regional SWR image for the smoke workload |
+| Public namespace smoke image | CCI pod image pull timeout through VPCEP | Use `huawei_discover_cce_cci_smoke_images` to find a tenant-owned SWR image |
 | Missing bursting label | Workload pods stay Pending on real nodes | Add `bursting.cci.io/burst-to-cci: enforce` label to pod template |
 | Guessed OBS service name | OBS gateway VPCEP creation fails | Obtain exact `obs_endpoint_service_name` from Huawei Cloud service ticket |
+  | Insufficient physical-node headroom | `bursting-cceaddon-*` Pods stay Pending | Run `huawei_check_cce_cci_node_capacity`; preview node pool resize or create |
+  | Addon region mismatch | Logs report `northchina` or `southchina` | Run `huawei_diagnose_cce_cci_bursting_addon`; do not hard-code region mapping |
+  | Missing project ID | Addon reports IAM denied or project ID missing | Pass `project_id` explicitly when auto-resolution unavailable |
+  | Multiple active ReplicaSets | `bursting-cceaddon-*` has several ReplicaSets | Inspect Deployment rollout state; do not auto-delete ReplicaSets |
+  | Non-ENI cluster | Precheck reports CCI bursting not supported | Use a Turbo/ENI cluster; overlay_l2 clusters cannot burst to CCI |
 | Non-ENI cluster | Precheck reports CCI bursting not supported | Use a Turbo/ENI cluster; overlay_l2 clusters cannot burst to CCI |
+| Insufficient physical-node headroom | `bursting-cceaddon-*` Pods stay Pending | Run `huawei_check_cce_cci_node_capacity`; preview node pool resize or create |
+| Addon region mismatch | Logs report `northchina` or `southchina` | Run `huawei_diagnose_cce_cci_bursting_addon`; do not hard-code region mapping |
+| Missing project ID | Addon reports IAM denied or project ID missing | Pass `project_id` explicitly when IAM auto-resolution unavailable |
+| Multiple active ReplicaSets | `bursting-cceaddon-*` has several ReplicaSets | Inspect Deployment rollout state; do not auto-delete ReplicaSets |

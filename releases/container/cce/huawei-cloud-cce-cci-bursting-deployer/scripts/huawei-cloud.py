@@ -314,29 +314,13 @@ def _dispatch_modular_action(action: str, params: Dict[str, Any]) -> Optional[Di
 
 
 def _parse_cli_params(args: List[str]) -> Dict[str, str]:
-    """Parse key=value and --key=value/--key value CLI arguments."""
+    """Parse key=value CLI arguments into a parameter mapping."""
     params: Dict[str, str] = {}
-    index = 0
-
-    while index < len(args):
-        arg = args[index]
-
-        if arg.startswith("--"):
-            normalized = arg[2:]
-            if "=" in normalized:
-                key, value = normalized.split("=", 1)
-                params[key.replace("-", "_")] = value
-            elif index + 1 < len(args) and not args[index + 1].startswith("--"):
-                params[normalized.replace("-", "_")] = args[index + 1]
-                index += 1
-            else:
-                params[normalized.replace("-", "_")] = "true"
-        elif "=" in arg:
-            key, value = arg.split("=", 1)
-            params[key.lstrip("-").replace("-", "_")] = value
-
-        index += 1
-
+    for arg in args:
+        if "=" not in arg:
+            continue
+        key, value = arg.split("=", 1)
+        params[key] = value
     return params
 
 

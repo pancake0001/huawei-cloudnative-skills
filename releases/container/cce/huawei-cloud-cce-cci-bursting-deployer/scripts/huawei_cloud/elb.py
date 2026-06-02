@@ -1,5 +1,107 @@
 from .common import *
 
+
+def _list_value(value: Optional[str | List[str]]) -> Optional[List[str]]:
+    if value is None:
+        return None
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+    return [item.strip() for item in str(value).split(",") if item.strip()]
+
+
+def create_elb_loadbalancer(
+    region: str,
+    name: str,
+    vip_subnet_cidr_id: str,
+    vpc_id: Optional[str] = None,
+    availability_zone_list: Optional[str | List[str]] = None,
+    l4_flavor_id: Optional[str] = None,
+    l7_flavor_id: Optional[str] = None,
+    elb_virsubnet_ids: Optional[str | List[str]] = None,
+    description: Optional[str] = None,
+    provider: Optional[str] = None,
+    guaranteed: Optional[bool] = None,
+    deletion_protection_enable: bool = True,
+    ip_target_enable: Optional[bool] = None,
+    confirm: bool = False,
+    ak: Optional[str] = None,
+    sk: Optional[str] = None,
+    project_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Preview or create an ELB load balancer with the ELB v3 API."""
+    if not name:
+        return {"success": False, "error": "name is required"}
+    if not vip_subnet_cidr_id:
+        return {"success": False, "error": "vip_subnet_cidr_id is required"}
+
+    plan = {
+        "operation": "create_elb_loadbalancer",
+        "region": region,
+        "loadbalancer": {
+            "name": name,
+            "description": description,
+            "vip_subnet_cidr_id": vip_subnet_cidr_id,
+            "vpc_id": vpc_id,
+            "availability_zone_list": _list_value(availability_zone_list),
+            "l4_flavor_id": l4_flavor_id,
+            "l7_flavor_id": l7_flavor_id,
+            "elb_virsubnet_ids": _list_value(elb_virsubnet_ids),
+            "provider": provider,
+            "guaranteed": guaranteed,
+            "deletion_protection_enable": bool(deletion_protection_enable),
+            "ip_target_enable": ip_target_enable,
+        },
+        "notes": [
+            "This creates a billable ELB resource.",
+            "vip_subnet_cidr_id must be the ELB VIP subnet network ID expected by the ELB v3 API.",
+            "No public EIP is created automatically.",
+        ],
+    }
+    plan["loadbalancer"] = {key: value for key, value in plan["loadbalancer"].items() if value is not None}
+    if not confirm:
+        return {
+            "success": False,
+            "requires_confirmation": True,
+            "message": "Preview only. Re-run with confirm=true after explicit approval.",
+            "plan": plan,
+        }
+
+    access_key, secret_key, proj_id = get_credentials_with_region(region, ak, sk, project_id)
+    if not access_key or not secret_key:
+        return {"success": False, "error": "Credentials not provided"}
+    if not proj_id:
+        return {"success": False, "error": f"Project ID not found for region={region}"}
+    if not SDK_AVAILABLE:
+        return {"success": False, "error": f"Huawei Cloud SDK not installed: {IMPORT_ERROR}"}
+
+    try:
+        from huaweicloudsdkelb.v3 import CreateLoadBalancerOption, CreateLoadBalancerRequest, CreateLoadBalancerRequestBody
+
+        option = CreateLoadBalancerOption(name=name, vip_subnet_cidr_id=vip_subnet_cidr_id)
+        for key, value in plan["loadbalancer"].items():
+            if key not in {"name", "vip_subnet_cidr_id"}:
+                setattr(option, key, value)
+
+        request = CreateLoadBalancerRequest(body=CreateLoadBalancerRequestBody(loadbalancer=option))
+        response = create_elb_client(region, access_key, secret_key, proj_id).create_load_balancer(request)
+        data = response.to_dict() if hasattr(response, "to_dict") else {}
+        return {
+            "success": True,
+            "action": "create_elb_loadbalancer",
+            "region": region,
+            "loadbalancer": data.get("loadbalancer", data),
+            "request_id": getattr(response, "request_id", None),
+        }
+    except ClientRequestException as e:
+        return {
+            "success": False,
+            "error": f"{e.error_code} - {e.error_msg}",
+            "request_id": getattr(e, "request_id", None),
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e), "error_type": type(e).__name__}
+
+
 def list_elb_loadbalancers(region: str, ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None, limit: int = 100, marker: str = None) -> Dict[str, Any]:
     """List ELB load balancers in the specified region"""
     access_key, secret_key, proj_id = get_credentials(ak, sk, project_id)

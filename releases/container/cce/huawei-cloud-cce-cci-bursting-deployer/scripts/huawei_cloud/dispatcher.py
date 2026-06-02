@@ -6,7 +6,7 @@ from typing import Any, Callable, Dict
 
 import json
 
-from . import aom, cce, cce_metrics, ecs, elb, hss, identity, network, storage
+from . import aom, apm, cce, cce_metrics, ecs, elb, hss, identity, network, storage
 from . import cce_inspection
 from . import cce_diagnosis
 from . import pod_diagnosis
@@ -14,7 +14,7 @@ from . import workload_rollout_diagnosis
 from . import cce_auto_inspection
 from . import chart_generator
 from . import common
-from . import cce_cluster, cce_nodepool, cce_node, cce_addon, cce_k8s, cce_hpa, cce_cost_optimization, cce_availability_risk, cce_capacity_trend, cce_cci_bursting, ops_report_generator
+from . import cce_cluster, cce_nodepool, cce_node, cce_addon, cce_k8s, cce_hpa, cce_cost_optimization, cce_availability_risk, cce_capacity_trend, cce_cci_bursting, cce_pressure_test, cce_apm, ops_report_generator
 from . import node_failure_diagnosis, network_failure_diagnosis, storage_failure_diagnosis, autoscaling_diagnosis, change_impact_analysis
 from . import dependency_impact_analysis, root_cause_analysis, auto_remediation
 from . import cce_events_lts
@@ -154,6 +154,28 @@ def _list_sfs_turbo(params: Dict[str, str]) -> Dict[str, Any]:
 
 def _list_elb(params: Dict[str, str]) -> Dict[str, Any]:
     return elb.list_elb_loadbalancers(params["region"], params.get("ak"), params.get("sk"), params.get("project_id"), _to_int(params.get("limit"), 100), params.get("marker"))
+
+
+def _create_elb(params: Dict[str, str]) -> Dict[str, Any]:
+    return elb.create_elb_loadbalancer(
+        region=params["region"],
+        name=params["name"],
+        vip_subnet_cidr_id=params["vip_subnet_cidr_id"],
+        vpc_id=params.get("vpc_id"),
+        availability_zone_list=params.get("availability_zone_list"),
+        l4_flavor_id=params.get("l4_flavor_id"),
+        l7_flavor_id=params.get("l7_flavor_id"),
+        elb_virsubnet_ids=params.get("elb_virsubnet_ids"),
+        description=params.get("description"),
+        provider=params.get("provider"),
+        guaranteed=_to_optional_bool(params.get("guaranteed")),
+        deletion_protection_enable=params.get("deletion_protection_enable", "true").lower() == "true",
+        ip_target_enable=_to_optional_bool(params.get("ip_target_enable")),
+        confirm=params.get("confirm", "").lower() == "true",
+        ak=params.get("ak"),
+        sk=params.get("sk"),
+        project_id=params.get("project_id"),
+    )
 
 
 def _list_elb_listeners(params: Dict[str, str]) -> Dict[str, Any]:
@@ -324,6 +346,26 @@ def _list_aom_instances(params: Dict[str, str]) -> Dict[str, Any]:
         params.get("project_id"),
         params.get("prom_type"),
         params.get("enterprise_project_id"),
+    )
+
+
+def _resolve_cce_aom_instance(params: Dict[str, str]) -> Dict[str, Any]:
+    return cce_diagnosis.get_aom_instance(
+        params["region"],
+        params["cluster_id"],
+        params.get("ak"),
+        params.get("sk"),
+        params.get("project_id"),
+    )
+
+
+def _get_apm_master_address(params: Dict[str, str]) -> Dict[str, Any]:
+    return apm.get_apm_master_address(
+        params["region"],
+        params.get("auth_token"),
+        params.get("ak"),
+        params.get("sk"),
+        params.get("project_id"),
     )
 
 
@@ -1440,6 +1482,136 @@ def _verify_cce_cci_bursting(params: Dict[str, str]) -> Dict[str, Any]:
     )
 
 
+def _prepare_cce_pressure_test_route(params: Dict[str, str]) -> Dict[str, Any]:
+    return cce_pressure_test.prepare_cce_pressure_test_route(
+        params["region"],
+        params["cluster_id"],
+        params["namespace"],
+        params["workload_name"],
+        _to_int(params.get("service_port"), 80),
+        _to_int(params.get("target_port"), 8080),
+        params.get("service_name"),
+        params.get("ingress_name"),
+        params.get("ingress_class_name", "nginx"),
+        params.get("host"),
+        params.get("path", "/"),
+        params.get("selector_json"),
+        params.get("annotations_json"),
+        params.get("confirm", "").lower() == "true",
+        params.get("ak"),
+        params.get("sk"),
+        params.get("project_id"),
+    )
+
+
+def _deploy_cce_pressure_test_java_sample(params: Dict[str, str]) -> Dict[str, Any]:
+    return cce_pressure_test.deploy_cce_pressure_test_java_sample(
+        params["region"],
+        params["cluster_id"],
+        params.get("namespace", cce_pressure_test.DEFAULT_JAVA_NAMESPACE),
+        params.get("workload_name", cce_pressure_test.DEFAULT_JAVA_WORKLOAD),
+        params.get("image", cce_pressure_test.DEFAULT_JAVA_IMAGE),
+        _to_int(params.get("replicas"), 2),
+        params.get("confirm", "").lower() == "true",
+        params.get("ak"),
+        params.get("sk"),
+        params.get("project_id"),
+    )
+
+
+def _generate_cce_pressure_test_client(params: Dict[str, str]) -> Dict[str, Any]:
+    return cce_pressure_test.generate_cce_pressure_test_client(
+        params["target_url"],
+        params.get("namespace", cce_pressure_test.DEFAULT_NAMESPACE),
+        params.get("test_name"),
+        params.get("model", "keepalive"),
+        _to_int(params.get("vus"), 10),
+        _to_int(params.get("duration_seconds"), 60),
+        params.get("image", cce_pressure_test.DEFAULT_K6_IMAGE),
+        params.get("host_header"),
+        float(params.get("sleep_seconds", 0.1)),
+    )
+
+
+def _run_cce_pressure_test(params: Dict[str, str]) -> Dict[str, Any]:
+    return cce_pressure_test.run_cce_pressure_test(
+        params["region"],
+        params["cluster_id"],
+        params["target_url"],
+        params.get("namespace", cce_pressure_test.DEFAULT_NAMESPACE),
+        params.get("workload_name"),
+        params.get("workload_namespace"),
+        params.get("test_name"),
+        params.get("model", "keepalive"),
+        _to_int(params.get("vus"), 10),
+        _to_int(params.get("duration_seconds"), 60),
+        params.get("image", cce_pressure_test.DEFAULT_K6_IMAGE),
+        params.get("host_header"),
+        float(params.get("sleep_seconds", 0.1)),
+        _to_int(params.get("sample_interval_seconds"), 5),
+        _to_optional_int(params.get("timeout_seconds")),
+        params.get("wait", "true").lower() == "true",
+        params.get("output_dir"),
+        params.get("confirm", "").lower() == "true",
+        params.get("ak"),
+        params.get("sk"),
+        params.get("project_id"),
+    )
+
+
+def _collect_cce_pressure_test_observability(params: Dict[str, str]) -> Dict[str, Any]:
+    return cce_pressure_test.collect_cce_pressure_test_observability(
+        params["region"],
+        params["cluster_id"],
+        params["namespace"],
+        params["workload_name"],
+        params.get("label_selector"),
+        params.get("elb_id"),
+        params.get("aom_instance_id"),
+        params.get("queries_json"),
+        _to_int(params.get("hours"), 1),
+        _to_int(params.get("period"), 300),
+        params.get("output_dir"),
+        params.get("ak"),
+        params.get("sk"),
+        params.get("project_id"),
+    )
+
+
+def _generate_cce_pressure_test_report(params: Dict[str, str]) -> Dict[str, Any]:
+    return cce_pressure_test.generate_cce_pressure_test_report(
+        params["result_path"],
+        params.get("observations_path"),
+        params.get("output_dir"),
+    )
+
+
+def _inject_cce_apm_javaagent(params: Dict[str, str]) -> Dict[str, Any]:
+    return cce_apm.inject_cce_apm_javaagent(
+        region=params["region"],
+        cluster_id=params["cluster_id"],
+        namespace=params["namespace"],
+        workload_name=params["workload_name"],
+        app_name=params["app_name"],
+        business=params["business"],
+        env_name=params["env_name"],
+        workload_type=params.get("workload_type", "deployment"),
+        container_name=params.get("container_name"),
+        master_address=params.get("master_address"),
+        monitor_group=params.get("monitor_group", cce_apm.DEFAULT_MONITOR_GROUP),
+        agent_version=params.get("agent_version", cce_apm.DEFAULT_AGENT_VERSION),
+        swr_address=params.get("swr_address"),
+        secret_name=params.get("secret_name"),
+        apm_access_key=params.get("apm_access_key"),
+        apm_secret_key=params.get("apm_secret_key"),
+        auth_token=params.get("auth_token"),
+        confirm=params.get("confirm", "").lower() == "true",
+        ak=params.get("ak"),
+        sk=params.get("sk"),
+        project_id=params.get("project_id"),
+    )
+
+
 ACTION_SPECS: Dict[str, tuple[tuple[str, ...], Handler]] = {
     "huawei_list_ecs": (("region",), _list_ecs),
     "huawei_get_ecs_metrics": (("region", "instance_id"), _get_ecs_metrics),
@@ -1459,6 +1631,7 @@ ACTION_SPECS: Dict[str, tuple[tuple[str, ...], Handler]] = {
     "huawei_list_sfs": (("region",), _list_sfs),
     "huawei_list_sfs_turbo": (("region",), _list_sfs_turbo),
     "huawei_list_elb": (("region",), _list_elb),
+    "huawei_create_elb": (("region", "name", "vip_subnet_cidr_id"), _create_elb),
     "huawei_list_elb_listeners": (("region",), _list_elb_listeners),
     "huawei_get_elb_metrics": (("region", "elb_id"), _get_elb_metrics),
     "huawei_get_elb_backend_status": (("region", "elb_id"), _get_elb_backend_status),
@@ -1488,6 +1661,13 @@ ACTION_SPECS: Dict[str, tuple[tuple[str, ...], Handler]] = {
     "huawei_setup_cce_cci_bursting": (("region", "cluster_id"), _setup_cce_cci_bursting),
     "huawei_deploy_cce_cci_smoke_workload": (("region", "cluster_id"), _deploy_cce_cci_smoke_workload),
     "huawei_verify_cce_cci_bursting": (("region", "cluster_id"), _verify_cce_cci_bursting),
+    "huawei_deploy_cce_pressure_test_java_sample": (("region", "cluster_id"), _deploy_cce_pressure_test_java_sample),
+    "huawei_prepare_cce_pressure_test_route": (("region", "cluster_id", "namespace", "workload_name"), _prepare_cce_pressure_test_route),
+    "huawei_generate_cce_pressure_test_client": (("target_url",), _generate_cce_pressure_test_client),
+    "huawei_run_cce_pressure_test": (("region", "cluster_id", "target_url"), _run_cce_pressure_test),
+    "huawei_collect_cce_pressure_test_observability": (("region", "cluster_id", "namespace", "workload_name"), _collect_cce_pressure_test_observability),
+    "huawei_generate_cce_pressure_test_report": (("result_path",), _generate_cce_pressure_test_report),
+    "huawei_inject_cce_apm_javaagent": (("region", "cluster_id", "namespace", "workload_name", "app_name", "business", "env_name"), _inject_cce_apm_javaagent),
     "huawei_get_cce_pods": (("region", "cluster_id"), _get_cce_pods),
     "huawei_pod_failure_diagnose": (("region", "cluster_id"), _pod_failure_diagnose_action),
     "huawei_get_workload_rollout_context": (("region", "cluster_id", "namespace", "kind", "name"), _get_workload_rollout_context_action),
@@ -1527,6 +1707,8 @@ ACTION_SPECS: Dict[str, tuple[tuple[str, ...], Handler]] = {
     "huawei_dependency_impact_analyze": (("region", "cluster_id"), lambda params: dependency_impact_analysis.analyze_dependency_impact_action(params)),
     "huawei_root_cause_analyze": (("region", "cluster_id"), lambda params: root_cause_analysis.analyze_root_cause_action(params)),
     "huawei_list_aom_instances": (("region",), _list_aom_instances),
+    "huawei_resolve_cce_aom_instance": (("region", "cluster_id"), _resolve_cce_aom_instance),
+    "huawei_get_apm_master_address": (("region",), _get_apm_master_address),
     "huawei_get_aom_metrics": (("region", "aom_instance_id", "query"), _get_aom_metrics),
     "huawei_list_aom_alarm_rules": (("region",), _list_aom_alarm_rules),
     "huawei_create_aom_alarm_rule": (("region", "rule_name", "metric_name", "namespace", "comparison_operator", "threshold", "period", "evaluation_periods", "statistic", "alarm_level"), _create_aom_alarm_rule),
