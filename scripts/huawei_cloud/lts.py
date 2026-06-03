@@ -35,6 +35,7 @@ LTS_ENDPOINTS = {
     "cn-north-4": "lts.cn-north-4.myhuaweicloud.com",
     "cn-north-1": "lts.cn-north-1.myhuaweicloud.com",
     "cn-north-9": "lts.cn-north-9.myhuaweicloud.com",
+    "cn-north-7": "lts.cn-north-7.myhuaweicloud.com",
     "cn-east-3": "lts.cn-east-3.myhuaweicloud.com",
     "cn-east-2": "lts.cn-east-2.myhuaweicloud.com",
     "cn-south-1": "lts.cn-south-1.myhuaweicloud.com",

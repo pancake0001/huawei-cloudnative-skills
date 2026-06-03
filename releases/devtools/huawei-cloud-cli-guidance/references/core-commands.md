@@ -283,6 +283,13 @@ hcloud IAM ListRoles --cli-region=cn-north-4 --cli-output=json
 hcloud IAM ListGroups --cli-region=cn-north-4 --cli-output=json
 ```
 
+> **Note**: In the cn-north-7 (乌兰察布二零三) test environment, the IAM endpoint is different.
+> For IAM operations in cn-north-7, you must specify `--cli-endpoint=iam.cn-north-7.ulanqab.huawei.com`:
+> ```bash
+> hcloud IAM KeystoneListUsers --cli-region=cn-north-7 --cli-endpoint=iam.cn-north-7.ulanqab.huawei.com --cli-output=json
+> ```
+> Other services (ECS, VPC, CCE, etc.) in cn-north-7 do NOT require `--cli-endpoint`, only `--cli-region=cn-north-7`.
+
 ## Monitoring Services
 
 ### CES (Cloud Eye Service)

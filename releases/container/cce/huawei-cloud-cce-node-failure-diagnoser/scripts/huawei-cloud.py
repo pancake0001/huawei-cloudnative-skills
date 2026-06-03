@@ -248,6 +248,7 @@ SUPPORTED_REGIONS = {
     "cn-north-4": {"name": "华北-北京四", "description": "核心区域，推荐"},
     "cn-north-1": {"name": "华北-北京一", "description": "早期区域"},
     "cn-north-9": {"name": "华北-乌兰察布一", "description": "数据中心"},
+    "cn-north-7": {"name": "华北-乌兰察布二零三", "description": "测试区域"},
     "cn-east-3": {"name": "华东-上海一", "description": "华东核心"},
     "cn-east-2": {"name": "华东-上海二", "description": "核心区域"},
     "cn-south-1": {"name": "华南-广州", "description": "华南核心"},
@@ -314,29 +315,13 @@ def _dispatch_modular_action(action: str, params: Dict[str, Any]) -> Optional[Di
 
 
 def _parse_cli_params(args: List[str]) -> Dict[str, str]:
-    """Parse key=value and --key=value/--key value CLI arguments."""
+    """Parse key=value CLI arguments into a parameter mapping."""
     params: Dict[str, str] = {}
-    index = 0
-
-    while index < len(args):
-        arg = args[index]
-
-        if arg.startswith("--"):
-            normalized = arg[2:]
-            if "=" in normalized:
-                key, value = normalized.split("=", 1)
-                params[key.replace("-", "_")] = value
-            elif index + 1 < len(args) and not args[index + 1].startswith("--"):
-                params[normalized.replace("-", "_")] = args[index + 1]
-                index += 1
-            else:
-                params[normalized.replace("-", "_")] = "true"
-        elif "=" in arg:
-            key, value = arg.split("=", 1)
-            params[key.lstrip("-").replace("-", "_")] = value
-
-        index += 1
-
+    for arg in args:
+        if "=" not in arg:
+            continue
+        key, value = arg.split("=", 1)
+        params[key] = value
     return params
 
 

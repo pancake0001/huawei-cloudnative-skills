@@ -353,3 +353,21 @@ hcloud <SERVICE> <OPERATION> \
   --cli-output=raw \
   --cli-region=cn-north-4
 ```
+
+### Custom Endpoint Override (`--cli-endpoint`)
+
+By default, KooCLI automatically selects service endpoints based on `--cli-region`. However, some environments use non-standard endpoints that require manual override via `--cli-endpoint`.
+
+> **Important**: In the cn-north-7 (乌兰察布二零三) test environment, IAM uses a different domain:
+> `iam.cn-north-7.ulanqab.huawei.com` instead of the standard `iam.myhuaweicloud.com`.
+> All IAM operations in cn-north-7 must include `--cli-endpoint`:
+> ```bash
+> # IAM in cn-north-7 requires custom endpoint
+> hcloud IAM KeystoneListProjects \
+>   --cli-region=cn-north-7 \
+>   --cli-endpoint=iam.cn-north-7.ulanqab.huawei.com
+>
+> # Other services (ECS, VPC, CCE, etc.) in cn-north-7 use standard endpoints, no override needed
+> hcloud ECS ListInstances/v3 \
+>   --cli-region=cn-north-7
+> ```

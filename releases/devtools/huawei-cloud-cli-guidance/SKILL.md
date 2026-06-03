@@ -423,6 +423,10 @@ hcloud ECS ListInstances/v3 --cli-region=cn-north-4 --cli-output=json --cli-quer
 1. **Profile verification**: `hcloud configure list` displays configured profile
 2. **Permission verification**: `hcloud IAM ListUsers/v3 --cli-profile <profile>` tests IAM permissions
 
+> **Note**: In cn-north-7 (乌兰察布二零三), IAM requires a custom endpoint. Use:
+> `hcloud IAM ListUsers/v3 --cli-region=cn-north-7 --cli-endpoint=iam.cn-north-7.ulanqab.huawei.com`
+> Other services in cn-north-7 only need `--cli-region=cn-north-7`.
+
 ### Command Verification
 1. **Help verification**: Execute `hcloud <service> --help` for each service to confirm available operations
 2. **Parameter verification**: Use `--cli-debug=true` to view parameter parsing results

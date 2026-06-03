@@ -74,7 +74,7 @@ def list_projects(ak: Optional[str] = None, sk: Optional[str] = None, domain_id:
         }
 
     try:
-        client = create_iam_client(access_key, secret_key)
+        client = create_iam_client(access_key, secret_key, region)
 
         # Build the request - use keystone API for listing projects
         request = KeystoneListProjectsRequest()

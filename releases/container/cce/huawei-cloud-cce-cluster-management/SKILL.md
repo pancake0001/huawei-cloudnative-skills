@@ -210,6 +210,7 @@ Ensure the IAM user has the minimum required permissions:
 | cn-north-4 | North China-Beijing 4 |
 | cn-north-1 | North China-Beijing 1 |
 | cn-north-2 | North China-Beijing 2 |
+| cn-north-7 | North China-Ulanqab 203 |
 | cn-east-3 | East China-Shanghai 1 |
 | cn-south-1 | South China-Guangzhou |
 | cn-south-2 | South China-Guangzhou Friendly |

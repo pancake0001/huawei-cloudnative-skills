@@ -248,6 +248,7 @@ SUPPORTED_REGIONS = {
     "cn-north-4": {"name": "华北-北京四", "description": "核心区域，推荐"},
     "cn-north-1": {"name": "华北-北京一", "description": "早期区域"},
     "cn-north-9": {"name": "华北-乌兰察布一", "description": "数据中心"},
+    "cn-north-7": {"name": "华北-乌兰察布二零三", "description": "测试区域"},
     "cn-east-3": {"name": "华东-上海一", "description": "华东核心"},
     "cn-east-2": {"name": "华东-上海二", "description": "核心区域"},
     "cn-south-1": {"name": "华南-广州", "description": "华南核心"},

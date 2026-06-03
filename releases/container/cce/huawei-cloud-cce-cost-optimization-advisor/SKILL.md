@@ -303,6 +303,7 @@ All tools return JSON with:
 |-------------|-------------|
 | cn-north-4 | North China-Beijing 4 |
 | cn-north-1 | North China-Beijing 1 |
+| cn-north-7 | North China-Ulanqab 203 |
 | cn-east-3 | East China-Shanghai 1 |
 | cn-south-1 | South China-Guangzhou |
 | ap-southeast-1 | Asia-Pacific-Hong Kong |

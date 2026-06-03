@@ -71,6 +71,7 @@ SUPPORTED_REGIONS = {
     "cn-north-4": {"name": "华北-北京四", "description": "核心区域，推荐"},
     "cn-north-1": {"name": "华北-北京一", "description": "早期区域"},
     "cn-north-9": {"name": "华北-乌兰察布一", "description": "数据中心"},
+    "cn-north-7": {"name": "华北-乌兰察布二零三", "description": "测试区域"},
     "cn-east-3": {"name": "华东-上海一", "description": "华东核心"},
     "cn-east-2": {"name": "华东-上海二", "description": "核心区域"},
     "cn-south-1": {"name": "华南-广州", "description": "华南核心"},
@@ -88,7 +89,7 @@ SUPPORTED_REGIONS = {
 }
 
 ECS_ENDPOINTS = {
-    "cn-north-4": "ecs.cn-north-4.myhuaweicloud.com", "cn-north-1": "ecs.cn-north-1.myhuaweicloud.com", "cn-north-9": "ecs.cn-north-9.myhuaweicloud.com",
+    "cn-north-4": "ecs.cn-north-4.myhuaweicloud.com", "cn-north-1": "ecs.cn-north-1.myhuaweicloud.com", "cn-north-9": "ecs.cn-north-9.myhuaweicloud.com", "cn-north-7": "ecs.cn-north-7.myhuaweicloud.com",
     "cn-east-3": "ecs.cn-east-3.myhuaweicloud.com", "cn-east-2": "ecs.cn-east-2.myhuaweicloud.com", "cn-south-1": "ecs.cn-south-1.myhuaweicloud.com",
     "cn-southwest-2": "ecs.cn-southwest-2.myhuaweicloud.com", "cn-west-3": "ecs.cn-west-3.myhuaweicloud.com", "ap-southeast-1": "ecs.ap-southeast-1.myhuaweicloud.com",
     "ap-southeast-2": "ecs.ap-southeast-2.myhuaweicloud.com", "ap-southeast-3": "ecs.ap-southeast-3.myhuaweicloud.com", "ap-southeast-4": "ecs.ap-southeast-4.myhuaweicloud.com",
@@ -96,7 +97,7 @@ ECS_ENDPOINTS = {
     "eu-west-0": "ecs.eu-west-0.myhuaweicloud.com", "ap-northeast-1": "ecs.ap-northeast-1.myhuaweicloud.com",
 }
 VPC_ENDPOINTS = {
-    "cn-north-4": "vpc.cn-north-4.myhuaweicloud.com", "cn-north-1": "vpc.cn-north-1.myhuaweicloud.com", "cn-north-9": "vpc.cn-north-9.myhuaweicloud.com",
+    "cn-north-4": "vpc.cn-north-4.myhuaweicloud.com", "cn-north-1": "vpc.cn-north-1.myhuaweicloud.com", "cn-north-9": "vpc.cn-north-9.myhuaweicloud.com", "cn-north-7": "vpc.cn-north-7.myhuaweicloud.com",
     "cn-east-3": "vpc.cn-east-3.myhuaweicloud.com", "cn-east-2": "vpc.cn-east-2.myhuaweicloud.com", "cn-south-1": "vpc.cn-south-1.myhuaweicloud.com",
     "cn-southwest-2": "vpc.cn-southwest-2.myhuaweicloud.com", "cn-west-3": "vpc.cn-west-3.myhuaweicloud.com", "ap-southeast-1": "vpc.ap-southeast-1.myhuaweicloud.com",
     "ap-southeast-2": "vpc.ap-southeast-2.myhuaweicloud.com", "ap-southeast-3": "vpc.ap-southeast-3.myhuaweicloud.com", "ap-southeast-4": "vpc.ap-southeast-4.myhuaweicloud.com",
@@ -104,7 +105,7 @@ VPC_ENDPOINTS = {
     "eu-west-0": "vpc.eu-west-0.myhuaweicloud.com", "ap-northeast-1": "vpc.ap-northeast-1.myhuaweicloud.com",
 }
 CES_ENDPOINTS = {
-    "cn-north-4": "ces.cn-north-4.myhuaweicloud.com", "cn-north-1": "ces.cn-north-1.myhuaweicloud.com", "cn-north-9": "ces.cn-north-9.myhuaweicloud.com",
+    "cn-north-4": "ces.cn-north-4.myhuaweicloud.com", "cn-north-1": "ces.cn-north-1.myhuaweicloud.com", "cn-north-9": "ces.cn-north-9.myhuaweicloud.com", "cn-north-7": "ces.cn-north-7.myhuaweicloud.com",
     "cn-east-3": "ces.cn-east-3.myhuaweicloud.com", "cn-east-2": "ces.cn-east-2.myhuaweicloud.com", "cn-south-1": "ces.cn-south-1.myhuaweicloud.com",
     "cn-southwest-2": "ces.cn-southwest-2.myhuaweicloud.com", "cn-west-3": "ces.cn-west-3.myhuaweicloud.com", "ap-southeast-1": "ces.ap-southeast-1.myhuaweicloud.com",
     "ap-southeast-2": "ces.ap-southeast-2.myhuaweicloud.com", "ap-southeast-3": "ces.ap-southeast-3.myhuaweicloud.com", "ap-southeast-4": "ces.ap-southeast-4.myhuaweicloud.com",
@@ -112,7 +113,7 @@ CES_ENDPOINTS = {
     "eu-west-0": "ces.eu-west-0.myhuaweicloud.com", "ap-northeast-1": "ces.ap-northeast-1.myhuaweicloud.com",
 }
 CCE_ENDPOINTS = {
-    "cn-north-4": "cce.cn-north-4.myhuaweicloud.com", "cn-north-1": "cce.cn-north-1.myhuaweicloud.com", "cn-north-9": "cce.cn-north-9.myhuaweicloud.com",
+    "cn-north-4": "cce.cn-north-4.myhuaweicloud.com", "cn-north-1": "cce.cn-north-1.myhuaweicloud.com", "cn-north-9": "cce.cn-north-9.myhuaweicloud.com", "cn-north-7": "cce.cn-north-7.myhuaweicloud.com",
     "cn-east-3": "cce.cn-east-3.myhuaweicloud.com", "cn-east-2": "cce.cn-east-2.myhuaweicloud.com", "cn-south-1": "cce.cn-south-1.myhuaweicloud.com",
     "cn-southwest-2": "cce.cn-southwest-2.myhuaweicloud.com", "cn-west-3": "cce.cn-west-3.myhuaweicloud.com", "ap-southeast-1": "cce.ap-southeast-1.myhuaweicloud.com",
     "ap-southeast-2": "cce.ap-southeast-2.myhuaweicloud.com", "ap-southeast-3": "cce.ap-southeast-3.myhuaweicloud.com", "ap-southeast-4": "cce.ap-southeast-4.myhuaweicloud.com",
@@ -120,7 +121,7 @@ CCE_ENDPOINTS = {
     "eu-west-0": "cce.eu-west-0.myhuaweicloud.com", "ap-northeast-1": "cce.ap-northeast-1.myhuaweicloud.com",
 }
 EVS_ENDPOINTS = {
-    "cn-north-4": "evs.cn-north-4.myhuaweicloud.com", "cn-north-1": "evs.cn-north-1.myhuaweicloud.com", "cn-north-9": "evs.cn-north-9.myhuaweicloud.com",
+    "cn-north-4": "evs.cn-north-4.myhuaweicloud.com", "cn-north-1": "evs.cn-north-1.myhuaweicloud.com", "cn-north-9": "evs.cn-north-9.myhuaweicloud.com", "cn-north-7": "evs.cn-north-7.myhuaweicloud.com",
     "cn-east-3": "evs.cn-east-3.myhuaweicloud.com", "cn-east-2": "evs.cn-east-2.myhuaweicloud.com", "cn-south-1": "evs.cn-south-1.myhuaweicloud.com",
     "cn-southwest-2": "evs.cn-southwest-2.myhuaweicloud.com", "cn-west-3": "evs.cn-west-3.myhuaweicloud.com", "ap-southeast-1": "evs.ap-southeast-1.myhuaweicloud.com",
     "ap-southeast-2": "evs.ap-southeast-2.myhuaweicloud.com", "ap-southeast-3": "evs.ap-southeast-3.myhuaweicloud.com", "ap-southeast-4": "evs.ap-southeast-4.myhuaweicloud.com",
@@ -129,14 +130,17 @@ EVS_ENDPOINTS = {
 }
 EIP_ENDPOINTS = VPC_ENDPOINTS
 ELB_ENDPOINTS = {
-    "cn-north-4": "elb.cn-north-4.myhuaweicloud.com", "cn-north-1": "elb.cn-north-1.myhuaweicloud.com", "cn-north-9": "elb.cn-north-9.myhuaweicloud.com",
+    "cn-north-4": "elb.cn-north-4.myhuaweicloud.com", "cn-north-1": "elb.cn-north-1.myhuaweicloud.com", "cn-north-9": "elb.cn-north-9.myhuaweicloud.com", "cn-north-7": "elb.cn-north-7.myhuaweicloud.com",
     "cn-east-3": "elb.cn-east-3.myhuaweicloud.com", "cn-east-2": "elb.cn-east-2.myhuaweicloud.com", "cn-south-1": "elb.cn-south-1.myhuaweicloud.com",
     "cn-southwest-2": "elb.cn-southwest-2.myhuaweicloud.com", "cn-west-3": "elb.cn-west-3.myhuaweicloud.com", "ap-southeast-1": "elb.ap-southeast-1.myhuaweicloud.com",
     "ap-southeast-2": "elb.ap-southeast-2.myhuaweicloud.com", "ap-southeast-3": "elb.ap-southeast-3.myhuaweicloud.com", "ap-southeast-4": "elb.ap-southeast-4.myhuaweicloud.com",
     "af-south-1": "elb.af-south-1.myhuaweicloud.com", "la-south-2": "elb.la-south-2.myhuaweicloud.com", "la-north-2": "elb.la-north-2.myhuaweicloud.com",
     "eu-west-0": "elb.eu-west-0.myhuaweicloud.com", "ap-northeast-1": "elb.ap-northeast-1.myhuaweicloud.com",
 }
-IAM_ENDPOINT = "iam.myhuaweicloud.com"
+IAM_ENDPOINTS = {
+    "default": "iam.myhuaweicloud.com",
+    "cn-north-7": "iam.cn-north-7.ulanqab.huawei.com",
+}
 
 
 def _register_cert_file(filepath: Optional[str]) -> None:
@@ -323,7 +327,7 @@ def get_project_id_for_region(region: str, ak: Optional[str] = None, sk: Optiona
     try:
         from huaweicloudsdkiam.v3 import KeystoneListProjectsRequest
         
-        client = create_iam_client(access_key, secret_key)
+        client = create_iam_client(access_key, secret_key, region)
         request = KeystoneListProjectsRequest()
         request.name = region  # Filter by region name
         
@@ -515,17 +519,24 @@ def create_elb_client(region: str, ak: str, sk: str, project_id: str = None):
         .with_endpoint(endpoint) \
         .build()
 
-def create_iam_client(ak: str, sk: str):
+def create_iam_client(ak: str, sk: str, region: Optional[str] = None):
     """Create IAM (Identity and Access Management) client
 
-    IAM is a global service, so it doesn't require region-specific endpoint.
-    Uses GlobalCredentials for IAM operations.
+    IAM is a global service, so it doesn't require region-specific endpoint
+    for most regions. Uses GlobalCredentials for IAM operations.
+
+    Args:
+        ak: Access Key ID
+        sk: Secret Access Key
+        region: Optional region for selecting IAM endpoint (needed for cn-north-7
+                which uses iam.cn-north-7.ulanqab.huawei.com instead of the default)
     """
     from huaweicloudsdkiam.v3 import IamClient
     credentials = GlobalCredentials(ak=ak, sk=sk)
+    endpoint = IAM_ENDPOINTS.get(region, IAM_ENDPOINTS["default"])
     return IamClient.new_builder() \
         .with_credentials(credentials) \
-        .with_endpoint(IAM_ENDPOINT) \
+        .with_endpoint(endpoint) \
         .build()
 
 

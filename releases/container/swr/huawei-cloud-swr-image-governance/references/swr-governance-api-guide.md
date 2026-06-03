@@ -515,6 +515,7 @@ hcloud SWR ListReferences --namespace=pancake --repository=openclaw-sandbox --cl
 | ------------------------------ | ---------------- |
 | North China - Beijing 4        | `cn-north-4`     |
 | North China - Beijing 1        | `cn-north-1`     |
+| North China - Ulanqab 203      | `cn-north-7`     |
 | East China - Shanghai 1        | `cn-east-3`      |
 | East China - Shanghai 2        | `cn-east-2`      |
 | South China - Guangzhou        | `cn-south-1`     |

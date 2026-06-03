@@ -193,6 +193,13 @@ hcloud IAM ListRoles --cli-region=<r>
 hcloud IAM ListGroups --cli-region=<r>
 ```
 
+> **Note**: In the cn-north-7 (乌兰察布二零三) test environment, IAM uses a different endpoint.
+> Add `--cli-endpoint=iam.cn-north-7.ulanqab.huawei.com` for all IAM operations in cn-north-7:
+> ```bash
+> hcloud IAM KeystoneListUsers --cli-region=cn-north-7 --cli-endpoint=iam.cn-north-7.ulanqab.huawei.com
+> ```
+> Other services in cn-north-7 only need `--cli-region=cn-north-7`, no `--cli-endpoint` required.
+
 ### HSS - Host Security Service
 ```bash
 hcloud HSS ListHosts --cli-region=<r>
