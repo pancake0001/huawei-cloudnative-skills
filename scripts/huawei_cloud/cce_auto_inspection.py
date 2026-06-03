@@ -43,7 +43,7 @@ from .cce import (
     get_kubernetes_pods,
     list_cce_clusters,
 )
-from .cce_metrics import get_cce_pod_metrics_topN
+from .cce_metrics import get_cce_node_metrics_topN, get_cce_pod_metrics_topN
 from .elb import get_elb_metrics
 from .cce_inspection import (
     aom_alarm_inspection,
@@ -389,15 +389,16 @@ def cce_deep_diagnosis(
 ) -> Dict[str, Any]:
     """CCE 集群深度诊断（快检发现异常后调用）
 
-    执行 6+ 个 API 获取完整诊断数据：
+    执行 7+ 个 API 获取完整诊断数据：
     1. 告警智能分类 (analyze_aom_alarms)
     2. Pod 内存 TopN
     3. 工作负载详情
     4. 节点状态
-    5. 集群事件
-    6. 根因定位
-    7. 生成恢复方案
-    8. （可选）生成 HTML 报告 + 发邮件
+    5. 节点 CPU/内存/磁盘 TopN
+    6. 集群事件
+    7. 根因定位
+    8. 生成恢复方案
+    9. （可选）生成 HTML 报告 + 发邮件
 
     Args:
         region: 华为云区域
@@ -421,6 +422,7 @@ def cce_deep_diagnosis(
         "region": region,
         "diagnosis_time": datetime.now(timezone(timedelta(hours=8))).strftime("%Y-%m-%d %H:%M:%S CST"),
         "quick_check_anomalies": [],
+        "diagnosis_anomalies": [],
         "diagnosis": {},
         "root_cause": None,
         "recovery_plan": [],
@@ -498,7 +500,25 @@ def cce_deep_diagnosis(
     except Exception as e:
         result["diagnosis"]["nodes"] = {"error": str(e)}
 
-    # ---- 诊断 Step 5: 集群事件 ----
+    # ---- 诊断 Step 5: 节点 CPU/内存/磁盘 TopN ----
+    try:
+        node_metrics_result = get_cce_node_metrics_topN(
+            region=region,
+            cluster_id=cluster_id,
+            ak=access_key,
+            sk=secret_key,
+            project_id=proj_id,
+            top_n=10,
+            hours=24,
+        )
+        result["diagnosis"]["node_metrics_topn"] = node_metrics_result
+        node_metric_anomalies = _extract_node_metric_anomalies(node_metrics_result)
+        if node_metric_anomalies:
+            result["diagnosis_anomalies"].extend(node_metric_anomalies)
+    except Exception as e:
+        result["diagnosis"]["node_metrics_topn"] = {"error": str(e)}
+
+    # ---- 诊断 Step 6: 集群事件 ----
     try:
         from .cce import get_kubernetes_events
         events_result = get_kubernetes_events(region, cluster_id, access_key, secret_key, proj_id)
@@ -506,11 +526,11 @@ def cce_deep_diagnosis(
     except Exception as e:
         result["diagnosis"]["events"] = {"error": str(e)}
 
-    # ---- 诊断 Step 6: 根因定位 ----
+    # ---- 诊断 Step 7: 根因定位 ----
     root_cause = _analyze_root_cause(quick_check_result, result["diagnosis"])
     result["root_cause"] = root_cause
 
-    # ---- 诊断 Step 7: 恢复方案 ----
+    # ---- 诊断 Step 8: 恢复方案 ----
     recovery_plan = _generate_recovery_plan(root_cause, result["diagnosis"])
     result["recovery_plan"] = recovery_plan
 
@@ -632,6 +652,45 @@ def _get_recent_values(time_series: list, recent_minutes: int) -> List[float]:
             except (ValueError, TypeError):
                 pass
     return values
+
+
+def _extract_node_metric_anomalies(node_metrics: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """从节点指标 TopN 结果中提取显式异常项。"""
+    if not node_metrics or not node_metrics.get("success"):
+        return []
+
+    anomalies = []
+    metrics = node_metrics.get("metrics", {})
+    metric_specs = [
+        ("cpu_top_n", "cpu_usage_percent", "节点CPU使用率高", "CPU"),
+        ("memory_top_n", "memory_usage_percent", "节点内存使用率高", "内存"),
+        ("disk_top_n", "disk_usage_percent", "节点磁盘使用率高", "磁盘"),
+    ]
+
+    for list_key, value_key, title, metric_label in metric_specs:
+        for item in metrics.get(list_key, []):
+            status = item.get("status")
+            if status not in {"critical", "warning"}:
+                continue
+            value = item.get(value_key)
+            try:
+                value_float = float(value)
+            except (TypeError, ValueError):
+                continue
+            anomalies.append({
+                "type": "node_metric_high",
+                "severity": status,
+                "metric": metric_label,
+                "node": item.get("node_name") or item.get("node_ip") or item.get("instance"),
+                "value_percent": round(value_float, 2),
+                "threshold_percent": 80 if status == "critical" else 50,
+                "message": (
+                    f"{item.get('node_name') or item.get('node_ip') or item.get('instance')} "
+                    f"{metric_label}使用率 {value_float:.1f}% ({status})"
+                ),
+            })
+
+    return anomalies
 
 
 def _analyze_root_cause(quick_check: Dict, diagnosis: Dict) -> Dict[str, Any]:
@@ -808,6 +867,7 @@ def _format_diagnosis_summary(diag: Dict) -> str:
     """格式化诊断结果为人类可读摘要"""
     qc = diag.get("quick_check", {})
     anomalies = qc.get("anomaly_details", [])
+    diagnosis_anomalies = diag.get("diagnosis_anomalies", [])
     root_cause = diag.get("root_cause", {})
     recovery = diag.get("recovery_plan", [])
 
@@ -816,6 +876,9 @@ def _format_diagnosis_summary(diag: Dict) -> str:
     # 异常摘要
     lines.append("📊 异常摘要")
     for a in anomalies[:6]:
+        msg = a.get("message", a.get("type", ""))
+        lines.append(f"  - {msg}")
+    for a in diagnosis_anomalies[:6]:
         msg = a.get("message", a.get("type", ""))
         lines.append(f"  - {msg}")
 
