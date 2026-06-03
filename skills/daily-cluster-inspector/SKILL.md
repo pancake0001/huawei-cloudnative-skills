@@ -13,7 +13,8 @@ description: Use this skill for daily Huawei Cloud CCE health checks, quick chec
 2. 优先调用 `huawei_cce_quick_check` 或 `huawei_cce_auto_inspection`。
 3. 正常时输出简短健康摘要。
 4. 异常时调用深度诊断或并行巡检，并按 Pod、Node、Event、AOM、ELB 分组。
-5. 需要报告时调用导出报告 action。
+5. 由 AI 基于巡检结果、影响范围、持续时间、告警状态和根因证据进行 P0-P5 严重级别判断；分级只用于摘要和建议，不要求工具返回固定字段。
+6. 需要报告时调用导出报告 action。
 
 ## References
 
@@ -32,4 +33,3 @@ description: Use this skill for daily Huawei Cloud CCE health checks, quick chec
 ## 风险约束
 
 本 skill 只做巡检和报告，不执行修复动作。发现风险后输出建议并转交对应诊断或自愈 skill。
-

@@ -24,8 +24,7 @@ cron 配置建议：
 异常判断阈值（可配置）：
   - CPU 告警 > 80%（不管是否恢复）
   - 业务 Pod CPU 平均 > 60%
-  - ELB 最近 5min QPS > 1500
-  - ELB 最近 5min P99 时延 > 100ms
+  - ELB 四层/七层使用率 > 80%
   - 可用副本 ≠ 期望副本
   - Pod CrashLoopBackOff / OOMKilled
 """
@@ -64,10 +63,9 @@ from .report_generator import generate_detailed_html_report
 DEFAULT_THRESHOLDS = {
     "cpu_alarm_percent": 80,           # CPU 告警阈值
     "pod_cpu_avg_percent": 60,         # 业务 Pod CPU 平均值阈值
-    "elb_qps": 1500,                   # ELB QPS 阈值
-    "elb_p99_ms": 100,                 # ELB P99 时延阈值 (ms)
-    "elb_recent_minutes": 5,           # ELB 只看最近 N 分钟数据
-    "alarm_hours": 0.5,                # 告警查询时间窗口 (小时)
+    "elb_usage_percent": 80,           # ELB 使用率阈值
+    "elb_recent_minutes": 1440,        # ELB 只看最近 N 分钟数据
+    "alarm_hours": 24,                 # 告警查询时间窗口 (小时)
     "replica_mismatch": True,          # 是否检查副本数不匹配
     "pod_crashloop": True,             # 是否检查 CrashLoopBackOff
 }
@@ -88,9 +86,9 @@ def cce_quick_check(
     """CCE 集群快速巡检（<30s）
 
     只做 3 件事：
-    1. 查 AOM 告警（active+history，近 30 分钟）
+    1. 查 AOM 告警（active+history，近 24 小时）
     2. 查 Pod CPU TopN
-    3. 查 ELB 监控（最近 5 分钟）
+    3. 查 ELB 监控（最近 24 小时）
 
     Args:
         region: 华为云区域
@@ -210,9 +208,8 @@ def cce_quick_check(
             ak=access_key,
             sk=secret_key,
             project_id=proj_id,
-            metric_type="cpu",
             top_n=10,
-            hours=0.25,  # 只看最近 15 分钟，加快查询
+            hours=24,  # 查询最近 24 小时
         )
         cpu_data = cpu_result if cpu_result.get("success") else {"error": cpu_result.get("error", "Unknown")}
         result["metrics"]["cpu_topn"] = cpu_data
@@ -220,13 +217,18 @@ def cce_quick_check(
         # 检查业务 Pod CPU 是否超阈值
         if cpu_result.get("success"):
             high_cpu_pods = []
-            for pod in cpu_result.get("pods", [])[:10]:
-                pod_name = pod.get("name", "")
-                values = pod.get("metric", {}).get("values", [])
-                if values:
-                    latest_cpu = float(values[-1][1])
-                    if latest_cpu > cfg["pod_cpu_avg_percent"]:
-                        high_cpu_pods.append({"name": pod_name, "cpu_percent": latest_cpu})
+            cpu_top_n = cpu_result.get("metrics", {}).get("cpu_top_n", [])
+            for pod in cpu_top_n[:10]:
+                pod_name = pod.get("pod", "")
+                namespace = pod.get("namespace", "")
+                cpu_percent = pod.get("cpu_usage_percent")
+                try:
+                    latest_cpu = float(cpu_percent)
+                except (TypeError, ValueError):
+                    continue
+                if latest_cpu > cfg["pod_cpu_avg_percent"]:
+                    full_name = f"{namespace}/{pod_name}" if namespace else pod_name
+                    high_cpu_pods.append({"name": full_name, "cpu_percent": latest_cpu})
 
             if high_cpu_pods:
                 result["has_anomaly"] = True
@@ -264,7 +266,14 @@ def cce_quick_check(
     if elb_ids:
         for eid in elb_ids:
             try:
-                elb_result = get_elb_metrics(region, eid, access_key, secret_key, proj_id)
+                elb_result = get_elb_metrics(
+                    region=region,
+                    elb_id=eid,
+                    hours=cfg["elb_recent_minutes"] / 60,
+                    ak=access_key,
+                    sk=secret_key,
+                    project_id=proj_id,
+                )
                 elb_data[eid] = elb_result if elb_result.get("success") else {"error": elb_result.get("error", "Unknown")}
 
                 # 只看最近 N 分钟数据判断异常
@@ -272,45 +281,39 @@ def cce_quick_check(
                     metrics = elb_result.get("metrics", {})
                     recent_min = cfg["elb_recent_minutes"]
 
-                    # 检查新建连接数 (NCPS)
-                    ncps_data = metrics.get("m4_ncps", {})
-                    if isinstance(ncps_data, dict) and "time_series" in ncps_data:
-                        recent_ncps = _get_recent_values(ncps_data["time_series"], recent_min)
-                        if recent_ncps and max(recent_ncps) > cfg["elb_qps"]:
-                            peak_ncps = max(recent_ncps)
+                    # 检查四层/七层使用率
+                    usage_metrics = {
+                        "l4_con_usage": "四层并发连接使用率",
+                        "l4_in_bps_usage": "四层入带宽使用率",
+                        "l4_out_bps_usage": "四层出带宽使用率",
+                        "l4_ncps_usage": "四层新建连接数使用率",
+                        "l7_con_usage": "七层并发连接使用率",
+                        "l7_in_bps_usage": "七层入带宽使用率",
+                        "l7_out_bps_usage": "七层出带宽使用率",
+                        "l7_ncps_usage": "七层新建连接数使用率",
+                        "l7_qps_usage": "七层QPS使用率",
+                    }
+                    for metric_key, metric_name in usage_metrics.items():
+                        usage_data = metrics.get(metric_key, {})
+                        if not isinstance(usage_data, dict) or "time_series" not in usage_data:
+                            continue
+                        recent_usage = _get_recent_values(usage_data["time_series"], recent_min)
+                        if not recent_usage:
+                            continue
+                        peak_usage = max(recent_usage)
+                        if peak_usage > cfg["elb_usage_percent"]:
                             elb_anomalies.append({
-                                "type": "elb_high_qps",
+                                "type": "elb_high_usage",
                                 "elb_id": eid,
-                                "value": peak_ncps,
-                                "threshold": cfg["elb_qps"],
-                                "message": f"ELB {eid} 最近 {recent_min}min NCPS: {peak_ncps:.0f}/s > {cfg['elb_qps']}",
+                                "metric": metric_key,
+                                "metric_name": metric_name,
+                                "value_percent": peak_usage,
+                                "threshold_percent": cfg["elb_usage_percent"],
+                                "message": (
+                                    f"ELB {eid} 最近 {recent_min}min {metric_name}: "
+                                    f"{peak_usage:.1f}% > {cfg['elb_usage_percent']}%"
+                                ),
                             })
-
-                    # 检查并发连接数
-                    cps_data = metrics.get("m1_cps", {})
-                    if isinstance(cps_data, dict) and "time_series" in cps_data:
-                        recent_cps = _get_recent_values(cps_data["time_series"], recent_min)
-                        if recent_cps and max(recent_cps) > 10000:
-                            peak_cps = max(recent_cps)
-                            elb_anomalies.append({
-                                "type": "elb_high_connections",
-                                "elb_id": eid,
-                                "value": peak_cps,
-                                "message": f"ELB {eid} 并发连接数: {peak_cps:.0f}",
-                            })
-
-                    # 检查带宽使用率
-                    for bw_key, bw_name in [("m22_in_bandwidth", "入带宽"), ("m23_out_bandwidth", "出带宽")]:
-                        bw_data = metrics.get(bw_key, {})
-                        if isinstance(bw_data, dict) and "latest_value" in bw_data:
-                            if bw_data["latest_value"] and bw_data["latest_value"] > 100_000_000:  # > 100Mbps
-                                elb_anomalies.append({
-                                    "type": "elb_high_bandwidth",
-                                    "elb_id": eid,
-                                    "direction": bw_name,
-                                    "value_bps": bw_data["latest_value"],
-                                    "message": f"ELB {eid} {bw_name}: {bw_data['latest_value']/1_000_000:.1f} Mbps",
-                                })
 
             except Exception as e:
                 elb_data[eid] = {"error": str(e)}
@@ -473,9 +476,8 @@ def cce_deep_diagnosis(
             ak=access_key,
             sk=secret_key,
             project_id=proj_id,
-            metric_type="memory",
             top_n=10,
-            hours=0.5,
+            hours=24,
         )
         result["diagnosis"]["memory_topn"] = mem_result
     except Exception as e:
@@ -595,7 +597,7 @@ def cce_auto_inspection(
 # ========== 辅助函数 ==========
 
 def _get_recent_values(time_series: list, recent_minutes: int) -> List[float]:
-    """从 time_series 中提取最近 N 分钟的值"""
+    """从 time_series 中提取最近 N 分钟的值。"""
     if not time_series:
         return []
 
@@ -612,6 +614,23 @@ def _get_recent_values(time_series: list, recent_minutes: int) -> List[float]:
                     values.append(float(val))
                 except (ValueError, TypeError):
                     pass
+        elif isinstance(point, dict):
+            ts = point.get("timestamp")
+            val = point.get("max")
+            if val is None:
+                val = point.get("average")
+            if val is None:
+                val = point.get("latest_value")
+            if isinstance(ts, (int, float)):
+                # ELB/CES datapoints use millisecond timestamps; normalize to seconds.
+                ts_seconds = ts / 1000 if ts > 10_000_000_000 else ts
+                if ts_seconds < cutoff:
+                    continue
+            try:
+                if val is not None:
+                    values.append(float(val))
+            except (ValueError, TypeError):
+                pass
     return values
 
 
@@ -628,7 +647,7 @@ def _analyze_root_cause(quick_check: Dict, diagnosis: Dict) -> Dict[str, Any]:
     anomaly_types = {a.get("type") for a in anomalies}
 
     # 场景1: 流量突发 → CPU 饱和
-    if "elb_high_qps" in anomaly_types and "high_pod_cpu" in anomaly_types:
+    if "elb_high_usage" in anomaly_types and "high_pod_cpu" in anomaly_types:
         # 检查是否有 CPU limit 瓶颈
         deployments = diagnosis.get("deployments", {})
         low_cpu_pods = []
@@ -647,7 +666,7 @@ def _analyze_root_cause(quick_check: Dict, diagnosis: Dict) -> Dict[str, Any]:
             "type": "traffic_spike_cpu_bottleneck",
             "chain": [
                 "外部流量突增",
-                "ELB 连接数暴增",
+                "ELB 使用率升高",
                 "Pod CPU 饱和",
                 "CPU limit 成为 throttle 瓶颈" if low_cpu_pods else "CPU 资源不足",
                 "响应时延增大",
@@ -661,7 +680,7 @@ def _analyze_root_cause(quick_check: Dict, diagnosis: Dict) -> Dict[str, Any]:
         }
 
     # 场景2: 纯 CPU 高（无 ELB 异常）
-    elif "high_pod_cpu" in anomaly_types and "elb_high_qps" not in anomaly_types:
+    elif "high_pod_cpu" in anomaly_types and "elb_high_usage" not in anomaly_types:
         root_cause = {
             "type": "cpu_high",
             "chain": ["Pod CPU 使用率高", "可能是业务逻辑问题或内部调用增加"],

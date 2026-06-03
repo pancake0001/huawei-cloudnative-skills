@@ -2,284 +2,211 @@
 
 ## 应用场景
 
-企业生产环境中，CCE集群需要每日进行健康检查，及时发现节点异常、Pod故障、资源瓶颈等问题。通过OpenClaw Agent对接 `daily-cluster-inspector` Skill，可以实现：
+生产环境中的CCE集群需要持续关注节点健康、Pod状态、核心插件、资源利用率、Kubernetes事件、AOM告警和业务入口状态。通过OpenClaw Agent对接 `daily-cluster-inspector` Skill，客户可以用自然语言配置周期性巡检任务，让Agent自动完成集群健康检查、风险分级、报告生成和通知推送。
 
-- 定时自动执行集群巡检
-- 自动生成巡检报告（Markdown/HTML格式）
-- 通过邮件将巡检结果推送给运维团队
-- 历史巡检数据持久化存储
+本实践推荐采用“先快检、异常再深检”的方式运行巡检：
+
+- 集群状态正常时，Agent输出简洁的健康摘要，减少无效噪音。
+- 快检发现异常时，Agent自动扩展到Pod、Node、Event、AOM、ELB和资源利用率等维度。
+- 对异常项进行风险分级汇总，并在报告中按 `P0`、`P1`、`P2` 等优先级呈现影响范围、可能原因和下一步建议。
+- 巡检过程只执行只读查询和报告生成，不会自动执行扩容、删除、重启、drain等变更动作。
+
+通过OpenClaw Agent可以实现：
+
+- 每天或每周定时执行CCE集群巡检。
+- 自动生成Markdown和HTML巡检报告。
+- 将巡检摘要和报告链接通过邮件推送给运维团队。
+- 归档历史巡检报告，便于趋势对比和复盘。
+- 在发现严重风险时，继续转交相关诊断Skill做深入分析。
 
 ## 前提条件
 
-- 已创建CCE集群且状态为"运行中"。
+- 已创建CCE集群，且集群状态为“运行中”。
 - 已开通OpenClaw服务并完成Agent初始化。
-- Agent已完成华为云云原生Skill的注册（详见[Skill参考](../skill-reference.md)）。
-- 已配置华为云AK/SK凭证（通过OpenClaw密钥管理或环境变量）。
-- 已配置邮件服务（SMTP或华为云邮件推送服务SES）。
+- Agent已注册华为云云原生Skill。
+- 目标CCE集群已按照最佳实践配置AOM告警规则。
+- 已配置华为云访问凭证，建议通过OpenClaw密钥管理或环境变量注入，不在文档、脚本或对话中暴露AK/SK。
+- 巡检账号具备CCE、AOM、LTS、ELB等相关资源的只读查询权限。
+- 如需邮件通知，已准备SMTP服务或华为云邮件推送服务。
+- 如需报告归档，已准备OBS桶或其他报告存储位置。
 
 ## 涉及的Skill
 
 | Skill名称 | 功能说明 |
-|-----------|---------|
-| `daily-cluster-inspector` | 执行每日集群巡检，支持快速、并行、深度三种模式 |
-| `observability-context-builder` | 汇聚AOM告警、LTS日志、K8s事件、Pod/Node指标 |
-| `ops-report-generator` | 生成运维报告（Markdown/HTML格式） |
+|-----------|----------|
+| `daily-cluster-inspector` | 执行CCE快检、标准巡检、深度巡检和巡检报告导出 |
+| `observability-context-builder` | 汇聚AOM告警、LTS日志、Kubernetes事件、Pod/Node指标 |
+| `ops-report-generator` | 汇总巡检、容量、可用性、成本和on-call上下文，生成Markdown/HTML运维报告 |
+
+## 推荐输入
+
+客户可以直接在OpenClaw对话中描述目标集群、巡检周期、巡检范围和通知方式。
+
+| 使用场景 | 推荐输入 |
+|----------|----------|
+| 创建每日巡检 | `帮我为北京四 test-ai-diagnoses 集群创建每日巡检任务，每天上午9点执行，先做快检，发现异常再做深度巡检，并把报告发送给运维组。` |
+| 立即执行巡检 | `立即巡检北京四 test-ai-diagnoses 集群，先做快检，发现异常再做深度诊断。` |
+| 查看最近报告 | `查看 test-ai-diagnoses 集群最近一次巡检报告，并列出P0/P1风险。` |
+| 分析一周趋势 | `汇总 test-ai-diagnoses 集群最近7天巡检结果，告诉我风险是否变多。` |
+| 深入分析异常 | `继续分析巡检报告中的P1节点风险，关联事件、指标和相关Pod。` |
+
+巡检结果建议重点查看以下内容：
+
+| 输出内容 | 客户关注点 |
+|----------|------------|
+| 巡检结论 | 集群整体是否健康，是否存在P0/P1风险 |
+| 异常分组 | 异常集中在Pod、Node、Event、AOM、ELB还是Resource |
+| 影响范围 | 影响哪些命名空间、节点、工作负载或业务入口 |
+| 风险趋势 | 与前一天或最近7天相比，问题是否新增、扩大或恢复 |
+| 建议动作 | 继续观察、进入专项诊断、扩容评估、规则优化或转交恢复流程 |
 
 ## 操作步骤
 
-### 步骤1：配置定时巡检任务
+### 步骤1：创建CCE集群周期巡检任务
 
-1. 登录OpenClaw控制台，进入 **Agent管理** > **任务编排**。
+客户可以让Agent按指定周期创建CCE集群巡检任务。Agent会根据客户输入识别区域、集群名称、巡检时间、报告格式和通知方式，并生成巡检计划。
 
-2. 点击 **创建定时任务**，填写任务基本信息：
+在OpenClaw对话中输入：
 
-   | 参数 | 说明 | 示例值 |
-   |------|------|--------|
-   | 任务名称 | 定时任务的标识 | `daily-cluster-inspection` |
-   | 执行方式 | 触发方式 | `定时触发` |
-   | Cron表达式 | 定时规则 | `0 9 * * *`（每天上午9点） |
-   | 时区 | 执行时区 | `Asia/Shanghai` |
-
-3. 配置执行内容：
-
-   ```yaml
-   skill: daily-cluster-inspector
-   参数:
-     region: "cn-north-4"
-     cluster_id: "your-cluster-id"
-     inspection_mode: "parallel"    # 并行巡检模式
-     depth: "standard"              # 巡检深度：quick/standard/deep
-   ```
-
-4. 配置输出和通知：
-
-   ```yaml
-   输出配置:
-     报告格式: ["markdown", "html"]
-     存储位置: obs://your-bucket/reports/
-   
-   邮件通知:
-     启用: true
-     收件人: 
-       - ops-team@company.com
-       - sre-lead@company.com
-     邮件标题模板: "[巡检报告] CCE集群每日巡检 - {{date}}"
-   ```
-
-5. 点击 **保存并启用**。
-
-### 步骤2：查看巡检报告
-
-#### 方式一：通过OpenClaw控制台查看
-
-1. 进入 **任务编排** > **历史记录**。
-
-2. 找到对应的巡检任务执行记录，点击 **查看报告**。
-
-3. 报告页面展示以下内容：
-
-   **巡检摘要**
-
-   | 检查项 | 状态 | 详情 |
-   |--------|------|------|
-   | 节点健康 | 通过 | 3/3 节点正常 |
-   | Pod状态 | 警告 | 2个Pod异常 |
-   | 活跃告警 | 警告 | 1条未清除告警 |
-   | 资源利用率 | 正常 | CPU 45%, 内存 62% |
-   | 核心插件 | 通过 | 所有插件运行正常 |
-   | 存储状态 | 通过 | 无异常PVC |
-
-   **异常详情**
-
-   | Pod名称 | 命名空间 | 状态 | 原因 |
-   |---------|----------|------|------|
-   | nginx-7d9f4b8c5-x2 | default | CrashLoopBackOff | OOMKilled |
-   | redis-5c8a2f1d9-p9 | cache | Pending | 调度失败 |
-
-#### 方式二：通过API查询报告
-
-调用OpenClaw API获取最近一次巡检报告：
-
-```bash
-curl -X GET "https://openclaw.huaweicloud.com/api/v1/agents/{agent_id}/reports/latest" \
-  -H "Authorization: Bearer ${TOKEN}" \
-  -H "Content-Type: application/json"
+```text
+帮我为北京四 test-ai-diagnoses 集群创建每日巡检任务，每天上午9点执行，先做快检，发现异常再做深度巡检，生成Markdown/HTML巡检报告，并发送给ops-team@company.com。
 ```
 
-返回示例：
+Agent会自动生成巡检计划，客户重点确认以下内容：
 
-```json
-{
-  "report_id": "rpt-20260531-001",
-  "agent_id": "cce-ops-agent",
-  "task_name": "daily-cluster-inspection",
-  "cluster_info": {
-    "region": "cn-north-4",
-    "cluster_id": "your-cluster-id",
-    "cluster_name": "prod-web-cluster"
-  },
-  "inspection_time": {
-    "start": "2026-05-31T09:00:05Z",
-    "end": "2026-05-31T09:00:28Z",
-    "duration_seconds": 23
-  },
-  "summary": {
-    "total_checks": 12,
-    "passed": 9,
-    "warning": 2,
-    "critical": 0,
-    "failed": 1
-  },
-  "findings": [
-    {
-      "severity": "warning",
-      "category": "pod_health",
-      "resource": "nginx-7d9f4b8c5-x2",
-      "namespace": "default",
-      "issue": "CrashLoopBackOff",
-      "root_cause": "OOMKilled - 内存limit不足",
-      "recommendation": "增加内存limit或排查内存泄漏"
-    }
-  ],
-  "artifacts": {
-    "markdown_url": "obs://your-bucket/reports/2026-05-31/report.md",
-    "html_url": "obs://your-bucket/reports/2026-05-31/report.html",
-    "pdf_url": "obs://your-bucket/reports/2026-05-31/report.pdf"
-  }
-}
+| 配置项 | 示例 | 说明 |
+|--------|------|------|
+| 区域 | `cn-north-4` | 目标CCE集群所在区域 |
+| 集群名称 | `test-ai-diagnoses` | 需要巡检的CCE集群 |
+| 执行周期 | 每天09:00 | 建议选择业务低峰或值班交接前 |
+| 巡检策略 | 先快检，异常后深检 | 默认减少不必要的重型检查 |
+| 报告格式 | Markdown、HTML | 便于邮件阅读和历史归档 |
+| 通知对象 | `ops-team@company.com` | 接收巡检摘要和报告链接 |
+| 存储位置 | `obs://your-bucket/reports/` | 保存历史巡检报告 |
+
+
+任务生成后，Agent会按计划执行巡检。建议客户立即触发一次巡检，用于验证配置是否正确：
+
+```text
+立即执行一次 test-ai-diagnoses 集群巡检，并发送测试报告。
 ```
 
-#### 方式三：通过OBS直接访问
+### 步骤2：查看巡检报告并识别风险
 
-巡检报告会自动上传至配置的OBS桶，可以直接下载：
+巡检完成后，Agent会生成巡检摘要和完整报告。客户可以直接查看最近一次巡检结果：
 
-```bash
-# 下载HTML报告
-obsutil cp obs://your-bucket/reports/2026-05-31/report.html ./
-
-# 下载PDF报告
-obsutil cp obs://your-bucket/reports/2026-05-31/report.pdf ./
+```text
+查看 test-ai-diagnoses 集群最近一次巡检报告，按P0/P1/P2列出风险。
 ```
 
-### 步骤3：配置邮件发送
+Agent会先返回巡检摘要：
 
-1. 进入OpenClaw控制台 **通知管理** > **邮件模板**。
+| 巡检项 | 示例结果 | 客户关注点 |
+|--------|----------|------------|
+| 巡检结论 | `Warning` | 集群是否存在需要处理的风险 |
+| 检查项数量 | 12项，通过9项，警告2项，失败1项 | 是否有新增异常 |
+| 节点健康 | 3/3节点正常 | 是否存在NotReady、资源压力或节点事件 |
+| Pod状态 | 2个Pod异常 | 是否存在CrashLoopBackOff、Pending、Evicted |
+| 活跃告警 | 1条未恢复告警 | 是否需要联动AOM告警分析 |
+| 核心插件 | 正常 | CoreDNS、网络、存储等插件是否健康 |
+| 资源利用率 | CPU 45%，内存62% | 是否接近容量瓶颈 |
 
-2. 创建邮件模板：
+当巡检发现异常时，Agent会按风险优先级输出问题清单：
 
-   **模板名称**：`cluster-inspection-report`
+| 优先级 | 分类 | 资源 | 问题 | 可能原因 | 建议 |
+|--------|------|------|------|----------|------|
+| P1 | Pod健康 | `default/nginx-7d9f4b8c5-x2` | `CrashLoopBackOff` | `OOMKilled`，内存limit不足 | 查询Pod日志和事件，评估内存limit或应用内存泄漏 |
+| P1 | Node资源 | `node-02` | `NodeMemoryPressure` | 节点内存持续偏高 | 查看节点指标和Pod分布，评估扩容或迁移 |
+| P2 | AOM告警 | `default/nginx-demo` | CPU短时高水位 | 短时流量波动 | 持续观察，结合HPA和历史趋势判断 |
 
-   **邮件主题**：`[巡检报告] {{cluster_name}} 每日巡检 - {{date}}`
+对于严重或反复出现的问题，客户可以让Agent继续分析：
 
-   **邮件正文**：
+```text
+继续分析P1 Pod健康问题，关联最近4小时的Pod日志、Kubernetes事件和相关指标。
+```
 
-   ```
-   您好，
-   
-   {{cluster_name}} 集群每日巡检已完成，以下是巡检摘要：
-   
-   - 巡检时间: {{inspection_time}}
-   - 总检查项: {{total_checks}}
-   - 通过: {{passed}}
-   - 警告: {{warning}}
-   - 严重: {{critical}}
-   
-   {{#if findings}}
-   发现以下异常，请关注：
-   {{#each findings}}
-   - [{{severity}}] {{resource}}: {{issue}}
-     建议: {{recommendation}}
-   {{/each}}
-   {{else}}
-   本次巡检未发现异常，集群状态良好。
-   {{/if}}
-   
-   详细报告请查看附件或访问：{{report_url}}
-   
-   此邮件由 OpenClaw 自动发送，请勿回复。
-   ```
+Agent会在巡检报告基础上继续汇聚上下文，并输出根因线索、影响范围和下一步处理建议。
 
-3. 配置邮件服务：
+### 步骤3：查看历史趋势和报告归档
 
-   | 参数 | 说明 | 示例值 |
-   |------|------|--------|
-   | 服务类型 | 邮件服务类型 | `SMTP` 或 `HUAWEI_CLOUD_SES` |
-   | 服务器地址 | SMTP服务器地址 | `smtp.company.com` |
-   | 端口 | SMTP端口 | `587` |
-   | 加密方式 | 传输加密 | `STARTTLS` |
-   | 发件人 | 发件人地址 | `openclaw@company.com` |
+周期巡检的价值不只是发现当天异常，也包括观察风险是否持续、扩大或恢复。客户可以让Agent汇总一段时间内的巡检结果：
 
-   > **说明**
-   > 如果使用华为云邮件推送服务（SES），需要配置AK/SK和Region参数。
+```text
+汇总 test-ai-diagnoses 集群最近7天巡检结果，按日期列出P0/P1/P2风险变化和新增问题。
+```
 
-4. 测试邮件发送：
+Agent可以输出趋势摘要：
 
-   手动触发一次巡检任务，检查邮件是否成功发送。可以在 **通知管理** > **发送记录** 中查看发送状态。
+| 日期 | 执行状态 | 总检查项 | P0 | P1 | P2 | 新增问题 | 备注 |
+|------|----------|----------|----|----|----|----------|------|
+| 2026-05-31 | 成功 | 12 | 0 | 2 | 1 | 1 | Pod重启问题新增 |
+| 2026-05-30 | 成功 | 12 | 0 | 1 | 1 | 0 | 节点内存压力持续 |
+| 2026-05-29 | 成功 | 12 | 1 | 2 | 2 | 2 | 出现核心插件异常 |
+| 2026-05-28 | 成功 | 12 | 0 | 0 | 0 | 0 | 集群健康 |
 
-   收到的邮件示例：
+客户也可以查看报告归档位置：
 
-   ```
-   From: openclaw@company.com
-   To: ops-team@company.com, sre-lead@company.com
-   Subject: [巡检报告] prod-web-cluster 每日巡检 - 2026-05-31
-   
-   您好，
-   
-   prod-web-cluster 集群每日巡检已完成，以下是巡检摘要：
-   
-   - 巡检时间: 2026-05-31 09:00:05 - 09:00:28
-   - 总检查项: 12
-   - 通过: 9
-   - 警告: 2
-   - 严重: 0
-   
-   发现以下异常，请关注：
-   - [warning] nginx-7d9f4b8c5-x2: CrashLoopBackOff
-     建议: 增加内存limit或排查内存泄漏
-   - [warning] node-02: NodeMemoryPressure
-     建议: 考虑扩容节点或优化工作负载
-   
-   详细报告请查看附件或访问：
-   https://openclaw.huaweicloud.com/reports/rpt-20260531-001
-   
-   此邮件由 OpenClaw 自动发送，请勿回复。
-   ```
+```text
+列出 test-ai-diagnoses 集群最近7天巡检报告的Markdown和HTML链接。
+```
+
+报告建议至少保留以下内容：
+
+| 报告内容 | 说明 |
+|----------|------|
+| 巡检摘要 | 集群整体状态、检查项数量、P0/P1/P2风险数量 |
+| 异常清单 | 按Pod、Node、Event、AOM、ELB、Resource分类展示 |
+| 风险趋势 | 与前一次巡检或近7天趋势对比 |
+| 根因线索 | 对严重异常给出相关日志、事件、指标入口 |
+| 建议动作 | 继续观察、进入专项诊断、容量评估或转交恢复流程 |
 
 ## 预期结果
 
-完成上述配置后，系统将按照以下流程运行：
+完成本实践后，OpenClaw Agent能够帮助客户完成以下闭环：
 
-1. **每日定时巡检**：每天上午9点自动执行集群巡检。
-2. **自动生成报告**：巡检完成后自动生成Markdown和HTML格式的报告。
-3. **邮件自动推送**：报告生成后自动发送邮件给运维团队。
-4. **历史数据留存**：所有报告保存至OBS，支持历史查询和对比分析。
+1. 按指定周期自动执行CCE集群巡检。
+2. 默认先执行快检，发现异常后再进入深度诊断或并行巡检。
+3. 按Pod、Node、Event、AOM、ELB、Resource等维度汇总异常。
+4. 对巡检发现的问题标记P0/P1/P2风险等级和影响范围。
+5. 自动生成Markdown和HTML巡检报告，并通过邮件推送给运维团队。
+6. 将历史巡检报告归档，支持按天查看和趋势对比。
+7. 对严重或持续风险，继续联动日志、事件、指标和相关诊断Skill做根因分析。
 
-巡检效果统计示例（最近7天）：
+## 约束与注意事项
 
-| 日期 | 执行状态 | 耗时 | 警告 | 严重 | 新发现问题 |
-|------|---------|------|------|------|-----------|
-| 2026-05-31 | 成功 | 23秒 | 2 | 0 | 1 |
-| 2026-05-30 | 成功 | 21秒 | 1 | 0 | 0 |
-| 2026-05-29 | 成功 | 25秒 | 3 | 1 | 2 |
-| 2026-05-28 | 成功 | 20秒 | 0 | 0 | 0 |
-| 2026-05-27 | 成功 | 22秒 | 1 | 0 | 1 |
+- 巡检类Skill只执行只读查询和报告生成，不会自动执行修复动作。
+- 巡检任务会调用CCE、AOM、LTS、ELB等云服务API，可能产生少量API调用或日志查询成本。
+- 报告归档到OBS时，会产生相应存储费用。
+- 邮件发送频率受SMTP服务或华为云邮件推送服务配额限制，建议合理设置巡检频率。
+- 深度巡检会采集更多指标和上下文，执行时间可能明显长于快检。
+- 对 `P0`、`P1` 风险，建议先查看关联事件、日志和指标，再决定是否进入恢复流程。
+- 不要把AK/SK、Token、证书、真实项目ID写入文档、脚本、报告或对话输出。
 
-## 约束与限制
+## 常见问题
 
-- 巡检任务执行期间会调用CCE、AOM等云服务的API，会产生少量API调用费用。
-- 报告存储在OBS中，会产生相应的存储费用。
-- 邮件发送频率受邮件服务配额限制，建议合理设置巡检频率。
-- 深度巡检（`depth: deep`）会采集更多指标，执行时间可能超过5分钟。
+### 每次巡检都需要深度巡检吗
 
-## 后续操作
+不建议。推荐默认先执行快检，只有发现异常时再进入深度诊断或并行巡检。这样可以减少不必要的API调用、日志查询和报告噪音。
 
-- **告警升级**：对于严重级别的问题，建议配置短信或企业微信通知。
-- **自定义检查项**：可以在 `daily-cluster-inspector` Skill的 `references/workflow.md` 中扩展自定义检查规则。
-- **报告归档**：建议配置OBS生命周期策略，自动删除30天前的历史报告。
+### 巡检发现P1或P0风险后会自动修复吗
 
-## 相关文档
+不会。`daily-cluster-inspector` 只做巡检和报告生成，不执行修复动作。客户确认需要恢复时，可以让Agent转交对应诊断或恢复Skill，并在执行任何变更前进行确认。
 
-- [Skill参考 - daily-cluster-inspector](../skill-reference.md#351-daily-cluster-inspector)
-- [Skill参考 - ops-report-generator](../skill-reference.md#353-ops-report-generator)
-- 华为云CCE用户指南
-- 华为云AOM用户指南
+### 邮件没有收到怎么办
+
+建议检查邮件收件人、SMTP或邮件推送服务配置、发送记录、邮件服务配额和企业邮箱拦截策略。如果报告已生成但邮件未发送成功，可以先通过OpenClaw控制台或报告归档路径查看报告。
+
+### 历史报告应该保留多久
+
+建议生产集群至少保留30天巡检报告。如果需要做月度稳定性复盘、SLA统计或容量趋势分析，可以保留90天或更长时间，并配置OBS生命周期策略控制存储成本。
+
+## 参考文档
+
+| 文档 | 适用场景 |
+|------|----------|
+| [Skill参考 - daily-cluster-inspector](../skill-reference.md#351-daily-cluster-inspector) | 查看每日巡检Skill的能力定位和使用方式。 |
+| [Skill参考 - ops-report-generator](../skill-reference.md#353-ops-report-generator) | 查看运维报告生成能力，包括周报、月报、SLA、容量和稳定性报告。 |
+| [`daily-cluster-inspector` Skill说明](../../skills/daily-cluster-inspector/SKILL.md) | 查看快检、深检、报告导出和只读边界说明。 |
+| [`ops-report-generator` Skill说明](../../skills/ops-report-generator/SKILL.md) | 查看巡检结果如何汇总到运维报告。 |
+| [云容器引擎 CCE 文档](https://support.huaweicloud.com/intl/zh-cn/cce/index.html) | 查询CCE集群、节点、工作负载、插件和云原生观测相关产品说明。 |
+| [应用运维管理 AOM 文档](https://support.huaweicloud.com/intl/zh-cn/aom/index.html) | 查询AOM指标、告警、日志和应用观测相关说明。 |
