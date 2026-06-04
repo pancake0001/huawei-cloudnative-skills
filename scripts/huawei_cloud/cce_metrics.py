@@ -62,68 +62,68 @@ def get_cce_pod_metrics_topN(region: str, cluster_id: str, ak: Optional[str] = N
         if label_filters:
             # 获取 Pod 列表
             pods_result = cce.get_kubernetes_pods(region, cluster_id, access_key, secret_key, proj_id, namespace)
-            if pods_result.get("success"):
-                matched_pods = []
-                for pod in pods_result.get("pods", []):
-                    pod_labels = pod.get("labels", {})
-                    pod_name = pod.get("name", "")
-                    pod_ns = pod.get("namespace", "")
+            current_pods = pods_result.get("pods", []) if pods_result.get("success") else []
+            matched_pods = []
+            for pod in current_pods:
+                pod_labels = pod.get("labels", {})
+                pod_name = pod.get("name", "")
+                pod_ns = pod.get("namespace", "")
 
-                    # 检查是否匹配所有 label 条件
-                    match = True
-                    for key, value in label_filters.items():
-                        if pod_labels.get(key) != value:
-                            match = False
-                            break
+                # 检查是否匹配所有 label 条件
+                match = True
+                for key, value in label_filters.items():
+                    if pod_labels.get(key) != value:
+                        match = False
+                        break
 
-                    if match:
-                        matched_pods.append(pod_name)
-                        matched_pods_info.append({
-                            "name": pod_name,
-                            "namespace": pod_ns,
-                            "labels": pod_labels,
-                            "status": pod.get("status"),
-                            "node": pod.get("node")
-                        })
+                if match:
+                    matched_pods.append(pod_name)
+                    matched_pods_info.append({
+                        "name": pod_name,
+                        "namespace": pod_ns,
+                        "labels": pod_labels,
+                        "status": pod.get("status"),
+                        "node": pod.get("node")
+                    })
 
-                if matched_pods:
-                    pod_filter_list = matched_pods
-                else:
-                    # 没有匹配的 Pod，直接返回空结果
-                    return {
-                        "success": True,
-                        "region": region,
-                        "cluster_id": cluster_id,
-                        "cluster_name": cluster_name,
-                        "aom_instance_id": None,
-                        "inspection_time": time_module.strftime('%Y-%m-%d %H:%M:%S', time_module.localtime()),
-                        "query_params": {
-                            "top_n": top_n,
-                            "hours": hours,
-                            "namespace": namespace,
-                            "label_selector": label_selector
-                        },
-                        "label_filter": {
-                            "selector": label_selector,
-                            "parsed": label_filters,
-                            "matched_count": 0,
-                            "matched_pods": []
-                        },
-                        "promql": {"cpu": None, "memory": None},
-                        "metrics": {
-                            "cpu_top_n": [],
-                            "memory_top_n": [],
-                            "all_pods": []
-                        },
-                        "summary": {
-                            "total_pods": 0,
-                            "critical_cpu": 0,
-                            "critical_memory": 0,
-                            "warning_cpu": 0,
-                            "warning_memory": 0
-                        },
-                        "message": f"没有找到匹配 label_selector '{label_selector}' 的 Pod"
-                    }
+            if matched_pods:
+                pod_filter_list = matched_pods
+            else:
+                # 没有匹配的 Pod，直接返回空结果
+                return {
+                    "success": True,
+                    "region": region,
+                    "cluster_id": cluster_id,
+                    "cluster_name": cluster_name,
+                    "aom_instance_id": None,
+                    "inspection_time": time_module.strftime('%Y-%m-%d %H:%M:%S', time_module.localtime()),
+                    "query_params": {
+                        "top_n": top_n,
+                        "hours": hours,
+                        "namespace": namespace,
+                        "label_selector": label_selector
+                    },
+                    "label_filter": {
+                        "selector": label_selector,
+                        "parsed": label_filters,
+                        "matched_count": 0,
+                        "matched_pods": []
+                    },
+                    "promql": {"cpu": None, "memory": None},
+                    "metrics": {
+                        "cpu_top_n": [],
+                        "memory_top_n": [],
+                        "all_pods": []
+                    },
+                    "summary": {
+                        "total_pods": 0,
+                        "critical_cpu": 0,
+                        "critical_memory": 0,
+                        "warning_cpu": 0,
+                        "warning_memory": 0
+                    },
+                    "message": f"没有找到匹配 label_selector '{label_selector}' 的 Pod"
+                }
 
     # ========== 3. 获取 AOM 实例 ==========
     from .cce_diagnosis import get_aom_instance
@@ -146,6 +146,8 @@ def get_cce_pod_metrics_topN(region: str, cluster_id: str, ak: Optional[str] = N
         pod_regex = "|".join(pod_filter_list[:100])  # 限制最多 100 个 Pod
         pod_filter_clause = f',pod=~"{pod_regex}"'
 
+    cluster_filter_clause = f',cluster_name="{cluster_name}"'
+
     # 构建节点过滤条件
     node_filter_clause = ""
     if node_ip:
@@ -154,16 +156,16 @@ def get_cce_pod_metrics_topN(region: str, cluster_id: str, ak: Optional[str] = N
     # 默认 CPU 使用率 PromQL (相对 Limit %)
     if cpu_query is None:
         if namespace:
-            cpu_query = f'topk({top_n}, sum by (pod, namespace) (rate(container_cpu_usage_seconds_total{{image!="",namespace="{namespace}"{pod_filter_clause}{node_filter_clause}}}[5m])) / on (pod, namespace) group_left sum by (pod, namespace) (kube_pod_container_resource_limits{{resource="cpu",namespace="{namespace}"{pod_filter_clause}{node_filter_clause}}}) * 100)'
+            cpu_query = f'topk({top_n}, sum by (pod, namespace) (rate(container_cpu_usage_seconds_total{{image!="",namespace="{namespace}"{cluster_filter_clause}{pod_filter_clause}{node_filter_clause}}}[5m])) / on (pod, namespace) group_left sum by (pod, namespace) (kube_pod_container_resource_limits{{resource="cpu",namespace="{namespace}"{cluster_filter_clause}{pod_filter_clause}{node_filter_clause}}}) * 100)'
         else:
-            cpu_query = f'topk({top_n}, sum by (pod, namespace) (rate(container_cpu_usage_seconds_total{{image!=""{pod_filter_clause}{node_filter_clause}}}[5m])) / on (pod, namespace) group_left sum by (pod, namespace) (kube_pod_container_resource_limits{{resource="cpu"{pod_filter_clause}{node_filter_clause}}}) * 100)'
+            cpu_query = f'topk({top_n}, sum by (pod, namespace) (rate(container_cpu_usage_seconds_total{{image!=""{cluster_filter_clause}{pod_filter_clause}{node_filter_clause}}}[5m])) / on (pod, namespace) group_left sum by (pod, namespace) (kube_pod_container_resource_limits{{resource="cpu"{cluster_filter_clause}{pod_filter_clause}{node_filter_clause}}}) * 100)'
 
     # 默认内存使用率 PromQL (相对 Limit %)
     if memory_query is None:
         if namespace:
-            memory_query = f'topk({top_n}, sum by (pod, namespace) (container_memory_working_set_bytes{{image!="",namespace="{namespace}"{pod_filter_clause}{node_filter_clause}}}) / on (pod, namespace) group_left sum by (pod, namespace) (kube_pod_container_resource_limits{{resource="memory",namespace="{namespace}"{pod_filter_clause}{node_filter_clause}}}) * 100)'
+            memory_query = f'topk({top_n}, sum by (pod, namespace) (container_memory_working_set_bytes{{image!="",namespace="{namespace}"{cluster_filter_clause}{pod_filter_clause}{node_filter_clause}}}) / on (pod, namespace) group_left sum by (pod, namespace) (kube_pod_container_resource_limits{{resource="memory",namespace="{namespace}"{cluster_filter_clause}{pod_filter_clause}{node_filter_clause}}}) * 100)'
         else:
-            memory_query = f'topk({top_n}, sum by (pod, namespace) (container_memory_working_set_bytes{{image!=""{pod_filter_clause}{node_filter_clause}}}) / on (pod, namespace) group_left sum by (pod, namespace) (kube_pod_container_resource_limits{{resource="memory"{pod_filter_clause}{node_filter_clause}}}) * 100)'
+            memory_query = f'topk({top_n}, sum by (pod, namespace) (container_memory_working_set_bytes{{image!=""{cluster_filter_clause}{pod_filter_clause}{node_filter_clause}}}) / on (pod, namespace) group_left sum by (pod, namespace) (kube_pod_container_resource_limits{{resource="memory"{cluster_filter_clause}{pod_filter_clause}{node_filter_clause}}}) * 100)'
 
     # ========== 5. 执行查询 ==========
     cpu_result = aom.get_aom_prom_metrics_http(region, aom_instance_id, cpu_query, hours=hours, ak=access_key, sk=secret_key, project_id=proj_id)
@@ -233,7 +235,9 @@ def get_cce_pod_metrics_topN(region: str, cluster_id: str, ak: Optional[str] = N
         "query_params": {
             "top_n": top_n,
             "hours": hours,
-            "namespace": namespace
+            "namespace": namespace,
+            "cluster_name_filter": cluster_name,
+            "historical_pod_window": True,
         },
         "promql": {
             "cpu": cpu_query,
