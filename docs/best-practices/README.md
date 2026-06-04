@@ -15,7 +15,7 @@
 | --- | --- | --- |
 | [基于Hermes与飞书构建CCE生产环境智能运维Agent](hermes-feishu-cce-cpu-alarm-diagnosis-recovery.md) | 面向现网大量 CCE 告警，演示客户如何使用 Agent 自由编排云原生 Skill，构建告警巡检、自动分析、恢复预览、飞书确认和闭环验证的 ChatOps 值班能力。 | 飞书 ChatOps、定时告警扫描、告警归并、告警分级、可观测上下文汇聚、根因分析、恢复预览、用户确认、受控恢复、恢复验证 |
 | [使用OpenClaw进行CCE集群定期巡检](openclaw-cce-periodic-inspection.md) | 生产集群需要周期性健康检查、报告归档和异常通知。 | 定时巡检、告警/指标/事件汇聚、报告生成、邮件通知 |
-| [使用OpenClaw配置、查询和治理CCE AOM告警](openclaw-cce-aom-alarm-configuration-query.md) | 集群上线或治理时，需要批量配置AOM告警规则，并进行活跃告警、历史告警、通知规则和静默规则查询。 | 告警规则一键创建、通知规则自动创建、SMN主题绑定、活跃告警查询、历史告警归并、规则启停删除、二次确认 |
+| [使用AI CLI配置、查询和治理CCE AOM告警](aicli-cce-aom-alarm-configuration-query.md) | 集群上线或治理时，需要批量配置AOM告警规则，并进行活跃告警、历史告警、通知规则和静默规则查询。 | 告警规则一键创建、通知规则自动创建、SMN主题绑定、活跃告警查询、历史告警归并、规则启停删除、二次确认 |
 | [基于AICLI和Skill实现CCE到CCI 2.0 Bursting](aicli-cce-cci-bursting.md) | CCE 集群突发流量或资源不足时，将符合条件的 Pod 弹性调度到 CCI 2.0。 | 预检查、VPCEP 创建、bursting 插件配置、虚拟节点验证、冒烟测试 |
 
 ## 编写规范
