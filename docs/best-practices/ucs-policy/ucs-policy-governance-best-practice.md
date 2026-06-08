@@ -71,7 +71,7 @@ Skill 会预览方案,包含:
 
 ##### 步骤三：启用策略执行
 
-策略实例创建后,需要启用策略执行才能使策略生效。Skill 调用 `EnableClusterGroupPolicy`,预览策略执行将覆盖的集群列表和执行影响,用户确认后 Skill 执行启用操作。
+策略实例创建后,需要启用策略执行才能使策略生效。Skill 将调用 `EnableClusterGroupPolicy`,自动启用策略。
 
 ![启用策略执行](images/enable-policy-enforcement.png)
 
@@ -126,11 +126,12 @@ Skill 会预览方案,包含:
 在 AI CLI 中输入以下提示词更新策略范围:
 
 ```
-请将策略实例 XXX 的命名空间范围从 default 和 production 改为仅作用于 default 命名空间,
-同时更新 enforcementAction 为 deny。
+修改策略范围，排除kube-system等系统命名空间。
 ```
 
-![更新策略范围](images/update-policy-scope.png)
+![更新策略范围](images/ucs-api-constraints.png)
+
+![重建更新策略范围](images/rebuild-policy-scope.png)
 
 > `ListPolicyInstances` 和 `ListPolicyDefinitions` 不支持过滤参数,只返回全量数据。如需定位特定策略实例,提供 `policyinstanceid` 让 Skill 使用 `ShowPolicyInstance` 查看详情,再通过 `UpdatePolicyInstance` 更新参数配置。
 
