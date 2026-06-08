@@ -49,9 +49,9 @@ Skill 首先会调用 `ListPolicyDefinitions`, 返回所有可用的策略定义
 - **资源策略**：资源配额、资源限制、成本优化
 - **网络策略**：网络策略、入站/出站限制、服务网格规则
 
-![发现策略定义](images/discover-definitions.png)
+![筛选策略定义](images/discover-definitions.png)
 
-用户从中选择合适的策略定义,记录其 `constraintTemplateID`(取 `metadata.name` 字段值,不是 `metadata.uid`)。Skill 同时会评估集群纳管状态和舰队组归属情况,确认策略执行风险。
+可以根据推荐筛选策略定义，Skill 同时会评估集群纳管状态和舰队组归属情况,确认策略执行风险。
 
 ##### 步骤二：创建舰队组策略实例
 
