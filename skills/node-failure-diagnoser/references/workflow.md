@@ -1,69 +1,69 @@
 # Workflow
 
-## 可复用能力与缺口
+# # Reusability and gaps
 
-- 已有可复用工具：`huawei_get_kubernetes_nodes` 查 Node Ready/压力条件，`huawei_get_cce_events` 查 Kubernetes Events，`huawei_get_cce_pods` 查 Pod phase/reason/lastState，`huawei_get_cce_node_metrics` 和 `huawei_get_cce_pod_metrics_topN` 查 AOM 指标，`huawei_node_diagnose`/`huawei_node_batch_diagnose` 查节点监控、NPD 与工作负载摘要。
-- 外部 huawei-cloud skill 中同样强调 CCE 节点、Pod、Event、监控、巡检和诊断报告工具族，可直接沿用这些只读工具与“先列任务、再输出完整报告”的输出习惯。
-- 原缺口：缺少 `kube-node-lease` 续约证据、缺少 Node 条件全量时间戳、缺少节点上 Pod 症状聚合、缺少把 NotReady/压力/CNI/kubelet 证据合成 Markdown 报告的确定性动作。
-- 已补主工具：`huawei_node_failure_diagnose` 一次性输出结构化证据和 `report_markdown`。
+- There are reusable tools: `huawei_get_kubernetes_nodes` checks Node Ready/stress conditions, `huawei_get_cce_events` checks Kubernetes Events, `huawei_get_cce_pods` checks Pod phase/reason/lastState, `huawei_get_cce_node_metrics` and `huawei_get_cce_pod_metrics_topN` Check AOM indicators, `huawei_node_diagnose`/`huawei_node_batch_diagnose` to check node monitoring, NPD and workload summary.
+- The external huawei-cloud skill also emphasizes the CCE node, Pod, Event, monitoring, inspection, and diagnostic report tool families. You can directly use these read-only tools and the output habit of "list tasks first, and then output the complete report".
+- Original gaps: lack of `kube-node-lease` renewal evidence, lack of Node condition full timestamp, lack of Pod symptom aggregation on the node, lack of deterministic actions to synthesize NotReady/stress/CNI/kubelet evidence into Markdown reports.
+- The main tool has been supplemented: `huawei_node_failure_diagnose` outputs structured evidence and `report_markdown` at once.
 
-## 主流程
+# # Main process
 
-1. 输入必须包含 `region`、`cluster_id`，以及 `node_name` 或 `node_ip`。
-2. 调用 `huawei_node_failure_diagnose`，默认 `lease_timeout_seconds=40`、`event_limit=500`、`hours=1`、`include_metrics=true`。
-3. 若主工具返回 `report_markdown`，直接以该 Markdown 为最终报告主体，只可补充用户关心的解释，不要丢弃证据表。
-4. 若主工具失败，按下方手工兜底流程执行。
+1. Input must contain `region`, `cluster_id`, and `node_name` or `node_ip`.
+2. Call `huawei_node_failure_diagnose`, default `lease_timeout_seconds=40`, `event_limit=500`, `hours=1`, `include_metrics=true`.
+3. If the main tool returns `report_markdown`, use this Markdown directly as the final report body. Only add explanations that the user cares about, and do not discard the evidence table.
+4. If the main tool fails, follow the manual process below.
 
-## 1. 控制面存活状态分流
+# # 1. Control plane survival status offloading
 
-采集：
+Collection:
 
-- `v1.Node.status.conditions` 中的 `Ready`、`MemoryPressure`、`DiskPressure`、`PIDPressure`、`NetworkUnavailable`。
-- `kube-node-lease/<node_name>` 的 `spec.renewTime`，计算当前时间与 renewTime 的差值。
+- `Ready`, `MemoryPressure`, `DiskPressure`, `PIDPressure`, `NetworkUnavailable` in `v1.Node.status.conditions`.
+- `spec.renewTime` of `kube-node-lease/<node_name>`, calculates the difference between the current time and renewTime.
 
-判定：
+Judgment:
 
-- 情况 A：`Ready=Unknown` 且 Lease 续约延迟超过 40 秒。推论为控制面与节点失联。若没有 `SystemOOM`、`EvictionThresholdMet`、`FailedCreatePodSandBox/CNI`、`ContainerRuntimeNotReady` 等更强证据，结论应写为“控制面与节点失联（网络链路或 Kubelet/CRI 心跳中断，需节点侧验证）”，不要过早单押 kubelet 或网络。
-- 情况 B：`Ready=False` 且 Lease 正常续约。推论为 kubelet 存活并主动报告节点或基础设施不健康。
-- 情况 C：`Ready=True`。推论为基础通信正常，继续排查局部资源压力、CNI 和工作负载症状。
-- 情况 D：其他组合。标记为证据不足，继续用 Event、Pod 和节点本地日志收敛。
+- Case A: `Ready=Unknown` and Lease renewal delay exceeds 40 seconds. The inference is that the control plane is disconnected from the node. If there is no stronger evidence such as `SystemOOM`, `EvictionThresholdMet`, `FailedCreatePodSandBox/CNI`, `ContainerRuntimeNotReady`, etc., the conclusion should be written as "the control plane lost contact with the node (the network link or Kubelet/CRI heartbeat is interrupted, node-side verification is required)", and do not bet on kubelet or the network prematurely.
+- Case B: `Ready=False` and the Lease is renewed normally. The corollary is that the kubelet survives and proactively reports that the node or infrastructure is unhealthy.
+- Case C: `Ready=True`. It is inferred that the basic communication is normal, and we continue to troubleshoot local resource pressure, CNI and workload symptoms.
+- Case D: Other combinations. Marked as insufficient evidence, continue to converge using Event, Pod and node local logs.
 
-## 2. 节点事件时序回溯
+# # 2. Node event timing traceback
 
-过滤 `involvedObject.kind=Node` 且 `involvedObject.name=<node_name>` 的 Event，并按 `lastTimestamp/eventTime/firstTimestamp` 倒序排列。
+Filter events with `involvedObject.kind=Node` and `involvedObject.name=<node_name>` and sort them in descending order of `lastTimestamp/eventTime/firstTimestamp`.
 
-强信号：
+Strong signal:
 
-- `SystemOOM`：内存压力强证据。
-- `EvictionThresholdMet` 且 message 包含 `imagefs`、`nodefs`、`DiskPressure`、`ephemeral-storage`：磁盘压力强证据。
-- `KubeletSetupFailed`、`ContainerRuntimeNotReady`、`PLEG`、runtime not ready：kubelet/CRI 异常强证据。
-- `NodeNotReady`：NotReady 结果证据，必须继续找根因。
+- `SystemOOM`: Strong evidence of memory pressure.
+- `EvictionThresholdMet` and message contains `imagefs`, `nodefs`, `DiskPressure`, `ephemeral-storage`: strong evidence of disk pressure.
+- `KubeletSetupFailed`, `ContainerRuntimeNotReady`, `PLEG`, runtime not ready: strong evidence of kubelet/CRI anomaly.
+- `NodeNotReady`: NotReady result evidence, you must continue to find the root cause.
 
-## 3. 负载侧症状下钻
+# # 3. Drill down on load side symptoms
 
-查询 `spec.nodeName=<node_name>` 的所有 Pod，并聚合 `phase`、`reason`、`message`、容器 `state` 和 `lastState`。
+Query all Pods with `spec.nodeName=<node_name>` and aggregate `phase`, `reason`, `message`, container `state` and `lastState`.
 
-判定：
+Judgment:
 
-- 磁盘压力：多个 Pod `phase=Failed`、`reason=Evicted`，message 指出 `DiskPressure`、`nodefs`、`imagefs` 或 `ephemeral-storage`。
-- 内存压力：业务 Pod 的 `lastState.terminated.reason=OOMKilled`，尤其退出码 `137`；若同时有 `SystemOOM`，置信度为高。
-- 网络异常：新 Pod 长期 `ContainerCreating`，对应 Pod Event 有 `FailedCreatePodSandBox`，message 包含 `CNI`、`network plugin returns error`、`timeout waiting for DHCP` 等。
-- kubelet/CRI 异常：大量 Pod 变为 `Unknown`/`NodeLost`，或 `kube-system` 核心 DaemonSet（kube-proxy、CNI 插件、CSI 插件等）异常、频繁重启、`Unhealthy`。
+- Disk Pressure: Multiple Pods with `phase=Failed`, `reason=Evicted`, message indicating `DiskPressure`, `nodefs`, `imagefs` or `ephemeral-storage`.
+- Memory pressure: `lastState.terminated.reason=OOMKilled` of the business Pod, especially the exit code `137`; if there is `SystemOOM` at the same time, the confidence level is high.
+- Network exception: The new Pod has a long-term `ContainerCreating`, the corresponding Pod Event has `FailedCreatePodSandBox`, and the message includes `CNI`, `network plugin returns error`, `timeout waiting for DHCP`, etc.
+- kubelet/CRI exception: A large number of Pods become `Unknown`/`NodeLost`, or `kube-system` core DaemonSet (kube-proxy, CNI plug-in, CSI plug-in, etc.) is abnormal, restarts frequently, or is `Unhealthy`.
 
-## 4. 指标与云侧补证
+# # 4. Indicators and cloud-side certificate supplementation
 
-- 用 `huawei_get_cce_node_metrics` 验证 CPU、内存、磁盘趋势，不把单点峰值直接当根因。
-- 用 `huawei_get_cce_pod_metrics_topN node_ip=<node_ip>` 查节点上高内存/高 CPU Pod。
-- NotReady 或网络候选较强时，追加安全组、网络 ACL、Master-Node 通信链路核对。
-- 涉及内核漏洞、重启后生效类问题时，追加 HSS 主机和漏洞清单，但不要在本 skill 中执行修复。
+- Use `huawei_get_cce_node_metrics` to verify CPU, memory, and disk trends, and do not directly regard single-point peaks as the root cause.
+- Use `huawei_get_cce_pod_metrics_topN node_ip=<node_ip>` to check the high memory/high CPU Pods on the node.
+- When NotReady or the network candidate is strong, additional security group, network ACL, and Master-Node communication link checks are added.
+- When it comes to kernel vulnerabilities and problems that take effect after reboot, add the HSS host and vulnerability list, but do not perform repairs in this skill.
 
-## 5. 结论合成
+# # 5. Conclusion synthesis
 
-优先级不是固定顺序，而是证据强度：
+Priority is not a fixed order, but strength of evidence:
 
-1. 强 Event + Pod 症状一致：高置信度，可直接落到内存、磁盘、网络或 kubelet/CRI 类别。
-2. `Ready=Unknown` + Lease 超时：对“节点失联”本身为高置信度；对底层根因通常只能给中低置信度候选，除非有独立强证据。
-3. 压力条件为 `Unknown` 且 reason 为 `NodeStatusUnknown`：只说明 kubelet 不再上报，不等价于 MemoryPressure/DiskPressure 正常或异常；报告应标为“不可判定”并说明缺少独立证据。
-4. 只有 NotReady 或只有指标异常：中低置信度，需要本地日志验证。
+1. Strong Event + Pod symptoms are consistent: high confidence and can fall directly into the memory, disk, network or kubelet/CRI categories.
+2. `Ready=Unknown` + Lease timeout: The "node lost connection" itself is a high confidence level; for the underlying root cause, usually only medium and low confidence candidates can be given, unless there is independent strong evidence.
+3. The pressure condition is `Unknown` and reason is `NodeStatusUnknown`: This only means that the kubelet will no longer report it, which is not equivalent to whether MemoryPressure/DiskPressure is normal or abnormal; the report should be marked as "undecidable" and indicate the lack of independent evidence.
+4. Only NotReady or only indicator exceptions: medium to low confidence, local log verification is required.
 
-结论必须包含：根因类别、置信度、关键证据、影响面、未确认风险、下一步验证。
+The conclusion must include: root cause category, confidence level, key evidence, impact area, unconfirmed risks, and next step verification.

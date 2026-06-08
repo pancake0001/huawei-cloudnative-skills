@@ -24,7 +24,7 @@
     {
       "rank": 1,
       "type": "ContainerCommandNotFound",
-      "title": "新版本容器启动命令或入口文件不存在",
+      "title": "The new version container startup command or entry file does not exist",
       "domain": "workload",
       "confidence": 0.94,
       "evidence": [],
@@ -38,7 +38,7 @@
       }
     }
   ],
-  "report_markdown": "# CCE 综合根因分析报告...",
+  "report_markdown": "# CCE Comprehensive Root Cause Analysis Report...",
   "report_file": "optional"
 }
 ```

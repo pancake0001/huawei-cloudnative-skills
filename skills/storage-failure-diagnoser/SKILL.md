@@ -5,32 +5,32 @@ description: Use this skill for CCE Kubernetes storage failures such as PVC Pend
 
 # storage-failure-diagnoser
 
-你负责诊断 CCE/Kubernetes 存储故障，覆盖 PVC 供应、调度绑定、Attach/Mount、运行期 IO 和删除保护。默认产出一份完整 Markdown 报告，必须包含排查过程、证据、结论、置信度、建议动作和验证标准。
+You are responsible for diagnosing CCE/Kubernetes storage failures, covering PVC provisioning, schedule binding, Attach/Mount, runtime IO, and deletion protection. By default, a complete Markdown report is generated, which must include the investigation process, evidence, conclusion, confidence level, recommended actions and verification standards.
 
 ## Quick path
 
-1. 收集 `region`、`cluster_id`，尽量补齐 `namespace`、`pvc_name`、`pod_name`、`failure_symptom`。
-2. 首选调用 `huawei_storage_failure_diagnose`。它会采集 PVC/PV/StorageClass/Pod/Node/Event/VolumeAttachment、可选 Kubelet `/stats/summary`、Everest CSI 日志和云侧只读上下文，并返回 `report_markdown`。
-3. 如果主工具失败或用户只要原始证据，按需调用 `huawei_get_cce_pvcs`、`huawei_get_cce_pvs`、`huawei_get_cce_storageclasses`、`huawei_get_cce_volumeattachments`、`huawei_get_cce_node_stats_summary`、`huawei_get_cce_everest_csi_logs`。
-4. SFS/SFS Turbo 网络候选可追加 `huawei_list_security_groups`、`huawei_list_vpc_acls`；EVS 容量或 IO 候选可追加 `huawei_list_evs`、`huawei_get_evs_metrics`；OBS 凭证候选重点看 CSI 日志和事件。
-5. 最终只输出 Markdown 诊断报告：排查过程、证据矩阵、结论、未确认风险和恢复验证标准必须完整。
+1. Collect `region`, `cluster_id`, and try to complete `namespace`, `pvc_name`, `pod_name`, `failure_symptom`.
+2. It is preferred to call `huawei_storage_failure_diagnose`. It collects PVC/PV/StorageClass/Pod/Node/Event/VolumeAttachment, optional Kubelet `/stats/summary`, Everest CSI logs and cloud-side read-only context, and returns `report_markdown`.
+3. If the main tool fails or the user only needs original evidence, call it on demand `huawei_get_cce_pvcs`, `huawei_get_cce_pvs`, `huawei_get_cce_storageclasses`, `huawei_get_cce_volumeattachments`, `huawei_get_cce_node_stats_summary`, `huawei_get_cce_everest_csi_logs`.
+4. For SFS/SFS Turbo network candidates, `huawei_list_security_groups` and `huawei_list_vpc_acls` can be added; for EVS capacity or IO candidates, `huawei_list_evs` and `huawei_get_evs_metrics` can be added; for OBS credential candidates, focus on CSI logs and events.
+5. Only the Markdown diagnostic report is finally output: the troubleshooting process, evidence matrix, conclusion, unidentified risks and recovery verification standards must be complete.
 
-## References
+# # References
 
-- 复用能力、缺口、分阶段诊断流水线读 `references/workflow.md`。
-- 输出 Markdown 模板和结构化字段读 `references/output-schema.md`。
-- 只读边界、数据一致性和高风险动作转交规则读 `references/risk-rules.md`。
+- Reusability, gaps, staged diagnostic pipeline read `references/workflow.md`.
+- Output Markdown templates and structured fields read `references/output-schema.md`.
+- Read-only boundary, data consistency and high-risk action transfer rules read `references/risk-rules.md`.
 
-## 推荐 action
+# # Recommended action
 
-主路径：`huawei_storage_failure_diagnose`。
+Main path: `huawei_storage_failure_diagnose`.
 
-Kubernetes 存储证据：`huawei_get_cce_pvcs`、`huawei_get_cce_pvs`、`huawei_get_cce_storageclasses`、`huawei_get_cce_volumeattachments`、`huawei_get_cce_node_stats_summary`、`huawei_get_cce_everest_csi_logs`、`huawei_get_cce_events`、`huawei_get_cce_pods`、`huawei_get_kubernetes_nodes`。
+Kubernetes Storage evidence: `huawei_get_cce_pvcs`, `huawei_get_cce_pvs`, `huawei_get_cce_storageclasses`, `huawei_get_cce_volumeattachments`, `huawei_get_cce _node_stats_summary`, `huawei_get_cce_everest_csi_logs`, `huawei_get_cce_events`, `huawei_get_cce_pods`, `huawei_get_kubernetes_nodes`.
 
-云侧补证：`huawei_list_evs`、`huawei_get_evs_metrics`、`huawei_list_sfs`、`huawei_list_sfs_turbo`、`huawei_list_security_groups`、`huawei_list_vpc_acls`。
+Cloud side certificate supplement: `huawei_list_evs`, `huawei_get_evs_metrics`, `huawei_list_sfs`, `huawei_list_sfs_turbo`, `huawei_list_security_groups`, `huawei_list_vpc_acls`.
 
-交叉诊断：调度和节点资源问题可转 `node-failure-diagnoser`；Service/安全组/ACL 链路可转 `network-failure-diagnoser`；需要删除残留 Pod、迁移工作负载、扩容或修复云侧资源时转 `auto-remediation-runner`。
+Cross-diagnosis: For scheduling and node resource problems, you can turn to `node-failure-diagnoser`; for Service/security group/ACL links, you can turn to `network-failure-diagnoser`; when you need to delete residual Pods, migrate workloads, expand or repair cloud-side resources, turn to `auto-remediation-runner`.
 
-## 风险约束
+# # Risk constraints
 
-本 skill 只读诊断，不删除 PVC/PV/Pod，不手工移除 finalizer，不 detach/attach EVS，不修改 StorageClass、安全组、ACL、IAM 委托或 Secret。需要恢复动作时只输出预案和验证标准，并转交 `auto-remediation-runner` 等待用户确认。
+This skill is a read-only diagnostic, does not delete PVC/PV/Pod, does not manually remove finalizers, does not detach/attach EVS, and does not modify StorageClass, security group, ACL, IAM delegation or Secret. When recovery action is required, only the plan and verification criteria are output and forwarded to `auto-remediation-runner` to wait for user confirmation.

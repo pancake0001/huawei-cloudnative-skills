@@ -4,12 +4,12 @@ name: cce-workload-manager
 description: |
   Huawei Cloud CCE/UCS workload lifecycle management skill using hcloud CLI for kubeconfig acquisition and kubectl for Kubernetes resource operations.
   Use this skill when the user wants to: (1) obtain kubeconfig for CCE clusters, (2) obtain federation kubeconfig for UCS fleet (multi-cluster operations), (3) manage Deployment/StatefulSet/DaemonSet/Job/CronJob lifecycle, (4) configure HPA autoscaling, (5) manage Service/Ingress/ConfigMap/Secret/PVC, (6) observe Pod status/logs/events, (7) manage namespaces, (8) install and configure kubectl.
-  Trigger: user mentions "CCE workload", "k8s workload", "UCS fleet workload", "Deployment", "StatefulSet", "DaemonSet", "Job", "CronJob", "HPA", "kubectl", "kubeconfig", "federation kubeconfig", "Pod logs", "CCE 负载", "UCS 联邦负载", "工作负载", "部署", "有状态副本集", "守护进程集", "任务", "定时任务", "弹性伸缩", "服务", "路由", "配置项", "密钥", "存储卷", "Pod 日志", "命名空间"
+  Trigger: user mentions "CCE workload", "k8s workload", "UCS fleet workload", "Deployment", "StatefulSet", "DaemonSet", "Job", "CronJob", "HPA", "kubectl", "kubeconfig", "federation kubeconfig", "Pod logs", "CCE workload", "UCS fleet workload", "workload", "deployment", "StatefulSet", "DaemonSet", "Job", "CronJob", "autoscaling", "Service", "Ingress route", "ConfigMap", "Secret", "volume", "Pod logs", "namespace"
 ---
 
 # Huawei Cloud CCE/UCS Workload Manager
 
-## Overview
+# # Overview
 
 This skill provides workload lifecycle management capabilities for Huawei Cloud CCE and UCS-managed Kubernetes clusters using `hcloud` CLI for kubeconfig acquisition and `kubectl` for Kubernetes resource operations.
 
@@ -48,21 +48,21 @@ This skill provides workload lifecycle management capabilities for Huawei Cloud 
 - "List namespaces in my cluster"
 - "Install kubectl on my machine"
 
-## Prerequisites
+# # Prerequisites
 
-### 1. hcloud CLI Requirements (MANDATORY)
+## # 1. hcloud CLI Requirements (MANDATORY)
 
 - hcloud CLI installed (version >= 7.2.2)
 - Run `hcloud version` to verify installation
 - First-time usage: `printf "y\n" | hcloud version` to accept privacy statement
 
-### 2. kubectl Requirements (MANDATORY)
+## # 2. kubectl Requirements (MANDATORY)
 
 - kubectl installed (version compatible with cluster Kubernetes version)
 - See [Task: kubectl Setup](references/task-kubectl-setup.md) for installation guidance
 - Run `kubectl version --client` to verify installation
 
-### 3. Credential Configuration
+## # 3. Credential Configuration
 
 - Valid Huawei Cloud credentials (AK/SK mode)
 - **Security Rules**:
@@ -87,7 +87,7 @@ export HUAWEI_CLOUD_REGION=cn-north-4
 - Enable MFA for sensitive operations
 - Rotate AK/SK regularly
 
-### 4. IAM Permission Requirements
+## # 4. IAM Permission Requirements
 
 | API Action                        | Permission          | Purpose                                    |
 | --------------------------------- | ------------------- | ------------------------------------------ |
@@ -109,9 +109,9 @@ export HUAWEI_CLOUD_REGION=cn-north-4
 4. Guide the user to create ClusterRole/Role bindings for Kubernetes RBAC permissions
 5. Pause execution and wait for user confirmation that permissions have been granted
 
-## Core Commands
+# # Core Commands
 
-### 1. Kubeconfig Acquisition
+## # 1. Kubeconfig Acquisition
 
 See [Task: Kubeconfig Acquisition](references/task-kubeconfig-acquisition.md) for detailed workflows.
 
@@ -140,7 +140,7 @@ kubectl --kubeconfig=~/.kube/cce-kubeconfig.yaml cluster-info
 - CCE `CreateKubernetesClusterCert` `--duration` is in **days** (1-1827)
 - UCS `DownloadFederationKubeconfig` `--duration` is in **days** (1-1825)
 
-### 2. Workload Management (Deployment/StatefulSet/DaemonSet)
+## # 2. Workload Management (Deployment/StatefulSet/DaemonSet)
 
 See [Task: Deployment Management](references/task-deployment-management.md) and [Task: StatefulSet/DaemonSet Management](references/task-statefulset-daemonset-management.md) for detailed workflows.
 
@@ -179,7 +179,7 @@ kubectl --kubeconfig=~/.kube/cce-kubeconfig.yaml apply -f daemonset.yaml -n prod
 kubectl --kubeconfig=~/.kube/cce-kubeconfig.yaml rollout status daemonset/log-agent -n production
 ```
 
-### 3. Job/CronJob Management
+## # 3. Job/CronJob Management
 
 ```bash
 # Create Job from YAML
@@ -211,7 +211,7 @@ kubectl --kubeconfig=~/.kube/cce-kubeconfig.yaml patch cronjob nightly-backup --
 kubectl --kubeconfig=~/.kube/cce-kubeconfig.yaml delete cronjob nightly-backup -n production
 ```
 
-### 4. Observability + Config
+## # 4. Observability + Config
 
 ```bash
 # Pod status
@@ -256,13 +256,13 @@ kubectl --kubeconfig=~/.kube/cce-kubeconfig.yaml autoscale deployment my-app --m
 kubectl --kubeconfig=~/.kube/cce-kubeconfig.yaml get hpa -n production
 ```
 
-### 5. kubectl Installation & Configuration
+## # 5. kubectl Installation & Configuration
 
 See [Task: kubectl Setup](references/task-kubectl-setup.md) for detailed installation and configuration guidance.
 
-## Parameter Reference
+# # Parameter Reference
 
-### hcloud Parameters (Kubeconfig Acquisition)
+## # hcloud Parameters (Kubeconfig Acquisition)
 
 | Parameter          | Command             | Required | Description                   | Constraints                                  |
 | ------------------ | ------------------- | -------- | ----------------------------- | -------------------------------------------- |
@@ -274,7 +274,7 @@ See [Task: kubectl Setup](references/task-kubectl-setup.md) for detailed install
 | `--project_id`     | CCE CreateCert      | Required (auto-filled) | Project ID    | Auto-filled from hcloud config if not specified |
 | `--cli-region`     | All hcloud commands | Required | Huawei Cloud region ID        | Config value or `HUAWEI_CLOUD_REGION`        |
 
-### kubectl Flags
+## # kubectl Flags
 
 | Flag             | Description                        | Example                                     |
 | ---------------- | ---------------------------------- | ------------------------------------------- |
@@ -289,9 +289,9 @@ See [Task: kubectl Setup](references/task-kubectl-setup.md) for detailed install
 | `--min/--max`    | HPA min/max replicas               | `--min=2 --max=10`                          |
 | `--cpu-percent`  | HPA CPU target percentage          | `--cpu-percent=80`                          |
 
-## Output Format
+# # Output Format
 
-### CCE CreateKubernetesClusterCert (Kubeconfig YAML)
+## # CCE CreateKubernetesClusterCert (Kubeconfig YAML)
 
 Returns a standard Kubernetes kubeconfig YAML document containing:
 
@@ -327,7 +327,7 @@ contexts:
 current-context: external
 ```
 
-### UCS DownloadFederationKubeconfig (Federation Kubeconfig YAML)
+## # UCS DownloadFederationKubeconfig (Federation Kubeconfig YAML)
 
 Returns a federation kubeconfig with two contexts for multi-cluster fleet operations:
 
@@ -362,7 +362,7 @@ current-context: federation
 > **Network prerequisite**: UCS federation kubeconfig uses `<fleet-name>.fleet.ucs.<region>.myhuaweicloud.com` as the API server domain. This domain resolves via UCS VPC Endpoint (VPCEP). If DNS resolution fails, ensure your network can reach the UCS VPCEP (e.g., via VPC peering, VPN, or direct cloud network access).
 ```
 
-### kubectl Output Formats
+## # kubectl Output Formats
 
 | `-o` flag        | Description                        | Use Case                                    |
 | ---------------- | ---------------------------------- | ------------------------------------------- |
@@ -372,7 +372,7 @@ current-context: federation
 | `-o json`        | JSON format                        | Scripting/automation                        |
 | `-o name`        | Resource name only                 | Quick list of names                         |
 
-## Common Region IDs
+# # Common Region IDs
 
 | Region Name                    | Region ID        |
 | ------------------------------ | ---------------- |
@@ -388,7 +388,7 @@ current-context: federation
 | Asia Pacific - Hong Kong       | `ap-southeast-3` |
 | Europe - Paris                 | `eu-west-0`      |
 
-## Best Practices
+# # Best Practices
 
 1. **Namespace-First**: Always specify `-n <namespace>` explicitly; never rely on default namespace
 2. **Kubeconfig Security**: Store kubeconfig files with restricted file permissions (chmod 600); never expose them in public repositories or CI logs
@@ -399,7 +399,7 @@ current-context: federation
 7. **Namespace Isolation**: Use separate namespaces for production, staging, and development workloads
 8. **HPA Baseline**: Set HPA `--min` to your steady-state replica count; set `--max` based on resource budget
 
-## Reference Documents
+# # Reference Documents
 
 | Document                                                      | Description                              |
 | ------------------------------------------------------------- | ---------------------------------------- |
@@ -408,7 +408,7 @@ current-context: federation
 | [Task: Deployment Management](references/task-deployment-management.md) | Deployment lifecycle workflows |
 | [Task: StatefulSet/DaemonSet Management](references/task-statefulset-daemonset-management.md) | StatefulSet and DaemonSet workflows |
 
-## Notes
+# # Notes
 
 - **kubectl is the primary tool** — all workload operations use `kubectl --kubeconfig=<file>` after kubeconfig acquisition via `hcloud`
 - **kubeconfig is a secret** — treat it like a credential; never share or expose publicly
@@ -419,7 +419,7 @@ current-context: federation
 - **UCS federation kubeconfig provides two contexts** — `federation` (fleet-level) and `karmada-aggregated-apiserver` (proxy to member clusters)
 - **UCS federation requires network access** — fleet API server domain (`<fleet>.fleet.ucs.<region>.myhuaweicloud.com`) requires VPCEP access
 
-## Common Pitfalls
+# # Common Pitfalls
 
 | Pitfall                              | Symptom                              | Quick Fix                                          |
 | ------------------------------------ | ------------------------------------ | -------------------------------------------------- |

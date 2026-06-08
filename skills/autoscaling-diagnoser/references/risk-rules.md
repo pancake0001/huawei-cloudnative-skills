@@ -1,34 +1,34 @@
-# Risk Rules
+# RiskRules
 
-## 默认只读
+# # Default read-only
 
-本 skill 的默认行为只允许读取和报告，不允许直接改变集群状态。
+The default behavior of this skill only allows reading and reporting, and does not allow direct changes to the cluster status.
 
-禁止自动执行：
+Disable automatic execution:
 
-- 创建、替换或删除 HPA。
-- 修改 Deployment/StatefulSet replicas、requests、limits。
-- 修改节点池 min/max、手动扩缩节点池。
-- 安装、升级、卸载 CCE 插件。
-- cordon、drain、delete、reboot 节点。
-- 扩容 VPC 子网、申请配额、修改 IAM 委托。
+- Create, replace or delete HPA.
+- Modify Deployment/StatefulSet replicas, requests, and limits.
+- Modify the node pool min/max and manually expand the node pool.
+- Install, upgrade, and uninstall CCE plug-ins.
+- cordon, drain, delete, reboot nodes.
+- Expand VPC subnets, apply for quotas, and modify IAM delegation.
 
-## 可输出的整改内容
+# # Outputable rectification content
 
-允许输出：
+Allow output:
 
-- HPA YAML 建议或 `huawei_configure_cce_hpa` 的无 `confirm=true` 预览。
-- 节点池 autoscaling min/max 建议。
-- request/limit 调整建议。
-- 亲和性、污点、tolerations、nodeSelector 的修复建议。
-- 子网、配额、IAM 的人工核查清单。
-- 变更前后验证步骤和回滚路径。
+- HPA YAML suggestions or no `confirm=true` preview for `huawei_configure_cce_hpa`.
+- Node pool autoscaling min/max recommendations.
+- request/limit adjustment suggestions.
+- Fix suggestions for affinities, taints, tolerations, nodeSelector.
+- Manual checklist for subnets, quotas, IAM.
+- Verification steps and rollback paths before and after changes.
 
-## 需要转交的动作
+# # Actions that need to be transferred
 
-客户明确要求执行整改时，转交 `auto-remediation-runner` 或人工变更流程：
+When the customer explicitly requests rectification, transfer it to the `auto-remediation-runner` or manual change process:
 
-- HPA 配置：先预览 manifest，再由客户确认。
-- 节点池扩缩容或 min/max 调整：必须确认业务影响、费用、AZ/规格、回滚方案。
-- request/limit 调整：需要发布窗口或滚动更新计划。
-- 插件安装/升级：需要确认插件版本、集群版本兼容性和回滚方案。
+- HPA configuration: Preview the manifest first and then confirm it by the customer.
+- Node pool expansion or min/max adjustment: Business impact, costs, AZ/specifications, and rollback plan must be confirmed.
+- request/limit adjustment: requires release window or rolling update schedule.
+- Plug-in installation/upgrade: It is necessary to confirm the plug-in version, cluster version compatibility and rollback plan.

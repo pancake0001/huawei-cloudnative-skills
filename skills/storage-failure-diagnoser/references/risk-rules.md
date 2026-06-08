@@ -1,9 +1,9 @@
-# Risk Rules
+# RiskRules
 
-- 允许自动执行 PVC、PV、StorageClass、Pod、Node、Event、VolumeAttachment、NetworkPolicy、Kubelet `/stats/summary`、Everest CSI 日志、EVS/SFS/SFS Turbo、安全组和 VPC ACL 的只读查询。
-- 允许生成 Markdown 诊断报告、只读验证命令建议和恢复预案。
-- 不删除 PVC/PV/Pod，不 patch finalizer，不强制 detach/attach EVS，不修改 StorageClass、StorageClass 参数、PV reclaim policy、IAM 委托、AK/SK Secret、安全组、ACL 或 VPC 路由。
-- 不执行 `kubectl exec`、节点 SSH、抓包、压测、fsck、dmesg 采集或主动 NFS/OBS 读写探测，除非用户明确要求并确认风险。
-- 任何会改变数据面或控制面的动作必须转交 `auto-remediation-runner`，并先输出影响范围、回滚方式、数据一致性风险和验证标准。
-- PVC Terminating 时不要直接建议移除 `kubernetes.io/pvc-protection` finalizer；必须先证明没有 Pod 引用和业务数据风险。
-- EVS 残留挂载或只读文件系统场景下，不建议在未确认文件系统一致性前做强制卸载、强制挂载或直接重启数据库类工作负载。
+- Allows automated read-only queries of PVC, PV, StorageClass, Pod, Node, Event, VolumeAttachment, NetworkPolicy, Kubelet `/stats/summary`, Everest CSI logs, EVS/SFS/SFS Turbo, Security Groups and VPC ACLs.
+- Allows generation of Markdown diagnostic reports, read-only validation command suggestions, and recovery plans.
+- No PVC/PV/Pod deletion, no patch finalizer, no force detach/attach EVS, no modification of StorageClass, StorageClass parameters, PV reclaim policy, IAM delegation, AK/SK Secret, security group, ACL or VPC routing.
+- Do not perform `kubectl exec`, node SSH, packet capture, stress testing, fsck, dmesg collection or active NFS/OBS read and write detection unless the user explicitly requests and confirms the risk.
+- Any action that will change the data plane or control plane must be handed over to `auto-remediation-runner`, and the impact scope, rollback method, data consistency risk and verification criteria must be output first.
+- Do not directly recommend removing the `kubernetes.io/pvc-protection` finalizer during PVC Terminating; you must first prove that there are no Pod references and business data risks.
+- In EVS residual mounting or read-only file system scenarios, it is not recommended to force uninstall, force mount, or directly restart database workloads before confirming the consistency of the file system.

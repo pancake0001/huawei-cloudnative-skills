@@ -1,24 +1,24 @@
 # Task: Cluster Registration & Deregistration
 
-## Overview
+# # Overview
 
-UCS cluster registration (纳管) enables unified management of Kubernetes clusters — both Huawei Cloud CCE clusters and self-managed Kubernetes clusters — through the UCS platform. This task covers registering and deregistering clusters.
+UCS cluster registration enables unified management of Kubernetes clusters — both Huawei Cloud CCE clusters and self-managed Kubernetes clusters — through the UCS platform. This task covers registering and deregistering clusters.
 
-## Operations Catalog
+# # Operations Catalog
 
-| Operation          | Method | Description              | Key Parameters                    |
-| ------------------ | ------ | ------------------------ | --------------------------------- |
-| `RegisterCluster`  | POST   | 注册集群到UCS            | `--apiVersion`, `--kind`, `--metadata.name`, `--spec.category`, `--spec.provider`, `--spec.type`, `--spec.manageType`, `--spec.country`, `--spec.city` |
-| `DeleteCluster`    | DELETE | 从UCS移除集群            | `--clusterid`                     |
-| `ShowCluster`      | GET    | 获取集群详情             | `--clusterid`                     |
-| `ShowClusterList`  | GET    | 获取纳管集群列表         | `--limit`, `--offset`, `--category`, `--managetype`, `--clustergroupid`, `--clusterids` |
-| `ListManagedClusters` | GET | 列出所有纳管集群       | `--unimported` (optional)         |
-| `RetryClusterActivation` | POST | 重试集群激活         | `--clusterid`                     |
-| `UpdateCluster`    | PUT    | 更新集群属性             | `--clusterid`, `--apiVersion`, `--kind`, `--metadata.annotations`, `--spec.city`, `--spec.country` |
+| Operation | Method | Description | Key Parameters |
+| ------------------ | ------ | ---------------------------------- | ---------------------------------- |
+| `RegisterCluster` | POST | Register the cluster to UCS | `--apiVersion`, `--kind`, `--metadata.name`, `--spec.category`, `--spec.provider`, `--spec.type`, `--spec.manageType`, `--spec.country`, `--spec.city` |
+| `DeleteCluster` | DELETE | Remove a cluster from UCS | `--clusterid` |
+| `ShowCluster` | GET | Get cluster details | `--clusterid` |
+| `ShowClusterList` | GET | Get the managed cluster list | `--limit`, `--offset`, `--category`, `--managetype`, `--clustergroupid`, `--clusterids` |
+| `ListManagedClusters` | GET | List all managed clusters | `--unimported` (optional) |
+| `RetryClusterActivation` | POST | Retry cluster activation | `--clusterid` |
+| `UpdateCluster` | PUT | Update cluster attributes | `--clusterid`, `--apiVersion`, `--kind`, `--metadata.annotations`, `--spec.city`, `--spec.country` |
 
 ## Workflows
 
-### W1: Register a CCE Cluster to UCS
+## # W1: Register a CCE Cluster to UCS
 
 **Pre-registration Checklist**:
 1. Verify CCE cluster exists and is in `Available` status in the same region
@@ -39,7 +39,7 @@ hcloud UCS ShowCluster --clusterid=<ucs-cluster-id> --cli-region=cn-north-4
 
 Expected: Cluster status transitions from `Registering` to `Available`.
 
-### W2: Register a Self-Managed Kubernetes Cluster
+## # W2: Register a Self-Managed Kubernetes Cluster
 
 **Pre-registration Checklist**:
 1. Verify kubeconfig is valid: `kubectl --kubeconfig=<path> cluster-info`
@@ -65,7 +65,7 @@ hcloud UCS ShowCluster --clusterid=<ucs-cluster-id> --cli-region=cn-north-4
 
 Expected: Cluster status transitions to `Available` after UCS validates connectivity.
 
-### W3: Verify Cluster Registration Status
+## # W3: Verify Cluster Registration Status
 
 ```bash
 hcloud UCS ShowClusterList --cli-region=cn-north-4
@@ -79,17 +79,15 @@ hcloud UCS ShowCluster --clusterid=<ucs-cluster-id> --cli-region=cn-north-4
 - `Unavailable`: Cluster API server is unreachable
 - `Deleting`: Cluster is being deregistered
 
-### W4: Retry Cluster Activation
+## # W4: Retry Cluster Activation
 
-If a cluster remains in `Registering` or `Unavailable` status after registration, retry activation:
-
-```bash
+If a cluster remains in `Registering` or `Unavailable` status after registration, retry activation:```bash
 hcloud UCS RetryClusterActivation --clusterid=<ucs-cluster-id> --cli-region=cn-north-4
 ```
 
 Expected: Cluster status transitions from stalled state toward `Available`.
 
-### W5: Deregister (Remove) a Cluster from UCS
+## # W5: Deregister (Remove) a Cluster from UCS
 
 ⚠️ **CAUTION**: Deregistration is irreversible. The cluster will lose all UCS management capabilities, including policy governance, fleet grouping, and federation access. You must re-register to restore management.
 
@@ -110,7 +108,7 @@ hcloud UCS ShowClusterList --cli-region=cn-north-4
 
 Expected: Cluster no longer appears in the list.
 
-### W6: Bulk Registration of Multiple CCE Clusters
+## # W6: Bulk Registration of Multiple CCE Clusters
 
 Register multiple CCE clusters in sequence:
 
@@ -124,9 +122,9 @@ hcloud UCS ShowClusterList --cli-region=cn-north-4
 
 **Note**: For bulk operations, check quota before starting to ensure sufficient capacity.
 
-## Common Scenarios
+# # Common Scenarios
 
-### S1: Migrate Cluster from One UCS Instance to Another
+## # S1: Migrate Cluster from One UCS Instance to Another
 
 When reorganizing UCS management, deregister from one instance and register to another:
 
@@ -138,7 +136,7 @@ hcloud UCS RegisterCluster --apiVersion=v1 --kind=Cluster --metadata.name=my-clu
 hcloud UCS ShowCluster --clusterid=<new-ucs-id> --cli-region=cn-north-4
 ```
 
-### S2: Re-register a Previously Deregistered Cluster
+## # S2: Re-register a Previously Deregistered Cluster
 
 ```bash
 hcloud UCS RegisterCluster --apiVersion=v1 --kind=Cluster --metadata.name=re-registered-cluster --spec.category=self --spec.provider=huaweicloud --spec.type=cce --spec.manageType=grouped --spec.country=CN --spec.city=110000 --metadata.uid=<cce-cluster-id> --spec.projectID=<project-id> --spec.region=cn-north-4 --cli-region=cn-north-4
@@ -146,7 +144,7 @@ hcloud UCS RegisterCluster --apiVersion=v1 --kind=Cluster --metadata.name=re-reg
 
 **Note**: The UCS cluster ID will be different from the previous registration. Previous policy configurations will need to be re-applied.
 
-### S3: Troubleshoot Unavailable Self-Managed Cluster
+## # S3: Troubleshoot Unavailable Self-Managed Cluster
 
 ```bash
 hcloud UCS ShowCluster --clusterid=<ucs-cluster-id> --cli-region=cn-north-4

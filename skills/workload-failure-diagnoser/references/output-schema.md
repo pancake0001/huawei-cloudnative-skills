@@ -64,7 +64,7 @@ Primary action: `huawei_workload_rollout_diagnose`.
     {
       "rank": 1,
       "type": "ProbeFailure",
-      "title": "新版本 Pod 运行中但探针失败或未就绪",
+      "title": "The new version of Pod is running but the probe fails or is not ready",
       "confidence": 0.88,
       "evidence": [],
       "recommendation": []
@@ -73,7 +73,7 @@ Primary action: `huawei_workload_rollout_diagnose`.
   "handoff": [
     {
       "skill": "pod-failure-diagnoser",
-      "reason": "探针失败需结合 Pod 日志和健康检查配置"
+      "reason": "Probe failure requires combination of Pod log and health check configuration"
     }
   ],
   "warnings": []

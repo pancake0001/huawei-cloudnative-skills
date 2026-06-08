@@ -1,23 +1,23 @@
 # Task: Image Sync
 
-## Overview
+# # Overview
 
 SWR image sync enables cross-region image replication. You can configure auto-sync to automatically replicate images on every push, or manually sync specific tags. This task covers auto-sync configuration, manual sync, available sync regions, and sync job status.
 
-## Operations Catalog
+# # Operations Catalog
 
-| Operation                    | Method | Description              | Key Parameters                                  |
-| ---------------------------- | ------ | ------------------------ | ----------------------------------------------- |
-| `ListSyncRegions`            | GET    | 查询可用同步区域         | `--cli-region`                                  |
-| `CreateImageSyncRepo`        | POST   | 创建镜像自动同步         | `--namespace`, `--repository`, `--remoteRegionId`, `--remoteNamespace`, `--override`, `--syncAuto` |
-| `ListImageAutoSyncReposDetails` | GET | 查询镜像自动同步列表 | `--namespace`, `--repository`                   |
-| `DeleteImageSyncRepo`        | DELETE | 删除镜像自动同步         | `--namespace`, `--repository`, `--remoteRegionId`, `--remoteNamespace` |
-| `CreateManualImageSyncRepo`  | POST   | 创建手动同步任务         | `--namespace`, `--repository`, `--remoteRegionId`, `--remoteNamespace`, `--imageTag.[N]`, `--override` |
-| `ShowSyncJob`                | GET    | 查询同步任务状态         | `--namespace`, `--repository`                   |
+| Operation | Method | Description | Key Parameters |
+| ---------------------------- | ------ | ---------------------------- | ----------------------------------------------- |
+| `ListSyncRegions` | GET | Query available synchronization regions | `--cli-region` |
+| `CreateImageSyncRepo` | POST | Create mirror automatic synchronization | `--namespace`, `--repository`, `--remoteRegionId`, `--remoteNamespace`, `--override`, `--syncAuto` |
+| `ListImageAutoSyncReposDetails` | GET | Query the image automatic synchronization list | `--namespace`, `--repository` |
+| `DeleteImageSyncRepo` | DELETE | Delete image automatic synchronization | `--namespace`, `--repository`, `--remoteRegionId`, `--remoteNamespace` |
+| `CreateManualImageSyncRepo` | POST | Create manual synchronization task | `--namespace`, `--repository`, `--remoteRegionId`, `--remoteNamespace`, `--imageTag.[N]`, `--override` |
+| `ShowSyncJob` | GET | Query synchronization task status | `--namespace`, `--repository` |
 
 ## Workflows
 
-### W1: Check Available Sync Regions
+## # W1: Check Available Sync Regions
 
 Before setting up any sync, verify which regions are available as targets:
 
@@ -31,7 +31,7 @@ hcloud SWR ListSyncRegions --cli-region=cn-north-4
 - `region_name`: Human-readable region name
 - Response is a **flat array** of region objects (not wrapped)
 
-### W2: Configure Auto-sync for a Repository
+## # W2: Configure Auto-sync for a Repository
 
 Set up automatic image replication across regions:
 
@@ -66,7 +66,7 @@ hcloud SWR CreateImageSyncRepo --namespace=group-dev --repository=my-app --remot
 hcloud SWR ListImageAutoSyncReposDetails --namespace=group-dev --repository=my-app --cli-region=cn-north-4
 ```
 
-### W3: View Auto-sync Configurations
+## # W3: View Auto-sync Configurations
 
 ```bash
 # List all auto-sync configurations for a repository
@@ -78,7 +78,7 @@ hcloud SWR ListImageAutoSyncReposDetails --namespace=group-dev --repository=my-a
 - Check whether auto-sync is enabled or manual-only
 - Audit cross-region replication setup
 
-### W4: Manually Sync Specific Tags
+## # W4: Manually Sync Specific Tags
 
 Manually replicate specific image tags to a target region:
 
@@ -90,9 +90,7 @@ hcloud SWR ListRepositoryTags --namespace=group-dev --repository=my-app --cli-re
 2. Ensure target namespace exists:
 ```bash
 hcloud SWR ShowNamespace --namespace=group-dev --cli-region=cn-east-3
-```
-
-```bash
+``````bash
 # Sync a single tag
 hcloud SWR CreateManualImageSyncRepo --namespace=group-dev --repository=my-app --remoteRegionId=cn-east-3 --remoteNamespace=group-dev --imageTag.1=v1.0 --override=false --cli-region=cn-north-4
 
@@ -110,7 +108,7 @@ hcloud SWR CreateManualImageSyncRepo --namespace=group-dev --repository=my-app -
 
 **Note**: Manual sync is a one-time operation. It does not set up ongoing replication.
 
-### W5: Check Sync Job Status
+## # W5: Check Sync Job Status
 
 ```bash
 # Check status of sync jobs for a repository
@@ -122,7 +120,7 @@ hcloud SWR ShowSyncJob --namespace=group-dev --repository=my-app --cli-region=cn
 - Check if a manual sync job is still running
 - Troubleshoot failed sync operations
 
-### W6: Delete Auto-sync Configuration
+## # W6: Delete Auto-sync Configuration
 
 ⚠️ **Note**: Deleting sync config stops automatic replication but does NOT delete already-synced images.
 
@@ -137,9 +135,9 @@ hcloud SWR DeleteImageSyncRepo --namespace=group-dev --repository=my-app --remot
 hcloud SWR ListImageAutoSyncReposDetails --namespace=group-dev --repository=my-app --cli-region=cn-north-4
 ```
 
-## Common Scenarios
+# # Common Scenarios
 
-### S1: Multi-region DR Setup
+## # S1: Multi-region DR Setup
 
 Set up cross-region replication for disaster recovery:
 
@@ -156,7 +154,7 @@ hcloud SWR CreateImageSyncRepo --namespace=group-dev --repository=my-app --remot
 hcloud SWR ListImageAutoSyncReposDetails --namespace=group-dev --repository=my-app --cli-region=cn-north-4
 ```
 
-### S2: Selective Production Release Sync
+## # S2: Selective Production Release Sync
 
 Only sync production-ready tags to target regions:
 
@@ -171,7 +169,7 @@ hcloud SWR CreateManualImageSyncRepo --namespace=group-dev --repository=my-app -
 hcloud SWR ShowSyncJob --namespace=group-dev --repository=my-app --cli-region=cn-north-4
 ```
 
-### S3: Regional Namespace Alignment
+## # S3: Regional Namespace Alignment
 
 Use identical namespace names across regions for easy management:
 

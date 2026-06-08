@@ -31,7 +31,7 @@
     "ingresses": []
   },
   "propagation_paths": [],
-  "report_markdown": "# CCE 依赖影响面分析报告...",
+  "report_markdown": "# CCE dependency impact analysis report...",
   "report_file": "optional"
 }
 ```

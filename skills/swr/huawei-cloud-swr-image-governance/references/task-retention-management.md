@@ -1,23 +1,23 @@
 # Task: Retention Management
 
-## Overview
+# # Overview
 
 SWR retention rules automate the cleanup of old image tags, helping manage storage and maintain a clean repository. This task covers creating, listing, updating, deleting retention rules, and viewing execution histories.
 
-## Operations Catalog
+# # Operations Catalog
 
-| Operation          | Method | Description              | Key Parameters                                  |
-| ------------------ | ------ | ------------------------ | ----------------------------------------------- |
-| `ListRetentions`  | GET    | 获取镜像老化规则列表     | `--namespace`, `--repository`                   |
-| `CreateRetention` | POST   | 创建镜像老化规则         | `--namespace`, `--repository`, `--algorithm`, `--rules.[N].template`, `--rules.[N].params`, `--rules.[N].tag_selectors` |
-| `ShowRetention`   | GET    | 获取镜像老化规则详情     | `--namespace`, `--repository`, `--retention_id` |
-| `UpdateRetention` | PUT    | 修改镜像老化规则         | Same as CreateRetention + `--retention_id`      |
-| `DeleteRetention` | DELETE | 删除镜像老化规则         | `--namespace`, `--repository`, `--retention_id` |
-| `ListRetentionHistories` | GET | 获取镜像老化执行记录 | `--namespace`, `--repository`, `--retention_id` |
+| Operation | Method | Description | Key Parameters |
+| ------------------ | ------ | ---------------------------------- | -------------------------------------------------- |
+| `ListRetentions` | GET | Get the image aging rule list | `--namespace`, `--repository` |
+| `CreateRetention` | POST | Create image aging rules | `--namespace`, `--repository`, `--algorithm`, `--rules.[N].template`, `--rules.[N].params`, `--rules.[N].tag_selectors` |
+| `ShowRetention` | GET | Get image aging rule details | `--namespace`, `--repository`, `--retention_id` |
+| `UpdateRetention` | PUT | Modify image aging rules | Same as CreateRetention + `--retention_id` |
+| `DeleteRetention` | DELETE | Delete image aging rules | `--namespace`, `--repository`, `--retention_id` |
+| `ListRetentionHistories` | GET | Get image aging execution records | `--namespace`, `--repository`, `--retention_id` |
 
 ## Workflows
 
-### W1: List Retention Rules
+## # W1: List Retention Rules
 
 ```bash
 # List all retention rules for a repository
@@ -26,7 +26,7 @@ hcloud SWR ListRetentions --namespace=pancake --repository=openclaw-sandbox --cl
 
 **Output**: Returns a flat JSON array. When no rules exist, returns `[]`.
 
-### W2: Create a Retention Rule
+## # W2: Create a Retention Rule
 
 Retention rules define which tags to keep. Tags NOT matching any rule condition will be deleted during execution.
 
@@ -97,15 +97,13 @@ hcloud SWR CreateRetention --namespace=pancake --repository=openclaw-sandbox \
 hcloud SWR ListRetentions --namespace=pancake --repository=openclaw-sandbox --cli-region=cn-north-4
 ```
 
-### W3: View Retention Rule Details
-
-```bash
+## # W3: View Retention Rule Details```bash
 hcloud SWR ShowRetention --namespace=pancake --repository=openclaw-sandbox --retention_id=<id> --cli-region=cn-north-4
 ```
 
 Response format to be verified with actual API call.
 
-### W4: Update a Retention Rule
+## # W4: Update a Retention Rule
 
 ```bash
 # Change retention to keep only last 5 tags
@@ -121,7 +119,7 @@ hcloud SWR UpdateRetention --namespace=pancake --repository=openclaw-sandbox \
 
 **Parameters**: Same as CreateRetention, plus `--retention_id`.
 
-### W5: Delete a Retention Rule
+## # W5: Delete a Retention Rule
 
 ⚠️ **CAUTION**: Deleting a retention rule stops automated cleanup. Old tags will accumulate indefinitely.
 
@@ -135,7 +133,7 @@ hcloud SWR DeleteRetention --namespace=pancake --repository=openclaw-sandbox --r
 hcloud SWR ListRetentions --namespace=pancake --repository=openclaw-sandbox --cli-region=cn-north-4
 ```
 
-### W6: View Retention Execution History
+## # W6: View Retention Execution History
 
 ```bash
 hcloud SWR ListRetentionHistories --namespace=pancake --repository=openclaw-sandbox --retention_id=<id> --cli-region=cn-north-4
@@ -143,9 +141,9 @@ hcloud SWR ListRetentionHistories --namespace=pancake --repository=openclaw-sand
 
 Response format to be verified with actual API call.
 
-## Common Scenarios
+# # Common Scenarios
 
-### S1: Standard Cleanup Policy for Development Repository
+## # S1: Standard Cleanup Policy for Development Repository
 
 Keep a reasonable number of recent tags:
 
@@ -160,7 +158,7 @@ hcloud SWR CreateRetention --namespace=dev-team --repository=my-app \
   --cli-region=cn-north-4
 ```
 
-### S2: Production Repository with Strict Retention
+## # S2: Production Repository with Strict Retention
 
 Keep production images for a longer period:
 
@@ -175,7 +173,7 @@ hcloud SWR CreateRetention --namespace=prod-team --repository=my-app \
   --cli-region=cn-north-4
 ```
 
-### S3: Protect Important Tags While Cleaning Old Ones
+## # S3: Protect Important Tags While Cleaning Old Ones
 
 Use tag selectors to protect critical tags:
 
@@ -192,7 +190,7 @@ hcloud SWR CreateRetention --namespace=team-backend --repository=gateway \
   --cli-region=cn-north-4
 ```
 
-### S4: Batch Apply Retention to All Repositories
+## # S4: Batch Apply Retention to All Repositories
 
 Apply retention rules to all repositories in a namespace:
 
@@ -210,7 +208,7 @@ hcloud SWR CreateRetention --namespace=team-backend --repository=<repo-name> \
   --cli-region=cn-north-4
 ```
 
-## Retention Rule Design Guide
+# # Retention Rule Design Guide
 
 | Repository Type   | Recommended Rule          | Params          | Tag Selector              |
 | ----------------- | ------------------------- | --------------- | ------------------------- |

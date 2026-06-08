@@ -1,8 +1,8 @@
-# Upgrade Workflow
+# UpgradeWorkflow
 
-## 7-Step Assessment Process
+# # 7-Step Assessment Process
 
-### Step 1: Collect Cluster Current State
+## # Step 1: Collect Cluster Current State
 
 Query cluster details to establish baseline:
 
@@ -22,7 +22,7 @@ hcloud CCE ListNodes --cluster_id=<cluster-id> --cli-region=<region> --cli-outpu
 - `metadata.annotations.activeNodesNumber` — active node count
 - `metadata.annotations.installedAddonInstances` — addon list with name, version, status
 
-### Step 2: Determine Upgrade Path
+## # Step 2: Determine Upgrade Path
 
 ```bash
 # Get all upgrade paths
@@ -31,7 +31,7 @@ hcloud CCE ListClusterUpgradePaths --cli-region=<region> --cli-output=json
 
 **Upgrade path rules** (see [k8s-version-matrix.md](k8s-version-matrix.md)):
 1. Find current version in the upgrade path table
-2. Check if target version is in the "支持升级到的Kubernetes版本号" column
+2. Check if target version is in the "Kubernetes version number that supports upgrade to" column
 3. If not listed, must upgrade through intermediate versions step by step
 4. Patch version must be upgraded to latest before major version upgrade
 
@@ -42,7 +42,7 @@ hcloud CCE ListClusterUpgradePaths --cli-region=<region> --cli-output=json
 - v1.27 → v1.28 (target)
 - Each step requires a full upgrade cycle (pre-check → upgrade → verify)
 
-### Step 3: Pre-Upgrade Check
+## # Step 3: Pre-Upgrade Check
 
 ```bash
 # Create upgrade workflow (triggers pre-check automatically)
@@ -74,12 +74,12 @@ hcloud CCE ShowClusterUpgradeInfo --cluster_id=<cluster-id> --cli-region=<region
 
 **If pre-check fails**: fix the reported issues before proceeding with upgrade.
 
-### Step 4: Addon Compatibility Assessment
+## # Step 4: Addon Compatibility Assessment
 
 For each installed addon:
 1. Check if addon supports both current and target K8s versions
 2. If addon only supports one version, it will be upgraded during cluster upgrade (auto) or needs separate upgrade action
-3. Verify addon upgrade won not break business functionality
+3. Verify addon upgrade won’t break business functionality
 
 ```bash
 # List addon template versions for target K8s
@@ -93,21 +93,19 @@ hcloud CCE ListAddonTemplates --cluster_id=<cluster-id> --addon_template_name=<a
 - NGINX Ingress Controller — upgrade after cluster (check version constraints)
 - DaemonSet plugins (ICAgent, node-exporter, fluent-bit, NPD) — upgrade during cluster upgrade (auto)
 
-### Step 5: Upgrade Window Estimation
+## # Step 5: Upgrade Window Estimation
 
 Calculate upgrade window based on:
-- Node count and batch strategy
+-Node count and batch strategy
 - Addon count and upgrade time per addon
 - Verification time
 - Buffer for unexpected issues
 
 See [upgrade-window-estimation.md](upgrade-window-estimation.md) for formula and examples.
 
-### Step 6: Generate Upgrade Plan (Execution Preview)
+## # Step 6: Generate Upgrade Plan (Execution Preview)
 
-Generate specific hcloud CLI commands for each phase:
-
-**Phase 1 — Control Plane Upgrade**:
+Generate specific hcloud CLI commands for each phase:**Phase 1 — Control Plane Upgrade**:
 ```bash
 hcloud CCE UpgradeCluster \
   --cluster_id=<cluster-id> \
@@ -145,7 +143,7 @@ hcloud CCE UpdateAddonInstance \
 
 > **⚠️ Execution Preview**: These commands are for review only. Do NOT execute without user confirming with explicit approval.
 
-### Step 7: Rollback Strategy & Post-Upgrade Verification
+## # Step 7: Rollback Strategy & Post-Upgrade Verification
 
 **Rollback options**:
 - Use backup data (etcd auto-backup during upgrade, CBR/EVS manual backup before upgrade)

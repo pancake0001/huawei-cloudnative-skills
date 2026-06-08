@@ -1,11 +1,11 @@
 # Workflow
 
-1. 将用户意图或根因结论转换成动作、对象、参数和验证标准。
-2. 如果根因是 Deployment 新版本启动命令/镜像/探针/CrashLoop 导致不可用，优先选择 `rollback_previous_revision`。
-3. 检查动作风险等级。Deployment rollback、scale、resize、cordon、uncordon 属于 R2；delete、drain、reboot、HSS 状态变更属于 R3。
-4. 第一次调用必须不带 `confirm=true`，获取预览或风险提示。
-5. 输出预览结果、影响范围、回滚方式、执行后验证计划。
-6. 等待用户明确确认，确认内容至少包含动作、对象、region、cluster_id。
-7. 用户确认后才允许携带 `confirm=true`。
-8. 执行后调用只读工具验证 Pod、Node、Workload、Events 或漏洞状态。
-9. 对自动恢复编排，输出完整 Markdown 执行报告，包含诊断依据、动作结果和验证结果。
+1. Convert user intentions or root cause conclusions into actions, objects, parameters and verification standards.
+2. If the root cause is that the Deployment new version startup command/image/probe/CrashLoop is unavailable, give priority to `rollback_previous_revision`.
+3. Check the action risk level. Deployment rollback, scale, resize, cordon, and uncordon belong to R2; delete, drain, reboot, and HSS status changes belong to R3.
+4. The first call must be without `confirm=true` to get a preview or risk prompt.
+5. Output preview results, impact scope, rollback method, and post-execution verification plan.
+6. Wait for explicit confirmation from the user. The confirmation content should at least include action, object, region, and cluster_id.
+7. The user is allowed to carry `confirm=true` only after confirmation.
+8. After execution, call the read-only tool to verify the Pod, Node, Workload, Events or vulnerability status.
+9. For automatic recovery arrangement, output a complete Markdown execution report, including diagnosis basis, action results and verification results.

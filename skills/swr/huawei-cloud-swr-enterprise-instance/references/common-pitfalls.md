@@ -2,7 +2,7 @@
 
 This document contains detailed troubleshooting guides for common issues encountered when using the Huawei Cloud SWR Enterprise Instance skill.
 
-## Pitfall 1: Instance Creation Requires Existing VPC and Subnet
+# # Pitfall 1: Instance Creation Requires Existing VPC and Subnet
 
 **Symptom**: `CreateInstance` fails with VPC/subnet not found error
 
@@ -18,7 +18,7 @@ This document contains detailed troubleshooting guides for common issues encount
 hcloud SWR CreateInstance --name=my-instance --spec=swr.ee.basic --charge_mode=postPaid --vpc_id=<valid-vpc-id> --subnet_id=<valid-subnet-id> --enterprise_project_id=0 --cli-region=cn-north-4
 ```
 
-## Pitfall 2: Instance Not Ready for Operations
+# # Pitfall 2: Instance Not Ready for Operations
 
 **Symptom**: Instance-related operations (namespace creation, credential creation) fail with errors
 
@@ -38,7 +38,7 @@ hcloud SWR ShowInstance --instance_id=<instance-id> --cli-region=cn-north-4
 
 **Instance Status Flow**: `Initial` → `Creating` → `Running` (or `Unavailable` if creation fails)
 
-## Pitfall 3: Invalid Instance Name Format
+# # Pitfall 3: Invalid Instance Name Format
 
 **Symptom**: `CreateInstance` returns error `400 Bad Request` or name validation error
 
@@ -60,7 +60,7 @@ hcloud SWR ShowInstance --instance_id=<instance-id> --cli-region=cn-north-4
 
 **Valid Examples**: `my-instance`, `prod-registry01`, `dev-team-app`
 
-## Pitfall 4: Pagination Offset Must Be Multiple of Limit
+# # Pitfall 4: Pagination Offset Must Be Multiple of Limit
 
 **Symptom**: `ListInstanceNamespaces`, `ListInstanceRegistries`, `ListInstanceRepositories`, or `ListInstanceArtifacts` pagination returns errors or unexpected results
 
@@ -84,7 +84,7 @@ hcloud SWR ListInstanceNamespaces --instance_id=<id> --limit=20 --offset=10 --cl
 
 ⚠️ **Note**: `ListInstance` and `ListInstanceLtCredentials` use standard offset/limit pagination (offset does not need to be multiple of limit). Only instance namespace, registry, repository, and artifact lists require the offset-to-be-multiple constraint.
 
-## Pitfall 5: Namespace metadata.public Required for Update
+# # Pitfall 5: Namespace metadata.public Required for Update
 
 **Symptom**: `UpdateInstanceNamespace` fails or only changes visibility when other settings were intended
 
@@ -100,7 +100,7 @@ hcloud SWR UpdateInstanceNamespace --instance_id=<id> --namespace_name=group-dev
 hcloud SWR UpdateInstanceNamespace --instance_id=<id> --namespace_name=group-dev --metadata.auto_scan=true --cli-region=cn-north-4
 ```
 
-## Pitfall 6: Registry Instance ID Appears Twice for swr-pro-internal
+# # Pitfall 6: Registry Instance ID Appears Twice for swr-pro-internal
 
 **Symptom**: `CreateInstanceRegistry` with type `swr-pro-internal` fails with missing parameters
 
@@ -116,7 +116,7 @@ hcloud SWR CreateInstanceRegistry --instance_id=<source-instance-id> --name=targ
 hcloud SWR CreateInstanceRegistry --instance_id=<source-instance-id> --name=target-registry --type=swr-pro-internal --url=<target-url> --credential.type=basic --credential.access_key=<key> --credential.access_secret=<secret> --insecure=false --cli-region=cn-north-4
 ```
 
-## Pitfall 7: Deleting Instance Removes ALL Data Permanently
+# # Pitfall 7: Deleting Instance Removes ALL Data Permanently
 
 **Symptom**: All namespaces, repositories, artifacts, and configurations disappear after instance deletion
 
@@ -133,7 +133,7 @@ hcloud SWR CreateInstanceRegistry --instance_id=<source-instance-id> --name=targ
 hcloud SWR DeleteInstance --instance_id=<id> --delete_obs=true --delete_dns=true --cli-region=cn-north-4
 ```
 
-## Pitfall 8: Default Domain Cannot Be Deleted
+# # Pitfall 8: Default Domain Cannot Be Deleted
 
 **Symptom**: `DeleteDomainName` fails when attempting to delete the default domain
 
@@ -148,7 +148,7 @@ hcloud SWR DeleteDomainName --instance_id=<id> --domainname_id=<custom-domain-id
 # ❌ WRONG - Attempting to delete default domain will fail
 ```
 
-## Pitfall 9: Public Access Whitelist is Full Replacement
+# # Pitfall 9: Public Access Whitelist is Full Replacement
 
 **Symptom**: Previous whitelist entries disappear after updating the whitelist
 
@@ -166,7 +166,7 @@ hcloud SWR UpdateInstanceEndpointPolicy --instance_id=<id> --ip_list.1.ip=172.16
 
 **Best Practice**: Before updating the whitelist, check current entries with `ShowInstanceEndpointPolicy` and include all existing entries in the update command.
 
-## Pitfall 10: Artifact Reference Uses Digest, Not Tag Name
+# # Pitfall 10: Artifact Reference Uses Digest, Not Tag Name
 
 **Symptom**: `ShowInstanceArtifact`, `DeleteInstanceArtifact`, `StartManualScanning` fail with "not found" error
 
@@ -182,7 +182,7 @@ hcloud SWR ListInstanceArtifacts --instance_id=<id> --namespace_name=group-dev -
 hcloud SWR ShowInstanceArtifact --instance_id=<id> --namespace_name=group-dev --repository_name=my-app --reference=sha256:abc123def456... --cli-region=cn-north-4
 ```
 
-## Pitfall 11: CreateInstanceEndpointPolicy Status Constraints
+# # Pitfall 11: CreateInstanceEndpointPolicy Status Constraints
 
 **Symptom**: `CreateInstanceEndpointPolicy` fails when trying to enable or disable public access
 
@@ -200,7 +200,7 @@ hcloud SWR ShowInstanceEndpointPolicy --instance_id=<id> --cli-region=cn-north-4
 hcloud SWR CreateInstanceEndpointPolicy --instance_id=<id> --enable=true --cli-region=cn-north-4
 ```
 
-## Pitfall 12: Registry Credential Security
+# # Pitfall 12: Registry Credential Security
 
 **Symptom**: Registry sync fails with authentication error
 
@@ -216,7 +216,7 @@ hcloud SWR CreateInstanceEndpointPolicy --instance_id=<id> --enable=true --cli-r
 hcloud SWR UpdateInstanceRegistry --instance_id=<id> --registry_id=<reg-id> --name=target --type=swr-pro --url=<url> --credential.type=basic --credential.access_key=<new-key> --credential.access_secret=<new-secret> --insecure=false --cli-region=cn-north-4
 ```
 
-## Pitfall 13: Instance VPC Project ID Confusion
+# # Pitfall 13: Instance VPC Project ID Confusion
 
 **Symptom**: `CreateInstance` or `CreateInstanceInternalEndpoint` fails with project ID errors
 
@@ -229,7 +229,7 @@ hcloud SWR UpdateInstanceRegistry --instance_id=<id> --registry_id=<reg-id> --na
 hcloud SWR CreateInstance --name=my-instance --spec=swr.ee.basic --charge_mode=postPaid --vpc_id=<vpc-id> --subnet_id=<subnet-id> --enterprise_project_id=0 --project_id=<vpc-project-id> --cli-region=cn-north-4
 ```
 
-## Pitfall 14: ListAllInstanceRepositories Uses Marker-Based Pagination
+# # Pitfall 14: ListAllInstanceRepositories Uses Marker-Based Pagination
 
 **Symptom**: Pagination with `--offset/--limit` returns unexpected results for `ListAllInstanceRepositories`
 
@@ -248,13 +248,11 @@ hcloud SWR ListAllInstanceRepositories --limit=20 --marker=<next_marker> --cli-r
 hcloud SWR ListAllInstanceRepositories --limit=20 --offset=0 --cli-region=cn-north-4
 ```
 
-## Pitfall 15: hcloud CLI CreateInstance Duplicate --project_id Bug
+# # Pitfall 15: hcloud CLI CreateInstance Duplicate --project_id Bug
 
-**Symptom**: `hcloud SWR CreateInstance` fails with `[USE_ERROR]重复的参数:project_id` or `[USE_ERROR]缺少必填参数:project_id`
-
-**Root Cause**: The `CreateInstance` API has two `--project_id` parameters with the same name — one as a path parameter (auto-filled from `cli-project-id`) and one as a body parameter (VPC/subnet project). hcloud CLI (version 7.2.2) does not support duplicate parameter names:
-- Passing `--project_id` once fills only the path parameter, leaving the body parameter missing → `缺少必填参数:project_id`
-- Passing `--project_id` twice triggers duplicate parameter detection → `重复的参数:project_id`
+**Symptom**: `hcloud SWR CreateInstance` fails with `[USE_ERROR]Duplicate parameter: project_id` or `[USE_ERROR] Missing required parameter: project_id`**Root Cause**: The `CreateInstance` API has two `--project_id` parameters with the same name — one as a path parameter (auto-filled from `cli-project-id`) and one as a body parameter (VPC/subnet project). hcloud CLI (version 7.2.2) does not support duplicate parameter names:
+- Passing `--project_id` once fills only the path parameter, leaving the body parameter missing → `Missing required parameter: project_id`
+- Passing `--project_id` twice triggers duplicate parameter detection → `Duplicate parameter: project_id`
 
 **Solution**: Use the Python SDK helper script (`scripts/swr_instance_helper.py`) which bypasses this bug by calling the SDK `CreateInstanceRequestBody` directly, where `project_id` is a single body field:
 
@@ -269,7 +267,7 @@ python scripts/swr_instance_helper.py create --name=my-instance --spec=swr.ee.ba
 
 All other hcloud CLI SWR operations (ListInstance, ShowInstance, DeleteInstance, namespace/credential/endpoint/domain management) work correctly.
 
-## Pitfall 16: SWR Service Tenant Quota Exceeded (Misleading Error)
+# # Pitfall 16: SWR Service Tenant Quota Exceeded (Misleading Error)
 
 **Symptom**: `CreateInstance` (via SDK or API) returns job status `Failed` with reason containing `"Quota exceeded for instances: Requested 1, but already used 200 of 200 instances"` (error code `Ecs.0204`, HTTP 403)
 
@@ -307,9 +305,7 @@ reason: [[CreateServiceTenantCCENode.DoError] wait cycle error, failed to create
     "error_code":"Ecs.0204","fail_reason":"CreateServerWithRootVolumeAndDataVolumeTask-fail: ..."}]}]
 ```
 
-## Common Error Response Reference
-
-| Error Code          | HTTP Status | Description                  | Recommended Action                    |
+# # Common Error Response Reference| Error Code          | HTTP Status | Description                  | Recommended Action                    |
 | ------------------- | ----------- | ---------------------------- | ------------------------------------- |
 | `SVCSTG.SWR.401`    | 401         | Authentication failed        | Check AK/SK configuration            |
 | `SVCSTG.SWR.403`    | 403         | Permission denied            | Check IAM policies                    |

@@ -1,6 +1,6 @@
 # Workflow
 
-## Metric Query Sequence
+# # Metric Query Sequence
 
 1. Identify `region`, `cluster_id` from user query.
 2. Determine query target:
@@ -12,27 +12,27 @@
 4. Set `top_n` (default 10) and `hours` (default 1) parameters.
 5. Execute query and parse results.
 
-## Pod Metrics Workflow
+# # Pod Metrics Workflow
 
 ```
-User: 查看某个命名空间下 CPU 使用最高的 Pod
+User: Find the Pods with the highest CPU usage in a namespace.
 1. huawei_get_cce_pod_metrics_topN(region, cluster_id, namespace=xxx, top_n=10)
 2. Sort results by cpu_usage_percent descending
 3. Filter for critical/warning status
 4. Report top consumers and anomaly thresholds
 ```
 
-## Node Metrics Workflow
+# # Node Metrics Workflow
 
 ```
-User: 查看集群节点内存使用排名
+User: View the memory usage ranking for cluster nodes.
 1. huawei_get_cce_node_metrics_topN(region, cluster_id, top_n=10)
 2. Sort results by memory_usage_percent descending
 3. Filter for critical/warning status
 4. Report top consumers and node health status
 ```
 
-## Threshold Detection
+# # Threshold Detection
 
 | Resource | Critical | Warning | Status Field |
 |----------|----------|---------|--------------|
@@ -40,7 +40,7 @@ User: 查看集群节点内存使用排名
 | Memory | >85% | >50% | `status` in memory data |
 | Disk | >85% | >70% | `status` in disk data |
 
-## Next Steps
+# # Next Steps
 
 If anomalies are detected:
 - For Pod issues: suggest `pod-failure-diagnoser` or `workload-failure-diagnoser`

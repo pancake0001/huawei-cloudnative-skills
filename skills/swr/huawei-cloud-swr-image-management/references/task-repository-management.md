@@ -1,23 +1,23 @@
 # Task: Repository Management
 
-## Overview
+# # Overview
 
 SWR image repositories hold container images within a namespace. This task covers creating, querying, updating, and deleting repositories.
 
-## Operations Catalog
+# # Operations Catalog
 
-| Operation           | Method | Description              | Key Parameters                                  |
-| ------------------- | ------ | ------------------------ | ----------------------------------------------- |
-| `ListReposDetails`  | GET    | 查询镜像仓库列表         | `--namespace`, `--name`, `--category`, `--limit`, `--offset` |
-| `ShowRepository`    | GET    | 查询镜像仓库概要信息     | `--namespace`, `--repository`                   |
-| `CreateRepo`        | POST   | 创建镜像仓库             | `--namespace`, `--repository`, `--is_public`, `--category`, `--description` |
-| `UpdateRepo`        | PATCH  | 更新镜像仓库信息         | `--namespace`, `--repository`, `--is_public`, `--category`, `--description` |
-| `DeleteRepo`        | DELETE | 删除镜像仓库             | `--namespace`, `--repository`                   |
-| `ListNamespaceRepositories` | GET | 查询组织下镜像仓库列表 | `--namespace`                                   |
+| Operation | Method | Description | Key Parameters |
+| ------------------- | ------ | ------------------------ | -------------------------------------------------- |
+| `ListReposDetails` | GET | Query the mirror warehouse list | `--namespace`, `--name`, `--category`, `--limit`, `--offset` |
+| `ShowRepository` | GET | Query the summary information of the image warehouse | `--namespace`, `--repository` |
+| `CreateRepo` | POST | Create a mirror repository | `--namespace`, `--repository`, `--is_public`, `--category`, `--description` |
+| `UpdateRepo` | PATCH | Update image repository information | `--namespace`, `--repository`, `--is_public`, `--category`, `--description` |
+| `DeleteRepo` | DELETE | Delete the image repository | `--namespace`, `--repository` |
+| `ListNamespaceRepositories` | GET | Query the list of mirror repositories under the organization | `--namespace` |
 
 ## Workflows
 
-### W1: List Repositories
+## # W1: List Repositories
 
 ```bash
 # List all repositories across all namespaces
@@ -56,7 +56,7 @@ hcloud SWR ListReposDetails --category=database --cli-region=cn-north-4
 - `created_at`: Creation timestamp
 - `updated_at`: Last update timestamp
 
-### W2: View Repository Details
+## # W2: View Repository Details
 
 ```bash
 hcloud SWR ShowRepository --namespace=group-dev --repository=nginx --cli-region=cn-north-4
@@ -76,7 +76,7 @@ hcloud SWR ShowRepository --namespace=group-dev --repository=nginx --cli-region=
 - View tag count and storage size
 - Verify repository before updating or deleting
 
-### W3: Create a Repository
+## # W3: Create a Repository
 
 **Pre-creation Checklist**:
 1. Verify namespace exists: `hcloud SWR ShowNamespace --namespace=<name> --cli-region=cn-north-4`
@@ -94,13 +94,11 @@ hcloud SWR CreateRepo --namespace=group-dev --repository=nginx --is_public=true 
 
 **Category Options**: `app_server`, `linux`, `framework_app`, `database`, `lang`, `other`, `windows`, `arm`
 
-**Post-creation Verification**:
-
-```bash
+**Post-creation Verification**:```bash
 hcloud SWR ShowRepository --namespace=group-dev --repository=my-app --cli-region=cn-north-4
 ```
 
-### W4: Update Repository Properties
+## # W4: Update Repository Properties
 
 ```bash
 # Change visibility from private to public
@@ -115,7 +113,7 @@ hcloud SWR UpdateRepo --namespace=group-dev --repository=my-app --is_public=true
 
 **Note**: `--is_public` is required for `UpdateRepo` even if you only want to change description or category.
 
-### W5: Delete a Repository
+## # W5: Delete a Repository
 
 ⚠️ **CAUTION**: Deleting a repository permanently removes ALL image tags. This is irreversible.
 
@@ -137,9 +135,9 @@ hcloud SWR DeleteRepo --namespace=group-dev --repository=my-app --cli-region=cn-
 hcloud SWR ShowRepository --namespace=group-dev --repository=my-app --cli-region=cn-north-4
 ```
 
-## Common Scenarios
+# # Common Scenarios
 
-### S1: Standard Project Repository Setup
+## # S1: Standard Project Repository Setup
 
 Set up repositories for a typical development team:
 
@@ -153,7 +151,7 @@ hcloud SWR CreateRepo --namespace=proj-microservice --repository=user-service --
 hcloud SWR CreateRepo --namespace=proj-microservice --repository=gateway --is_public=false --category=app_server --description="API gateway" --cli-region=cn-north-4
 ```
 
-### S2: Audit Repository Inventory
+## # S2: Audit Repository Inventory
 
 Periodically review repositories across all namespaces:
 
@@ -168,7 +166,7 @@ hcloud SWR ListReposDetails --namespace=group-dev --cli-region=cn-north-4
 hcloud SWR ShowRepository --namespace=group-dev --repository=nginx --cli-region=cn-north-4
 ```
 
-### S3: Change Repository Visibility
+## # S3: Change Repository Visibility
 
 Switch a repository between public and private:
 

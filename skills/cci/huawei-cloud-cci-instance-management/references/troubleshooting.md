@@ -1,6 +1,6 @@
 # Troubleshooting Guide for CCI hcloud CLI Issues
 
-## 1. Namespace Creation Fails
+# # 1. Namespace Creation Fails
 
 **Cause:** Missing `namespace.kubernetes.io/flavor` annotation.
 
@@ -11,7 +11,7 @@
 
 Without this annotation, CCI rejects namespace creation requests.
 
-## 2. Network Creation Fails
+# # 2. Network Creation Fails
 
 **Cause:** Invalid subnet ID, VPC ID, or CIDR conflict.
 
@@ -21,17 +21,17 @@ Without this annotation, CCI rejects namespace creation requests.
 - Ensure Network CIDR does not overlap with `10.247.0.0/16` (reserved for CCI internal routing)
 - Use a different CIDR range such as `10.0.0.0/24` or `172.16.0.0/24`
 
-## 3. Pod Stays in Pending State
+# # 3. Pod Stays in Pending State
 
 **Cause:** No Network in namespace, insufficient resources, or image pull failure.
 
 **Fix:**
 - Check events: `hcloud CCI listCoreV1NamespacedEvent --namespace=<ns-name>`
 - Verify Network exists in the namespace
-- Verify image name and credentials
+-Verify image name and credentials
 - Check resource availability in the namespace
 
-## 4. Deployment Pods Not Becoming Ready
+# # 4. Deployment Pods Not Becoming Ready
 
 **Cause:** Container crash, image pull error, or resource limits exceeded.
 
@@ -41,13 +41,13 @@ Without this annotation, CCI rejects namespace creation requests.
 - Read Pod logs: `hcloud CCI readCoreV1NamespacedPodLog --name=<pod> --namespace=<ns> --container=<container>`
 - Check resource limits vs available namespace resources
 
-## 5. Permission Denied (403)
+# # 5. Permission Denied (403)
 
 **Cause:** IAM permissions insufficient for the requested operation.
 
 **Fix:** Refer to iam-policies.md, identify the missing permission, and add it to the IAM policy.
 
-## 6. Parameter Format Errors
+# # 6. Parameter Format Errors
 
 **Common mistakes:**
 - Using JSON objects instead of `{*}` format for nested parameters
@@ -57,7 +57,7 @@ Without this annotation, CCI rejects namespace creation requests.
 
 **Fix:** Refer to parameter-format.md for correct hcloud CLI parameter syntax.
 
-## 7. EIPPool Creation Fails
+# # 7. EIPPool Creation Fails
 
 **Cause:** No available EIPs in the project, or CIDR format error.
 
@@ -66,7 +66,7 @@ Without this annotation, CCI rejects namespace creation requests.
 - Check CIDR format (must be valid IPv4 CIDR, e.g., `10.0.0.0/24`)
 - Ensure sufficient EIPs exist for the pool size
 
-## 8. Deep Nested Parameter Construction Is Complex
+# # 8. Deep Nested Parameter Construction Is Complex
 
 **Fix:**
 - Always use `hcloud CCI <Operation> --help` first to see parameter structure
@@ -74,7 +74,7 @@ Without this annotation, CCI rejects namespace creation requests.
 - Use `--dryRun=All` to validate parameters before execution
 - Refer to parameter-format.md for nested parameter syntax rules
 
-## 9. hcloud CLI General Errors
+# # 9. hcloud CLI General Errors
 
 | Error Type | Description | Resolution |
 |---|---|---|
@@ -83,7 +83,7 @@ Without this annotation, CCI rejects namespace creation requests.
 | `[OPENAPI_ERROR]` | API version compatibility issue | Check API version, update hcloud CLI |
 | Debug flag | `--cli-debug=true` | Add this flag to any command for detailed debug output |
 
-## 10. Pod Exec Operations
+# # 10. Pod Exec Operations
 
 The `connectCoreV1GetNamespacedPodExec` and `connectCoreV1PostNamespacedPodExec` operations are interactive WebSocket operations. They may not work well in hcloud CLI batch mode.
 
@@ -92,7 +92,7 @@ The `connectCoreV1GetNamespacedPodExec` and `connectCoreV1PostNamespacedPodExec`
 hcloud CCI readCoreV1NamespacedPodLog --name=<pod> --namespace=<ns> --container=<container>
 ```
 
-## 11. CCI Network "securitygroup can not be empty" Error
+# # 11. CCI Network "securitygroup can not be empty" Error
 
 **Cause:** The annotation key `network.alpha.kubernetes.io/default-security-group` is not correctly passed.
 
@@ -103,13 +103,11 @@ hcloud CCI readCoreV1NamespacedPodLog --name=<pod> --namespace=<ns> --container=
 
 **Fix:** Use the Python helper script for Network creation instead of hcloud CLI. The Python SDK correctly handles annotation keys with dots.
 
-## 12. hcloud CLI "不正确的参数" for Annotation Keys with Dots
-
-**Cause:** When using `--metadata.annotations.network.alpha.kubernetes.io/key=value`, hcloud treats each dot as a nested object level delimiter. No escaping mechanism (backslash, quotes, etc.) works.
+# # 12. hcloud CLI "Incorrect parameter" for Annotation Keys with Dots**Cause:** When using `--metadata.annotations.network.alpha.kubernetes.io/key=value`, hcloud treats each dot as a nested object level delimiter. No escaping mechanism (backslash, quotes, etc.) works.
 
 **Fix:** This is an hcloud CLI limitation. Use the Python helper script for any CCI resource creation that requires annotation keys with dots (especially Network). hcloud CLI is usable only for annotation keys without dots (e.g., hyphenated keys on Namespace).
 
-## 13. hcloud `--cli-jsonInput` "解析cli-jsonInput参数文件失败" Error
+# # 13. hcloud `--cli-jsonInput` "Failed to parse cli-jsonInput parameter file" Error
 
 **Cause:** Multiple possible causes for this JSON input parsing failure.
 
@@ -118,19 +116,19 @@ hcloud CCI readCoreV1NamespacedPodLog --name=<pod> --namespace=<ns> --container=
 - **Annotations with dots not transmitted:** This is a confirmed hcloud bug. Annotations with dots appear in `--dryrun` output but are not included in the actual API request body. Use the Python helper script instead.
 - **Incorrect JSON structure:** The JSON structure must exactly match the skeleton format shown by `hcloud CCI <Operation> --help`. Verify field names, nesting, and required fields.
 
-## 14. Network Creation "spec[networkID]: Required value" Error
+# # 14. Network Creation "spec[networkID]: Required value" Error
 
 **Cause:** The `networkID` field (neutron network ID) is missing from the Network spec. This field is required alongside `attachedVPC`, `subnetID`, and `networkType`.
 
 **Fix:** Obtain the neutron network ID from `hcloud VPC ShowSubnet` output and include it in the Network spec as the `networkID` field.
 
-## 15. CCI Annotation Key Auto-Normalization
+# # 15. CCI Annotation Key Auto-Normalization
 
 **Behavior:** For Namespace resources, CCI automatically adds the canonical dotted annotation key (`namespace.kubernetes.io/flavor`) alongside the hyphenated version (`namespace-kubernetes-io/flavor`) when you provide only the hyphenated form. This auto-normalization only works for Namespace.
 
 **Important:** This normalization does NOT apply to Network resources. For Network, you must provide the exact dotted annotation keys (`network.alpha.kubernetes.io/default-security-group`, etc.) yourself. Since hcloud CLI cannot handle dotted keys, use the Python helper script for Network creation.
 
-## 16. Deployment "limit and request doesn't equal" Error
+# # 16. Deployment "limit and request doesn't equal" Error
 
 **Cause:** CCI requires container resource limits to equal requests. If limits != requests, CCI rejects the Deployment/Pod creation.
 
@@ -142,7 +140,7 @@ hcloud CCI readCoreV1NamespacedPodLog --name=<pod> --namespace=<ns> --container=
 --spec.template.spec.containers.1.resources.requests.memory=1Gi
 ```
 
-## 17. EIPPool Creation Fails with "Object 'Kind' is missing"
+# # 17. EIPPool Creation Fails with "Object 'Kind' is missing"
 
 **Cause:** Missing `--apiVersion=crd.yangtse.cni/v1` and `--kind=EIPPool` parameters.
 
@@ -151,13 +149,13 @@ hcloud CCI readCoreV1NamespacedPodLog --name=<pod> --namespace=<ns> --container=
 --apiVersion=crd.yangtse.cni/v1 --kind=EIPPool
 ```
 
-## 18. EIPPool Creation Fails with 422 "spec.eipAttributes.networkType: Required value"
+# # 18. EIPPool Creation Fails with 422 "spec.eipAttributes.networkType: Required value"
 
 **Cause:** Missing the required `--spec.eipAttributes.networkType` parameter.
 
 **Fix:** Add `--spec.eipAttributes.networkType=5_bgp` (dynamic BGP) or `5_gray` (dedicated load balancing).
 
-## 19. EIPPool Creation Fails with 403 "name, size, shareType and chargeMode are required"
+# # 19. EIPPool Creation Fails with 403 "name, size, shareType and chargeMode are required"
 
 **Cause:** Missing required bandwidth fields when auto-creating EIPs.
 

@@ -1,6 +1,6 @@
 # Output Schema
 
-`huawei_storage_failure_diagnose` 返回结构化 JSON，并在 `report_markdown` 中内嵌最终客户报告。
+`huawei_storage_failure_diagnose` returns structured JSON with the final customer report embedded in `report_markdown`.
 
 ```json
 {
@@ -10,12 +10,12 @@
   "cluster_id": "cluster-id",
   "namespace": "default",
   "conclusion": "high signal conclusion",
-  "confidence": "高 (High)",
+  "confidence": "High",
   "findings": [
     {
-      "stage": "三、挂载期故障",
+      "stage": "3. Failure during mounting period",
       "type": "EVSNodeAttachLimitExceeded",
-      "title": "VolumeAttachment Attached=False，错误信息指向 ECS 单节点挂载云硬盘数量达到上限",
+      "title": "VolumeAttachment Attached=False, the error message points to the fact that the number of cloud disks attached to a single ECS node has reached the upper limit",
       "confidence": 0.94,
       "severity": "critical",
       "evidence": [],
@@ -38,26 +38,26 @@
     "csi_logs": {},
     "cloud_storage": {}
   },
-  "report_markdown": "# CCE 存储故障自动化诊断报告\n..."
+  "report_markdown": "# CCE storage fault automated diagnosis report\n..."
 }
 ```
 
-## Markdown Sections
+# # Markdown Sections
 
-`report_markdown` 必须包含以下标题：
+`report_markdown` must contain the following headers:
 
-- `# CCE 存储故障自动化诊断报告`
-- `## 1. 诊断总览`
-- `## 2. 排查过程`
-- `## 3. 关键对象关系`
-- `## 4. 证据矩阵`
-- `## 5. 诊断结论`
-- `## 6. 建议动作与验证标准`
-- `## 7. 数据缺口与人工确认`
+- `# CCE Storage Fault Automated Diagnosis Report`
+- `## 1. Diagnosis Overview`
+- `## 2. Troubleshooting process`
+- `## 3. Key object relationships`
+- `## 4. Evidence matrix`
+- `## 5. Diagnostic conclusion`
+- `## 6. Recommended actions and verification standards`
+- `## 7. Data gaps and manual confirmation`
 
-## Finding Types
+# # Finding Types
 
-常见 `type` 值：
+Common `type` values:
 
 - `NormalWaitForFirstConsumer`
 - `EVSQuotaExceeded`

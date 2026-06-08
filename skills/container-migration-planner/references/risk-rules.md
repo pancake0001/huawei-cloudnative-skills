@@ -1,8 +1,7 @@
-# Risk Rules
+# RiskRules
 
-- 只允许资源盘点和方案生成。
-- 不创建、删除、扩缩容、迁移、绑定或解绑任何资源。
-- Secret 只允许记录存在性、名称和用途，不输出敏感值。
-- 输出中的 project_id、AK/SK、token、证书必须脱敏或省略。
-- 所有执行动作都放入后续人工确认清单。
-
+- Only resource inventory and plan generation are allowed.
+- Do not create, delete, expand or shrink, migrate, bind or unbind any resources.
+- Secret only allows recording existence, name and purpose, and does not output sensitive values.
+- The project_id, AK/SK, token, and certificate in the output must be desensitized or omitted.
+- All execution actions are put into the subsequent manual confirmation list.

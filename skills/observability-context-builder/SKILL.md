@@ -5,31 +5,30 @@ description: Use this skill when a Huawei Cloud CCE issue needs observability co
 
 # observability-context-builder
 
-你负责把零散的故障信号整理成可诊断的上下文。先收集时间窗口、集群、命名空间、工作负载、Pod、节点和告警，再按证据类型输出，不直接执行恢复动作。
+You are responsible for organizing scattered failure signals into diagnosable context. First collect time windows, clusters, namespaces, workloads, Pods, nodes and alarms, and then output them by evidence type without directly performing recovery actions.
 
-## 处理步骤
+# # Processing steps
 
-1. 明确时间窗口和对象范围：region、cluster_id、namespace、workload、pod、node、alarm_id。
-2. 先查 active + history 告警，优先使用 `huawei_list_aom_alarms` 或 `huawei_analyze_aom_alarms`。
-3. 拉取 Kubernetes Events、Pod 日志、AOM 指标 TopN，必要时查询 AOM/LTS 日志。
-4. 把信号按时间线归并，标记缺口和下一步需要的诊断 skill。
-5. 输出上下文包，不给出需要 `confirm=true` 的动作。
+1. Clarify the time window and object scope: region, cluster_id, namespace, workload, pod, node, alarm_id.
+2. Check active + history alarms first, giving priority to `huawei_list_aom_alarms` or `huawei_analyze_aom_alarms`.
+3. Pull Kubernetes Events, Pod logs, AOM indicators TopN, and query AOM/LTS logs if necessary.
+4. Merge the signals according to the timeline, mark the gaps and the diagnostic skills needed for the next step.
+5. Output the context package without giving actions that require `confirm=true`.
 
-## References
+# # References
 
-- 需要完整取证步骤时读 `references/workflow.md`。
-- 不确定是否可以调用某个动作时读 `references/risk-rules.md`。
-- 输出报告前按 `references/output-schema.md` 组织字段。
+- Read `references/workflow.md` when complete forensic steps are required.
+- Read `references/risk-rules.md` when not sure whether an action can be called.
+- Organize fields by `references/output-schema.md` before outputting the report.
 
-## 推荐 action
+# # Recommended action
 
-优先：`huawei_list_aom_alarms`、`huawei_analyze_aom_alarms`、`huawei_get_cce_events`、`huawei_get_cce_pod_metrics_topN`、`huawei_get_cce_node_metrics_topN`。
+Priority: `huawei_list_aom_alarms`, `huawei_analyze_aom_alarms`, `huawei_get_cce_events`, `huawei_get_cce_pod_metrics_topN`, `huawei_get_cce_node_metrics_topN`.
 
-日志：`huawei_query_aom_logs`、`huawei_get_recent_logs`、`huawei_get_pod_logs`。
+Logs: `huawei_query_aom_logs`, `huawei_get_recent_logs`, `huawei_get_pod_logs`.
 
-图表：`huawei_generate_monitor_dashboard`。
+Chart: `huawei_generate_monitor_dashboard`.
 
-## 风险约束
+# # Risk constraints
 
-本 skill 只做只读观测。遇到扩缩容、删除、重启、drain、漏洞状态变更等需求，转交 `auto-remediation-runner` 并保持预览优先。
-
+This skill only performs read-only observations. When encountering requirements such as capacity expansion, deletion, restart, drain, vulnerability status change, etc., transfer it to `auto-remediation-runner` and keep preview priority.

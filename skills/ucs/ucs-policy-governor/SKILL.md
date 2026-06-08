@@ -4,14 +4,14 @@ name: ucs-policy-governor
 description: |
   Huawei Cloud UCS (Universal Cloud Service) policy governance and compliance management skill using hcloud CLI.
   Use this skill when the user wants to: (1) manage UCS policy instances - create/update/query/delete, (2) manage UCS policy definitions - query/list, (3) enable/disable policies on clusters or fleet groups, (4) check policy enforcement job status, (5) audit fleet compliance and review policy enforcement status.
-  Trigger: user mentions "UCS policy", "UCS 策略", "UCS governance", "UCS 治理", "UCS compliance", "UCS 合规", "policy instance", "策略实例", "policy definition", "策略定义", "enable policy", "启用策略", "disable policy", "禁用策略", "fleet compliance", "舰队合规", "policy audit", "策略审计", "UCS 策略管理", "UCS 合规治理", "policy governance", "策略治理"
+  Trigger: user mentions "UCS policy", "UCS policy", "UCS governance", "UCS governance", "UCS compliance", "UCS compliance", "policy instance", "policy instance", "policy definition", "policy definition", "enable policy", "enable policy", "disable policy", "disable policy", "fleet compliance", "fleet compliance", "policy audit", "policy audit", "UCS policy management", "UCS compliance governance", "policy governance", "policy governance"
 tags: [ucs, policy-governance, compliance, policy-instance, fleet]
 version: 1.0.0
 ---
 
 # Huawei Cloud UCS Policy Governor
 
-## Overview
+# # Overview
 
 This skill provides policy governance and compliance management capabilities for Huawei Cloud UCS (Universal Cloud Service) using the `hcloud` CLI, covering policy instance lifecycle, policy definitions, policy enforcement, and compliance auditing.
 
@@ -42,15 +42,15 @@ This skill provides policy governance and compliance management capabilities for
 - "Delete an obsolete policy instance"
 - "Query policy definition details before applying"
 
-## Prerequisites
+# # Prerequisites
 
-### 1. hcloud CLI Requirements (MANDATORY)
+## # 1. hcloud CLI Requirements (MANDATORY)
 
 - hcloud CLI installed (version >= 7.2.2)
 - Run `hcloud version` to verify installation
 - First-time usage: `printf "y\n" | hcloud version` to accept privacy statement
 
-### 2. Credential Configuration
+## # 2. Credential Configuration
 
 - Valid Huawei Cloud credentials (AK/SK mode)
 - **Security Rules**:
@@ -68,16 +68,14 @@ export HUAWEI_CLOUD_SK=<your-sk>
 export HUAWEI_CLOUD_REGION=cn-north-4
 ```
 
-**⚠️ Important Security Notes**:
+**⚠️Important Security Notes**:
 
-- Never commit credentials to version control
+-Never commit credentials to version control
 - Use IAM users with minimal required permissions
 - Enable MFA for sensitive operations
 - Rotate AK/SK regularly
 
-### 3. IAM Permission Requirements
-
-| API Action                                  | Permission        | Purpose                                |
+## # 3. IAM Permission Requirements| API Action                                  | Permission        | Purpose                                |
 | ------------------------------------------- | ----------------- | -------------------------------------- |
 | `ucs:clusterPolicyInstance:create`           | Create policy     | Create cluster-level policy instances  |
 | `ucs:clusterGroupPolicyInstance:create`      | Create policy     | Create fleet group-level policy instances |
@@ -103,9 +101,9 @@ See [IAM Permission Policies](references/iam-policies.md) for complete policy JS
 3. Guide the user to create a custom policy in the IAM console and grant authorization
 4. Pause execution and wait for user confirmation that permissions have been granted
 
-## Core Commands
+# # Core Commands
 
-### 1. Policy Instance Management
+## # 1. Policy Instance Management
 
 See [Task: Policy Management](references/task-policy-management.md) for detailed workflows.
 
@@ -129,7 +127,7 @@ hcloud UCS DeletePolicyInstance --policyinstanceid=<instance-id> --cli-region=cn
 hcloud UCS ListPolicyInstances --cli-region=cn-north-4
 ```
 
-### 2. Policy Definition Management
+## # 2. Policy Definition Management
 
 ```bash
 # List all available policy definitions (no filter parameters available)
@@ -139,7 +137,7 @@ hcloud UCS ListPolicyDefinitions --cli-region=cn-north-4
 hcloud UCS ShowPolicyDefinition --policydefinitionid=<definition-id> --cli-region=cn-north-4
 ```
 
-### 3. Policy Enforcement (Enable/Disable)
+## # 3. Policy Enforcement (Enable/Disable)
 
 ```bash
 # Enable a policy on a cluster
@@ -158,7 +156,7 @@ hcloud UCS DisableClusterPolicy --clusterid=<ucs-cluster-id> --cli-region=cn-nor
 hcloud UCS DisableClusterGroupPolicy --clustergroupid=<fleet-group-id> --cli-region=cn-north-4
 ```
 
-### 4. Policy Enforcement Job Status
+## # 4. Policy Enforcement Job Status
 
 See [Task: Compliance Audit](references/task-compliance-audit.md) for detailed workflows.
 
@@ -173,15 +171,15 @@ hcloud UCS ListPolicyJobs --kind=EnablePolicy --cli-region=cn-north-4
 hcloud UCS ShowPolicyJob --jobid=<job-id> --cli-region=cn-north-4
 ```
 
-## Parameter Reference
+# # Parameter Reference
 
-### Common Parameters
+## # Common Parameters
 
 | Parameter       | Required/Optional | Description                   | Default                              |
 | --------------- | ----------------- | ----------------------------- | ------------------------------------ |
 | `--cli-region`  | Required          | Huawei Cloud region ID        | Config value or `HUAWEI_CLOUD_REGION` |
 
-### Policy Instance Parameters
+## # Policy Instance Parameters
 
 | Parameter               | Required | Description              | Constraints                                  |
 | ----------------------- | -------- | ------------------------ | -------------------------------------------- |
@@ -196,22 +194,22 @@ hcloud UCS ShowPolicyJob --jobid=<job-id> --cli-region=cn-north-4
 
 *Note: `--clusterid` is required for cluster-level operations (CreateClusterPolicyInstance, EnableClusterPolicy, DisableClusterPolicy). `--clustergroupid` is required for fleet group-level operations (CreateClusterGroupPolicyInstance, EnableClusterGroupPolicy, DisableClusterGroupPolicy).
 
-### Policy Definition Parameters
+## # Policy Definition Parameters
 
 | Parameter               | Required | Description              | Constraints                                  |
 | ----------------------- | -------- | ------------------------ | -------------------------------------------- |
 | `--policydefinitionid`  | Yes      | Definition ID            | Used in ShowPolicyDefinition                 |
 
-### Policy Job Parameters
+## # Policy Job Parameters
 
 | Parameter               | Required | Description              | Constraints                                  |
 | ----------------------- | -------- | ------------------------ | -------------------------------------------- |
 | `--jobid`               | Yes      | Policy job ID            | Used in ShowPolicyJob                        |
 | `--kind`                | No       | Job type filter          | Default `EnablePolicy`, used in ListPolicyJobs |
 
-## Output Format
+# # Output Format
 
-### CreateClusterPolicyInstance / CreateClusterGroupPolicyInstance
+## # CreateClusterPolicyInstance / CreateClusterGroupPolicyInstance
 
 [to be verified — UCS responses follow k8s-style format based on verified ShowClusterList/ListPolicyDefinitions patterns]
 
@@ -223,7 +221,7 @@ UCS API returns Kubernetes-style objects, not flat JSON. Based on verified `Show
 - Enforcement action: Likely in `spec.enforcementAction` (`warn` or `deny`)
 - Status: Likely in `status.phase` (`Enabled`, `Disabled`, `Pending`)
 
-### ListPolicyDefinitions
+## # ListPolicyDefinitions
 
 **Response Example** (verified):
 
@@ -239,7 +237,7 @@ UCS API returns Kubernetes-style objects, not flat JSON. Based on verified `Show
         "creationTimestamp": "2023-06-01T14:11:41Z",
         "annotations": {
           "name-chinese": "K8sRequiredResources",
-          "tag-chinese": "集群安全策略",
+          "tag-chinese": "Cluster security policy",
           "description-chinese": "..."
         }
       },
@@ -287,7 +285,7 @@ UCS API returns Kubernetes-style objects, not flat JSON. Based on verified `Show
 - `spec.type`: Policy type (e.g., `general`)
 - `spec.official`: Whether this is an official (built-in) policy
 
-### ListPolicyJobs
+## # ListPolicyJobs
 
 **Response Example** (verified for empty result):
 
@@ -306,29 +304,27 @@ When no jobs exist, returns `{ "items": null }`. When populated, likely k8s-styl
 - Job type: Likely in `spec.kind` (`EnablePolicy`, etc.)
 - Job status: Likely in `status.phase` (`Success`, `Failed`, `InProgress`)
 
-## Verification
+# # Verification
 
 See [Verification Method](references/verification-method.md) for step-by-step verification.
 
-## Common Region IDs
+# # Common Region IDs
 
-| Region Name                    | Region ID        |
-| ------------------------------ | ---------------- |
-| North China - Beijing 4        | `cn-north-4`     |
-| North China - Beijing 1        | `cn-north-1`     |
-| East China - Shanghai 1        | `cn-east-3`      |
-| East China - Shanghai 2        | `cn-east-2`      |
-| South China - Guangzhou        | `cn-south-1`     |
-| South China - Shenzhen         | `cn-south-4`     |
-| Southwest China - Guiyang 1    | `cn-southwest-2` |
-| Asia Pacific - Bangkok         | `ap-southeast-2` |
-| Asia Pacific - Singapore       | `ap-southeast-1` |
-| Asia Pacific - Hong Kong       | `ap-southeast-3` |
-| Europe - Paris                 | `eu-west-0`      |
+| Region Name | Region ID |
+|-----------------------------|----------------|
+| North China - Beijing 4 | `cn-north-4` |
+| North China - Beijing 1 | `cn-north-1` |
+| East China - Shanghai 1 | `cn-east-3` |
+| East China - Shanghai 2 | `cn-east-2` |
+| South China - Guangzhou | `cn-south-1` |
+| South China - Shenzhen | `cn-south-4` |
+| Southwest China - Guiyang 1 | `cn-southwest-2` |
+| Asia Pacific - Bangkok | `ap-southeast-2` |
+| Asia Pacific - Singapore | `ap-southeast-1` |
+| Asia Pacific - Hong Kong | `ap-southeast-3` |
+| Europe - Paris | `eu-west-0` |
 
-## Best Practices
-
-1. **Policy Parameters**: Use `--constraintTemplateID` to reference constraint templates, not `--policy_definition_id`
+# # Best Practices1. **Policy Parameters**: Use `--constraintTemplateID` to reference constraint templates, not `--policy_definition_id`
 2. **Fleet-Level Policies**: Apply policies to fleet groups using `CreateClusterGroupPolicyInstance` for consistent enforcement
 3. **Gradual Rollout**: Enable policies on staging clusters first using `EnableClusterPolicy`, then roll out to production fleet groups using `EnableClusterGroupPolicy`
 4. **Compliance Monitoring**: Use `ListPolicyJobs` and `ShowPolicyJob` to monitor enforcement task status
@@ -336,7 +332,7 @@ See [Verification Method](references/verification-method.md) for step-by-step ve
 6. **Disable Before Delete**: Disable a policy using `DisableClusterPolicy`/`DisableClusterGroupPolicy` before deleting to prevent sudden enforcement gaps
 7. **Namespace Scoping**: Use `--namespaces.[N]` to scope policy enforcement to specific namespaces
 
-## Reference Documents
+# # Reference Documents
 
 | Document                                               | Description                              |
 | ------------------------------------------------------ | ---------------------------------------- |
@@ -347,7 +343,7 @@ See [Verification Method](references/verification-method.md) for step-by-step ve
 | [Task: Policy Management](references/task-policy-management.md) | Policy instance CRUD workflows |
 | [Task: Compliance Audit](references/task-compliance-audit.md) | Compliance and audit workflows |
 
-## Notes
+# # Notes
 
 - **Policy deletion is irreversible** — the enforcement configuration is permanently removed
 - **Disabling a policy suspends enforcement** — violations are not checked while the policy is disabled
@@ -359,7 +355,7 @@ See [Verification Method](references/verification-method.md) for step-by-step ve
 - **GetPolicyAssignment does not exist** — use `ListPolicyJobs` and `ShowPolicyJob` to check enforcement task status
 - **ListPolicyInstances and ListPolicyDefinitions have no filter parameters** — only `--cli-region` is available
 
-## Common Pitfalls
+# # Common Pitfalls
 
 See [Common Pitfalls & Solutions](references/common-pitfalls.md) for detailed troubleshooting guides.
 

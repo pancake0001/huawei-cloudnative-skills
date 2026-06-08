@@ -1,21 +1,21 @@
 # Task: Compliance Audit
 
-## Overview
+# # Overview
 
 UCS compliance audit enables fleet-wide governance monitoring by reviewing policy enforcement job status, identifying violations, and tracking compliance across managed clusters. This task covers checking enforcement job status, violation review, and audit reporting using `ListPolicyJobs` and `ShowPolicyJob` (replacing the non-existent `GetPolicyAssignment` operation).
 
-## Operations Catalog
+# # Operations Catalog
 
-| Operation          | Method | Description              | Key Parameters                    |
-| ------------------ | ------ | ------------------------ | --------------------------------- |
-| `ListPolicyJobs`   | GET    | 列出策略执行任务         | `--kind` (optional, default "EnablePolicy") |
-| `ShowPolicyJob`    | GET    | 获取策略执行任务详情     | `--jobid` (required)              |
-| `ListPolicyInstances` | GET  | 列出策略实例             | `--cli-region` only (no filter params) |
-| `ShowPolicyInstance`  | GET  | 获取策略实例详情         | `--policyinstanceid`              |
+| Operation | Method | Description | Key Parameters |
+| ------------------ | ------ | ---------------------------------- | ---------------------------------- |
+| `ListPolicyJobs` | GET | List policy execution tasks | `--kind` (optional, default "EnablePolicy") |
+| `ShowPolicyJob` | GET | Get policy execution task details | `--jobid` (required) |
+| `ListPolicyInstances` | GET | List policy instances | `--cli-region` only (no filter params) |
+| `ShowPolicyInstance` | GET | Get policy instance details | `--policyinstanceid` |
 
 ## Workflows
 
-### W1: Fleet-Level Compliance Audit
+## # W1: Fleet-Level Compliance Audit
 
 Audit compliance across all clusters in a fleet group:
 
@@ -37,7 +37,7 @@ hcloud UCS ListPolicyJobs --kind=EnablePolicy --cli-region=cn-north-4
 - ⚠️ Some jobs show `status: Failed` — Investigate specific failures with `ShowPolicyJob`
 - ❌ Many jobs show `status: Failed` — Systemic issue, requires immediate action
 
-### W2: Cluster-Level Compliance Review
+## # W2: Cluster-Level Compliance Review
 
 Review enforcement status for a specific cluster:
 
@@ -57,7 +57,7 @@ hcloud UCS ShowPolicyJob --jobid=<job-id> --cli-region=cn-north-4
 - `Failed`: Policy enforcement failed, check job details for error information
 - `InProgress`: Policy enforcement being deployed, compliance check pending
 
-### W3: Violation Analysis
+## # W3: Violation Analysis
 
 When violations are detected, analyze the details:
 
@@ -85,7 +85,7 @@ The exact violation detail structure has not been verified. Based on verified k8
 4. Re-enable the policy to trigger a fresh enforcement job
 5. Verify the job status changes to `Success`
 
-### W4: Cross-Fleet Compliance Comparison
+## # W4: Cross-Fleet Compliance Comparison
 
 Compare enforcement status across different fleet groups:
 
@@ -94,9 +94,7 @@ Compare enforcement status across different fleet groups:
 hcloud UCS ListPolicyInstances --cli-region=cn-north-4
 
 # 2. List all enforcement jobs
-hcloud UCS ListPolicyJobs --kind=EnablePolicy --cli-region=cn-north-4
-
-# 3. Show specific job details for each fleet group
+hcloud UCS ListPolicyJobs --kind=EnablePolicy --cli-region=cn-north-4# 3. Show specific job details for each fleet group
 hcloud UCS ShowPolicyJob --jobid=<production-job-id> --cli-region=cn-north-4
 hcloud UCS ShowPolicyJob --jobid=<staging-job-id> --cli-region=cn-north-4
 hcloud UCS ShowPolicyJob --jobid=<development-job-id> --cli-region=cn-north-4
@@ -110,7 +108,7 @@ hcloud UCS ShowPolicyJob --jobid=<development-job-id> --cli-region=cn-north-4
 | Staging     | Security Baseline | Success | 0 | All clusters compliant |
 | Development | Security Baseline | InProgress | TBD | Enforcement being deployed |
 
-### W5: Compliance Trend Tracking
+## # W5: Compliance Trend Tracking
 
 Track enforcement job status over time by periodically auditing:
 
@@ -131,7 +129,7 @@ hcloud UCS ListPolicyJobs --kind=EnablePolicy --cli-region=cn-north-4
 - New failed jobs appearing (regression detection)
 - Job completion timestamps
 
-### W6: Remediation Workflow
+## # W6: Remediation Workflow
 
 When violations are detected, follow this remediation workflow:
 
@@ -157,9 +155,9 @@ hcloud UCS ShowPolicyJob --jobid=<new-job-id> --cli-region=cn-north-4
 
 Expected: Job status changes from `Failed` to `Success`.
 
-## Common Scenarios
+# # Common Scenarios
 
-### S1: Production Fleet Compliance Report
+## # S1: Production Fleet Compliance Report
 
 Generate a complete compliance report for the production fleet:
 
@@ -180,7 +178,7 @@ done
 # 5. Create remediation plan
 ```
 
-### S2: New Cluster Compliance Validation
+## # S2: New Cluster Compliance Validation
 
 When a new cluster joins the fleet, verify it meets compliance standards:
 
@@ -198,7 +196,7 @@ hcloud UCS ShowPolicyJob --jobid=<job-id> --cli-region=cn-north-4
 # 4. If job failed, remediate before deploying production workloads
 ```
 
-### S3: Compliance Audit for Regulatory Review
+## # S3: Compliance Audit for Regulatory Review
 
 For regulatory compliance reviews, document the full audit trail:
 

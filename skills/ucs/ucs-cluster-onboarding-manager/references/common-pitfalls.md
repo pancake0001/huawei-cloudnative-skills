@@ -2,7 +2,7 @@
 
 This document contains detailed troubleshooting guides for common issues encountered when using the Huawei Cloud UCS Cluster Onboarding Manager skill.
 
-## Pitfall 1: Invalid Kubeconfig for Self-Managed Cluster Registration
+# # Pitfall 1: Invalid Kubeconfig for Self-Managed Cluster Registration
 
 **Symptom**: `RegisterCluster` fails with `InvalidKubeconfig` or validation error for self-managed cluster
 
@@ -27,7 +27,7 @@ This document contains detailed troubleshooting guides for common issues encount
 kubectl --kubeconfig=<path> cluster-info
 ```
 
-## Pitfall 2: CCE Cluster ID vs UCS Cluster ID Confusion
+# # Pitfall 2: CCE Cluster ID vs UCS Cluster ID Confusion
 
 **Symptom**: `ShowCluster`, `UpdateCluster`, or `DeleteCluster` fails with `ClusterNotFound`
 
@@ -47,7 +47,7 @@ hcloud UCS ShowCluster --clusterid=cce-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx --cl
 
 To find the UCS cluster ID, use `ShowClusterList` and match by metadata.
 
-## Pitfall 3: Cluster Already Registered (409 Conflict)
+# # Pitfall 3: Cluster Already Registered (409 Conflict)
 
 **Symptom**: `RegisterCluster` returns `409 Conflict` error
 
@@ -61,7 +61,7 @@ hcloud UCS ShowClusterList --category=self --managetype=grouped --cli-region=cn-
 
 If the cluster exists, either use the existing registration or deregister first.
 
-## Pitfall 4: Self-Managed Cluster API Server Unreachable
+# # Pitfall 4: Self-Managed Cluster API Server Unreachable
 
 **Symptom**: Cluster registration succeeds but status remains `Unavailable` or transitions to `Unavailable`
 
@@ -77,7 +77,7 @@ If the cluster exists, either use the existing registration or deregister first.
 - Configure firewall rules to allow UCS management plane access
 - For private clusters, set up VPN or direct network connectivity between UCS and the cluster
 
-## Pitfall 5: Deregistration Disables Policy Governance
+# # Pitfall 5: Deregistration Disables Policy Governance
 
 **Symptom**: After deregistering a cluster, policy enforcement stops working on that cluster
 
@@ -88,7 +88,7 @@ If the cluster exists, either use the existing registration or deregister first.
 2. Document current policy configurations
 3. Consider disabling specific policies rather than deregistering the entire cluster if only policy reduction is needed
 
-## Pitfall 6: Fleet Group Name Collision
+# # Pitfall 6: Fleet Group Name Collision
 
 **Symptom**: `RegisterClusterGroup` returns `409 Conflict`
 
@@ -100,7 +100,7 @@ If the cluster exists, either use the existing registration or deregister first.
 hcloud UCS ListClusterGroup --cli-region=cn-north-4
 ```
 
-## Pitfall 7: Quota Exceeded When Registering Clusters
+# # Pitfall 7: Quota Exceeded When Registering Clusters
 
 **Symptom**: `RegisterCluster` returns `403 Quota limit exceeded`
 
@@ -116,7 +116,7 @@ If quota is exceeded, consider:
 1. Deregister unused clusters to free quota
 2. Apply for quota increase through Huawei Cloud support
 
-## Pitfall 8: Federation Kubeconfig Requires Fleet Group
+# # Pitfall 8: Federation Kubeconfig Requires Fleet Group
 
 **Symptom**: `DownloadFederationKubeconfig` fails or returns incomplete config
 
@@ -128,7 +128,7 @@ If quota is exceeded, consider:
 hcloud UCS DownloadFederationKubeconfig --clustergroupid=<group-id> --duration=86400 --cli-region=cn-north-4
 ```
 
-## Pitfall 9: Kubeconfig Validity Period
+# # Pitfall 9: Kubeconfig Validity Period
 
 **Symptom**: Previously obtained kubeconfig no longer works for kubectl access
 
@@ -142,7 +142,7 @@ hcloud UCS CreateClusterKubeconfig --clusterid=<ucs-cluster-id> --cli-region=cn-
 hcloud UCS DownloadFederationKubeconfig --clustergroupid=<group-id> --duration=86400 --cli-region=cn-north-4
 ```
 
-## Pitfall 10: Region Mismatch for CCE Cluster Registration
+# # Pitfall 10: Region Mismatch for CCE Cluster Registration
 
 **Symptom**: CCE cluster registration fails with cluster not found error
 
@@ -154,7 +154,7 @@ hcloud UCS DownloadFederationKubeconfig --clustergroupid=<group-id> --duration=8
 hcloud UCS RegisterCluster --apiVersion=v1 --kind=Cluster --metadata.name=my-cluster --spec.category=self --spec.provider=huaweicloud --spec.type=cce --spec.manageType=grouped --spec.country=CN --spec.city=110000 --metadata.uid=<cce-id> --spec.projectID=<project-id> --spec.region=cn-north-4 --cli-region=cn-north-4
 ```
 
-## Pitfall 11: RegisterCluster Uses Kubernetes-Style Parameters
+# # Pitfall 11: RegisterCluster Uses Kubernetes-Style Parameters
 
 **Symptom**: `RegisterCluster` fails with parameter validation errors (e.g., "missing required parameter")
 
@@ -184,7 +184,7 @@ hcloud UCS RegisterCluster --apiVersion=v1 --kind=Cluster --metadata.name=prod-c
 hcloud UCS RegisterCluster --apiVersion=v1 --kind=Cluster --metadata.name=datacenter-k8s --spec.category=onpremise --spec.provider=self_managed --spec.type=Kubernetes --spec.manageType=discrete --spec.country=CN --spec.city=110000 --metadata.annotations.kubeconfig=<kubeconfig-content> --cli-region=cn-north-4
 ```
 
-## Pitfall 12: --clusterid vs --cluster_id Confusion
+# # Pitfall 12: --clusterid vs --cluster_id Confusion
 
 **Symptom**: Commands fail with "unknown parameter" or parameter validation errors
 
@@ -196,7 +196,7 @@ hcloud UCS RegisterCluster --apiVersion=v1 --kind=Cluster --metadata.name=datace
 
 **Affected Operations**: `ShowCluster`, `DeleteCluster`, `UpdateCluster`, `ShowClusterAccessInfo`, `CreateClusterKubeconfig`, `CreateClusterConf`, `RetryClusterActivation`, `JoinGroup`, `LeaveGroup`
 
-## Pitfall 13: --clustergroupid vs --group_id Confusion
+# # Pitfall 13: --clustergroupid vs --group_id Confusion
 
 **Symptom**: Fleet group operations fail with "unknown parameter" or parameter validation errors
 
@@ -208,7 +208,7 @@ hcloud UCS RegisterCluster --apiVersion=v1 --kind=Cluster --metadata.name=datace
 
 **Affected Operations**: `ShowClusterGroup`, `DeleteClusterGroup`, `UpdateClusterGroup`, `UpdateClusterGroupAssociatedClusters`, `DownloadFederationKubeconfig`, `ShowClusterList` (filter parameter)
 
-## Pitfall 14: ShowQuota Requires --domainid
+# # Pitfall 14: ShowQuota Requires --domainid
 
 **Symptom**: `ShowQuota` fails with missing required parameter error
 
@@ -222,7 +222,7 @@ hcloud UCS ShowQuota --domainid=<account-id> --cli-region=cn-north-4
 
 To find your account ID: Log in to Huawei Cloud console → My Credentials → Account ID.
 
-## Pitfall 15: DownloadFederationKubeconfig Requires --clustergroupid and --duration
+# # Pitfall 15: DownloadFederationKubeconfig Requires --clustergroupid and --duration
 
 **Symptom**: `DownloadFederationKubeconfig` fails with missing required parameter error
 
@@ -239,7 +239,7 @@ To find your account ID: Log in to Huawei Cloud console → My Credentials → A
 hcloud UCS DownloadFederationKubeconfig --clustergroupid=<group-id> --duration=86400 --cli-region=cn-north-4
 ```
 
-## Pitfall 16: Invalid RegisterCluster Parameter Values (category/provider/type/city)
+# # Pitfall 16: Invalid RegisterCluster Parameter Values (category/provider/type/city)
 
 **Symptom**: `RegisterCluster` fails with `UCS.01000012 - Invalid request body, reason: invalid category` or similar validation error
 
@@ -247,12 +247,12 @@ hcloud UCS DownloadFederationKubeconfig --clustergroupid=<group-id> --duration=8
 
 **Verified Correct Values**:
 
-| Parameter        | CCE Cluster (华为云CCE)         | Self-Managed Cluster (自管集群)  |
-| ---------------- | ------------------------------- | -------------------------------- |
-| `--spec.category`| `self`                          | `onpremise`                      |
-| `--spec.provider`| `huaweicloud` (no underscore)   | `self_managed`                   |
-| `--spec.type`    | `cce` (lowercase)               | `Kubernetes` or `baremetal`      |
-| `--spec.city`    | City code, e.g., `110000`       | City code, e.g., `110000`        |
+| Parameter | CCE Cluster (Huawei Cloud CCE) | Self-Managed Cluster (self-managed cluster) |
+|---------------- | ---------------------------------- | ---------------------------------- |
+| `--spec.category`| `self` | `onpremise` |
+| `--spec.provider`| `huaweicloud` (no underscore) | `self_managed` |
+| `--spec.type` | `cce` (lowercase) | `Kubernetes` or `baremetal` |
+| `--spec.city` | City code, e.g., `110000` | City code, e.g., `110000` |
 
 **Common Mistakes**:
 - ❌ Using `--spec.category=CCE` → API returns "invalid category"
@@ -269,9 +269,7 @@ hcloud UCS ListManagedClusters --cli-region=cn-north-4
 
 The response includes `spec.category`, `spec.provider`, `spec.type`, `spec.city`, and `spec.projectID` fields that should be used exactly as-is in the `RegisterCluster` command.
 
-**Solution**: Always use the verified parameter values:
-
-```bash
+**Solution**: Always use the verified parameter values:```bash
 # CCE cluster registration (verified correct)
 hcloud UCS RegisterCluster --apiVersion=v1 --kind=Cluster --metadata.name=my-cce-cluster --spec.category=self --spec.provider=huaweicloud --spec.type=cce --spec.manageType=grouped --spec.country=CN --spec.city=110000 --metadata.uid=<cce-cluster-id> --spec.projectID=<project-id> --spec.region=cn-north-4 --cli-region=cn-north-4
 
@@ -290,7 +288,7 @@ hcloud UCS RegisterCluster --apiVersion=v1 --kind=Cluster --metadata.name=datace
 | Chengdu     | `510100` |
 | Hangzhou    | `330100` |
 
-## Common Error Response Reference
+# # Common Error Response Reference
 
 | Error Code          | HTTP Status | Description                  | Recommended Action                    |
 | ------------------- | ----------- | ---------------------------- | ------------------------------------- |

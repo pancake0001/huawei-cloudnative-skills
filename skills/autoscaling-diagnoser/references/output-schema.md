@@ -1,6 +1,6 @@
 # Output Schema
 
-主工具 `huawei_autoscaling_diagnose` 返回结构化证据和 Markdown 报告。最终面向客户的输出优先使用 `report_markdown`。
+The main tool `huawei_autoscaling_diagnose` returns structured evidence and Markdown reports. The final customer-facing output preferentially uses `report_markdown`.
 
 ```json
 {
@@ -12,7 +12,7 @@
   "intent": {
     "target": "WORKLOAD | NODE | UNKNOWN",
     "scale_direction": "scale_up | scale_down | unknown",
-    "question": "为什么不能自动扩容了"
+    "question": "Why can't it automatically expand?"
   },
   "scope": {
     "namespace": "default",
@@ -33,11 +33,11 @@
   "issues": [
     {
       "code": "HPA_CONTAINER_REQUEST_MISSING",
-      "title": "被 HPA 采样的容器缺少资源 request",
+      "title": "The container sampled by HPA lacks resources request",
       "severity": "critical",
       "layer": "HPA",
       "evidence": "default/api-abc:app missing cpu",
-      "recommendation": "为所有目标 Pod 容器设置 HPA 指标对应的 resources.requests。"
+      "recommendation": "Set resources.requests corresponding to HPA metrics for all target Pod containers."
     }
   ],
   "evidence": [
@@ -53,26 +53,26 @@
     }
   ],
   "data_gaps": [],
-  "conclusion": "被 HPA 采样的容器缺少资源 request：default/api-abc:app missing cpu",
-  "confidence": "高 (High)",
-  "report_markdown": "# CCE 弹性伸缩自动化诊断报告\n..."
+  "conclusion": "The container sampled by HPA lacks resources request: default/api-abc:app missing cpu",
+  "confidence": "High",
+  "report_markdown": "# CCE Auto Scaling Automated Diagnosis Report\n..."
 }
 ```
 
-## Markdown 报告必须包含
+# # Markdown reports must contain
 
-1. `# CCE 弹性伸缩自动化诊断报告`
-2. `## 1. 诊断总览`：区域、集群、语义意图、伸缩方向、诊断路径、结论、置信度。
-3. `## 2. 能力发现与路由`：Has_HPA、Has_CA、指标链路和路由依据。
-4. `## 3. 排查过程`：Gateway、路径 A/B/C 的实际执行步骤。
-5. `## 4. 关键证据`：HPA status、节点池/插件、Pending Pod、FailedScheduling 等证据。
-6. `## 5. 问题与根因收敛`：按严重级别排列问题、证据、建议。
-7. `## 6. 下一步建议`：只读验证和整改建议，不直接执行变更。
-8. `## 7. 数据缺口`：采集失败、当前原子能力无法确认的部分。
+1. `# CCE Auto Scaling Automated Diagnosis Report`
+2. `## 1. Diagnosis overview`: area, cluster, semantic intention, scaling direction, diagnosis path, conclusion, confidence level.
+3. `## 2. Capability discovery and routing`: Has_HPA, Has_CA, indicator link and routing basis.
+4. `## 3. Troubleshooting process`: Actual execution steps of Gateway and path A/B/C.
+5. `## 4. Key evidence`: HPA status, node pool/plug-in, Pending Pod, FailedScheduling and other evidence.
+6. `## 5. Problem and root cause convergence`: Arrange problems, evidence, and suggestions by severity level.
+7. `## 6. Next step suggestions`: Read-only verification and rectification suggestions, do not directly implement changes.
+8. `## 7. Data gap`: The part where the acquisition failed and the current atomic capability cannot be confirmed.
 
-## 严重级别含义
+# # Severity level meaning
 
-- `critical`：足以单独解释不扩缩容的阻断项，如无 HPA、缺 request、CA 未安装、节点池未开启伸缩、maxReplicas/max_nodes 达上限。
-- `high`：强相关阻断证据，如 FailedScheduling 资源不足、亲和性/污点冲突、云资源配额或权限信号。
-- `medium`：需要复核的可疑项，如指标插件未识别、safe-to-evict key 存在但缺少 value。
-- `info`：当前行为可能是正常不触发，如指标未超过阈值、无 Pending Pod。
+- `critical`: Blocking items that are sufficient to independently explain the non-scalability, such as no HPA, missing request, CA not installed, scaling of the node pool is not enabled, maxReplicas/max_nodes reaches the upper limit.
+- `high`: Strong correlation blocking evidence, such as FailedScheduling insufficient resources, affinity/taint conflicts, cloud resource quotas or permission signals.
+- `medium`: Suspicious items that need to be reviewed, such as the indicator plug-in is not recognized, the safe-to-evict key exists but the value is missing.
+- `info`: The current behavior may not be triggered normally, such as the indicator does not exceed the threshold and there is no Pending Pod.

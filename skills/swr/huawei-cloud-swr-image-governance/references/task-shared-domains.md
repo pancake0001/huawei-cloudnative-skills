@@ -1,22 +1,22 @@
 # Task: Shared Domains
 
-## Overview
+# # Overview
 
 SWR shared download domains allow other organizations or users to download images from your repository without direct repository permissions. This task covers creating, listing, viewing, updating, and deleting shared download domains.
 
-## Operations Catalog
+# # Operations Catalog
 
-| Operation          | Method | Description              | Key Parameters                                  |
-| ------------------ | ------ | ------------------------ | ----------------------------------------------- |
-| `ListRepoDomains`  | GET    | 获取共享下载域名列表     | `--namespace`, `--repository`                   |
-| `CreateRepoDomains` | POST  | 创建共享下载域名         | `--namespace`, `--repository`, `--domain`       |
-| `ShowAccessDomain` | GET    | 获取共享下载域名详情     | `--namespace`, `--repository`, `--access_domain` |
-| `UpdateRepoDomains` | PUT   | 修改共享下载域名         | `--namespace`, `--repository`, `--domain`, `--permit` |
-| `DeleteRepoDomains` | DELETE | 删除共享下载域名         | `--namespace`, `--repository`, `--access_domain` |
+| Operation | Method | Description | Key Parameters |
+| ------------------ | ------ | ---------------------------------- | -------------------------------------------------- |
+| `ListRepoDomains` | GET | Get the list of shared download domain names | `--namespace`, `--repository` |
+| `CreateRepoDomains` | POST | Create shared download domain names | `--namespace`, `--repository`, `--domain` |
+| `ShowAccessDomain` | GET | Get shared download domain name details | `--namespace`, `--repository`, `--access_domain` |
+| `UpdateRepoDomains` | PUT | Modify the shared download domain name | `--namespace`, `--repository`, `--domain`, `--permit` |
+| `DeleteRepoDomains` | DELETE | Delete shared download domain names | `--namespace`, `--repository`, `--access_domain` |
 
 ## Workflows
 
-### W1: List Shared Domains
+## # W1: List Shared Domains
 
 ```bash
 # List all shared download domains for a repository
@@ -52,7 +52,7 @@ hcloud SWR ListRepoDomains --namespace=pancake --repository=openclaw-sandbox --c
 - `created`/`updated`: Timestamps (**NOT** `created_at`/`updated_at`)
 - `status`: Whether the domain is active (boolean)
 
-### W2: Create a Shared Domain
+## # W2: Create a Shared Domain
 
 ```bash
 # Create a shared download domain
@@ -71,7 +71,7 @@ hcloud SWR CreateRepoDomains --namespace=pancake --repository=openclaw-sandbox -
 hcloud SWR ListRepoDomains --namespace=pancake --repository=openclaw-sandbox --cli-region=cn-north-4
 ```
 
-### W3: View Shared Domain Details
+## # W3: View Shared Domain Details
 
 ```bash
 hcloud SWR ShowAccessDomain --namespace=pancake --repository=openclaw-sandbox --access_domain=shijingcheng_test --cli-region=cn-north-4
@@ -83,7 +83,7 @@ hcloud SWR ShowAccessDomain --namespace=pancake --repository=openclaw-sandbox --
 - `--access_domain` (required): Domain name to query
 - `--cli-region` (required): Region ID
 
-### W4: Update a Shared Domain
+## # W4: Update a Shared Domain
 
 ```bash
 # Update domain permit or deadline
@@ -97,7 +97,7 @@ hcloud SWR UpdateRepoDomains --namespace=pancake --repository=openclaw-sandbox -
 - `--permit` (required): Permission type (`read`)
 - `--cli-region` (required): Region ID
 
-### W5: Delete a Shared Domain
+## # W5: Delete a Shared Domain
 
 ⚠️ **CAUTION**: Deleting a shared domain removes the ability for external users to download images via this domain.
 
@@ -117,9 +117,7 @@ hcloud SWR DeleteRepoDomains --namespace=pancake --repository=openclaw-sandbox -
 hcloud SWR ListRepoDomains --namespace=pancake --repository=openclaw-sandbox --cli-region=cn-north-4
 ```
 
-## Common Scenarios
-
-### S1: Share Base Image with Other Teams
+# # Common Scenarios### S1: Share Base Image with Other Teams
 
 Allow other teams to pull your base image:
 
@@ -131,7 +129,7 @@ hcloud SWR CreateRepoDomains --namespace=team-infra --repository=base-ubuntu --d
 hcloud SWR ShowAccessDomain --namespace=team-infra --repository=base-ubuntu --access_domain=team-infra-shared --cli-region=cn-north-4
 ```
 
-### S2: Audit Shared Domains
+## # S2: Audit Shared Domains
 
 Review all shared domains across repositories:
 
@@ -143,7 +141,7 @@ hcloud SWR ListRepoDomains --namespace=pancake --repository=openclaw-sandbox --c
 hcloud SWR ShowAccessDomain --namespace=pancake --repository=openclaw-sandbox --access_domain=<domain-name> --cli-region=cn-north-4
 ```
 
-### S3: Clean Up Expired or Unnecessary Domains
+## # S3: Clean Up Expired or Unnecessary Domains
 
 Remove shared domains that are no longer needed:
 

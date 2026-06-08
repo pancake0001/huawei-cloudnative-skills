@@ -1,6 +1,6 @@
 # Output Schema
 
-## Assessment Report Schema
+# # Assessment Report Schema
 
 ```json
 {
@@ -50,7 +50,7 @@
     "failed_items": [
       {
         "check_id": 11,
-        "name": "节点CPU使用率检查",
+        "name": "Node CPU Usage Check",
         "description": "Node CPU usage exceeds 90%",
         "affected_nodes": ["node-xxx"],
         "remediation": "Reduce workload or add nodes before upgrade"
@@ -59,7 +59,7 @@
     "warning_items": [
       {
         "check_id": 9,
-        "name": "兼容性风险检查",
+        "name": "Compatibility Risk Check",
         "description": "PSP removed in v1.25, need PSA migration",
         "remediation": "Complete PSP→PSA migration before upgrade"
       }

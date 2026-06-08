@@ -1,19 +1,19 @@
 # UCS Policy API Reference Guide
 
-## Overview
+# # Overview
 
 This document provides API reference information for Huawei Cloud UCS (Universal Cloud Service) policy governance operations using hcloud CLI. All commands follow the standard format: `hcloud UCS <Operation> --param=value --cli-region=<region>`.
 
-## Authentication
+# # Authentication
 
-### Environment Variables
+## # Environment Variables
 
 ```bash
 export HUAWEI_CLOUD_AK=<your-ak>
 export HUAWEI_CLOUD_SK=<your-sk>
 ```
 
-### hcloud CLI Configuration
+## # hcloud CLI Configuration
 
 ```bash
 # Interactive configuration
@@ -26,9 +26,9 @@ hcloud configure list
 ✅ **Correct**: Use `hcloud configure list` to verify credentials
 ❌ **Incorrect**: Never use `echo $HUAWEI_CLOUD_AK` to check credentials
 
-## Policy Instance Operations
+# # Policy Instance Operations
 
-### 1. Create Cluster Policy Instance
+## # 1. Create Cluster Policy Instance
 
 ```bash
 # Create a cluster-level policy instance
@@ -55,7 +55,7 @@ UCS API returns Kubernetes-style objects, not flat JSON. Based on verified `Show
 - Enforcement action: Likely in `spec.enforcementAction` (`warn` or `deny`)
 - Status: Likely in `status.phase` (`Enabled`, `Disabled`, `Pending`)
 
-### 2. Create Cluster Group Policy Instance
+## # 2. Create Cluster Group Policy Instance
 
 ```bash
 # Create a fleet group-level policy instance
@@ -76,7 +76,7 @@ hcloud UCS CreateClusterGroupPolicyInstance --clustergroupid=<fleet-group-id> --
 
 UCS API returns Kubernetes-style objects, not flat JSON. Based on verified responses, `CreateClusterGroupPolicyInstance` likely returns a k8s-style object with `kind`, `apiVersion`, `metadata`, `spec`, and `status` fields rather than flat fields.
 
-### 3. Update Policy Instance
+## # 3. Update Policy Instance
 
 ```bash
 hcloud UCS UpdatePolicyInstance --policyinstanceid=<instance-id> --enforcementAction=deny --parameters='{"cpuLimit":"4"}' --cli-region=cn-north-4
@@ -92,7 +92,7 @@ hcloud UCS UpdatePolicyInstance --policyinstanceid=<instance-id> --enforcementAc
 
 **Note**: You cannot change the target scope (`clusterid`/`clustergroupid`) after creation. To change the scope, delete the instance and create a new one.
 
-### 4. Show Policy Instance Details
+## # 4. Show Policy Instance Details
 
 ```bash
 hcloud UCS ShowPolicyInstance --policyinstanceid=<instance-id> --cli-region=cn-north-4
@@ -104,7 +104,7 @@ hcloud UCS ShowPolicyInstance --policyinstanceid=<instance-id> --cli-region=cn-n
 
 **Response**: Returns full policy instance details including status, template reference, and target scope.
 
-### 5. Delete Policy Instance
+## # 5. Delete Policy Instance
 
 ```bash
 hcloud UCS DeletePolicyInstance --policyinstanceid=<instance-id> --cli-region=cn-north-4
@@ -116,7 +116,7 @@ hcloud UCS DeletePolicyInstance --policyinstanceid=<instance-id> --cli-region=cn
 
 ⚠️ **Warning**: Deleting a policy instance permanently removes the enforcement configuration. Violations will no longer be checked. Consider disabling the policy first before deleting.
 
-### 6. List Policy Instances
+## # 6. List Policy Instances
 
 ```bash
 # List all policy instances (no filter parameters available)
@@ -140,9 +140,9 @@ When no instances exist, returns `{ "items": null }`. When populated, likely k8s
 
 [to be verified for populated response — likely k8s-style objects with `kind`, `apiVersion`, `metadata`, `spec`, `status` fields rather than flat fields like `id`, `constraintTemplateID`]
 
-## Policy Definition Operations
+# # Policy Definition Operations
 
-### 1. List Policy Definitions
+## # 1. List Policy Definitions
 
 ```bash
 # List all available policy definitions (no filter parameters available)
@@ -168,7 +168,7 @@ hcloud UCS ListPolicyDefinitions --cli-region=cn-north-4
         "creationTimestamp": "2023-06-01T14:11:41Z",
         "annotations": {
           "name-chinese": "K8sRequiredResources",
-          "tag-chinese": "集群安全策略",
+          "tag-chinese": "Cluster security policy",
           "description-chinese": "..."
         }
       },
@@ -216,7 +216,7 @@ hcloud UCS ListPolicyDefinitions --cli-region=cn-north-4
 - `spec.type`: Policy type (e.g., `general`)
 - `spec.official`: Whether this is an official (built-in) policy
 
-### 2. Show Policy Definition Details
+## # 2. Show Policy Definition Details
 
 ```bash
 hcloud UCS ShowPolicyDefinition --policydefinitionid=<definition-id> --cli-region=cn-north-4
@@ -230,9 +230,9 @@ hcloud UCS ShowPolicyDefinition --policydefinitionid=<definition-id> --cli-regio
 
 UCS API returns Kubernetes-style objects. Based on the verified `ListPolicyDefinitions` response (which returns ConstraintTemplate objects), `ShowPolicyDefinition` likely returns a single k8s-style ConstraintTemplate object with detailed `spec.constraintTemplate.spec.crd.spec.validation.openAPIV3Schema.properties` for parameter definitions.
 
-## Policy Enforcement Operations
+# # Policy Enforcement Operations
 
-### 1. Enable Cluster Policy
+## # 1. Enable Cluster Policy
 
 ```bash
 # Enable a policy on a cluster (starts enforcement)
@@ -247,7 +247,7 @@ hcloud UCS EnableClusterPolicy --clusterid=<ucs-cluster-id> --retry=true --cli-r
 - `--retry` (optional, query): Retry flag for re-attempting failed enforcement
 - `--cli-region` (required): Region ID
 
-### 2. Enable Cluster Group Policy
+## # 2. Enable Cluster Group Policy
 
 ```bash
 # Enable a policy on a fleet group (starts enforcement)
@@ -262,9 +262,7 @@ hcloud UCS EnableClusterGroupPolicy --clustergroupid=<fleet-group-id> --retry=tr
 - `--retry` (optional, query): Retry flag for re-attempting failed enforcement
 - `--cli-region` (required): Region ID
 
-### 3. Disable Cluster Policy
-
-```bash
+## # 3. Disable Cluster Policy```bash
 # Disable a policy on a cluster (suspends enforcement)
 hcloud UCS DisableClusterPolicy --clusterid=<ucs-cluster-id> --cli-region=cn-north-4
 ```
@@ -275,7 +273,7 @@ hcloud UCS DisableClusterPolicy --clusterid=<ucs-cluster-id> --cli-region=cn-nor
 
 **Effect**: Policy enforcement is suspended. Violations will not be checked while the policy is disabled. The policy instance configuration is preserved.
 
-### 4. Disable Cluster Group Policy
+## # 4. Disable Cluster Group Policy
 
 ```bash
 # Disable a policy on a fleet group (suspends enforcement)
@@ -286,9 +284,9 @@ hcloud UCS DisableClusterGroupPolicy --clustergroupid=<fleet-group-id> --cli-reg
 - `--clustergroupid` (required, path): Target fleet group ID
 - `--cli-region` (required): Region ID
 
-## Policy Enforcement Job Operations
+# # Policy Enforcement Job Operations
 
-### 1. List Policy Jobs
+## # 1. List Policy Jobs
 
 ```bash
 # List all policy enforcement jobs
@@ -319,7 +317,7 @@ When no jobs exist, returns `{ "items": null }`. When populated, likely k8s-styl
 - Job type: Likely in `spec.kind` (`EnablePolicy`, etc.)
 - Job status: Likely in `status.phase` (`Success`, `Failed`, `InProgress`)
 
-### 2. Show Policy Job
+## # 2. Show Policy Job
 
 ```bash
 # Show detailed policy enforcement job information
@@ -342,7 +340,7 @@ UCS API returns Kubernetes-style objects. Based on verified responses, `ShowPoli
 
 **Important**: `GetPolicyAssignment` does NOT exist as a UCS API operation. Use `ListPolicyJobs` and `ShowPolicyJob` to check policy enforcement status and compliance information.
 
-## Common Region IDs
+# # Common Region IDs
 
 | Region Name                    | Region ID        |
 | ------------------------------ | ---------------- |
@@ -358,7 +356,7 @@ UCS API returns Kubernetes-style objects. Based on verified responses, `ShowPoli
 | Asia Pacific - Hong Kong       | `ap-southeast-3` |
 | Europe - Paris                 | `eu-west-0`      |
 
-## Common Errors
+# # Common Errors
 
 | Error                   | Cause                       | Solution                                        |
 | ----------------------- | --------------------------- | ------------------------------------------------ |
@@ -371,7 +369,7 @@ UCS API returns Kubernetes-style objects. Based on verified responses, `ShowPoli
 | `OperationNotFound`     | Wrong operation name        | Use correct scope-specific operation (e.g., CreateClusterPolicyInstance vs CreateClusterGroupPolicyInstance) |
 | `RequestLimitExceeded`  | Too many requests           | Add delay between batch requests                 |
 
-## Related Documentation
+# # Related Documentation
 
 - [Huawei Cloud UCS Documentation](https://support.huaweicloud.com/ucs/index.html)
 - [hcloud CLI Documentation](https://support.huaweicloud.com/cli/index.html)

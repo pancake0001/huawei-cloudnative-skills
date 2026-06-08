@@ -2,14 +2,14 @@
 name: cce-cluster-upgrade-planner
 description: >-
   Use when planning CCE Kubernetes cluster version upgrades, evaluating upgrade path compatibility, addon compatibility, pre-upgrade difference checks, and estimating upgrade window duration to avoid insufficient upgrade windows. Covers version-specific breaking changes, deprecated APIs, 76-item pre-check checklist, in-place upgrade vs migration strategy comparison, and execution preview with two-step confirmation.
-  Triggers: CCE 集群升级, 升级评估, 版本兼容, 升级窗口, 升级前检查, Kubernetes升级, addon升级, 差异检查, 升级方案, cluster upgrade, version upgrade, upgrade window, compatibility check
+  Triggers: CCE cluster upgrade, upgrade evaluation, version compatibility, upgrade window, pre-upgrade check, Kubernetes upgrade, addon upgrade, difference check, upgrade plan, cluster upgrade, version upgrade, upgrade window, compatibility check
 tags: [cce, kubernetes, upgrade, compatibility, assessment]
 version: 1.0.0
 ---
 
 # CCE Cluster Upgrade Planner
 
-## Overview
+# # Overview
 
 Plan and assess CCE (Cloud Container Engine) Kubernetes cluster version upgrades using hcloud CLI. Covers upgrade path validation, 76-item pre-check checklist, addon compatibility, version-specific breaking changes, deprecated APIs, upgrade window estimation, and execution preview with two-step confirmation.
 
@@ -28,7 +28,7 @@ Plan and assess CCE (Cloud Container Engine) Kubernetes cluster version upgrades
 7. Provide rollback strategy and post-upgrade verification checklist
 ```
 
-## Prerequisites
+# # Prerequisites
 
 > **Prerequisite check: hcloud (KooCLI) >= 7.2.2 required**
 > Run `hcloud version` to verify, and `hcloud configure list` to check profile exists.
@@ -38,9 +38,9 @@ hcloud version
 hcloud configure list
 ```
 
-## Security Constraints
+# # Security Constraints
 
-### Dangerous Operation Confirmation Mechanism
+## # Dangerous Operation Confirmation Mechanism
 
 > **This skill strictly enforces a two-step confirmation mechanism for upgrade execution preview.**
 
@@ -50,22 +50,22 @@ All upgrade execution previews require explicit user confirmation before any cha
 
 **Step 2: Confirm & Execute** — Only after user explicitly confirms
 
-#### Operations Requiring Confirmation
+### # Operations Requiring Confirmation
 
 | Operation | Risk Level | Description |
-|-----------|------------|-------------|
+|----------|------------|-------------|
 | UpgradeCluster | 🔴 Critical | Upgrades Kubernetes control plane, irreversible once started |
 | UpgradeNodePool | 🟠 High | Upgrades node pool Kubernetes version, nodes become temporarily unschedulable |
 | CreateUpgradeWorkFlow | 🟠 High | Creates upgrade workflow with pre-check, cluster upgrade, and post-check phases |
 
-### Credential Security
+## # Credential Security
 
 - **Never expose AK/SK values** in conversation, commands, or output
 - **Never ask user to input AK/SK directly** in conversation
 - **Only use** `hcloud configure list` to check credential status (presence only, not values)
 - **Prefer** profile mode or environment variables over explicit AK/SK parameters
 
-## Command Format Standard
+# # Command Format Standard
 
 CCE upgrade follows standard hcloud format:
 
@@ -73,9 +73,7 @@ CCE upgrade follows standard hcloud format:
 hcloud CCE <Operation> --param=value --cli-region=<region> --cli-output=json
 ```
 
-### Upgrade-specific Parameter Rules
-
-1. **Cluster ID required**: all upgrade operations need `--cluster_id`
+## # Upgrade-specific Parameter Rules1. **Cluster ID required**: all upgrade operations need `--cluster_id`
 2. **Target version required**: upgrade operations need `--spec.clusterUpgradeAction.targetVersion=v1.XX`
 3. **Addon upgrade uses array format**: `--spec.clusterUpgradeAction.addons.1.addonTemplateName=<name> --spec.clusterUpgradeAction.addons.1.version=<ver>`
 4. **Node pool priority uses key-value format**: `--spec.clusterUpgradeAction.nodePoolOrder.key1=value1`
@@ -86,7 +84,7 @@ hcloud CCE <Operation> --param=value --cli-region=<region> --cli-output=json
 
 > **⚠️ Critical**: Before constructing any upgrade command, always run `hcloud CCE <Operation> --help` to verify exact parameter names. CCE upgrade APIs have hundreds of parameters; the help output is the authoritative source.
 
-## Scenario Routing
+# # Scenario Routing
 
 | User Intent | Reference Document |
 |---|---|
@@ -100,9 +98,9 @@ hcloud CCE <Operation> --param=value --cli-region=<region> --cli-output=json
 | Risk constraints & rollback | [references/risk-rules.md](references/risk-rules.md) |
 | Output schema | [references/output-schema.md](references/output-schema.md) |
 
-## Core Commands
+# # Core Commands
 
-### Step 1: Collect Cluster Current State
+## # Step 1: Collect Cluster Current State
 
 ```bash
 # Get cluster details (version, node count, addons)
@@ -118,14 +116,14 @@ hcloud CCE ListNodePools --cluster_id=<cluster-id> --cli-region=<region> --cli-o
 hcloud CCE ListNodes --cluster_id=<cluster-id> --cli-region=<region> --cli-output=json
 ```
 
-### Step 2: Query Upgrade Paths
+## # Step 2: Query Upgrade Paths
 
 ```bash
 # Get all available upgrade paths for the cluster
 hcloud CCE ListClusterUpgradePaths --cli-region=<region> --cli-output=json
 ```
 
-### Step 3: Pre-Upgrade Check
+## # Step 3: Pre-Upgrade Check
 
 ```bash
 # Get upgrade info (includes pre-check status)
@@ -142,7 +140,7 @@ hcloud CCE CreateUpgradeWorkFlow \
   --cli-output=json
 ```
 
-### Step 4: Addon Compatibility Check
+## # Step 4: Addon Compatibility Check
 
 ```bash
 # Get addon details (check version compatibility)
@@ -152,7 +150,7 @@ hcloud CCE ListAddonInstances --cluster_id=<cluster-id> --cli-region=<region> --
 hcloud CCE ListAddonTemplates --cluster_id=<cluster-id> --addon_template_name=<addon-name> --cli-region=<region> --cli-output=json
 ```
 
-### Step 5: Upgrade Execution Preview
+## # Step 5: Upgrade Execution Preview
 
 ```bash
 # Preview cluster upgrade (without confirm=true, no execution)
@@ -196,7 +194,7 @@ hcloud CCE UpgradeCluster \
   --cli-output=json
 ```
 
-### Step 6: Monitor Upgrade Progress
+## # Step 6: Monitor Upgrade Progress
 
 ```bash
 # Check upgrade workflow status
@@ -219,7 +217,7 @@ hcloud CCE ContinueUpgradeClusterTask --cluster_id=<cluster-id> --cli-region=<re
 hcloud CCE RetryUpgradeClusterTask --cluster_id=<cluster-id> --cli-region=<region> --cli-output=json
 ```
 
-### Step 7: Cancel Upgrade Workflow
+## # Step 7: Cancel Upgrade Workflow
 
 ```bash
 # Cancel upgrade workflow (status must not be Running/Success/Cancel)
@@ -231,7 +229,7 @@ hcloud CCE UpgradeWorkFlowUpdate \
   --cli-output=json
 ```
 
-## Upgrade Window Estimation Formula
+# # Upgrade Window Estimation Formula
 
 See [references/upgrade-window-estimation.md](references/upgrade-window-estimation.md) for detailed formula and examples.
 
@@ -255,14 +253,14 @@ T_buffer = 20% * (T_control_plane + T_node_batch + T_addon)
 - Buffer (20%): ~19 min
 - **Total: ~123 min (2h 3min)**
 
-## Upgrade Methods
+# # Upgrade Methods
 
 | Method | Advantages | Constraints | Recommended |
 |--------|------------|------------|------------|
 | **In-place upgrade** | Business pods not interrupted during control plane upgrade; nodes upgraded in batches; addons auto-upgraded | Nodes temporarily unschedulable during upgrade; Docker→Containerd runtime switch needed for v1.27+ | Most scenarios (default) |
 | **Migration** | Clean slate; no compatibility risk accumulation; skip multiple intermediate upgrades | Full workload redeployment; requires double resources; longer downtime | Cross-version jumps (e.g. v1.15→v1.28); incompatible runtime |
 
-## Key Constraints
+# # Key Constraints
 
 - **No skip-version upgrades**: must follow upgrade path step by step (e.g., v1.21→v1.23→v1.25→v1.27→v1.28)
 - **Patch version first**: upgrade to latest patch before major version upgrade
@@ -271,7 +269,7 @@ T_buffer = 20% * (T_control_plane + T_node_batch + T_addon)
 - **v1.28+ control node IP change**: upgrading to v1.28+ creates new control nodes, IP addresses change
 - **Autoscaling paused**: during control plane upgrade, autoscaling is paused; resumes after control plane done, but shrink waits until full completion
 
-## Best Practices
+# # Best Practices
 
 1. **Always run pre-check first** — use CreateUpgradeWorkFlow or ShowClusterUpgradeInfo to validate readiness
 2. **Upgrade patch version first** — ensure current patch is latest before major version upgrade
@@ -281,7 +279,7 @@ T_buffer = 20% * (T_control_plane + T_node_batch + T_addon)
 6. **Verify after each phase** — run post-upgrade verification after control plane and node upgrades
 7. **Rollback plan** — use backup data and PauseUpgradeClusterTask if issues arise
 
-## References
+# # References
 
 | Document | Description |
 |----------|-------------|

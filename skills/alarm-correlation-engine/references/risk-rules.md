@@ -1,8 +1,8 @@
-# Risk Rules
+# RiskRules
 
-- 告警查询、告警分析、动作规则查询、静默规则查询均为只读操作。
-- 允许创建、修改和删除 AOM 告警规则，但必须先预览；只有用户明确确认后才允许携带 `confirm=true` 执行。
-- 禁止修改动作规则、静默规则或其它云资源。
-- 不把 active 告警缺失解释为没有问题；必须核对 history。
-- 输出中不得暴露 AK/SK、token 或完整敏感日志。
-- 如果用户要求扩缩容、重启、drain 或其它恢复动作，只输出建议并转交 `auto-remediation-runner`。
+- Alarm query, alarm analysis, action rule query, and silent rule query are all read-only operations.
+- Allows creation, modification and deletion of AOM alert rules, but must be previewed first; execution with `confirm=true` is only allowed after explicit confirmation by the user.
+- Modification of action rules, silent rules or other cloud resources is prohibited.
+- Do not interpret the absence of active alarms as no problem; the history must be checked.
+- No AK/SK, token or full sensitive logs should be exposed in the output.
+- If the user requires scaling, restarting, draining or other recovery actions, only the suggestions are output and forwarded to `auto-remediation-runner`.

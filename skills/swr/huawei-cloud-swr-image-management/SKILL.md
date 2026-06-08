@@ -4,14 +4,14 @@ name: huawei-cloud-swr-image-management
 description: |
   Huawei Cloud SWR (Software Repository for Container) image lifecycle management skill using hcloud CLI.
   Use this skill when the user wants to: (1) manage SWR namespaces (organizations) - create/query/delete, (2) manage image repositories - create/query/update/delete, (3) manage image tags/versions - query/create/delete, (4) obtain docker login credentials for SWR, (5) check SWR quotas and usage limits.
-  Trigger: user mentions "SWR image management", "SWR 镜像管理", "container image", "镜像仓库", "SWR 组织", "SWR namespace", "镜像版本", "docker login", "SWR 配额", "SWR tag", "容器镜像", "镜像生命周期", "SWR repository", "SWR 登录", "SWR quota"
+  Trigger: user mentions "SWR image management", "SWR image management", "container image", "image warehouse", "SWR organization", "SWR namespace", "image version", "docker login", "SWR quota", "SWR tag", "container image", "image life cycle", "SWR repository", "SWR login", "SWR quota"
 tags: [swr, image-management, namespace, repository, tag]
 version: 1.0.0
 ---
 
 # Huawei Cloud SWR Image Management
 
-## Overview
+# # Overview
 
 This skill provides lifecycle management capabilities for Huawei Cloud SWR (Software Repository for Container) images using the `hcloud` CLI.
 
@@ -39,15 +39,15 @@ This skill provides lifecycle management capabilities for Huawei Cloud SWR (Soft
 - "Create a private repository for my custom image"
 - "Update repository description and visibility"
 
-## Prerequisites
+# # Prerequisites
 
-### 1. hcloud CLI Requirements (MANDATORY)
+## # 1. hcloud CLI Requirements (MANDATORY)
 
 - hcloud CLI installed (version >= 7.2.2)
 - Run `hcloud version` to verify installation
 - First-time usage: `printf "y\n" | hcloud version` to accept privacy statement
 
-### 2. Credential Configuration
+## # 2. Credential Configuration
 
 - Valid Huawei Cloud credentials (AK/SK mode)
 - **Security Rules**:
@@ -65,16 +65,14 @@ export HUAWEI_CLOUD_SK=<your-sk>
 export HUAWEI_CLOUD_REGION=cn-north-4
 ```
 
-**⚠️ Important Security Notes**:
+**⚠️Important Security Notes**:
 
-- Never commit credentials to version control
+-Never commit credentials to version control
 - Use IAM users with minimal required permissions
 - Enable MFA for sensitive operations
 - Rotate AK/SK regularly
 
-### 3. IAM Permission Requirements
-
-| API Action                       | Permission        | Purpose                                |
+## # 3. IAM Permission Requirements| API Action                       | Permission        | Purpose                                |
 | -------------------------------- | ----------------- | -------------------------------------- |
 | `swr:namespace:create`           | Create namespace  | Create SWR organizations               |
 | `swr:namespace:list`             | List namespaces   | Query all namespaces                   |
@@ -101,9 +99,9 @@ See [IAM Permission Policies](references/iam-policies.md) for complete policy JS
 3. Guide the user to create a custom policy in the IAM console and grant authorization
 4. Pause execution and wait for user confirmation that permissions have been granted
 
-## Core Commands
+# # Core Commands
 
-### 1. Namespace (Organization) Management
+## # 1. Namespace (Organization) Management
 
 See [Task: Namespace Management](references/task-namespace-management.md) for detailed workflows.
 
@@ -132,7 +130,7 @@ hcloud SWR DeleteNamespaces --namespace=group-dev --cli-region=cn-north-4
 - End with lowercase letter or digit
 - Length: 1-64 characters
 
-### 2. Repository (Image Repository) Management
+## # 2. Repository (Image Repository) Management
 
 See [Task: Repository Management](references/task-repository-management.md) for detailed workflows.
 
@@ -172,7 +170,7 @@ hcloud SWR DeleteRepo --namespace=group-dev --repository=my-app --cli-region=cn-
 
 **Repository Categories**: `app_server`, `linux`, `framework_app`, `database`, `lang`, `other`, `windows`, `arm`
 
-### 3. Image Tag (Version) Management
+## # 3. Image Tag (Version) Management
 
 See [Task: Tag Management](references/task-tag-management.md) for detailed workflows.
 
@@ -196,7 +194,7 @@ hcloud SWR CreateRepoTag --namespace=group-dev --repository=nginx --source_tag=v
 hcloud SWR DeleteRepoTag --namespace=group-dev --repository=nginx --tag=v1.0-old --cli-region=cn-north-4
 ```
 
-### 4. Docker Login & Authentication
+## # 4. Docker Login & Authentication
 
 See [Task: Auth Management](references/task-auth-management.md) for detailed workflows.
 
@@ -232,7 +230,7 @@ The response returns a Docker auth config object:
 docker login -u <decoded_username> -p <decoded_password> swr.cn-north-4.myhuaweicloud.com
 ```
 
-### 5. Quota Management
+## # 5. Quota Management
 
 See [Task: Quota Management](references/task-quota-management.md) for detailed workflows.
 
@@ -241,9 +239,9 @@ See [Task: Quota Management](references/task-quota-management.md) for detailed w
 hcloud SWR ListQuotas --cli-region=cn-north-4
 ```
 
-## Parameter Reference
+# # Parameter Reference
 
-### Common Parameters
+## # Common Parameters
 
 | Parameter       | Required/Optional | Description                   | Default                              |
 | --------------- | ----------------- | ----------------------------- | ------------------------------------ |
@@ -252,14 +250,14 @@ hcloud SWR ListQuotas --cli-region=cn-north-4
 | `--repository`  | Context-dependent | Image repository name         | N/A                                  |
 | `--tag`         | Context-dependent | Image tag/version name        | N/A                                  |
 
-### Namespace Parameters
+## # Namespace Parameters
 
 | Parameter      | Required | Description            | Constraints                                    |
 | -------------- | -------- | ---------------------- | ---------------------------------------------- |
 | `--namespace`  | Yes      | Namespace name         | 1-64 chars, lowercase start, specific rules    |
 | `--filter`     | No       | Filter by name/mode    | `namespace::{name}|mode::{mode}`               |
 
-### Repository Parameters
+## # Repository Parameters
 
 | Parameter         | Required | Description              | Constraints                                  |
 | ----------------- | -------- | ------------------------ | -------------------------------------------- |
@@ -274,7 +272,7 @@ hcloud SWR ListQuotas --cli-region=cn-north-4
 | `--order_type`    | No       | Sort direction           | `desc` (descending), `asc` (ascending)       |
 | `--name`          | No       | Search by name (fuzzy)   | Partial match                                |
 
-### Tag Parameters
+## # Tag Parameters
 
 | Parameter         | Required | Description              | Constraints                                  |
 | ----------------- | -------- | ------------------------ | -------------------------------------------- |
@@ -285,9 +283,9 @@ hcloud SWR ListQuotas --cli-region=cn-north-4
 | `--destination_tag` | Yes    | Target tag (for create)  | New tag name                                 |
 | `--override`      | No       | Overwrite existing tag   | `true` or `false`                            |
 
-## Output Format
+# # Output Format
 
-### Namespace List
+## # Namespace List
 
 ```json
 {
@@ -304,7 +302,7 @@ hcloud SWR ListQuotas --cli-region=cn-north-4
 }
 ```
 
-### Repository List
+## # Repository List
 
 Response is a flat JSON array (not wrapped in an object):
 
@@ -335,7 +333,7 @@ Response is a flat JSON array (not wrapped in an object):
 
 **Note**: `num_images` is the tag count (not `tag_count`). `tags` is an array of tag name strings included directly in the repository listing.
 
-### Tag List
+## # Tag List
 
 Response is a flat JSON array (not wrapped in an object):
 
@@ -363,7 +361,7 @@ Response is a flat JSON array (not wrapped in an object):
 
 **Note**: Tag name field is `Tag` (capital T), timestamps use `created`/`updated` (not `created_at`/`updated_at`).
 
-### Show Repository Details
+## # Show Repository Details
 
 ```json
 {
@@ -386,7 +384,7 @@ Response is a flat JSON array (not wrapped in an object):
 
 **Note**: ShowRepository uses `created`/`updated` and `num_images` — **different** from ListReposDetails which uses `created_at`/`updated_at`.
 
-### Auth Token Response
+## # Auth Token Response
 
 ```json
 {
@@ -400,7 +398,7 @@ Response is a flat JSON array (not wrapped in an object):
 
 **Note**: The `auth` field is base64-encoded. Decode it to get docker login credentials. This is a Docker config format, NOT a header+body response.
 
-### Quota List
+## # Quota List
 
 ```json
 {
@@ -417,11 +415,11 @@ Response is a flat JSON array (not wrapped in an object):
 
 **Note**: Quotas are returned as an **array of objects** with `quota_key`/`quota_limit`/`used`/`unit` fields, not flat key-value pairs like `namespace_limit`/`namespace_used`.
 
-## Verification
+# # Verification
 
 See [Verification Method](references/verification-method.md) for step-by-step verification.
 
-## Common Region IDs
+# # Common Region IDs
 
 | Region Name                    | Region ID        |
 | ------------------------------ | ---------------- |
@@ -437,7 +435,7 @@ See [Verification Method](references/verification-method.md) for step-by-step ve
 | Asia Pacific - Hong Kong       | `ap-southeast-3` |
 | Europe - Paris                 | `eu-west-0`      |
 
-## Best Practices
+# # Best Practices
 
 1. **Namespace Organization**: Use descriptive namespace names following team/project naming (e.g., `team-backend`, `proj-ai`)
 2. **Repository Visibility**: Set `is_public=false` for internal images; only set `is_public=true` for images intended for public sharing
@@ -447,7 +445,7 @@ See [Verification Method](references/verification-method.md) for step-by-step ve
 6. **Long-term Login for CI/CD**: Use `CreateSecret` for automation pipelines; use `CreateAuthorizationToken` for temporary access
 7. **Delete with Caution**: Deleting a namespace removes ALL repositories under it; deleting a repository removes ALL tags
 
-## Reference Documents
+# # Reference Documents
 
 | Document                                               | Description                              |
 | ------------------------------------------------------ | ---------------------------------------- |
@@ -461,7 +459,7 @@ See [Verification Method](references/verification-method.md) for step-by-step ve
 | [Task: Auth Management](references/task-auth-management.md) | Login credential workflows          |
 | [Task: Quota Management](references/task-quota-management.md) | Quota check workflows             |
 
-## Notes
+# # Notes
 
 - **Namespace deletion is irreversible** — removes all repositories and images under it
 - **Repository deletion is irreversible** — removes all image tags permanently
@@ -470,7 +468,7 @@ See [Verification Method](references/verification-method.md) for step-by-step ve
 - **hcloud CLI is the only supported method** — all operations use `hcloud SWR <Operation>` format
 - **Pagination required for large datasets** — use `--limit` and `--offset` for repositories and tags listing
 
-## Common Pitfalls
+# # Common Pitfalls
 
 See [Common Pitfalls & Solutions](references/common-pitfalls.md) for detailed troubleshooting guides.
 

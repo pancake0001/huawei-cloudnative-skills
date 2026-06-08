@@ -1,7 +1,7 @@
-# Risk Rules
+# RiskRules
 
-- 允许自动执行节点只读查询、Lease 查询、Event 查询、Pod 查询、指标查询、巡检和 HSS 查询。
-- `huawei_node_failure_diagnose` 是只读诊断工具，只生成结构化证据和 Markdown 报告，不执行恢复动作。
-- 禁止本 skill 直接调用 cordon、uncordon、drain、reboot、漏洞状态修改。
-- 建议重启或 drain 前必须说明业务影响、节点上 Pod、回滚方式和验证步骤。
-- HSS 修复类动作必须说明 `confirm=true` 只可在用户明确确认后传入。
+- Allows automatic execution of node read-only queries, Lease queries, Event queries, Pod queries, indicator queries, inspections and HSS queries.
+- `huawei_node_failure_diagnose` is a read-only diagnostic tool that only generates structured evidence and Markdown reports and does not perform recovery actions.
+- This skill is prohibited from directly calling cordon, uncordon, drain, reboot, and vulnerability status modification.
+- It is recommended that the business impact, Pods on the node, rollback method and verification steps must be explained before restarting or draining.
+- HSS repair actions must state that `confirm=true` can only be passed in after the user explicitly confirms it.

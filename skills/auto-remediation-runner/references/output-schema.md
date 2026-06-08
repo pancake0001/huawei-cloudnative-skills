@@ -23,7 +23,7 @@
   "execution": {},
   "verification": [],
   "rollback_notes": [],
-  "report_markdown": "# CCE 自动恢复执行报告...",
+  "report_markdown": "# CCE automatic recovery execution report...",
   "report_file": "optional"
 }
 ```

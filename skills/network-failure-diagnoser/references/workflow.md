@@ -1,94 +1,94 @@
 # Workflow
 
-## 复用优先级
+# # Reuse priority
 
-已有能力必须优先复用：
+Existing capabilities must be reused first:
 
-- K8s 对象：`huawei_get_cce_services`、`huawei_get_cce_ingresses`、`huawei_get_cce_pods`、`huawei_get_kubernetes_nodes`、`huawei_get_cce_events`、`huawei_get_pod_logs`。
-- 云网络：`huawei_list_elb`、`huawei_list_elb_listeners`、`huawei_get_elb_metrics`、`huawei_list_eip`、`huawei_get_eip_metrics`、`huawei_list_nat`、`huawei_get_nat_gateway_metrics`、`huawei_list_security_groups`、`huawei_list_vpc_acls`。
-- 旧版综合诊断：`huawei_network_diagnose`、`huawei_network_diagnose_by_alarm`，可继续用于工作负载维度的链路和监控粗诊断。
-- 日志与观测：已有 LTS/AOM 日志、Pod 日志、AOM 指标能力，不重新实现日志平台或指标平台。
+- K8s objects: `huawei_get_cce_services`, `huawei_get_cce_ingresses`, `huawei_get_cce_pods`, `huawei_get_kubernetes_nodes`, `huawei_get_cce_events`, `huawei_get_pod_logs`.
+- Cloud network: `huawei_list_elb`, `huawei_list_elb_listeners`, `huawei_get_elb_metrics`, `huawei_list_eip`, `huawei_get_eip_me trics`, `huawei_list_nat`, `huawei_get_nat_gateway_metrics`, `huawei_list_security_groups`, `huawei_list_vpc_acls`.
+- Old versions of comprehensive diagnostics: `huawei_network_diagnose` and `huawei_network_diagnose_by_alarm` can continue to be used for rough diagnosis of links and monitoring in the workload dimension.
+- Logging and observation: LTS/AOM logs, Pod logs, and AOM indicator capabilities already exist, and the log platform or indicator platform will not be re-implemented.
 
-本 skill 新补齐的薄层能力：
+The newly added thin layer capabilities of this skill:
 
-- `huawei_network_failure_diagnose`：一次性采集 Service、Ingress、EndpointSlice、NetworkPolicy、Node、Pod、Events、CoreDNS/Ingress 日志和云 ELB 后端健康，直接生成 Markdown 报告。
-- `huawei_get_elb_backend_status`：读取 ELB pool/member/health monitor/load balancer status，补齐只看 ELB 指标无法确认具体后端健康的问题。
+- `huawei_network_failure_diagnose`: Collect Service, Ingress, EndpointSlice, NetworkPolicy, Node, Pod, Events, CoreDNS/Ingress logs and cloud ELB backend health at one time, and directly generate Markdown reports.
+- `huawei_get_elb_backend_status`: Read ELB pool/member/health monitor/load balancer status, and fix the problem that only looking at ELB indicators cannot confirm the specific backend health.
 
-仍不做的事：
+Things still not done:
 
-- 不执行 `kubectl exec` 主动探测，不修改安全组/ACL/ELB/Ingress/Service。
-- 不替代 `pod-failure-diagnoser`、`node-failure-diagnoser`、`workload-failure-diagnoser`；遇到 Pod/Node/发布根因时只交叉引用。
+- Do not execute `kubectl exec` active detection, and do not modify the security group/ACL/ELB/Ingress/Service.
+- Does not replace `pod-failure-diagnoser`, `node-failure-diagnoser`, `workload-failure-diagnoser`; only cross-references when encountering Pod/Node/release roots.
 
-## 输入与采集
+# # Input and collection
 
-最小输入为 `region`、`cluster_id`、`namespace`。尽量补齐以下字段：
+Minimum input is `region`, `cluster_id`, `namespace`. Please complete the following fields as much as possible:
 
-- `failure_symptom`：`域名无法解析`、`集群内服务不通`、`服务偶现抖动`、`外部域名/IP 无法访问`、`Ingress 502/504`。
-- `target_kind` + `target_name`：Pod、Service、Ingress 等。
-- `service_name`、`ingress_name`、`source_pod`、`destination_pod`、`domain`、`elb_id`。
+- `failure_symptom`: `Domain name cannot be resolved`, `Service unavailable within the cluster`, `Service jitters occasionally`, `External domain name/IP cannot be accessed`, `Ingress 502/504`.
+- `target_kind` + `target_name`: Pod, Service, Ingress, etc.
+- `service_name`, `ingress_name`, `source_pod`, `destination_pod`, `domain`, `elb_id`.
 
-默认先调用 `huawei_network_failure_diagnose`。它会形成同一时刻附近的只读上下文快照，并返回：
+By default, `huawei_network_failure_diagnose` is called first. It forms a read-only context snapshot around the same moment in time and returns:
 
-- `snapshot`：原始对象和云侧上下文。
-- `findings` / `top_causes`：结构化诊断命中项。
-- `report_markdown`：最终交付给客户的完整 Markdown 报告。
+- `snapshot`: original object and cloud-side context.
+- `findings` / `top_causes`: Structured diagnostic hits.
+- `report_markdown`: The complete Markdown report finally delivered to the customer.
 
-## 分层诊断流水线
+# # Hierarchical diagnostic pipeline
 
-### 1. 基础设施与节点层
+## # 1. Infrastructure and node layer
 
-先检查目标源/目的 Pod、后端 Pod、CoreDNS/Ingress Controller 所在节点：
+First check the nodes where the target source/destination Pod, backend Pod, and CoreDNS/Ingress Controller are located:
 
-- `Ready=False` 或 `Ready=Unknown`：直接输出节点底座故障，并剪枝跳过上层应用诊断。
-- `MemoryPressure`、`DiskPressure`、`PIDPressure`、`NetworkUnavailable=True`：关联 `OOMKilled`、`KubeletNotReady`、`Evicted`、`FailedCreatePodSandBox` 等事件。若与故障窗口重合，可剪枝。
+- `Ready=False` or `Ready=Unknown`: Directly output node base faults and prune to skip upper-layer application diagnosis.
+- `MemoryPressure`, `DiskPressure`, `PIDPressure`, `NetworkUnavailable=True`: associated with `OOMKilled`, `KubeletNotReady`, `Evicted`, `FailedCreatePodSandBox` and other events. If it coincides with the fault window, it can be pruned.
 
-### 2. DNS 链路
+## # 2. DNS link
 
-触发条件：`failure_symptom` 包含 DNS、域名、解析、NXDOMAIN 等。
+Trigger condition: `failure_symptom` includes DNS, domain name, resolution, NXDOMAIN, etc.
 
-路径：客户端 Pod -> `kube-dns` Service -> CoreDNS Pods -> 上游 DNS / 集群 Service DNS。
+Path: Client Pod -> `kube-dns` Service -> CoreDNS Pods -> Upstream DNS / Cluster Service DNS.
 
-断言：
+Assert:
 
-- 客户端 Pod `dnsPolicy=None` 且无 `dnsConfig`：输出 Pod DNS 配置缺失。
-- `kube-dns` EndpointSlice ready endpoint 为 0：输出 CoreDNS 后端不可用。
-- CoreDNS Events 中有 `OOMKilled`、`Liveness probe failed`、`Unhealthy`、`BackOff`：输出 CoreDNS 重启/探针失败导致解析抖动。
-- CoreDNS logs 中有 `NXDOMAIN`：输出服务名拼写、namespace 后缀或服务不存在。
-- CoreDNS logs 中有 `i/o timeout` / timeout：输出上游 DNS 或集群外网络故障候选。
+- Client Pod `dnsPolicy=None` and no `dnsConfig`: Output Pod DNS configuration is missing.
+- `kube-dns` EndpointSlice ready endpoint is 0: Output CoreDNS backend is unavailable.
+- There are `OOMKilled`, `Liveness probe failed`, `Unhealthy`, `BackOff` in CoreDNS Events: output CoreDNS restart/probe failure causes resolution jitter.
+- `NXDOMAIN` in CoreDNS logs: output service name spelling, namespace suffix or service does not exist.
+- `i/o timeout` / timeout in CoreDNS logs: Output upstream DNS or out-of-cluster network failure candidates.
 
-### 3. 东西向 Service 与策略
+## # 3. East-West Service and Strategy
 
-触发条件：集群内 Service 不通、偶现不通、服务抖动，或未指定外部链路时的默认检查。
+Trigger conditions: Service failure within the cluster, occasional failure, service jitter, or default check when no external link is specified.
 
-路径：源 Pod -> NetworkPolicy -> Service -> EndpointSlice -> 目的 Pod。
+Path: Source Pod -> NetworkPolicy -> Service -> EndpointSlice -> Destination Pod.
 
-断言：
+Assert:
 
-- 目标 Pod 被 NetworkPolicy 选中，但规则未放行源 Pod 标签、namespace 标签或端口：输出 NetworkPolicy 拦截，置信度 100%。
-- Service selector 无匹配 Pod，或 EndpointSlice ready endpoint 为 0：输出 Service selector/后端拓扑断裂。
-- 后端 Pod Events 有密集 `Readiness probe failed` 或 `Unhealthy`：输出 readiness 抖动导致后端被摘除。
-- 后端应用日志有 OOM、连接池耗尽、connection refused：输出应用自身过载/拒绝服务候选。
+- The target Pod is selected by NetworkPolicy, but the rule does not allow the source Pod label, namespace label, or port: Output NetworkPolicy interception with 100% confidence.
+- There is no matching Pod in the Service selector, or the EndpointSlice ready endpoint is 0: the output Service selector/backend topology is broken.
+- Backend Pod Events have intensive `Readiness probe failed` or `Unhealthy`: output readiness jitter causes the backend to be removed.
+- Backend application logs include OOM, connection pool exhaustion, and connection refused: output application overload/denial of service candidates.
 
-### 4. 南北向 Ingress/ELB
+## # 4. North-south Ingress/ELB
 
-触发条件：外部域名/IP 访问失败、Ingress 502/504、ELB 后端异常。
+Trigger conditions: External domain name/IP access failure, Ingress 502/504, ELB backend exception.
 
-路径：外部请求 -> 云 ELB/EIP -> Ingress Controller -> Service -> EndpointSlice -> Pod。
+Path: External Request -> Cloud ELB/EIP -> Ingress Controller -> Service -> EndpointSlice -> Pod.
 
-断言：
+Assert:
 
-- Ingress 或 LoadBalancer Service 的 `status.loadBalancer.ingress` 为空：关联 CCM/CCE Events 中的 ELB 创建失败、配额不足、权限不足、安全组/子网错误。
-- ELB member/pool 状态非健康，K8s 后端 Pod Ready：输出云安全组未放行 NodePort、健康检查端口错误、节点 IPVS/Iptables/kube-proxy 同步异常候选。
-- Ingress Controller logs 中有 `502 Bad Gateway`、`504 Gateway Timeout`：输出 Ingress 到后端或后端应用响应异常，继续核对 Service/Endpoint 和应用超时。
+- Empty `status.loadBalancer.ingress` for Ingress or LoadBalancer Service: Failed to create ELB in associated CCM/CCE Events, insufficient quota, insufficient permissions, wrong security group/subnet.
+- ELB member/pool status is not healthy, K8s backend Pod Ready: Output cloud security group does not release NodePort, health check port error, node IPVS/Iptables/kube-proxy synchronization exception candidate.
+- There are `502 Bad Gateway` and `504 Gateway Timeout` in Ingress Controller logs: Output Ingress to the backend or the backend application responds abnormally. Continue to check the Service/Endpoint and application timeout.
 
-## 报告要求
+# # Reporting requirements
 
-Markdown 报告必须包含：
+Markdown reports must contain:
 
-1. 诊断总览：目标、故障现象、结论、置信度、采集时间、是否剪枝。
-2. 排查过程：四阶段逐项状态，说明检查过、异常或剪枝跳过。
-3. 链路拓扑：按故障类型输出 DNS、东西向或南北向链路。
-4. 关键对象快照：Service、EndpointSlice、Backend Pods、Ingress、NetworkPolicy、Cloud ELB。
-5. 证据矩阵：阶段、类型、置信度、证据摘要。
-6. Top 根因：最多 3 个，必须有证据支撑。
-7. 建议动作与验证标准：只读验证或转交恢复 skill 的变更建议。
+1. Diagnosis overview: target, fault phenomenon, conclusion, confidence, collection time, and whether to prune.
+2. Troubleshooting process: four-stage item-by-item status, indicating checked, abnormal, or pruning skipped.
+3. Link topology: Outputs DNS, east-west, or north-south links by failure type.
+4. Key object snapshots: Service, EndpointSlice, Backend Pods, Ingress, NetworkPolicy, Cloud ELB.
+5. Evidence matrix: stage, type, confidence level, evidence summary.
+6. Top root causes: up to 3, must be supported by evidence.
+7. Recommended actions and verification standards: read-only verification or forwarding of change recommendations for recovery skills.

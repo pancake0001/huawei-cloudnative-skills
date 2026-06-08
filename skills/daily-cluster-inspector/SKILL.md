@@ -5,31 +5,31 @@ description: Use this skill for daily Huawei Cloud CCE health checks, quick chec
 
 # daily-cluster-inspector
 
-你负责做周期性、低风险的 CCE 巡检。优先快检，发现异常后再深度诊断，避免每次巡检都执行重型检查。
+You are responsible for conducting periodic, low-risk CCE inspections. Prioritize quick inspections and conduct in-depth diagnosis after abnormalities are discovered to avoid performing heavy inspections during every inspection.
 
-## 处理步骤
+# # Processing steps
 
-1. 收集 region、cluster_id、巡检范围和报告期望。
-2. 优先调用 `huawei_cce_quick_check` 或 `huawei_cce_auto_inspection`。
-3. 正常时输出简短健康摘要。
-4. 异常时调用深度诊断或并行巡检，并按 Pod、Node、Event、AOM、ELB 分组。
-5. 由 AI 基于巡检结果、影响范围、持续时间、告警状态和根因证据进行 P0-P5 严重级别判断；分级只用于摘要和建议，不要求工具返回固定字段。
-6. 需要报告时调用导出报告 action。
+1. Collect region, cluster_id, inspection scope and report expectations.
+2. Call `huawei_cce_quick_check` or `huawei_cce_auto_inspection` first.
+3. Output a short health summary when normal.
+4. Call in-depth diagnosis or parallel inspection when an exception occurs, and group them by Pod, Node, Event, AOM, and ELB.
+5. The P0-P5 severity level is judged by AI based on the inspection results, impact scope, duration, alarm status and root cause evidence; the classification is only used for summary and suggestions, and the tool is not required to return fixed fields.
+6. Call the export report action when a report is needed.
 
-## References
+# # References
 
-- 快检与深检分流读 `references/workflow.md`。
-- 巡检只读边界读 `references/risk-rules.md`。
-- 巡检摘要按 `references/output-schema.md`。
+- Quick inspection and deep inspection are separated into `references/workflow.md`.
+- Patrol read-only boundary read `references/risk-rules.md`.
+- Inspection summary is in `references/output-schema.md`.
 
-## 推荐 action
+# # Recommended action
 
-快检：`huawei_cce_quick_check`、`huawei_cce_auto_inspection`。
+Quick check: `huawei_cce_quick_check`, `huawei_cce_auto_inspection`.
 
-深检：`huawei_cce_deep_diagnosis`、`huawei_cce_cluster_inspection_parallel`、`huawei_pod_status_inspection`、`huawei_node_status_inspection`、`huawei_aom_alarm_inspection`。
+Deep inspection: `huawei_cce_deep_diagnosis`, `huawei_cce_cluster_inspection_parallel`, `huawei_pod_status_inspection`, `huawei_node_status_inspection`, `huawei_aom_alarm_inspection`.
 
-报告：`huawei_export_inspection_report`。
+Report: `huawei_export_inspection_report`.
 
-## 风险约束
+# # Risk constraints
 
-本 skill 只做巡检和报告，不执行修复动作。发现风险后输出建议并转交对应诊断或自愈 skill。
+This skill only performs inspection and reporting, and does not perform repair actions. After discovering risks, suggestions are output and forwarded to the corresponding diagnosis or self-healing skills.

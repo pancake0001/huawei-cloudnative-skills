@@ -1,10 +1,9 @@
 # Workflow
 
-1. 读取用户给出的告警名称、资源、时间窗口和严重级别。
-2. 默认使用最近 1 小时；如果用户描述过去故障，按用户时间扩大窗口。
-3. 调用 `huawei_list_aom_alarms`，不要只查 active_alert。
-4. 调用 `huawei_analyze_aom_alarms` 形成去重、突发、关注、常态分组。
-5. 如果告警与通知或静默有关，读取规则、动作规则、静默规则。
-6. 按资源、namespace、node、workload、alarm type 归并。
-7. 输出需要继续诊断的 Pod、Node、Network 或 Workload 对象。
-
+1. Read the alarm name, resource, time window and severity level given by the user.
+2. The last 1 hour is used by default; if the user describes a past fault, the window is expanded according to the user's time.
+3. Call `huawei_list_aom_alarms`, don’t just check active_alert.
+4. Call `huawei_analyze_aom_alarms` to form deduplication, burst, attention, and normal groups.
+5. If the alarm is related to notification or silence, read the rules, action rules, and silence rules.
+6. Merge by resource, namespace, node, workload, alarm type.
+7. Output the Pod, Node, Network, or Workload objects that require continued diagnosis.

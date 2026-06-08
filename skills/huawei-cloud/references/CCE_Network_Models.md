@@ -1,252 +1,246 @@
-# CCE 集群网络模式详解
+# Detailed explanation of CCE cluster network mode
 
-> 参考文档：
-> - https://support.huaweicloud.com/usermanual-cce/cce_10_0282.html (VPC网络)
-> - https://support.huaweicloud.com/usermanual-cce/cce_10_0283.html (云原生网络2.0)
-> - https://support.huaweicloud.com/usermanual-cce/cce_10_0284.html (容器隧道网络)
+> Reference documents:
+> - https://support.huaweicloud.com/usermanual-cce/cce_10_0282.html (VPC network)
+> - https://support.huaweicloud.com/usermanual-cce/cce_10_0283.html (Cloud Native Network 2.0)
+> - https://support.huaweicloud.com/usermanual-cce/cce_10_0284.html (container tunnel network)
 
 ---
 
-## 概述
+# # Overview
 
-CCE支持三种网络模型，每种模型适用于不同的场景：
+CCE supports three network models, each model is suitable for different scenarios:
 
-| 网络模型 | 适用场景 | 性能 | 复杂度 |
+| Network model | Applicable scenarios | Performance | Complexity |
 |---------|---------|------|--------|
-| **VPC网络** | 传统应用、小型集群 | 中等 | 低 |
-| **容器隧道网络** | 大规模集群、多租户 | 较高 | 中 |
-| **云原生网络2.0** | 高性能、低延迟、大规模 | 最高 | 低 |
+| **VPC Network** | Traditional applications, small clusters | Medium | Low |
+| **Container Tunnel Network** | Large-scale clusters, multi-tenancy | Higher | Medium |
+| **Cloud Native Network 2.0** | High performance, low latency, large scale | Highest | Low |
 
 ---
 
-## 一、VPC网络
+# # 1. VPC network
 
-### 1.1 概述
+# # # 1.1 Overview
 
-VPC网络是CCE的默认网络模式，容器网络与VPC网络互通，容器直接使用VPC的子网IP。
+The VPC network is the default network mode of CCE. The container network communicates with the VPC network, and the container directly uses the subnet IP of the VPC.
 
-### 1.2 架构特点
+# # # 1.2 Architecture features
 
 ```
-┌─────────────────────────────────────────┐
-│              VPC网络                    │
-│  ┌─────────────────────────────────┐   │
-│  │         容器子网                │   │
-│  │  ┌─────┐ ┌─────┐ ┌─────┐     │   │
-│  │  │Pod 1│ │Pod 2│ │Pod 3│ ... │   │
-│  │  └─────┘ └─────┘ └─────┘     │   │
-│  └─────────────────────────────────┘   │
-│              直接互通                   │
-│  ┌─────────────────────────────────┐   │
-│  │         节点子网                │   │
-│  │  ┌─────┐ ┌─────┐ ┌─────┐     │   │
-│  │  │Node1│ │Node2│ │Node3│ ... │   │
-│  │  └─────┘ └─────┘ └─────┘     │   │
-│  └─────────────────────────────────┘   │
-└─────────────────────────────────────────┘
+┌────────────────────────────────────────────
+│ VPC Network │
+│ ┌────────────────────────────────┐ │
+│ │ Container subnet │ │
+│ │ ┌─────┐ ┌─────┐ ┌─────┐ │ │
+│ │ │Pod 1│ │Pod 2│ │Pod 3│ ... │ │
+│ │ └─────┘ └─────┘ └─────┘ │ ││ └────────────────────────────────┘ │
+│ Direct interoperability │
+│ ┌────────────────────────────────┐ │
+│ │ Node Subnet │ │
+│ │ ┌─────┐ ┌─────┐ ┌─────┐ │ │
+│ │ │Node1│ │Node2│ │Node3│ ... │ │
+│ │ └─────┘ └─────┘ └─────┘ │ │
+│ └────────────────────────────────┘ │
+└──────────────────────────────────────────┘
 ```
 
-### 1.3 技术特点
+# # # 1.3 Technical features
 
-| 特性 | 说明 |
+| Features | Description |
 |------|------|
-| **IP分配** | 容器IP从VPC子网直接分配 |
-| **网络互通** | 容器与VPC内其他资源直接互通 |
-| **路由** | 通过VPC路由表实现跨节点通信 |
-| **安全组** | 支持安全组和网络ACL |
+| **IP allocation** | Container IP is allocated directly from the VPC subnet |
+| **Network Interoperability** | Direct interoperability between containers and other resources in the VPC |
+| **Routing** | Cross-node communication through VPC routing table |
+| **Security Group** | Support security group and network ACL |
 
-### 1.4 优缺点
+# # # 1.4 Advantages and Disadvantages
 
-**优点：**
-- 配置简单，易于理解
-- 与VPC资源无缝互通
-- 网络策略简单
+**Advantages:**
+- Simple configuration and easy to understand
+- Seamless interoperability with VPC resources
+- Simple network strategy
 
-**缺点：**
-- 容器IP消耗VPC子网IP
-- 大规模集群时IP资源紧张
-- 跨节点通信性能一般
+**Disadvantages:**
+- Container IP consumes VPC subnet IP
+- IP resources are tight in large-scale clusters
+- Average cross-node communication performance
 
-### 1.5 适用场景
+# # # 1.5 Applicable scenarios
 
-- 小型集群（节点数 < 50）
-- 传统应用迁移
-- 不需要高性能网络的普通应用
+- Small cluster (number of nodes < 50)
+- Traditional application migration
+- Common applications that do not require high-performance networking
 
 ---
 
-## 二、容器隧道网络
+# # 2. Container tunnel network
 
-### 2.1 概述
+# # # 2.1 Overview
 
-容器隧道网络基于VXLAN技术，在节点间建立隧道，容器使用独立的容器网段，与VPC网络隔离。
+The container tunnel network is based on VXLAN technology and establishes tunnels between nodes. The containers use independent container network segments and are isolated from the VPC network.
 
-### 2.2 架构特点
+# # # 2.2 Architecture features
 
 ```
-┌─────────────────────────────────────────┐
-│              VPC网络                    │
-│  ┌─────────────────────────────────┐   │
-│  │         节点子网                │   │
-│  │  ┌─────┐ ┌─────┐ ┌─────┐     │   │
-│  │  │Node1│ │Node2│ │Node3│ ... │   │
-│  │  └──┬──┘ └──┬──┘ └──┬──┘     │   │
-│  │     │       │       │         │   │
-│  │   VXLAN隧道（Overlay网络）    │   │
-│  │     │       │       │         │   │
-│  │  ┌──┴──┐ ┌──┴──┐ ┌──┴──┐     │   │
-│  │  │Pod 1│ │Pod 2│ │Pod 3│ ... │   │
-│  │  └─────┘ └─────┘ └─────┘     │   │
-│  │       独立容器网段              │   │
-│  └─────────────────────────────────┘   │
-└─────────────────────────────────────────┘
+┌────────────────────────────────────────────
+│ VPC Network ││ ┌────────────────────────────────┐ │
+│ │ Node Subnet │ │
+│ │ ┌─────┐ ┌─────┐ ┌─────┐ │ │
+│ │ │Node1│ │Node2│ │Node3│ ... │ │
+│ │ └──┬──┘ └──┬──┘ └──┬──┘ │ │
+│ │ │ │ │ │ │
+│ │ VXLAN Tunnel (Overlay Network) │ │
+│ │ │ │ │ │ │
+│ │ ┌──┴──┐ ┌──┴──┐ ┌──┴──┐ │ │
+│ │ │Pod 1│ │Pod 2│ │Pod 3│ ... │ │
+│ │ └─────┘ └─────┘ └─────┘ │ │
+│ │ Independent container network segment │ │
+│ └────────────────────────────────┘ │
+└──────────────────────────────────────────┘
 ```
 
-### 2.3 技术特点
+# # # 2.3 Technical features
 
-| 特性 | 说明 |
+| Features | Description |
 |------|------|
-| **IP分配** | 容器使用独立的容器网段（如172.16.0.0/16） |
-| **隧道技术** | 基于VXLAN，UDP端口4789 |
-| **网络隔离** | 容器网络与VPC网络隔离 |
-| **路由** | 通过隧道实现跨节点通信 |
+| **IP allocation** | The container uses an independent container network segment (such as 172.16.0.0/16) |
+| **Tunnel Technology** | Based on VXLAN, UDP port 4789 |
+| **Network Isolation** | Container network and VPC network isolation |
+| **Routing** | Cross-node communication through tunnels |
 
-### 2.4 优缺点
+# # # 2.4 Advantages and Disadvantages
 
-**优点：**
-- 容器IP与VPC IP分离，不消耗VPC子网
-- 支持大规模集群（节点数 > 1000）
-- 网络隔离性好
+**Advantages:**
+- The container IP is separated from the VPC IP and does not consume the VPC subnet.
+- Support large-scale clusters (number of nodes > 1000)
+- Good network isolation
 
-**缺点：**
-- 需要额外的VXLAN封装/解封装，有一定性能开销
-- 配置相对复杂
-- 容器与VPC资源互通需要额外配置
+**Disadvantages:**
+- Requires additional VXLAN encapsulation/decapsulation, which has a certain performance overhead
+- Configuration is relatively complex
+- Intercommunication between containers and VPC resources requires additional configuration
 
-### 2.5 适用场景
-
-- 大规模集群（节点数 > 50）
-- 多租户环境
-- 需要网络隔离的场景
+# # # 2.5 Applicable scenarios- Large-scale cluster (number of nodes > 50)
+- Multi-tenant environment
+- Scenarios that require network isolation
 
 ---
 
-## 三、云原生网络2.0（CCE Turbo）
+# # 3. Cloud Native Network 2.0 (CCE Turbo)
 
-### 3.1 概述
+# # # 3.1 Overview
 
-云原生网络2.0是CCE Turbo集群的网络模式，基于华为云自研的容器网络技术，提供高性能、低延迟的网络能力。
+Cloud Native Network 2.0 is the network mode of CCE Turbo cluster. Based on Huawei Cloud's self-developed container network technology, it provides high-performance and low-latency network capabilities.
 
-### 3.2 架构特点
+# # # 3.2 Architecture features
 
 ```
-┌─────────────────────────────────────────┐
-│              VPC网络                    │
-│  ┌─────────────────────────────────┐   │
-│  │         节点子网                │   │
-│  │  ┌─────┐ ┌─────┐ ┌─────┐     │   │
-│  │  │Node1│ │Node2│ │Node3│ ... │   │
-│  │  └──┬──┘ └──┬──┘ └──┬──┘     │   │
-│  │     │       │       │         │   │
-│  │   高性能网络（ENI直通）         │   │
-│  │     │       │       │         │   │
-│  │  ┌──┴──┐ ┌──┴──┐ ┌──┴──┐     │   │
-│  │  │Pod 1│ │Pod 2│ │Pod 3│ ... │   │
-│  │  └─────┘ └─────┘ └─────┘     │   │
-│  │       独立容器子网              │   │
-│  └─────────────────────────────────┘   │
-└─────────────────────────────────────────┘
+┌────────────────────────────────────────────
+│ VPC Network │
+│ ┌────────────────────────────────┐ │
+│ │ Node Subnet │ │
+│ │ ┌─────┐ ┌─────┐ ┌─────┐ │ │
+│ │ │Node1│ │Node2│ │Node3│ ... │ │
+│ │ └──┬──┘ └──┬──┘ └──┬──┘ │ │
+│ │ │ │ │ │ │
+│ │ High performance network (ENI pass-through) │ │
+│ │ │ │ │ │ │
+│ │ ┌──┴──┐ ┌──┴──┐ ┌──┴──┐ │ │
+│ │ │Pod 1│ │Pod 2│ │Pod 3│ ... │ │
+│ │ └─────┘ └─────┘ └─────┘ │ │
+│ │ Independent container subnet │ │
+│ └────────────────────────────────┘ │
+└──────────────────────────────────────────┘
 ```
 
-### 3.3 技术特点
+# # # 3.3 Technical features
 
-| 特性 | 说明 |
-|------|------|
-| **IP分配** | 容器使用独立的容器子网（如192.168.0.0/16） |
-| **网络技术** | 基于ENI（弹性网卡）直通，无VXLAN封装 |
-| **性能** | 接近物理机网络性能，延迟极低 |
-| **路由** | 通过VPC路由表直接路由，无需隧道 |
+| Features | Description |
+|------|------|| **IP allocation** | Containers use independent container subnets (such as 192.168.0.0/16) |
+| **Network Technology** | Based on ENI (Elastic Network Adapter) pass-through, no VXLAN encapsulation |
+| **Performance** | Close to physical machine network performance, extremely low latency |
+| **Routing** | Direct routing through the VPC routing table, no tunnel required |
 
-### 3.4 优缺点
+# # # 3.4 Advantages and Disadvantages
 
-**优点：**
-- 高性能，接近物理机网络
-- 低延迟，适合实时应用
-- 支持大规模集群（节点数 > 1000）
-- 容器IP与VPC IP分离
-- 配置简单
+**Advantages:**
+- High performance, close to physical machine network
+- Low latency, suitable for real-time applications
+- Support large-scale clusters (number of nodes > 1000)
+- Separate container IP and VPC IP
+- Simple configuration
 
-**缺点：**
-- 需要特定的实例规格支持（如c6s、c6sn等）
-- 部分旧规格不支持
+**Disadvantages:**
+- Requires specific instance specification support (such as c6s, c6sn, etc.)
+- Some old specifications are not supported
 
-### 3.5 适用场景
+# # # 3.5 Applicable scenarios
 
-- 高性能要求的应用（如AI训练、大数据）
-- 低延迟要求的应用（如金融交易、实时游戏）
-- 大规模集群
-- CCE Turbo集群（推荐）
+- Applications with high performance requirements (such as AI training, big data)
+- Applications with low latency requirements (such as financial transactions, real-time games)
+- Large scale clusters
+- CCE Turbo cluster (recommended)
 
 ---
 
-## 四、三种网络模式对比
+# # 4. Comparison of three network modes
 
-| 对比项 | VPC网络 | 容器隧道网络 | 云原生网络2.0 |
+| Comparison items | VPC network | Container tunnel network | Cloud native network 2.0 |
 |--------|---------|-------------|--------------|
-| **网络技术** | VPC路由 | VXLAN隧道 | ENI直通 |
-| **容器IP来源** | VPC子网 | 独立容器网段 | 独立容器子网 |
-| **跨节点通信** | VPC路由 | VXLAN隧道 | VPC路由 |
-| **性能** | 中等 | 较高 | 最高 |
-| **延迟** | 中等 | 较低 | 最低 |
-| **吞吐量** | 中等 | 较高 | 最高 |
-| **支持规模** | < 50节点 | > 1000节点 | > 1000节点 |
-| **配置复杂度** | 低 | 中 | 低 |
-| **适用集群** | CCE | CCE | CCE Turbo |
-| **实例要求** | 无特殊要求 | 无特殊要求 | 需要特定规格 |
+| **Network Technology** | VPC Routing | VXLAN Tunnel | ENI Passthrough |
+| **Container IP source** | VPC subnet | Independent container network segment | Independent container subnet |
+| **Cross-node communication** | VPC routing | VXLAN tunnel | VPC routing |
+| **Performance** | Medium | Higher | Highest |
+| **Latency** | Medium | Lower | Lowest |
+| **Throughput** | Medium | High | Highest |
+| **Supported scale** | < 50 nodes | > 1000 nodes | > 1000 nodes |
+| **Configuration Complexity** | Low | Medium | Low |
+| **Applicable clusters** | CCE | CCE | CCE Turbo |
+| **Example Requirements** | No special requirements | No special requirements | Specific specifications required |
 
 ---
 
-## 五、选择建议
+# # 5. Selection suggestions
 
-### 5.1 按场景选择
+# # # 5.1 Select by scene
 
-| 场景 | 推荐网络模型 |
-|------|-------------|
-| 小型集群（<50节点） | VPC网络 |
-| 传统应用迁移 | VPC网络 |
-| 大规模集群（>100节点） | 容器隧道网络 或 云原生网络2.0 |
-| 高性能要求（AI/大数据） | 云原生网络2.0 |
-| 低延迟要求（金融/游戏） | 云原生网络2.0 |
-| 多租户隔离 | 容器隧道网络 |
+| Scenario | Recommended network model |
+|------|-------------|| Small cluster (<50 nodes) | VPC network |
+| Traditional application migration | VPC network |
+| Large-scale clusters (>100 nodes) | Container tunnel network or cloud native network 2.0 |
+| High performance requirements (AI/big data) | Cloud native network 2.0 |
+| Low latency requirements (finance/games) | Cloud native network 2.0 |
+| Multi-tenant isolation | Container tunnel network |
 
-### 5.2 按集群类型选择
+# # # 5.2 Select by cluster type
 
-| 集群类型 | 可用网络模型 |
+| Cluster Types | Available Network Models |
 |---------|-------------|
-| CCE标准集群 | VPC网络、容器隧道网络 |
-| CCE Turbo集群 | 云原生网络2.0（推荐） |
+| CCE standard cluster | VPC network, container tunnel network |
+| CCE Turbo Cluster | Cloud Native Network 2.0 (recommended) |
 
 ---
 
-## 六、网络模式切换
+# # 6. Network mode switching
 
-### 6.1 注意事项
+# # # 6.1 Notes
 
-⚠️ **重要**：网络模式在集群创建后**不能修改**，请在创建集群时谨慎选择。
+⚠️ **Important**: The network mode **cannot be modified** after the cluster is created. Please choose carefully when creating the cluster.
 
-### 6.2 迁移方案
+# # # 6.2 Migration plan
 
-如需更换网络模式，需要：
-1. 创建新集群（使用目标网络模式）
-2. 迁移应用到新集群
-3. 切换流量到新集群
-4. 删除旧集群
+If you need to change the network mode, you need:
+1. Create a new cluster (using target network mode)
+2. Migrate the application to the new cluster
+3. Switch traffic to the new cluster
+4. Delete the old cluster
 
 ---
 
-## 七、相关文档
+# # 7. Related documents
 
-- [VPC网络](https://support.huaweicloud.com/usermanual-cce/cce_10_0282.html)
-- [云原生网络2.0](https://support.huaweicloud.com/usermanual-cce/cce_10_0283.html)
-- [容器隧道网络](https://support.huaweicloud.com/usermanual-cce/cce_10_0284.html)
-- [CCE安全组配置](./CCE_Security_Group_Configuration.md)
+- [VPC Network](https://support.huaweicloud.com/usermanual-cce/cce_10_0282.html)
+- [Cloud Native Network 2.0](https://support.huaweicloud.com/usermanual-cce/cce_10_0283.html)
+- [Container Tunnel Network](https://support.huaweicloud.com/usermanual-cce/cce_10_0284.html)
+- [CCE Security Group Configuration](./CCE_Security_Group_Configuration.md)

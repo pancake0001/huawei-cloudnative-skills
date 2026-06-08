@@ -4,14 +4,14 @@ name: huawei-cloud-swr-image-automation
 description: |
   Huawei Cloud SWR (Software Repository for Container) image automation and operations skill using hcloud CLI.
   Use this skill when the user wants to: (1) configure cross-region image sync (auto or manual), (2) manage SWR triggers for auto-deploy to CCE/CCI, (3) query available sync target regions, (4) check sync job status, (5) create/update/delete trigger configurations.
-  Trigger: user mentions "SWR automation", "SWR 自动化", "镜像同步", "SWR sync", "跨区域同步", "cross-region sync", "触发器", "SWR trigger", "自动部署", "auto deploy", "镜像复制", "image replication", "SWR 触发器"
+  Trigger: user mentions "SWR automation", "SWR automation", "image synchronization", "SWR sync", "cross-region sync", "cross-region sync", "trigger", "SWR trigger", "automatic deployment", "auto deploy", "image replication", "image replication", "SWR trigger"
 tags: [swr, image-automation, image-sync, trigger, auto-deploy]
 version: 1.0.0
 ---
 
 # Huawei Cloud SWR Image Automation
 
-## Overview
+# # Overview
 
 This skill provides image automation capabilities for Huawei Cloud SWR (Software Repository for Container) using the `hcloud` CLI, including cross-region image sync and trigger-based auto-deployment.
 
@@ -41,15 +41,15 @@ This skill provides image automation capabilities for Huawei Cloud SWR (Software
 - "Delete an old trigger configuration"
 - "Configure image replication across multiple regions"
 
-## Prerequisites
+# # Prerequisites
 
-### 1. hcloud CLI Requirements (MANDATORY)
+## # 1. hcloud CLI Requirements (MANDATORY)
 
 - hcloud CLI installed (version >= 7.2.2)
 - Run `hcloud version` to verify installation
 - First-time usage: `printf "y\n" | hcloud version` to accept privacy statement
 
-### 2. Credential Configuration
+## # 2. Credential Configuration
 
 - Valid Huawei Cloud credentials (AK/SK mode)
 - **Security Rules**:
@@ -67,16 +67,14 @@ export HUAWEI_CLOUD_SK=<your-sk>
 export HUAWEI_CLOUD_REGION=cn-north-4
 ```
 
-**⚠️ Important Security Notes**:
+**⚠️Important Security Notes**:
 
-- Never commit credentials to version control
+-Never commit credentials to version control
 - Use IAM users with minimal required permissions
 - Enable MFA for sensitive operations
 - Rotate AK/SK regularly
 
-### 3. IAM Permission Requirements
-
-| API Action                             | Permission           | Purpose                                    |
+## # 3. IAM Permission Requirements| API Action                             | Permission           | Purpose                                    |
 | -------------------------------------- | -------------------- | ------------------------------------------ |
 | `swr:sync:create`                      | Create sync repo     | Configure cross-region image sync          |
 | `swr:sync:delete`                      | Delete sync repo     | Remove sync configuration                  |
@@ -99,9 +97,9 @@ See [IAM Permission Policies](references/iam-policies.md) for complete policy JS
 3. Guide the user to create a custom policy in the IAM console and grant authorization
 4. Pause execution and wait for user confirmation that permissions have been granted
 
-## Core Commands
+# # Core Commands
 
-### 1. Auto Sync (Cross-region Image Replication)
+## # 1. Auto Sync (Cross-region Image Replication)
 
 See [Task: Image Sync](references/task-image-sync.md) for detailed workflows.
 
@@ -121,7 +119,7 @@ hcloud SWR DeleteImageSyncRepo --namespace=group-dev --repository=my-app --remot
 
 **Auto Sync Behavior**: When `syncAuto=true`, every new image push to the source repository automatically triggers a sync to the target region. When `syncAuto=false`, sync only occurs on manual trigger.
 
-### 2. Manual Sync
+## # 2. Manual Sync
 
 ```bash
 # Manually sync specific image tags to target region
@@ -133,7 +131,7 @@ hcloud SWR CreateManualImageSyncRepo --namespace=group-dev --repository=my-app -
 - ❌ WRONG: `--imageTag=v1.0` (missing index)
 - ❌ WRONG: `--imageTag=v1.0,v2.0` (comma-separated not supported)
 
-### 3. Sync Regions
+## # 3. Sync Regions
 
 ```bash
 # List all regions available as sync targets
@@ -151,7 +149,7 @@ hcloud SWR ListSyncRegions --cli-region=cn-north-4
 
 Returns all regions where you can sync images. Use the `regionID` field value as the `--remoteRegionId` parameter.
 
-### 4. Sync Job Status
+## # 4. Sync Job Status
 
 ```bash
 # Check sync job status
@@ -160,7 +158,7 @@ hcloud SWR ShowSyncJob --namespace=group-dev --repository=my-app --cli-region=cn
 
 Response format to be verified. Use `--help` for parameter details.
 
-### 5. Trigger Management (Auto-deploy to CCE/CCI)
+## # 5. Trigger Management (Auto-deploy to CCE/CCI)
 
 See [Task: Trigger Management](references/task-trigger-management.md) for detailed workflows.
 
@@ -190,9 +188,9 @@ hcloud SWR DeleteTrigger --namespace=group-dev --repository=my-app --trigger=dep
 - `cce`: Deploy to CCE (Cloud Container Engine) cluster — requires `--cluster_id`
 - `cci`: Deploy to CCI (Cloud Container Instance) — no cluster ID needed
 
-## Parameter Reference
+# # Parameter Reference
 
-### Common Parameters
+## # Common Parameters
 
 | Parameter       | Required/Optional | Description                   | Default                              |
 | --------------- | ----------------- | ----------------------------- | ------------------------------------ |
@@ -200,7 +198,7 @@ hcloud SWR DeleteTrigger --namespace=group-dev --repository=my-app --trigger=dep
 | `--namespace`   | Context-dependent | SWR namespace (organization)  | N/A                                  |
 | `--repository`  | Context-dependent | Image repository name         | N/A                                  |
 
-### Auto Sync Parameters
+## # Auto Sync Parameters
 
 | Parameter          | Required | Description              | Constraints                                  |
 | ------------------ | -------- | ------------------------ | -------------------------------------------- |
@@ -211,7 +209,7 @@ hcloud SWR DeleteTrigger --namespace=group-dev --repository=my-app --trigger=dep
 | `--override`       | No       | Overwrite existing images | `true` or `false` (default `false`)          |
 | `--syncAuto`       | No       | Auto sync on push         | `true` or `false` (default `false`)          |
 
-### Manual Sync Parameters
+## # Manual Sync Parameters
 
 | Parameter          | Required | Description              | Constraints                                  |
 | ------------------ | -------- | ------------------------ | -------------------------------------------- |
@@ -222,7 +220,7 @@ hcloud SWR DeleteTrigger --namespace=group-dev --repository=my-app --trigger=dep
 | `--imageTag.[N]`   | Yes      | Tag list (indexed array)  | `--imageTag.1=v1.0 --imageTag.2=v2.0`       |
 | `--override`       | No       | Overwrite existing images | `true` or `false` (default `false`)          |
 
-### Trigger Parameters
+## # Trigger Parameters
 
 | Parameter          | Required | Description              | Constraints                                  |
 | ------------------ | -------- | ------------------------ | -------------------------------------------- |
@@ -241,9 +239,9 @@ hcloud SWR DeleteTrigger --namespace=group-dev --repository=my-app --trigger=dep
 | `--cluster_name`   | No       | CCE cluster name          | Optional cluster name                        |
 | `--container`      | No       | Target container          | Specific container name (default: all)       |
 
-## Output Format
+# # Output Format
 
-### ListSyncRegions (verified)
+## # ListSyncRegions (verified)
 
 Response is a flat JSON array of region objects:
 
@@ -258,27 +256,27 @@ Response is a flat JSON array of region objects:
 
 **Note**: Returns all available sync target regions. Use `region_id` as `--remoteRegionId`.
 
-### ListImageAutoSyncReposDetails
+## # ListImageAutoSyncReposDetails
 
 Response format to be verified — returns list of sync repo configurations when they exist. Returns empty when no auto sync configured.
 
-### ListTriggersDetails
+## # ListTriggersDetails
 
 Response format to be verified — returns list of trigger objects when they exist. Returns empty when no triggers configured.
 
-### ShowTrigger
+## # ShowTrigger
 
 Response format to be verified. Use `--namespace`, `--repository`, `--trigger` (trigger name) as parameters.
 
-### ShowSyncJob
+## # ShowSyncJob
 
 Response format to be verified. Use `--namespace`, `--repository` as primary parameters.
 
-## Verification
+# # Verification
 
 See [Verification Method](references/verification-method.md) for step-by-step verification.
 
-## Common Region IDs
+# # Common Region IDs
 
 | Region Name                    | Region ID        |
 | ------------------------------ | ---------------- |
@@ -294,7 +292,7 @@ See [Verification Method](references/verification-method.md) for step-by-step ve
 | Asia Pacific - Hong Kong       | `ap-southeast-3` |
 | Europe - Paris                 | `eu-west-0`      |
 
-## Best Practices
+# # Best Practices
 
 1. **Auto-sync for production repos**: Set `syncAuto=true` for production repositories to ensure images are automatically replicated to target regions
 2. **Manual sync for selective replication**: Use `CreateManualImageSyncRepo` when you only need to sync specific tags (e.g., production releases)
@@ -306,7 +304,7 @@ See [Verification Method](references/verification-method.md) for step-by-step ve
 8. **Regional namespace alignment**: Use identical namespace names across regions for easier cross-region management
 9. **Check sync regions first**: Always run `ListSyncRegions` before creating sync configurations to verify the target region is available
 
-## Reference Documents
+# # Reference Documents
 
 | Document                                               | Description                              |
 | ------------------------------------------------------ | ---------------------------------------- |
@@ -317,7 +315,7 @@ See [Verification Method](references/verification-method.md) for step-by-step ve
 | [Task: Image Sync](references/task-image-sync.md)      | Auto/manual sync workflows               |
 | [Task: Trigger Management](references/task-trigger-management.md) | Trigger workflows             |
 
-## Notes
+# # Notes
 
 - **Auto-sync is persistent** — once configured, it automatically triggers on every new push until deleted
 - **Manual sync is one-time** — each `CreateManualImageSyncRepo` invocation syncs specified tags once
@@ -328,7 +326,7 @@ See [Verification Method](references/verification-method.md) for step-by-step ve
 - **Trigger requires CCE/CCI cluster** — triggers only work with existing CCE clusters or CCI instances
 - **Response formats pending verification** — ListImageAutoSyncReposDetails, ListTriggersDetails, ShowTrigger, ShowSyncJob response formats need live verification
 
-## Common Pitfalls
+# # Common Pitfalls
 
 See [Common Pitfalls & Solutions](references/common-pitfalls.md) for detailed troubleshooting guides.
 

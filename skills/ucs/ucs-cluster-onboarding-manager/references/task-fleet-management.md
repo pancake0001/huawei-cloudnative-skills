@@ -1,25 +1,25 @@
 # Task: Fleet Management
 
-## Overview
+# # Overview
 
-UCS fleet groups (集群组/舰队) provide organizational grouping for managed clusters, enabling unified policy governance and management across multiple clusters. This task covers creating, querying, and managing fleet groups.
+UCS fleet groups (cluster group/fleet) provide organizational grouping for managed clusters, enabling unified policy governance and management across multiple clusters. This task covers creating, querying, and managing fleet groups.
 
-## Operations Catalog
+# # Operations Catalog
 
-| Operation          | Method | Description              | Key Parameters                    |
-| ------------------ | ------ | ------------------------ | --------------------------------- |
-| `RegisterClusterGroup` | POST  | 创建集群组             | `--metadata.name`, `--spec.description`, `--spec.clusterIds.1` |
-| `ListClusterGroup` | GET    | 列出集群组列表           | `--limit`, `--offset`, `--order`, `--order_by` |
-| `ShowClusterGroup` | GET    | 获取集群组详情           | `--clustergroupid`                |
-| `UpdateClusterGroup` | PUT  | 更新集群组描述           | `--clustergroupid`, `--description` |
-| `UpdateClusterGroupAssociatedClusters` | PUT | 添加集群到舰队 | `--clustergroupid`, `--clusterIds.[N]` |
-| `DeleteClusterGroup` | DELETE | 删除集群组             | `--clustergroupid`                |
-| `JoinGroup`        | POST   | 添加集群到舰队           | `--clusterid` (path), `--clusterGroupID` (body) |
-| `LeaveGroup`       | POST   | 从舰队移除集群           | `--clusterid`                     |
+| Operation | Method | Description | Key Parameters |
+| ------------------ | ------ | ---------------------------------- | ---------------------------------- |
+| `RegisterClusterGroup` | POST | Create cluster group | `--metadata.name`, `--spec.description`, `--spec.clusterIds.1` |
+| `ListClusterGroup` | GET | List cluster group list | `--limit`, `--offset`, `--order`, `--order_by` |
+| `ShowClusterGroup` | GET | Get cluster group details | `--clustergroupid` |
+| `UpdateClusterGroup` | PUT | Update cluster group description | `--clustergroupid`, `--description` |
+| `UpdateClusterGroupAssociatedClusters` | PUT | Add cluster to fleet | `--clustergroupid`, `--clusterIds.[N]` |
+| `DeleteClusterGroup` | DELETE | Delete a cluster group | `--clustergroupid` |
+| `JoinGroup` | POST | Add cluster to fleet | `--clusterid` (path), `--clusterGroupID` (body) |
+| `LeaveGroup` | POST | Remove a cluster from a fleet | `--clusterid` |
 
 ## Workflows
 
-### W1: Create a Fleet Group
+## # W1: Create a Fleet Group
 
 **Pre-creation Checklist**:
 1. Check UCS quota for fleet groups: `hcloud UCS ShowQuota --domainid=<account-id> --cli-region=cn-north-4`
@@ -41,7 +41,7 @@ hcloud UCS ShowClusterGroup --clustergroupid=<group-id-from-response> --cli-regi
 
 Expected: Returns group details with `cluster_count: 0` (no clusters assigned yet).
 
-### W2: View Fleet Group Details
+## # W2: View Fleet Group Details
 
 ```bash
 hcloud UCS ShowClusterGroup --clustergroupid=<group-id> --cli-region=cn-north-4
@@ -54,7 +54,7 @@ hcloud UCS ShowClusterGroup --clustergroupid=<group-id> --cli-region=cn-north-4
 - `cluster_count`: Number of clusters in this group
 - `created_at`/`updated_at`: Timestamps
 
-### W3: List Fleet Groups
+## # W3: List Fleet Groups
 
 ```bash
 hcloud UCS ListClusterGroup --limit=20 --offset=0 --cli-region=cn-north-4
@@ -66,7 +66,7 @@ hcloud UCS ListClusterGroup --limit=20 --offset=0 --cli-region=cn-north-4
 - `--order` (optional): Sort order (`asc`, `desc`)
 - `--order_by` (optional): Sort field
 
-### W4: Add Clusters to Fleet Group
+## # W4: Add Clusters to Fleet Group
 
 ```bash
 hcloud UCS JoinGroup --clusterid=<ucs-cluster-id> --clusterGroupID=<group-id> --cli-region=cn-north-4
@@ -80,7 +80,7 @@ hcloud UCS UpdateClusterGroupAssociatedClusters --clustergroupid=<group-id> --cl
 
 **Note**: Clusters must be registered and in `Available` status before joining a fleet group. For grouped management, clusters should be registered with `--spec.manageType=grouped`.
 
-### W5: Remove a Cluster from Fleet Group
+## # W5: Remove a Cluster from Fleet Group
 
 ```bash
 hcloud UCS LeaveGroup --clusterid=<ucs-cluster-id> --cli-region=cn-north-4
@@ -94,17 +94,15 @@ hcloud UCS ShowClusterGroup --clustergroupid=<group-id> --cli-region=cn-north-4
 
 Expected: `cluster_count` decreases by 1.
 
-### W6: Update Fleet Group Description
+## # W6: Update Fleet Group Description
 
 ```bash
 hcloud UCS UpdateClusterGroup --clustergroupid=<group-id> --description="Updated description for the fleet group" --cli-region=cn-north-4
 ```
 
-### W7: Delete a Fleet Group
+## # W7: Delete a Fleet Group
 
-⚠️ **CAUTION**: Deleting a fleet group removes the organizational grouping. Clusters that were part of the group remain individually managed by UCS but lose the group-level policy governance association.
-
-**Pre-deletion Checklist**:
+⚠️ **CAUTION**: Deleting a fleet group removes the organizational grouping. Clusters that were part of the group remain individually managed by UCS but lose the group-level policy governance association.**Pre-deletion Checklist**:
 1. Verify no policy instances are bound to this group (use `ucs-policy-governor` skill)
 2. Confirm with the user that deletion is intended
 
@@ -120,7 +118,7 @@ hcloud UCS ShowClusterGroup --clustergroupid=<group-id> --cli-region=cn-north-4
 
 Expected: Group not found error (404).
 
-### W8: Organize Clusters into Fleet Groups
+## # W8: Organize Clusters into Fleet Groups
 
 Fleet groups are used for organizational grouping. Policy instances in the `ucs-policy-governor` skill can be bound to fleet groups for unified governance across all member clusters.
 
@@ -135,9 +133,9 @@ Fleet groups are used for organizational grouping. Policy instances in the `ucs-
 | By platform type  | `cce-clusters`      | Platform-specific configurations          |
 | By platform type  | `self-managed-fleet`| Consistent governance for self-managed    |
 
-## Common Scenarios
+# # Common Scenarios
 
-### S1: Create Environment-Based Fleet Groups
+## # S1: Create Environment-Based Fleet Groups
 
 ```bash
 hcloud UCS RegisterClusterGroup --metadata.name=production-fleet --spec.description="Production environment - strict compliance" --cli-region=cn-north-4
@@ -145,7 +143,7 @@ hcloud UCS RegisterClusterGroup --metadata.name=staging-fleet --spec.description
 hcloud UCS RegisterClusterGroup --metadata.name=development-fleet --spec.description="Development environment - relaxed compliance" --cli-region=cn-north-4
 ```
 
-### S2: Create Business-Domain Fleet Groups
+## # S2: Create Business-Domain Fleet Groups
 
 ```bash
 hcloud UCS RegisterClusterGroup --metadata.name=core-banking --spec.description="Core banking service clusters" --cli-region=cn-north-4
@@ -153,7 +151,7 @@ hcloud UCS RegisterClusterGroup --metadata.name=user-services --spec.description
 hcloud UCS RegisterClusterGroup --metadata.name=data-platform --spec.description="Data analytics and ML clusters" --cli-region=cn-north-4
 ```
 
-### S3: Reorganize Fleet Groups
+## # S3: Reorganize Fleet Groups
 
 When organizational structure changes, restructure fleet groups:
 
@@ -163,7 +161,7 @@ hcloud UCS RegisterClusterGroup --metadata.name=new-prod-fleet --spec.descriptio
 hcloud UCS DeleteClusterGroup --clustergroupid=<old-group-id> --cli-region=cn-north-4
 ```
 
-### S4: Audit Fleet Groups
+## # S4: Audit Fleet Groups
 
 Review all fleet groups and their associated clusters:
 
@@ -175,7 +173,7 @@ hcloud UCS ShowClusterList --cli-region=cn-north-4
 hcloud UCS ShowClusterGroup --clustergroupid=<group-id> --cli-region=cn-north-4
 ```
 
-## Fleet Group & Policy Governance Integration
+# # Fleet Group & Policy Governance Integration
 
 Fleet groups serve as the organizational foundation for UCS policy governance. When creating policy instances (see `ucs-policy-governor` skill), you can bind them to fleet groups for consistent enforcement across all member clusters.
 

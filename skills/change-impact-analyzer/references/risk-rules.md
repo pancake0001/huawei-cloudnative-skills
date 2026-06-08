@@ -1,38 +1,38 @@
-# Risk Rules
+# RiskRules
 
-## 只读边界
+# # Read only boundary
 
-`change-impact-analyzer` 只允许执行只读查询和报告生成：
+`change-impact-analyzer` only allows read-only querying and report generation:
 
-- 可以查询审计日志、K8s 事件、AOM 告警、Pod/Service/Ingress/Node/ConfigMap/Secret/NodePool/Security Group/VPC ACL 当前状态。
-- 可以调用 Workload、Network、Node 诊断 action 做只读下钻。
-- 可以把 `report_markdown` 写到用户指定的 `output_file`。
+- You can query audit logs, K8s events, AOM alarms, and the current status of Pod/Service/Ingress/Node/ConfigMap/Secret/NodePool/Security Group/VPC ACL.
+- Workload, Network, and Node diagnostic actions can be called for read-only drill-down.
+- `report_markdown` can be written to a user-specified `output_file`.
 
-## 禁止动作
+# # Prohibited actions
 
-禁止在本 skill 内执行：
+It is prohibited to execute within this skill:
 
-- 回滚或重新发布工作负载。
-- 修改 Deployment/StatefulSet/DaemonSet、ConfigMap、Secret、Service、Ingress、Gateway。
-- 修改 NetworkPolicy、RBAC、Security Group、VPC ACL。
-- 扩缩容工作负载或节点池。
-- cordon、uncordon、drain、delete、reboot 节点或 ECS。
-- 修改 HSS 漏洞状态。
+- Roll back or republish the workload.
+- Modify Deployment/StatefulSet/DaemonSet, ConfigMap, Secret, Service, Ingress, and Gateway.
+- Modify NetworkPolicy, RBAC, Security Group, and VPC ACL.
+- Scaling workloads or node pools.
+- cordon, uncordon, drain, delete, reboot node or ECS.
+- Modify HSS vulnerability status.
 
-## 恢复动作交接
+# # Resume action handover
 
-当报告指向明确恢复动作时：
+When the report points to explicit recovery action:
 
-1. 在报告中写明建议动作、风险和验证标准。
-2. 不带 `confirm=true` 执行任何变更。
-3. 转交 `auto-remediation-runner` 生成预览。
-4. 用户明确确认后，才允许恢复 skill 执行动作。
-5. 变更后再次运行 `huawei_change_impact_analyze` 或对应 diagnoser 做验证。
+1. Write recommended actions, risks and verification criteria in the report.
+2. Perform any changes without `confirm=true`.
+3. Hand over `auto-remediation-runner` to generate preview.
+4. The skill can be resumed and executed only after explicit confirmation from the user.
+5. After the change, run `huawei_change_impact_analyze` again or verify the corresponding diagnoser.
 
-## 结论置信度
+## Conclusion confidence
 
-- `high`：审计变更、故障时间邻近、事件/告警响应、拓扑影响面四类证据至少命中三类。
-- `medium`：命中审计变更和至少一类响应信号，或命中全局核心变更但响应信号不足。
-- `low`：只有对象写操作或当前快照，缺少时间/响应/拓扑证据。
+- `high`: At least three of the four types of evidence including audit changes, failure time proximity, event/alarm response, and topology impact surface are hit.
+- `medium`: Hits audit changes and at least one type of response signal, or hits global core changes but insufficient response signals.
+- `low`: only object writes or current snapshot, lack of time/response/topology evidence.
 
-低置信度结论必须在报告中写出数据缺口，不要把推测写成事实。
+Low-confidence conclusions must include data gaps in the report, and do not write speculation as fact.

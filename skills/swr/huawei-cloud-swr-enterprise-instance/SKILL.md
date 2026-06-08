@@ -2,13 +2,13 @@
 name: huawei-cloud-swr-enterprise-instance
 description: |
   Huawei Cloud SWR enterprise instance lifecycle management via hcloud CLI.
-  Trigger: "SWR enterprise instance", "SWR 企业实例", "SWR 企业版", "企业仓库实例", "swr.ee", "实例管理"
+  Trigger: "SWR enterprise instance", "SWR enterprise instance", "SWR Enterprise Edition", "Enterprise Warehouse Instance", "swr.ee", "Instance Management"
 tags: [swr, enterprise-instance, container-registry, registry, domain]
 ---
 
 # Huawei Cloud SWR Enterprise Instance Management
 
-## Overview
+# # Overview
 
 This skill provides lifecycle management for Huawei Cloud SWR (Software Repository for Container)
 enterprise instances using `hcloud` CLI. Enterprise instances provide dedicated, isolated container
@@ -30,24 +30,24 @@ registry environments with security scanning, replication, and custom domain sup
 - Repository and artifact management with vulnerability scanning
 - Credential management (long-term and temporary)
 - Network access (VPC internal endpoints, public access with whitelist)
-- Custom domain management
+-Custom domain management
 - Statistics and job monitoring
 
-## Prerequisites
+# # Prerequisites
 
-### 0. Enterprise Repository Service Authorization (MANDATORY)
+## # 0. Enterprise Repository Service Authorization (MANDATORY)
 
 You **must** authorize the SWR Enterprise Repository feature before using this skill.
 Visit [https://console.huaweicloud.com/swr-instance](https://console.huaweicloud.com/swr-instance)
 to complete authorization. If any API returns an authorization error, direct the user to this link
 and wait for confirmation.
 
-### 1. hcloud CLI Requirements (MANDATORY)
+## # 1. hcloud CLI Requirements (MANDATORY)
 
 - hcloud CLI installed (version >= 7.2.2)
 - Run `hcloud version` to verify; first-time: `printf "y\n" | hcloud version`
 
-### 2. Credential Configuration
+## # 2. Credential Configuration
 
 - Valid Huawei Cloud credentials (AK/SK mode via environment variables)
 - Never expose AK/SK in code, conversation, or commands
@@ -60,7 +60,7 @@ export HUAWEI_CLOUD_SK=<your-sk>
 export HUAWEI_CLOUD_REGION=cn-north-4
 ```
 
-### 3. IAM Permission Requirements
+## # 3. IAM Permission Requirements
 
 See [IAM Permission Policies](references/iam-policies.md) for complete permission list and policy JSON.
 
@@ -71,12 +71,12 @@ See [IAM Permission Policies](references/iam-policies.md) for complete permissio
 3. Guide the user to create a custom policy in IAM console
 4. Wait for user confirmation that permissions have been granted
 
-## Core Commands
+# # Core Commands
 
 See [Command Reference](references/command-reference.md) for full command examples and naming rules.
 
 **⚠️ hcloud CLI CreateInstance Bug**: `hcloud SWR CreateInstance` has a duplicate `--project_id`
-parameter bug (`重复的参数:project_id`). Use the Python SDK script instead:
+parameter bug (`Duplicate parameter: project_id`). Use the Python SDK script instead:
 
 ```bash
 python scripts/swr_instance_helper.py create --name=my-instance --spec=swr.ee.basic \
@@ -86,9 +86,7 @@ python scripts/swr_instance_helper.py create --name=my-instance --spec=swr.ee.ba
 
 All other lifecycle commands (List/Show/Update/Delete) work fine with hcloud CLI.
 
-**Resource Types and Commands**:
-
-| Resource          | Key Commands                                                     | Reference                                                 |
+**Resource Types and Commands**:| Resource          | Key Commands                                                     | Reference                                                 |
 | ----------------- | ---------------------------------------------------------------- | --------------------------------------------------------- |
 | Instance          | Create (SDK), List, Show, UpdateConfig, Delete                  | [Task: Lifecycle](references/task-instance-lifecycle.md)  |
 | Namespace         | Create, List, Show, Update, Delete                               | [Task: Namespaces](references/task-instance-namespaces.md) |
@@ -100,20 +98,20 @@ All other lifecycle commands (List/Show/Update/Delete) work fine with hcloud CLI
 | Domain            | Add, List, Show, Delete, Update                                  | [Task: Domains](references/task-instance-domains.md)       |
 | Statistics/Jobs   | ListStatistics, ListJobs, ShowJob, DeleteJob                     | [Command Reference](references/command-reference.md)       |
 
-## Parameter Reference
+# # Parameter Reference
 
 See [Parameter Reference](references/parameter-reference.md) for detailed parameter tables
 (Common, Instance Creation, Namespace, Registry, Endpoint Whitelist).
 
-## Output Format
+# # Output Format
 
 See [Output Format](references/output-format.md) for response format examples.
 
-## Verification
+# # Verification
 
 See [Verification Method](references/verification-method.md) for step-by-step verification.
 
-## Best Practices
+# # Best Practices
 
 1. **Instance naming**: Use descriptive names reflecting environment (`prod-instance`, `dev-instance`)
 2. **VPC selection**: Choose VPC/subnet matching your workload deployment
@@ -126,7 +124,7 @@ See [Verification Method](references/verification-method.md) for step-by-step ve
 9. **Credentials**: LtCredential for CI/CD; TempCredential for temporary access
 10. **Spec selection**: `swr.ee.basic` for small teams; `swr.ee.professional` for enterprise
 
-## Reference Documents
+# # Reference Documents
 
 | Document                                                          | Description                               |
 | ----------------------------------------------------------------- | ----------------------------------------- |
@@ -146,7 +144,7 @@ See [Verification Method](references/verification-method.md) for step-by-step ve
 | [Task: Instance Endpoints](references/task-instance-endpoints.md) | Internal and public access configuration  |
 | [Task: Instance Domains](references/task-instance-domains.md)     | Custom domain management                  |
 
-## Notes
+# # Notes
 
 - **Instance deletion is irreversible** — removes ALL data permanently
 - **Namespace deletion is irreversible** — removes all repositories and artifacts
@@ -157,7 +155,7 @@ See [Verification Method](references/verification-method.md) for step-by-step ve
 - **Pagination**: `offset` must be 0 or a multiple of `limit`
 - **Registry access_secret is sensitive** — never expose or log
 
-## Common Pitfalls
+# # Common Pitfalls
 
 See [Common Pitfalls](references/common-pitfalls.md) for detailed troubleshooting guides.
 

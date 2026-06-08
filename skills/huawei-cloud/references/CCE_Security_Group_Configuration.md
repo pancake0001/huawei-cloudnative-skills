@@ -1,214 +1,206 @@
-# CCE 集群安全组规则配置说明
+# CCE cluster security group rule configuration instructions
 
-> 参考文档：https://support.huaweicloud.com/cce_faq/cce_faq_00265.html
+> Reference document: https://support.huaweicloud.com/cce_faq/cce_faq_00265.html
 
-## 概述
+# # Overview
 
-CCE作为通用的容器平台，安全组规则的设置适用于通用场景。集群在创建时将会自动为Master节点和Node节点分别创建一个安全组：
+CCE is a universal container platform, and the setting of security group rules is suitable for common scenarios. When the cluster is created, a security group will be automatically created for the Master node and the Node node:
 
-| 安全组类型 | 命名规则 |
-|-----------|---------|
-| Master节点安全组 | `{集群名}-cce-control-{随机ID}` |
-| Node节点安全组 | `{集群名}-cce-node-{随机ID}` |
-| ENI安全组（CCE Turbo） | `{集群名}-cce-eni-{随机ID}` |
+| Security group type | Naming rules |
+|-----------|----------|
+| Master node security group | `{cluster name}-cce-control-{random ID}` |
+| Node node security group | `{cluster name}-cce-node-{random ID}` |
+| ENI Security Group (CCE Turbo) | `{cluster name}-cce-eni-{random ID}` |
 
-## ⚠️ 重要警告
+# # ⚠️ IMPORTANT WARNING
 
-- **修改安全组规则属于高危操作**，可能会影响集群的正常运行
-- 请谨慎操作，并选择在业务低峰期进行
-- 如需修改安全组规则，请尽量避免对CCE运行依赖的端口规则进行修改
-- 部分端口可能还存在用户自身业务依赖，建议先在测试环境中进行充分验证
-- 验证过程建议包括：端口连通性、集群组件可用性、业务全链路可用性等多个维度
-
----
-
-## 一、VPC网络模型安全组规则
-
-### 1.1 Node节点安全组
-
-**安全组名称**：`{集群名}-cce-node-{随机ID}`
-
-#### 入方向规则
-
-| 方向 | 端口 | 默认源地址 | 说明 | 修改建议 | 修改后影响 |
-|------|------|-----------|------|---------|-----------|
-| 入方向 | UDP：全部 | VPC网段 | Node节点之间互访、Node节点与Master节点互访 | ❌ 不建议修改 | 影响集群正常运行 |
-| 入方向 | TCP：全部 | Master节点安全组 | Master节点访问Node节点 | ❌ 不建议修改 | 影响集群正常运行 |
-| 入方向 | ICMP：全部 | Master节点安全组 | Master节点访问Node节点 | ❌ 不建议修改 | 影响集群正常运行 |
-| 入方向 | TCP：30000-32767 | 所有IP（0.0.0.0/0） | NodePort服务默认访问端口范围 | ✅ 可修改 | 需对VPC网段、容器网段和ELB网段放通 |
-| 入方向 | UDP：30000-32767 | 所有IP（0.0.0.0/0） | NodePort服务默认访问端口范围 | ✅ 可修改 | 需对VPC网段、容器网段和ELB网段放通 |
-| 入方向 | 全部 | 容器网段 | 允许集群中的容器访问节点 | ❌ 不建议修改 | 影响集群正常运行 |
-| 入方向 | 全部 | Node节点安全组 | Node节点安全组内实例互相访问 | ❌ 不建议修改 | 影响集群正常运行 |
-| 入方向 | TCP：22 | 所有IP（0.0.0.0/0） | SSH远程连接 | ✅ 建议修改 | 建议只允许固定IP访问 |
-
-#### 出方向规则
-
-| 端口 | 默认源地址 | 说明 | 修改建议 |
-|------|-----------|------|---------|
-| 全部 | 所有IP（0.0.0.0/0） | 默认全部放通 | ✅ 可修改，参考出方向规则加固建议 |
-
-### 1.2 Master节点安全组
-
-**安全组名称**：`{集群名}-cce-control-{随机ID}`
-
-#### 入方向规则
-
-| 端口 | 默认源地址 | 说明 | 修改建议 | 修改后影响 |
-|------|-----------|------|---------|-----------|
-| TCP：5444 | VPC网段 | kube-apiserver服务端口 | ❌ 不建议修改 | 影响集群正常运行 |
-| TCP：5444 | 容器网段 | kube-apiserver服务端口 | ❌ 不建议修改 | 影响集群正常运行 |
-| TCP：9443 | VPC网段 | Node节点网络插件访问Master节点 | ❌ 不建议修改 | 影响集群正常运行 |
-| TCP：5443 | 所有IP（0.0.0.0/0） | kube-apiserver的HAProxy负载均衡端口 | ✅ 建议修改 | 需保留对VPC网段、容器网段放通 |
-| TCP：8445 | VPC网段 | Node节点存储插件访问Master节点 | ❌ 不建议修改 | 影响集群正常运行 |
-| 全部 | Master节点安全组 | Master节点安全组内实例互相访问 | ❌ 不建议修改 | 影响集群正常运行 |
-
-> **CloudShell功能说明**：如需使用CloudShell功能，请保留5443端口对 `198.19.0.0/16` 网段放通，否则将无法访问集群。
-
-#### 出方向规则
-
-| 端口 | 默认源地址 | 说明 | 修改建议 |
-|------|-----------|------|---------|
-| 全部 | 所有IP（0.0.0.0/0） | 默认全部放通 | ❌ 不建议修改 |
+- **Modifying security group rules is a high-risk operation** and may affect the normal operation of the cluster.
+- Please operate with caution and choose to do it during low business hours
+- If you need to modify the security group rules, please try to avoid modifying the port rules that CCE depends on.
+- Some ports may still be dependent on the user's own business. It is recommended to fully verify it in the test environment first.
+- Recommendations for the verification process include: port connectivity, cluster component availability, business full-link availability and other dimensions
 
 ---
 
-## 二、容器隧道网络模型安全组规则
+# # 1. VPC network model security group rules
 
-### 2.1 Node节点安全组
+# # # 1.1 Node node security group
 
-**安全组名称**：`{集群名}-cce-node-{随机ID}`
+**Security group name**:`{cluster name}-cce-node-{random ID}`
 
-#### 入方向规则
+## # # Inbound direction rules
 
-| 端口 | 默认源地址 | 说明 | 修改建议 | 修改后影响 |
-|------|-----------|------|---------|-----------|
-| UDP：4789 | 所有IP（0.0.0.0/0） | 容器间网络互访 | ❌ 不建议修改 | 影响集群正常运行 |
-| TCP：10250 | Master节点网段 | Master节点访问Node节点kubelet | ❌ 不建议修改 | 影响集群正常运行 |
-| TCP：30000-32767 | 所有IP（0.0.0.0/0） | NodePort服务端口范围 | ✅ 可修改 | 需对VPC网段、容器网段和ELB网段放通 |
-| UDP：30000-32767 | 所有IP（0.0.0.0/0） | NodePort服务端口范围 | ✅ 可修改 | 需对VPC网段、容器网段和ELB网段放通 |
-| TCP：22 | 所有IP（0.0.0.0/0） | SSH远程连接 | ✅ 建议修改 | 建议只允许固定IP访问 |
-| 全部 | Node节点安全组 | Node节点安全组内实例互相访问 | ❌ 不建议修改 | 影响集群正常运行 |
+| Direction | Port | Default source address | Description | Modification suggestions | Impact after modification |
+|------|------|-----------|------|----------|-----------|
+| Inbound direction | UDP: All | VPC network segment | Mutual access between Node nodes, Node node and Master node | ❌ Modification is not recommended | Affects the normal operation of the cluster |
+| Inbound direction | TCP: All | Master node security group | Master node accesses Node nodes | ❌ Modification is not recommended | Affects the normal operation of the cluster || Inbound direction | ICMP: All | Master node security group | Master node accesses Node nodes | ❌ Modification is not recommended | Affects the normal operation of the cluster |
+| Inbound direction | TCP:30000-32767 | All IPs (0.0.0.0/0) | NodePort service default access port range | ✅ Can be modified | VPC network segment, container network segment and ELB network segment need to be allowed |
+| Inbound direction | UDP:30000-32767 | All IPs (0.0.0.0/0) | NodePort service default access port range | ✅ Can be modified | VPC network segment, container network segment and ELB network segment need to be allowed |
+| Inbound direction | All | Container network segment | Allow containers in the cluster to access nodes | ❌ Modification is not recommended | Affects the normal operation of the cluster |
+| Inbound direction | All | Node node security group | Instances in the Node node security group can access each other | ❌ Modification is not recommended | Affects the normal operation of the cluster |
+| Inbound direction | TCP:22 | All IPs (0.0.0.0/0) | SSH remote connection | ✅ Suggested changes | It is recommended to only allow fixed IP access |
 
-### 2.2 Master节点安全组
+## # # Outbound direction rules
 
-**安全组名称**：`{集群名}-cce-control-{随机ID}`
+| Port | Default source address | Description | Modification suggestions |
+|------|-----------|------|----------|
+| All | All IPs (0.0.0.0/0) | Allow all by default | ✅ Can be modified, refer to outbound rule reinforcement suggestions |
 
-#### 入方向规则
+# # # 1.2 Master node security group
 
-| 端口 | 默认源地址 | 说明 | 修改建议 | 修改后影响 |
-|------|-----------|------|---------|-----------|
-| UDP：4789 | 所有IP（0.0.0.0/0） | 容器间网络互访 | ❌ 不建议修改 | 影响集群正常运行 |
-| TCP：5444 | VPC网段 | kube-apiserver服务端口 | ❌ 不建议修改 | 影响集群正常运行 |
-| TCP：5444 | 容器网段 | kube-apiserver服务端口 | ❌ 不建议修改 | 影响集群正常运行 |
-| TCP：9443 | VPC网段 | Node节点网络插件访问Master节点 | ❌ 不建议修改 | 影响集群正常运行 |
-| TCP：5443 | 所有IP（0.0.0.0/0） | kube-apiserver的HAProxy负载均衡端口 | ✅ 建议修改 | 需保留对VPC网段、容器网段放通 |
-| TCP：8445 | VPC网段 | Node节点存储插件访问Master节点 | ❌ 不建议修改 | 影响集群正常运行 |
-| 全部 | Master节点安全组 | Master节点安全组内实例互相访问 | ❌ 不建议修改 | 影响集群正常运行 |
+**Security group name**:`{cluster name}-cce-control-{random ID}`
 
----
+## # # Inbound direction rules
 
-## 三、云原生网络2.0（CCE Turbo集群）安全组规则
+| Port | Default source address | Description | Modification suggestions | Impact after modification |
+|------|-----------|------|----------|-----------|
+| TCP:5444 | VPC network segment | kube-apiserver service port | ❌ Modification is not recommended | Affects the normal operation of the cluster |
+| TCP:5444 | Container network segment | kube-apiserver service port | ❌ Modification is not recommended | Affects the normal operation of the cluster || TCP:9443 | VPC network segment | Node node network plug-in accesses the Master node | ❌ Modification is not recommended | Affects the normal operation of the cluster |
+| TCP:5443 | All IPs (0.0.0.0/0) | HAProxy load balancing port of kube-apiserver | ✅ Suggested changes | VPC network segments and container network segments need to be reserved |
+| TCP:8445 | VPC network segment | Node node storage plug-in accesses the Master node | ❌ Modification is not recommended | Affects the normal operation of the cluster |
+| All | Master node security group | Instances in the Master node security group can access each other | ❌ Modification is not recommended | Affects the normal operation of the cluster |
 
-### 3.1 Node节点安全组
+> **CloudShell Function Description**: If you need to use the CloudShell function, please reserve port 5443 and open the `198.19.0.0/16` network segment, otherwise you will not be able to access the cluster.
 
-**安全组名称**：`{集群名}-cce-node-{随机ID}`
+## # # Outbound direction rules
 
-#### 入方向规则
-
-| 端口 | 默认源地址 | 说明 | 修改建议 | 修改后影响 |
-|------|-----------|------|---------|-----------|
-| TCP：10250 | Master节点网段 | Master节点访问Node节点kubelet | ❌ 不建议修改 | 影响集群正常运行 |
-| TCP：30000-32767 | 所有IP（0.0.0.0/0） | NodePort服务端口范围 | ✅ 可修改 | 需对VPC网段、容器网段和ELB网段放通 |
-| UDP：30000-32767 | 所有IP（0.0.0.0/0） | NodePort服务端口范围 | ✅ 可修改 | 需对VPC网段、容器网段和ELB网段放通 |
-| TCP：22 | 所有IP（0.0.0.0/0） | SSH远程连接 | ✅ 建议修改 | 建议只允许固定IP访问 |
-| 全部 | Node节点安全组 | Node节点安全组内实例互相访问 | ❌ 不建议修改 | 影响集群正常运行 |
-| 全部 | 容器子网网段 | 允许集群中的容器访问节点 | ❌ 不建议修改 | 影响集群正常运行 |
-
-### 3.2 Master节点安全组
-
-**安全组名称**：`{集群名}-cce-control-{随机ID}`
-
-#### 入方向规则
-
-| 端口 | 默认源地址 | 说明 | 修改建议 | 修改后影响 |
-|------|-----------|------|---------|-----------|
-| TCP：5444 | 所有IP（0.0.0.0/0） | kube-apiserver服务端口 | ❌ 不建议修改 | 影响集群正常运行 |
-| TCP：5444 | VPC网段 | kube-apiserver服务端口 | ❌ 不建议修改 | 影响集群正常运行 |
-| TCP：9443 | VPC网段 | Node节点网络插件访问Master节点 | ❌ 不建议修改 | 影响集群正常运行 |
-| TCP：5443 | 所有IP（0.0.0.0/0） | kube-apiserver的HAProxy负载均衡端口 | ✅ 建议修改 | 需保留对VPC网段、容器网段放通 |
-| TCP：8445 | VPC网段 | Node节点存储插件访问Master节点 | ❌ 不建议修改 | 影响集群正常运行 |
-| 全部 | Master节点安全组 | Master节点安全组内实例互相访问 | ❌ 不建议修改 | 影响集群正常运行 |
-| 全部 | 容器子网网段 | 容器子网网段的源地址需全部放通 | ❌ 不建议修改 | 影响集群正常运行 |
-
-### 3.3 ENI安全组（CCE Turbo专用）
-
-**安全组名称**：`{集群名}-cce-eni-{随机ID}`
-
-#### 入方向规则
-
-| 端口 | 默认源地址 | 说明 | 修改建议 | 修改后影响 |
-|------|-----------|------|---------|-----------|
-| 全部 | ENI安全组 | 允许集群中的容器互相访问 | ❌ 不建议修改 | 影响集群正常运行 |
-| 全部 | VPC网段 | 允许集群VPC中的实例访问容器 | ❌ 不建议修改 | 影响集群正常运行 |
+| Port | Default source address | Description | Modification suggestions |
+|------|-----------|------|----------|
+| All | All IPs (0.0.0.0/0) | All are allowed by default | ❌ Modification is not recommended |
 
 ---
 
-## 四、安全组出方向规则加固建议
+# # 2. Container tunnel network model security group rules
 
-对于出方向规则，CCE创建的安全组默认全部放通，通常情况下不建议修改。如需加固出方向规则，请注意如下端口需要放通：
+# # # 2.1 Node node security group
 
-### Node节点安全组出方向规则最小范围
+**Security group name**:`{cluster name}-cce-node-{random ID}`
 
-| 端口 | 放通地址段 | 说明 |
+## # # Inbound direction rules
+
+| Port | Default source address | Description | Modification suggestions | Impact after modification |
+|------|-----------|------|----------|-----------|
+| UDP:4789 | All IPs (0.0.0.0/0) | Network access between containers | ❌ Modification is not recommended | Affects the normal operation of the cluster |
+| TCP:10250 | Master node network segment | Master node accesses Node node kubelet | ❌ Modification is not recommended | Affects the normal operation of the cluster |
+| TCP:30000-32767 | All IPs (0.0.0.0/0) | NodePort service port range | ✅ Modifiable | VPC network segment, container network segment and ELB network segment need to be opened || UDP:30000-32767 | All IPs (0.0.0.0/0) | NodePort service port range | ✅ Modifiable | VPC network segment, container network segment and ELB network segment need to be opened |
+| TCP:22 | All IPs (0.0.0.0/0) | SSH remote connection | ✅ Suggested changes | It is recommended to only allow fixed IP access |
+| All | Node node security group | Instances in the Node node security group can access each other | ❌ Modification is not recommended | Affects the normal operation of the cluster |
+
+# # # 2.2 Master node security group
+
+**Security group name**:`{cluster name}-cce-control-{random ID}`
+
+## # # Inbound direction rules
+
+| Port | Default source address | Description | Modification suggestions | Impact after modification |
+|------|-----------|------|----------|-----------|
+| UDP:4789 | All IPs (0.0.0.0/0) | Network access between containers | ❌ Modification is not recommended | Affects the normal operation of the cluster |
+| TCP:5444 | VPC network segment | kube-apiserver service port | ❌ Modification is not recommended | Affects the normal operation of the cluster |
+| TCP:5444 | Container network segment | kube-apiserver service port | ❌ Modification is not recommended | Affects the normal operation of the cluster |
+| TCP:9443 | VPC network segment | Node node network plug-in accesses the Master node | ❌ Modification is not recommended | Affects the normal operation of the cluster |
+| TCP:5443 | All IPs (0.0.0.0/0) | HAProxy load balancing port of kube-apiserver | ✅ Suggested changes | VPC network segments and container network segments need to be reserved |
+| TCP:8445 | VPC network segment | Node node storage plug-in accesses the Master node | ❌ Modification is not recommended | Affects the normal operation of the cluster |
+| All | Master node security group | Instances in the Master node security group can access each other | ❌ Modification is not recommended | Affects the normal operation of the cluster |
+
+---
+
+# # 3. Cloud native network 2.0 (CCE Turbo cluster) security group rules
+
+# # # 3.1 Node node security group**Security group name**:`{cluster name}-cce-node-{random ID}`
+
+## # # Inbound direction rules
+
+| Port | Default source address | Description | Modification suggestions | Impact after modification |
+|------|-----------|------|----------|-----------|
+| TCP:10250 | Master node network segment | Master node accesses Node node kubelet | ❌ Modification is not recommended | Affects the normal operation of the cluster |
+| TCP:30000-32767 | All IPs (0.0.0.0/0) | NodePort service port range | ✅ Modifiable | VPC network segment, container network segment and ELB network segment need to be opened |
+| UDP:30000-32767 | All IPs (0.0.0.0/0) | NodePort service port range | ✅ Modifiable | VPC network segment, container network segment and ELB network segment need to be opened |
+| TCP:22 | All IPs (0.0.0.0/0) | SSH remote connection | ✅ Suggested changes | It is recommended to only allow fixed IP access |
+| All | Node node security group | Instances in the Node node security group can access each other | ❌ Modification is not recommended | Affects the normal operation of the cluster |
+| All | Container subnet segment | Allow containers in the cluster to access nodes | ❌ Modification is not recommended | Affects the normal operation of the cluster |
+
+# # # 3.2 Master node security group
+
+**Security group name**:`{cluster name}-cce-control-{random ID}`
+
+## # # Inbound direction rules
+
+| Port | Default source address | Description | Modification suggestions | Impact after modification |
+|------|-----------|------|----------|-----------|
+| TCP:5444 | All IPs (0.0.0.0/0) | kube-apiserver service port | ❌ Modification is not recommended | Affects the normal operation of the cluster |
+| TCP:5444 | VPC network segment | kube-apiserver service port | ❌ Modification is not recommended | Affects the normal operation of the cluster || TCP:9443 | VPC network segment | Node node network plug-in accesses the Master node | ❌ Modification is not recommended | Affects the normal operation of the cluster |
+| TCP:5443 | All IPs (0.0.0.0/0) | HAProxy load balancing port of kube-apiserver | ✅ Suggested changes | VPC network segments and container network segments need to be reserved |
+| TCP:8445 | VPC network segment | Node node storage plug-in accesses the Master node | ❌ Modification is not recommended | Affects the normal operation of the cluster |
+| All | Master node security group | Instances in the Master node security group can access each other | ❌ Modification is not recommended | Affects the normal operation of the cluster |
+| All | Container subnet segment | All source addresses of the container subnet segment must be allowed | ❌ Modification is not recommended | It will affect the normal operation of the cluster |
+
+# # # 3.3 ENI security group (for CCE Turbo only)
+
+**Security group name**:`{cluster name}-cce-eni-{random ID}`
+
+## # # Inbound direction rules
+
+| Port | Default source address | Description | Modification suggestions | Impact after modification |
+|------|-----------|------|----------|-----------|
+| All | ENI security group | Allow containers in the cluster to access each other | ❌ Modification is not recommended | Affects the normal operation of the cluster |
+| All | VPC network segment | Allow instances in the cluster VPC to access the container | ❌ Modification is not recommended | Affects the normal operation of the cluster |
+
+---
+
+# # 4. Recommendations for strengthening security group outbound rules
+
+For outbound rules, all security groups created by CCE are allowed by default, and it is generally not recommended to modify them. If you need to strengthen outbound rules, please note that the following ports need to be allowed:
+
+# # # Minimum range of Node node security group outbound rules
+
+| Port | Allow address segment | Description |
 |------|-----------|------|
-| TCP：53 | 子网的DNS服务器 | 用于域名解析 |
-| UDP：53 | 子网的DNS服务器 | 用于域名解析 |
-| TCP：5353 | 容器网段 | 用于CoreDNS域名解析 |
-| UDP：5353 | 容器网段 | 用于CoreDNS域名解析 |
-| UDP：4789 | 所有IP | 容器间网络互访（仅容器隧道网络模型） |
-| TCP：5443 | Master节点网段 | kube-apiserver的HAProxy负载均衡端口 |
-| TCP：5444 | VPC网段、容器网段 | kube-apiserver服务端口 |
-| TCP：6443 | Master节点网段 | kube-apiserver服务端口 |
-| TCP：8445 | VPC网段 | Node节点存储插件访问Master节点 |
-| TCP：9443 | VPC网段 | Node节点网络插件访问Master节点 |
-| 所有端口 | 198.19.128.0/17网段 | 访问VPCEP服务 |
-| UDP：123 | 100.125.0.0/16网段 | Node节点访问内网NTP服务器端口 |
-| TCP：443 | 100.125.0.0/16网段 | Node节点访问内网OBS端口用于拉取安装包 |
-| TCP：6443 | 100.125.0.0/16网段 | Node节点上报节点安装成功 |
-| TCP：8102 | 100.125.0.0/16网段 | Node节点日志插件访问LTS |
+| TCP:53 | Subnet's DNS server | Used for domain name resolution |
+| UDP:53 | Subnet's DNS server | Used for domain name resolution |
+| TCP:5353 | Container network segment | Used for CoreDNS domain name resolution || UDP:5353 | Container network segment | Used for CoreDNS domain name resolution |
+| UDP:4789 | All IPs | Inter-container network access (only container tunnel network model) |
+| TCP:5443 | Master node network segment | HAProxy load balancing port of kube-apiserver |
+| TCP:5444 | VPC network segment, container network segment | kube-apiserver service port |
+| TCP:6443 | Master node network segment | kube-apiserver service port |
+| TCP:8445 | VPC network segment | Node node storage plug-in accesses Master node |
+| TCP:9443 | VPC network segment | Node node network plug-in accesses Master node |
+| All ports | 198.19.128.0/17 network segment | Access VPCEP service |
+| UDP:123 | 100.125.0.0/16 network segment | Node node accesses the intranet NTP server port |
+| TCP:443 | 100.125.0.0/16 network segment | Node node accesses the intranet OBS port to pull the installation package |
+| TCP:6443 | 100.125.0.0/16 network segment | Node node reports node installation successful |
+| TCP:8102 | 100.125.0.0/16 network segment | Node node log plug-in access LTS |
 
 ---
 
-## 五、常用端口说明
+# # 5. Common port descriptions
 
-| 端口 | 协议 | 用途 |
+| Port | Protocol | Purpose |
 |------|------|------|
-| 22 | TCP | SSH远程连接 |
-| 5443 | TCP | kube-apiserver的HAProxy负载均衡端口 |
-| 5444 | TCP | kube-apiserver服务端口 |
-| 6443 | TCP | kube-apiserver服务端口 |
-| 8445 | TCP | Node节点存储插件访问Master节点 |
-| 9443 | TCP | Node节点网络插件访问Master节点 |
-| 10250 | TCP | kubelet端口 |
-| 30000-32767 | TCP/UDP | NodePort服务端口范围 |
-| 4789 | UDP | VXLAN容器间网络互访（隧道网络） |
-| 53 | TCP/UDP | DNS域名解析 |
-| 5353 | TCP/UDP | CoreDNS域名解析 |
+| 22 | TCP | SSH remote connection |
+| 5443 | TCP | HAProxy load balancing port of kube-apiserver |
+| 5444 | TCP | kube-apiserver service port |
+| 6443 | TCP | kube-apiserver service port |
+| 8445 | TCP | Node node storage plug-in accesses Master node |
+| 9443 | TCP | Node node network plug-in accesses Master node |
+| 10250 | TCP | kubelet port || 30000-32767 | TCP/UDP | NodePort service port range |
+| 4789 | UDP | Network communication between VXLAN containers (tunnel network) |
+| 53 | TCP/UDP | DNS domain name resolution |
+| 5353 | TCP/UDP | CoreDNS domain name resolution |
 
 ---
 
-## 六、修改安全组规则操作步骤
+# # 6. Steps to modify security group rules
 
-1. 登录 [VPC控制台](https://console.huaweicloud.com/vpc/#/vpc/vpcs/list)
-2. 在左侧导航栏单击"访问控制 > 安全组"
-3. 找到集群对应的安全组（根据命名规则识别）
-4. 点击安全组名称进入详情页
-5. 在"入方向规则"或"出方向规则"页签进行修改
+1. Log in to [VPC console](https://console.huaweicloud.com/vpc/#/vpc/vpcs/list)
+2. Click "Access Control > Security Group" in the left navigation bar
+3. Find the security group corresponding to the cluster (identified according to naming rules)
+4. Click the security group name to enter the details page
+5. Make modifications on the "Inbound Rules" or "Outbound Rules" tab
 
 ---
 
-## 相关文档
+# # Related documents
 
-- [CCE网络规划](https://support.huaweicloud.com/cce_faq/cce_faq_00265.html)
-- [VPC安全组配置](https://support.huaweicloud.com/usermanual-vpc/vpc_SG_001.html)
-- [CCE集群访问控制](https://support.huaweicloud.com/cce_faq/cce_faq_00265.html)
+- [CCE Network Planning](https://support.huaweicloud.com/cce_faq/cce_faq_00265.html)
+- [VPC Security Group Configuration](https://support.huaweicloud.com/usermanual-vpc/vpc_SG_001.html)
+- [CCE Cluster Access Control](https://support.huaweicloud.com/cce_faq/cce_faq_00265.html)

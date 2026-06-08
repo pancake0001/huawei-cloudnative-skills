@@ -1,70 +1,70 @@
 # Workflow
 
-## 1. 采集范围
+# # 1. Collection range
 
-优先使用 `huawei_analyze_cce_cost_optimization` 作为组合 action；只有需要补充明细、复核单项指标或手工生成特定 HPA YAML 时，再调用下方低层 action。
+Prioritize using `huawei_analyze_cce_cost_optimization` as the combined action; only when you need to add details, review individual indicators, or manually generate specific HPA YAML, call the lower-level actions below.
 
-1. 确认 region、cluster_id、namespace 范围、业务排除规则和统计窗口。
-2. 默认排除 `kube-system` 下的 Pod 和工作负载；其他命名空间按业务负载处理，除非用户另行排除。
-3. 拉取节点、节点池、Pod、Deployment 和指标数据。
-4. 对所有利用率类判断同时检查 24 小时和 7 天两个窗口。
+1. Confirm the region, cluster_id, namespace range, business exclusion rules and statistics window.
+2. Pods and workloads under `kube-system` are excluded by default; other namespaces are processed according to business loads unless otherwise excluded by the user.
+3. Pull node, node pool, Pod, Deployment and indicator data.
+4. Check both 24-hour and 7-day windows for all utilization class judgments.
 
-## 2. 空闲资源和低利用率节点
+# # 2. Idle resources and low utilization nodes
 
-对每个窗口分别计算：
+Calculate separately for each window:
 
-- cluster_cpu_avg = 全部 Ready 节点 CPU 平均使用率。
-- cluster_mem_avg = 全部 Ready 节点内存平均使用率。
-- node_cpu_avg / node_mem_avg = 单节点平均使用率。
+- cluster_cpu_avg = Average CPU usage of all Ready nodes.
+- cluster_mem_avg = Average memory usage of all Ready nodes.
+- node_cpu_avg / node_mem_avg = Single node average usage.
 
-触发提示：
+Trigger tips:
 
-- 集群平均 CPU 或内存使用率低于 30%，提示整体资源可能过量。
-- 单节点 CPU 或内存使用率明显低于集群平均值时提示。默认判定为：低于集群平均 20 个百分点，或低于集群平均的 60%。
-- 如果节点低利用率只在 24 小时出现而 7 天不明显，标记为短期波动；两个窗口都命中时标记为稳定优化机会。
+- The average CPU or memory usage of the cluster is less than 30%, indicating that the overall resources may be excessive.
+- Prompt when the CPU or memory usage of a single node is significantly lower than the cluster average. The default judgment is: 20 percentage points below the cluster average, or 60% below the cluster average.
+- If the node low utilization only occurs for 24 hours and is not obvious for 7 days, it is marked as a short-term fluctuation; when both windows are hit, it is marked as a stable optimization opportunity.
 
-输出建议：
+Output suggestions:
 
-- 优先建议调整节点池 min/max、开启 scale down、优化调度和负载均衡。
-- 不直接建议立即删除节点，除非有明确冗余且用户要求执行计划。
+- It is recommended to adjust the node pool min/max, enable scale down, optimize scheduling and load balancing.
+- Immediate deletion of nodes is not directly recommended unless there is clear redundancy and the user requires an execution plan.
 
-## 3. 过量 Request
+# # 3. Excessive Request
 
-只分析非 `kube-system` 工作负载。
+Only analyze non-kube-system workloads.
 
-对每个业务工作负载分别比较：
+Compare each business workload separately:
 
-- CPU request vs 24 小时和 7 天实际 CPU p95/avg。
-- Memory request vs 24 小时和 7 天实际 memory p95/avg。
+- CPU request vs 24 hour and 7 day actual CPU p95/avg.
+- Memory request vs 24 hours and 7 days actual memory p95/avg.
 
-触发提示：
+Trigger tips:
 
-- request 大于实际 p95 的 2 倍，且两个窗口都成立，标记为稳定过量。
-- request 大于实际 p95 的 3 倍，标记为高优先级优化。
-- 仅 24 小时命中时标记为观察项，不建议立即改 request。
+- request is greater than 2 times actual p95 and holds for both windows, marked as stable excess.
+- request is 3 times larger than actual p95, marked as high priority optimization.
+- It is only marked as an observation item when hit for 24 hours, and it is not recommended to change the request immediately.
 
-如果现有 action 返回中缺少 request 字段，要求用户补充 Deployment/Pod YAML 或通过后续工具扩展获取；不要凭 Pod 当前使用率直接给出 request 修改值。
+If the request field is missing from the existing action return, the user is required to supplement the Deployment/Pod YAML or obtain it through subsequent tool extensions; do not directly give the request modification value based on the current usage of the Pod.
 
-## 4. 弹性策略优化
+# # 4. Flexible strategy optimization
 
-检查节点池 autoscaling：
+Check node pool autoscaling:
 
-- 使用 `huawei_list_cce_nodepools` 查看 autoscaling 是否开启、min/max、cooldown、priority。
-- 如果未配置，给出建议的节点池 autoscaler 策略，包括 min/max、scale-down delay、资源阈值和适用节点池。
-- 如果已配置，检查 min/max 是否过紧、scale down 是否过慢、优先级是否符合业务等级。
+- Use `huawei_list_cce_nodepools` to check whether autoscaling is enabled, min/max, cooldown, and priority.
+- If not configured, give the recommended node pool autoscaler strategy, including min/max, scale-down delay, resource threshold and applicable node pool.
+- If configured, check whether the min/max is too tight, whether the scale down is too slow, and whether the priority meets the service level.
 
-检查 HPA：
+Check HPA:
 
-- 使用 `huawei_list_cce_hpas` 查询业务命名空间已有 HPA，默认不分析 `kube-system`。
-- 如没有 HPA，基于业务工作负载指标用 `huawei_generate_cce_hpa_manifest` 生成 `autoscaling/v2` HPA YAML 建议。
-- 需要实际创建或更新 HPA 时，先调用不带 `confirm=true` 的 `huawei_configure_cce_hpa` 获取预览；用户明确确认后才允许带 `confirm=true` 应用。
-- HPA 建议必须基于 request 合理性；request 明显过量时，先建议校准 request，再配置 HPA。
+- Use `huawei_list_cce_hpas` to query the existing HPA in the business namespace, and `kube-system` will not be analyzed by default.
+- If there is no HPA, use `huawei_generate_cce_hpa_manifest` to generate `autoscaling/v2` HPA YAML recommendations based on business workload indicators.
+- When you need to actually create or update an HPA, first call `huawei_configure_cce_hpa` without `confirm=true` to get a preview; applications with `confirm=true` are allowed only after the user explicitly confirms.
+- HPA recommendations must be based on the reasonableness of the request; when the request is obviously excessive, it is recommended to calibrate the request first, and then configure the HPA.
 
-## 5. 输出顺序
+# # 5. Output sequence
 
-1. 总体结论：是否存在明确成本优化机会。
-2. 24 小时和 7 天利用率摘要。
-3. 低利用率节点和集群空闲风险。
-4. 过量 request 工作负载。
-5. HPA/autoscaler 当前状态和建议配置。
-6. 风险、验证方式、执行前确认清单。
+1. Overall conclusion: Are there clear cost optimization opportunities?
+2. 24-hour and 7-day utilization summary.
+3. Risk of low utilization nodes and cluster idleness.
+4. Excessive request workload.
+5. HPA/autoscaler current status and recommended configuration.
+6. Risks, verification methods, and pre-execution confirmation list.

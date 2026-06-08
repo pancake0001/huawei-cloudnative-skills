@@ -1,19 +1,19 @@
 # Task: Auth Management
 
-## Overview
+# # Overview
 
 SWR authentication provides docker login credentials for pushing and pulling images. This task covers obtaining both temporary (12-hour) and long-term (1-year) login credentials.
 
-## Operations Catalog
+# # Operations Catalog
 
-| Operation              | Method | Description              | Key Parameters                    |
-| ---------------------- | ------ | ------------------------ | --------------------------------- |
-| `CreateAuthorizationToken` | POST | 获取临时登录指令         | `--projectname`                   |
-| `CreateSecret`         | POST   | 获取长期登录指令         | `--projectname`                   |
+| Operation | Method | Description | Key Parameters |
+| ----------------------- | ------ | -------------------------- | ---------------------------------- |
+| `CreateAuthorizationToken` | POST | Get temporary login instructions | `--projectname` |
+| `CreateSecret` | POST | Get long-term login instructions | `--projectname` |
 
 ## Workflows
 
-### W1: Get Temporary Login Token (12-hour validity)
+## # W1: Get Temporary Login Token (12-hour validity)
 
 ```bash
 hcloud SWR CreateAuthorizationToken --cli-region=cn-north-4
@@ -43,7 +43,7 @@ The `auth` field is a base64-encoded string containing `username:password`. Deco
 
 ```bash
 # Decode the auth field to get username and password
-# echo <auth_value> | base64 -d  →  username:password
+# echo <auth_value> | base64 -d → username:password
 # Then login with decoded credentials:
 docker login -u <decoded_username> -p <decoded_password> swr.cn-north-4.myhuaweicloud.com
 ```
@@ -55,7 +55,7 @@ docker login -u <decoded_username> -p <decoded_password> swr.cn-north-4.myhuawei
 
 **Token Lifetime**: 12 hours from generation
 
-### W2: Get Long-term Login Secret (1-year validity)
+## # W2: Get Long-term Login Secret (1-year validity)
 
 ```bash
 hcloud SWR CreateSecret --cli-region=cn-north-4
@@ -83,7 +83,7 @@ kubectl create secret docker-registry swr-secret \
   --docker-password=<secret_from_CreateSecret>
 ```
 
-### W3: Multi-Region Login
+## # W3: Multi-Region Login
 
 For working with multiple SWR regions, generate credentials for each region:
 
@@ -103,9 +103,9 @@ hcloud SWR CreateAuthorizationToken --cli-region=ap-southeast-1
 - cn-east-3: `swr.cn-east-3.myhuaweicloud.com`
 - ap-southeast-1: `swr.ap-southeast-1.myhuaweicloud.com`
 
-## Common Scenarios
+# # Common Scenarios
 
-### S1: CI/CD Pipeline Setup
+## # S1: CI/CD Pipeline Setup
 
 Configure automated image push/pull for CI/CD:
 
@@ -121,7 +121,7 @@ docker login -u ${SWR_USERNAME} -p ${SWR_PASSWORD} swr.cn-north-4.myhuaweicloud.
 docker push swr.cn-north-4.myhuaweicloud.com/${NAMESPACE}/${REPO}:${TAG}
 ```
 
-### S2: Kubernetes Deployment Setup
+## # S2: Kubernetes Deployment Setup
 
 Configure Kubernetes to pull images from SWR:
 
@@ -138,10 +138,10 @@ kubectl create secret docker-registry swr-regcred \
 
 # 3. Reference in pod/deployment spec
 # imagePullSecrets:
-#   - name: swr-regcred
+# - name: swr-regcred
 ```
 
-### S3: Manual Image Push/Pull
+## # S3: Manual Image Push/Pull
 
 ```bash
 # 1. Get temporary token
@@ -158,7 +158,7 @@ docker push swr.cn-north-4.myhuaweicloud.com/group-dev/my-app:latest
 docker pull swr.cn-north-4.myhuaweicloud.com/group-dev/my-app:v1.0
 ```
 
-## Security Notes
+# # Security Notes
 
 - 🚫 Never store login credentials in code repositories
 - 🚫 Never display full credentials in logs or conversation

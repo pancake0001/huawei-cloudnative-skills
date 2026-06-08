@@ -1,8 +1,8 @@
-# Risk Rules
+# RiskRules
 
-- 允许自动执行只读诊断动作。
-- 禁止在本 skill 中调用扩缩容、删除工作负载、删除节点、drain、reboot。
-- 如建议 `huawei_scale_cce_workload` 或 `huawei_resize_cce_workload`，必须转交 `auto-remediation-runner`。
-- 日志只能输出经过脱敏的尾部片段；不要把应用日志中的疑似密码、token、AK/SK、Authorization 原文复制到输出。
-- ImagePullBackOff 优先看 Events，不反复请求不存在的容器日志。
-- 对 OOMKilled、PendingScheduling、Evicted 给出的扩容、隔离、删除重建等建议只能是恢复预案，不在本 skill 执行。
+- Allow automatic execution of read-only diagnostic actions.
+- It is prohibited to call expansion and contraction, workload deletion, node deletion, drain, and reboot in this skill.
+- If `huawei_scale_cce_workload` or `huawei_resize_cce_workload` is suggested, it must be forwarded to `auto-remediation-runner`.
+- The log can only output the desensitized tail fragment; do not copy the original text of the suspected password, token, AK/SK, and Authorization in the application log to the output.
+- ImagePullBackOff gives priority to Events and does not repeatedly request container logs that do not exist.
+- The suggestions for expansion, isolation, deletion and reconstruction given for OOMKilled, PendingScheduling and Evicted can only be recovery plans and are not executed in this skill.

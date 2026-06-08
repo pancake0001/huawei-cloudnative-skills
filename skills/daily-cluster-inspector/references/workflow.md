@@ -1,27 +1,27 @@
 # Workflow
 
-1. 默认先运行快检，正常时直接输出 heartbeat summary。
-2. 快检异常时运行深度诊断或并行巡检。
-3. 按 Pod、Node、Event、AOM、ELB、Resource 分类汇总问题。
-4. 由 AI 基于巡检证据进行严重级别分级，分级结果写入巡检摘要，不固化到工具代码或工具输出字段。
-5. 只读输出报告，不自动修复。
-6. 对需要动作的项提供转交 `auto-remediation-runner` 的确认清单。
+1. By default, the quick test is run first, and when normal, the heartbeat summary is output directly.
+2. Run in-depth diagnosis or parallel inspection when the quick inspection is abnormal.
+3. Classify and summarize issues by Pod, Node, Event, AOM, ELB, and Resource.
+4. AI performs severity grading based on inspection evidence, and the grading results are written into the inspection summary and are not solidified into the tool code or tool output field.
+5. Read-only output report, no automatic repair.
+6. Provide a confirmation list for forwarding to `auto-remediation-runner` for items that require action.
 
-## AI 严重级别判断口径
+# # AI severity level judgment caliber
 
-AI 在生成巡检摘要时，可以按 P0-P5 标记异常项，但必须基于工具返回的事实证据进行判断，不得凭空补充工具未采集到的状态。
+When AI generates an inspection summary, it can mark abnormal items according to P0-P5, but the judgment must be based on the factual evidence returned by the tool, and it must not supplement the status not collected by the tool out of thin air.
 
-- P0：集群级严重故障。控制面不可用、全部节点 NotReady、核心系统组件大面积不可用，或业务整体中断且无可用绕行路径。
-- P1：关键业务不可用。核心 Deployment/StatefulSet 可用副本为 0、关键入口不可用、多个关键 Pod 无法启动，已经直接影响业务连续性。
-- P2：持续故障根因。镜像拉取失败、CrashLoopBackOff、调度失败、PVC 挂载失败、节点 NotReady 等持续存在并影响部分工作负载恢复的问题。
-- P3：资源与容量风险。CPU、内存、磁盘、网络、ELB 四层/七层使用率等超过阈值，或出现突发告警，但尚未确认造成业务不可用。
-- P4：历史重复告警与关注项。已恢复告警、重复告警、常态告警、低影响范围异常，适合后续观察、降噪或规则优化。
-- P5：健康项。巡检确认正常的集群、节点、工作负载、ELB 或告警检查项。
+- P0: Cluster-level serious failure. The control plane is unavailable, all nodes are NotReady, core system components are unavailable in large areas, or the entire business is interrupted and no detour path is available.
+- P1: Key services are unavailable. The available replicas of the core Deployment/StatefulSet are 0, key entrances are unavailable, and multiple key Pods cannot be started, which has directly affected business continuity.
+- P2: Root cause of persistent failure. Problems such as image pull failure, CrashLoopBackOff, scheduling failure, PVC mounting failure, node NotReady, etc. persist and affect the recovery of some workloads.
+- P3: Resource and capacity risks. The usage of CPU, memory, disk, network, ELB layer 4/layer 7, etc. exceeds the threshold, or a sudden alarm occurs, but it has not been confirmed that the service is unavailable.
+- P4: Historical repeated alarms and items of concern. Recovered alarms, repeated alarms, normal alarms, and low-impact anomalies are suitable for subsequent observation, noise reduction, or rule optimization.
+- P5: Health items. Inspect and confirm normal clusters, nodes, workloads, ELB or alarm check items.
 
-分级时优先说明：
+Prioritize instructions when grading:
 
-- 影响范围：集群级、命名空间级、工作负载级、单 Pod/单节点。
-- 当前状态：活跃告警还是已恢复，副本是否可用，节点是否 Ready。
-- 首次出现和持续性：突发、持续、常态重复。
-- 根因证据：Pod 状态、事件、AOM 告警、指标峰值、ELB 使用率、节点条件等。
-- 下一步建议：只读排查建议或需要用户确认的转交动作。
+- Scope of influence: cluster level, namespace level, workload level, single Pod/single node.
+- Current status: active alarm or recovered, replica is available, node is Ready.
+- First appearance and persistence: sudden, persistent, regular recurrence.
+- Root cause evidence: Pod status, events, AOM alarms, indicator peaks, ELB usage, node conditions, etc.
+- Next step suggestions: read-only troubleshooting suggestions or transfer actions that require user confirmation.

@@ -1,18 +1,18 @@
 # Task: Quota Management
 
-## Overview
+# # Overview
 
 SWR has resource quotas that limit the number of namespaces, repositories, and image tags you can create. This task covers checking quota usage and limits.
 
-## Operations Catalog
+# # Operations Catalog
 
-| Operation    | Method | Description              | Key Parameters                    |
-| ------------ | ------ | ------------------------ | --------------------------------- |
-| `ListQuotas` | GET    | 获取配额信息             | `--project_id`                    |
+| Operation | Method | Description | Key Parameters |
+| ------------ | ------ | ------------------------ | ---------------------------------- |
+| `ListQuotas` | GET | Get quota information | `--project_id` |
 
 ## Workflows
 
-### W1: Check Quota Usage
+## # W1: Check Quota Usage
 
 ```bash
 hcloud SWR ListQuotas --cli-region=cn-north-4
@@ -40,7 +40,7 @@ hcloud SWR ListQuotas --cli-region=cn-north-4
 - `unit`: Unit of measurement (typically empty string for count-based quotas)
 - Response is an **array of quota objects** (not flat key-value pairs like `namespace_limit`/`namespace_used`)
 
-### W2: Check Quota Before Creating Resources
+## # W2: Check Quota Before Creating Resources
 
 Before creating namespaces, repositories, or tags, verify quota availability:
 
@@ -56,7 +56,7 @@ hcloud SWR ListNamespaces --cli-region=cn-north-4
 hcloud SWR DeleteNamespaces --namespace=unused-ns --cli-region=cn-north-4
 ```
 
-### W3: Storage Management via Tag Cleanup
+## # W3: Storage Management via Tag Cleanup
 
 When tag quota is near limit, clean up old tags:
 
@@ -74,19 +74,19 @@ hcloud SWR ListRepositoryTags --namespace=group-dev --repository=nginx --order_c
 hcloud SWR DeleteRepoTag --namespace=group-dev --repository=nginx --tag=v0.1-beta --cli-region=cn-north-4
 ```
 
-## Default Quota Limits (Reference)
+# # Default Quota Limits (Reference)
 
-| Resource     | Default Limit | Notes                          |
-| ------------ | ------------- | ------------------------------ |
-| Namespaces   | 100           | Per project                    |
-| Repositories | 5000          | Per project, across all namespaces |
-| Tags         | 50000         | Per project, across all repositories |
+| Resource | Default Limit | Notes |
+| -------------------------- | ------------- | ------------------------------- |
+| Namespaces | 100 | Per project |
+| Repositories | 5000 | Per project, across all namespaces |
+| Tags | 50000 | Per project, across all repositories |
 
 **Note**: Default limits may vary by region and project configuration. Always use `ListQuotas` to check actual limits.
 
-## Common Scenarios
+# # Common Scenarios
 
-### S1: Quota Audit for Resource Planning
+## # S1: Quota Audit for Resource Planning
 
 Regularly audit quota usage for resource planning:
 
@@ -107,7 +107,7 @@ hcloud SWR ListReposDetails --namespace=group-dev --cli-region=cn-north-4
 hcloud SWR ListRepositoryTags --namespace=group-dev --repository=nginx --cli-region=cn-north-4
 ```
 
-### S2: Apply for Quota Increase
+## # S2: Apply for Quota Increase
 
 If quotas are insufficient:
 

@@ -3,26 +3,26 @@ name: huawei-cloud-cce-cluster-management
 description: |
   Huawei Cloud CCE (Cloud Container Engine) cluster lifecycle management skill using Python SDK v3.
   Use this skill when the user wants to: (1) create, delete, hibernate, or awake CCE clusters, (2) list clusters and query cluster/node/nodepool/addon information, (3) manage node pools (create, delete, resize), (4) manage nodes (create, delete, cordon, uncordon, drain), (5) manage addons (install, uninstall, update), (6) bind/unbind cluster EIP for public access, (7) get cluster kubeconfig.
-  Trigger: user mentions "CCE cluster", "create cluster", "delete cluster", "node pool", "node management", "hibernate cluster", "awake cluster", "addon", "kubeconfig", "EIP binding", "CCE 集群", "创建集群", "删除集群", "节点池", "节点管理", "休眠集群", "唤醒集群", "插件", "kubeconfig", "EIP 绑定"
+  Trigger: user mentions "CCE cluster", "create cluster", "delete cluster", "node pool", "node management", "hibernate cluster", "awake cluster", "addon", "kubeconfig", "EIP binding", "CCE cluster", "create cluster", "delete cluster", "node pool", "node management", "dormant cluster", "awake cluster", "plugin", "kubeconfig", "EIP" Binding"
 tags: [cce, kubernetes, cluster-management, nodepool, addon]
 version: 1.0.0
 ---
 
 # Huawei Cloud CCE Cluster Management
 
-## Overview
+# # Overview
 
 Manage CCE (Cloud Container Engine) cluster lifecycle, including cluster creation/deletion/hibernation/awakening, node pool management, node scheduling control, and addon management.
 
-## ⛔ Security Constraints
+# # ⛔Security Constraints
 
-### Dangerous Operation Confirmation Mechanism
+## # Dangerous Operation Confirmation Mechanism
 
 > **This skill strictly enforces a two-step confirmation mechanism for all dangerous operations to prevent accidental service disruption or data loss.**
 
 All dangerous operations require `confirm=true` parameter to execute. Otherwise, they return a preview and confirmation prompt.
 
-#### Operations Requiring Confirmation
+### # Operations Requiring Confirmation
 
 | Tool | Operation Type | Risk Level | Description |
 |------|---------------|------------|-------------|
@@ -38,7 +38,7 @@ All dangerous operations require `confirm=true` parameter to execute. Otherwise,
 | `huawei_cce_node_uncordon` | Uncordon | 🟡 Medium | Marks node schedulable, new pods may be assigned immediately |
 | `huawei_cce_node_drain` | Drain | 🟠 High | Evicts all pods from node, affects running workloads |
 
-#### Workflow
+### # Workflow
 
 **Step 1: Preview Operation** - Call without `confirm` parameter
 
@@ -61,7 +61,7 @@ python3 huawei-cloud.py huawei_delete_cce_cluster \
   confirm=true
 ```
 
-### Credential Security
+## # Credential Security
 
 ✅ **This skill strictly follows these security rules:**
 
@@ -78,23 +78,21 @@ AK/SK usage methods:
 
 ---
 
-## Prerequisites
+# # Prerequisites
 
-### Python Environment
+## # Python Environment
 
-- Python 3.8+
+-Python 3.8+
 - Install SDKs: `pip install huaweicloudsdkcce huaweicloudsdkcore`
 - Optional for node operations: `pip install kubernetes`
 
-### Environment Variables (Recommended)
-
-```bash
+## # Environment Variables (Recommended)```bash
 export HW_ACCESS_KEY="your-access-key-id"
 export HW_SECRET_KEY="your-secret-access-key"
 export HW_REGION_NAME="cn-north-4"
 ```
 
-### Node Login Password
+## # Node Login Password
 
 When creating nodes or node pools without `ssh_key`, the password is read from the `CCE_NODE_PASSWORD` environment variable (not from CLI parameters). The script automatically validates password complexity (8-26 characters, at least 3 of: uppercase, lowercase, digits, special characters) and handles SHA-512 salted encryption + base64 encoding.
 
@@ -102,7 +100,7 @@ When creating nodes or node pools without `ssh_key`, the password is read from t
 export CCE_NODE_PASSWORD="your-password"
 ```
 
-### IAM Permission Policies
+## # IAM Permission Policies
 
 Ensure the IAM user has the minimum required permissions:
 
@@ -130,9 +128,9 @@ Ensure the IAM user has the minimum required permissions:
 
 ---
 
-## Core Commands
+# # Core Commands
 
-### Cluster Query
+## # Cluster Query
 
 | Tool | Function | Parameters |
 |------|----------|------------|
@@ -140,7 +138,7 @@ Ensure the IAM user has the minimum required permissions:
 | `huawei_get_cce_nodes` | Get detailed node information | `region`, `cluster_id`, `node_id` |
 | `huawei_get_cce_kubeconfig` | Get cluster kubeconfig | `region`, `cluster_id`, `duration` |
 
-### Cluster Management
+## # Cluster Management
 
 | Tool | Function | Risk Level | Requires Confirmation |
 |------|----------|------------|----------------------|
@@ -157,7 +155,7 @@ Ensure the IAM user has the minimum required permissions:
 - Container network: `eni` for Turbo clusters
 - Naming format: `<env>-<app>-cluster` (e.g., `prod-web-cluster`)
 
-### Node Pool Management
+## # Node Pool Management
 
 | Tool | Function | Risk Level | Requires Confirmation |
 |------|----------|------------|----------------------|
@@ -172,7 +170,7 @@ Ensure the IAM user has the minimum required permissions:
 - Initial node count: 2 for HA, or 0 with autoscaling
 - Enable autoscaling for dynamic scaling
 
-### Node Management
+## # Node Management
 
 | Tool | Function | Risk Level | Requires Confirmation |
 |------|----------|------------|----------------------|
@@ -186,7 +184,7 @@ Ensure the IAM user has the minimum required permissions:
 
 **Note:** Prefer node pools for managed scaling. Direct node creation is for special cases.
 
-### Addon Management
+## # Addon Management
 
 | Tool | Function | Risk Level | Requires Confirmation |
 |------|----------|------------|----------------------|
@@ -202,7 +200,7 @@ Ensure the IAM user has the minimum required permissions:
 - `metrics-server` - Monitoring metrics
 - `everest` - Storage driver
 
-### Network Prerequisites
+## # Network Prerequisites
 
 | Tool | Function | Parameters |
 |------|----------|------------|
@@ -213,7 +211,7 @@ Ensure the IAM user has the minimum required permissions:
 
 ---
 
-## Supported Regions
+# # Supported Regions
 
 | Region Code | Region Name |
 |-------------|-------------|
@@ -231,7 +229,7 @@ Ensure the IAM user has the minimum required permissions:
 
 ---
 
-## Output Format
+# # Output Format
 
 All tools return JSON-formatted results containing:
 
@@ -240,7 +238,7 @@ All tools return JSON-formatted results containing:
 - `message`: human-readable description of the result
 - `warning`: risk warning for dangerous operations (preview mode only)
 
-## Verification
+# # Verification
 
 See [verification-method.md](references/verification-method.md) for detailed verification steps. Quick checklist:
 
@@ -249,7 +247,7 @@ See [verification-method.md](references/verification-method.md) for detailed ver
 3. Test dangerous operation preview (call without `confirm=true`)
 4. Verify Turbo cluster ENI network configuration
 
-## Best Practices
+# # Best Practices
 
 - Use environment variables (`HW_ACCESS_KEY` / `HW_SECRET_KEY`) for credentials — avoid hardcoding
 - Always preview dangerous operations before confirming with `confirm=true`
@@ -260,7 +258,7 @@ See [verification-method.md](references/verification-method.md) for detailed ver
 
 ---
 
-## References
+# # References
 
 | Document | Description |
 |----------|-------------|
@@ -275,7 +273,7 @@ See [verification-method.md](references/verification-method.md) for detailed ver
 
 ---
 
-## Notes
+# # Notes
 
 - Ensure AK/SK has correct IAM permissions
 - Different regions may have different resource availability

@@ -1,267 +1,260 @@
-# CCE 节点漏洞修复指南
+# CCE node vulnerability repair guide
 
-> 📅 **更新：2026-04-08** — 基于 test-cce-ai-diagnose 集群真实修复事故经验更新
-
----
-
-## 1. 核心教训（必读）
-
-### ⚠️ `immediate_repair` 是异步 API — 这一点至关重要
-
-调用 `change_vul_status(operate_type=immediate_repair)` 后：
-
-1. API **立即返回 200**（请求被接受）
-2. 漏洞状态从 `unfix` → `fixing`（修复进行中）
-3. HSS Agent 在节点上**异步下载并安装补丁**
-4. **对于需要重启的漏洞**，补丁安装完成后状态仍为 `fixing`，**必须重启节点**才能使修复生效，状态才变为 `fixed`
-
-**如果跳过 reboot_ecs：**
-- 漏洞状态卡在 `fixing`（看起来"正在修复"）
-- 用户以为"已在修复中" → 实际系统根本没修好
-- **这是最危险的情况：虚假安全感**
-
-### ⚠️ `change_vul_status` 不支持安全幂等重试
-
-修复触发是**写操作**，不能随意重试：
-- 首次调用：返回 200，状态 → `fixing`
-- 再次调用（状态仍为 `fixing`）：返回 **HSS.1105**（Unknown error）
-- **遇到 HSS.1105 ≠ 失败**，是服务端拒绝重复请求的信号；说明首次调用已成功触发，无需再调
-
-**因此触发修复前必须先确认漏洞状态为 `unfix`**，否则可能被幂等拦截或产生非预期行为。
-
-### ⚠️ reboot_ecs 绝对不能跳过
-
-kernel/bpftool/kernel-tools 类漏洞（HCE2-SA-2025-0327 等）：
-- 修复方式：`yum update kernel && reboot`
-- 补丁安装完成后必须**重启节点**才能使新内核生效
-- 重启是漏洞修复的**必要步骤**，不是可选步骤
+> 📅 **Update: 2026-04-08** — Updated based on real experience of repairing accidents in test-cce-ai-diagnose cluster
 
 ---
 
-## 2. 执行职责与操作规范
+# # 1. Core Lessons (Must Read)
 
-### 职责划分：业务确认是 AI 的工作
+# # # ⚠️ `immediate_repair` is an asynchronous API — this is crucial
 
-制定修复计划时，**业务影响评估和确认是 AI 的职责，不是用户的职责**：
+After calling `change_vul_status(operate_type=immediate_repair)`:
 
-1. **分析阶段**（AI 自动完成，无需通知用户）：
-   - 查询节点 Pod 分布，识别业务副本数
-   - 识别高风险节点（coredns / Ingress / 单副本业务的节点）
-   - 评估是否可以并行修复
+1. API **returns 200** immediately (request accepted)
+2. The vulnerability status changes from `unfix` → `fixing` (fixing in progress)
+3. HSS Agent **asynchronously downloads and installs patches** on the node
+4. **For vulnerabilities that require restarting**, the status is still `fixing` after the patch installation is completed. **The node must be restarted** for the fix to take effect, and the status changes to `fixed`
 
-2. **制定计划阶段**（AI 完成，提供给用户确认）：
-   - 输出完整修复计划（节点顺序、分批策略、业务影响）
-   - 提供可选方案（如有）
-   - **在计划中明确业务影响**，不要让用户自己推断
+**If skipped reboot_ecs:**
+- Vulnerability status stuck at `fixing` (looks like "fixing")
+- Users thought it was "under repair" → the actual system was not repaired at all.
+- **This is the most dangerous situation: false sense of security**
 
-3. **执行阶段**（AI 自动执行，提供实时可观测性）：
-   - 每步操作完成后立即报告结果（成功/失败/具体内容）
-   - 失败时立即停止，报告错误，不自动跳过继续
-   - 重启节点时等待节点 Ready 后再继续
+# # # ⚠️ `change_vul_status` does not support safe idempotent retries
 
-**通知用户的时机**：只在该确认策略时通知，不要每一步都打扰用户。
+The repair trigger is a **write operation** and cannot be retried at will:
+- First call: return 200, status → `fixing`
+- Call again (status is still `fixing`): return **HSS.1105** (Unknown error)
+- **Encountering HSS.1105 ≠ Failure** is a signal that the server rejects repeated requests; indicating that the first call has been successfully triggered and no further adjustments are needed.
 
-### 修复方式优先顺序
+**Therefore, you must first confirm that the vulnerability status is `unfix`** before triggering the fix, otherwise it may be idempotently intercepted or produce unexpected behavior.
 
-**默认优先使用 HSS `change_vul_status` API 自动修复**，除非：
-- 凭证无权限（返回 HSS.0013）
-- API 不支持该漏洞类型
-- 漏洞类型需要人工干预（如需手动编译安装）
+# # # ⚠️ reboot_ecs must not be skipped
 
-手动登录节点执行 yum 命令是**兜底方案**，不是首选。
+Kernel/bpftool/kernel-tools class vulnerabilities (HCE2-SA-2025-0327, etc.):
+- Repair method: `yum update kernel && reboot`
+- After the patch installation is completed, you must **restart the node** for the new kernel to take effect
+- Restarting is a **required step** for vulnerability repair, not an optional step
 
-### 节点名与工具名必须完整
+---# # 2. Execution responsibilities and operating specifications
 
-**禁止截断**：
-- 节点名：必须使用完整名称（如 `test-cce-ai-diagnose-nodepool-43986-y6bwx`，不能只写 `y6bwx`）
-- server_id / instance_id：必须完整，不能省略
-- 工具名：必须使用完整工具名（如 `huawei_hss_change_vul_status`，不能只写 `change_vul_status`）
-- 漏洞 ID：必须完整（如 `HCE2-SA-2025-0327`，不能只写 `0327`）
+# # # Division of responsibilities: Business confirmation is the job of AI
 
-**输出格式要求**：关键操作输出中必须包含完整标识符，方便追踪和日志检索。
+When developing a remediation plan, **business impact assessment and validation is the responsibility of the AI, not the user**:
 
-### 执行可观测性要求
+1. **Analysis Phase** (AI completes automatically, no need to notify the user):
+   - Query node Pod distribution and identify the number of business copies
+   - Identify high-risk nodes (coredns/Ingress/single-copy business nodes)
+   - Evaluate whether repairs can be done in parallel
 
-每步操作完成后**必须报告**：
-- 操作的完整工具名和关键参数
-- 返回结果（成功/失败）
-- 失败时：完整错误信息（HSS 错误码 + 描述）
-- reboot 后：节点 Ready 状态确认
+2. **Planning stage** (AI completed, provided to user for confirmation):
+   - Output the complete repair plan (node sequence, batching strategy, business impact)
+   - Provide options (if any)
+   - **Clear the business impact in the plan**, don’t let users infer on their own
 
-**禁止行为**：
-- 不能只报告"成功/失败"而不说具体内容
-- 不能在 reboot 未完成时继续 uncordon
-- 不能在验证前就报告"修复完成"
-- 不能跳过 reboot 就进入下一节点
+3. **Execution Phase** (AI automatically executes, providing real-time observability):
+   - Report the results (success/failure/specific content) immediately after each step of operation is completed
+   - Stop immediately when failure occurs, report an error, and do not automatically skip and continue
+   - When restarting a node, wait for the node to be Ready before continuing.
+
+**Time to notify the user**: Only notify the user when it is time to confirm the strategy, do not disturb the user at every step.
+
+# # # Priority order of repair methods
+
+**By default, HSS `change_vul_status` API is used for automatic repair** unless:
+- Credential without permission (returns HSS.0013)
+- API does not support this vulnerability type
+- Vulnerability types require manual intervention (if manual compilation and installation are required)
+
+Manually logging in to the node and executing the yum command is a **cover-in solution** and is not the first choice.
+
+# # # The node name and tool name must be complete
+
+**Truncation prohibited**:
+- Node name: You must use the complete name (such as `test-cce-ai-diagnose-nodepool-43986-y6bwx`, you cannot just write `y6bwx`)
+- server_id / instance_id: must be complete and cannot be omitted
+- Tool name: You must use the complete tool name (such as `huawei_hss_change_vul_status`, you cannot just write `change_vul_status`)
+- Vulnerability ID: must be complete (such as `HCE2-SA-2025-0327`, cannot just write `0327`)**Output format requirements**: Key operation output must contain complete identifiers to facilitate tracking and log retrieval.
+
+# # # Enforce observability requirements
+
+**Must report** after each step of operation is completed:
+- The complete tool name and key parameters of the operation
+- Return result (success/failure)
+- On failure: complete error message (HSS error code + description)
+- After reboot: Node Ready status confirmation
+
+**Prohibited Behavior**:
+- You cannot just report "success/failure" without saying the specific content
+- Cannot continue uncordon while reboot is not complete
+- Cannot report "Fix Completed" before verification
+- Cannot skip reboot and enter the next node
 
 ---
 
-## 3. 漏洞状态（官方定义）
+# # 3. Vulnerability status (official definition)
 
-| 状态值 | 含义 | 说明 |
+| Status value | Meaning | Description |
 |--------|------|------|
-| `vul_status_unfix` | 未处理 | 漏洞存在，尚未修复 |
-| `vul_status_ignored` | 已忽略 | 人工忽略 |
-| `vul_status_verified` | 验证中 | 正在验证漏洞 |
-| `vul_status_fixing` | 修复中 | ⚠️ **补丁安装中，需重启生效** |
-| `vul_status_fixed` | 已修复 | ✅ **已修复（内核漏洞必须重启后才可能变为此状态）** |
-| `vul_status_reboot` | 修复待重启 | 补丁已安装，需重启生效 |
-| `vul_status_failed` | 修复失败 | 修复执行失败 |
-| `vul_status_fix_after_reboot` | 请重启后修复 | 需重启后再次执行修复 |
+| `vul_status_unfix` | Not processed | The vulnerability exists and has not been fixed yet |
+| `vul_status_ignored` | Ignored | Manually ignored |
+| `vul_status_verified` | Verifying | Verifying vulnerability |
+| `vul_status_fixing` | Repairing | ⚠️ **The patch is being installed and needs to be restarted to take effect** |
+| `vul_status_fixed` | Fixed | ✅ **Fixed (the kernel vulnerability must be restarted before it can become this state)** |
+| `vul_status_reboot` | Repair needs to be restarted | The patch has been installed and needs to be restarted to take effect |
+| `vul_status_failed` | Repair failed | Repair execution failed |
+| `vul_status_fix_after_reboot` | Please restart to repair | Need to restart to perform repair again |
 
-> **`vul_status_unhandled` 不是官方漏洞状态**，它是"所有漏洞"的别名，实际行为等同于不传 status 参数。过滤未处理漏洞应使用 `vul_status_unfix`。
+> **`vul_status_unhandled` is not the official vulnerability status**, it is an alias for "all vulnerabilities", and the actual behavior is equivalent to not passing the status parameter. To filter unhandled vulnerabilities, `vul_status_unfix` should be used.
 
 ---
 
-## 4. 完整修复工作流（正确版本）
+# # 4. Complete repair workflow (correct version)
 
 ```
-阶段一：信息收集
-├── 集群节点列表 → huawei_list_cce_nodes（含 server_id）
-├── 节点漏洞概览 → huawei_hss_list_hosts（匹配 server_id）
-└── 单节点漏洞详情 → huawei_hss_list_host_vuls_all
+Stage 1: Information collection
+├── Cluster node list → huawei_list_cce_nodes (including server_id)├── Node vulnerability overview → huawei_hss_list_hosts (match server_id)
+└── Single node vulnerability details → huawei_hss_list_host_vuls_all
 
-阶段二：制定修复计划
-├── 确认每个漏洞的修复方式（yum update / reboot）
-├── 确认 reboot 类漏洞存在 → reboot_ecs 必须执行
-└── 与用户协商确认后再执行
+Phase 2: Develop a remediation plan
+├── Confirm the fix method of each vulnerability (yum update / reboot)
+├── Confirm the existence of reboot vulnerability → reboot_ecs must be executed
+└── Negotiate and confirm with the user before executing
 
-阶段三：逐节点执行（每个节点必须按顺序完成全部步骤）
+Phase 3: Execution node by node (each node must complete all steps in order)
 │
-├── 步骤① cordon（标记不可调度）
-│   confirm=true
+├── Step ① cordon (mark unschedulable)
+│ confirm=true
 │
-├── 步骤② drain（驱逐 Pod）
-│   confirm=true
+├── Step ② drain (evict Pod)
+│ confirm=true
 │
-├── 步骤③ HSS 触发修复 ← 必须执行
-│   huawei_hss_change_vul_status(operate_type=immediate_repair, confirm=true)
-│   ⚠️ API 返回 200 ≠ 修复完成
+├── Step ③ HSS trigger repair ← Must be executed
+│ huawei_hss_change_vul_status(operate_type=immediate_repair, confirm=true)
+│ ⚠️ API returns 200 ≠ Repair completed
 │
-├── 步骤④ reboot_ecs ← 绝对不能跳过
-│   confirm=true
-│   ⚠️ reboot 是 kernel 类漏洞修复的必要步骤
-│   ⚠️ 重启期间节点为 NotReady，K8s 会自动感知
+├── Step ④ reboot_ecs ← Never skip
+│ confirm=true
+│ ⚠️ reboot is a necessary step to repair kernel vulnerabilities
+│ ⚠️ K8s will automatically detect if the node is NotReady during restart
 │
-├── 步骤⑤ 等待节点 Ready
-│   huawei_cce_node_status 确认节点状态恢复
-│   ⚠️ 必须等待节点 Ready 后才能进入下一步
+├── Step ⑤ Wait for node Ready
+│ huawei_cce_node_status Confirm node status recovery
+│ ⚠️ You must wait for the node to be Ready before proceeding to the next step.
 │
-├── 步骤⑥ uncordon（恢复调度）
-│   confirm=true
+├── Step ⑥ uncordon (restore scheduling)
+│ confirm=true
 │
-└── 步骤⑦ 验证漏洞状态
+└── Step ⑦ Verify vulnerability status
     huawei_hss_list_host_vuls_all
-    ⚠️ 必须在 reboot 后验证，不能在 API 调用后立即验证
-    ⚠️ kernel 类漏洞：reboot 后状态应为 fixed
-    ⚠️ 如仍为 fixing：可能是 HSS Agent 安装失败，需检查节点日志
+    ⚠️ Must be verified after reboot, not immediately after API call
+    ⚠️ Kernel vulnerability: the status should be fixed after reboot
+    ⚠️ If it is still fixing: It may be that the HSS Agent installation failed and you need to check the node log.
 
-阶段四：业务恢复确认
-├── 确认业务 Pod 已重建并 Running
-└── 如有异常 → 进入"非预期影响应对"流程
+Stage 4: Business recovery confirmation
+├── Confirm that the business Pod has been rebuilt and running└── If there is any abnormality → Enter the "Unexpected Impact Response" process
 ```
 
-### 每个步骤跳过的后果
+# # # Consequences of skipping each step
 
-| 步骤 | 跳过后果 |
+| Steps | Skip Consequences |
 |------|---------|
-| ① cordon | drain 时新 Pod 被调度到该节点，重启时业务中断 |
-| ② drain | 业务 Pod 在节点重启时 crash，服务中断 |
-| ③ HSS 触发 | 漏洞根本没触发修复 |
-| ④ reboot_ecs | **kernel 类漏洞卡在 fixing，用户以为在修，实际没修好** |
-| ⑤ 等待 Ready | 节点还没启动完就 uncordon，Pod 调度失败 |
-| ⑥ uncordon | 节点永久不可用 |
-| ⑦ 验证 | 不知道修复到底成功没有 |
+| ① cordon | drain When new Pod is scheduled to this node, business will be interrupted when restarting |
+| ② drain | The business Pod crashes when the node is restarted, and the service is interrupted |
+| ③ HSS trigger | The vulnerability does not trigger the fix at all |
+| ④ reboot_ecs | **The kernel vulnerability is stuck in fixing. The user thinks it is being fixed, but it is not actually fixed** |
+| ⑤ Waiting for Ready | The node uncordoned before it was started, and Pod scheduling failed |
+| ⑥ uncordon | The node is permanently unavailable |
+| ⑦ Verification | I don’t know whether the repair was successful or not |
 
 ---
 
-## 5. 工具列表
+# # 5. Tool list
 
-### CCE 节点操作
+# # # CCE node operations
 
-| 工具 | 功能 | confirm |
+| Tools | Features | confirm |
 |------|------|--------|
-| `huawei_cce_node_cordon` | 标记节点不可调度 | ✅ |
-| `huawei_cce_node_uncordon` | 恢复节点可调度 | ✅ |
-| `huawei_cce_node_drain` | 驱逐节点 Pod（非系统） | ✅ |
-| `huawei_cce_node_status` | 查询节点调度状态 | 查询 |
+| `huawei_cce_node_cordon` | Mark the node as unschedulable | ✅ |
+| `huawei_cce_node_uncordon` | The recovery node can be scheduled | ✅ |
+| `huawei_cce_node_drain` | Evict node Pod (non-system) | ✅ |
+| `huawei_cce_node_status` | Query node scheduling status | Query |
 
-### HSS 漏洞操作
+# # # HSS vulnerability operations
 
-| 工具 | 功能 | confirm |
+| Tools | Features | confirm |
 |------|------|--------|
-| `huawei_hss_list_host_vuls_all` | 查询主机漏洞（全量，自动翻页） | 查询 |
-| `huawei_hss_list_hosts` | 查询所有主机漏洞概览 | 查询 |
-| `huawei_hss_change_vul_status` | 修改漏洞状态（修复/忽略/验证） | ✅ |
+| `huawei_hss_list_host_vuls_all` | Query host vulnerabilities (full volume, automatic page turning) | Query |
+| `huawei_hss_list_hosts` | Query an overview of all host vulnerabilities | Query || `huawei_hss_change_vul_status` | Modify vulnerability status (fix/ignore/verify) | ✅ |
 
-### ECS 操作
+# # # ECS operations
 
-| 工具 | 功能 | confirm |
+| Tools | Features | confirm |
 |------|------|--------|
-| `huawei_reboot_ecs` | 重启 ECS 实例 | ✅ |
+| `huawei_reboot_ecs` | Restart the ECS instance | ✅ |
 
 ---
 
-## 6. 关键约束
+# # 6. Key constraints
 
-### data_list 与 host_data_list 互斥
+# # # data_list and host_data_list are mutually exclusive
 
-| 场景 | 调用方式 |
+| Scenario | Calling method |
 |------|---------|
-| 主机所有漏洞 | `host_data_list=[HostVulOperateInfo(host_id=..., vul_id_list=None)]` |
-| 指定漏洞列表 | `data_list=[VulOperateInfo(vul_id=...) for ...]` |
-| 同时传 | ❌ HSS.0004 |
+| All vulnerabilities of the host | `host_data_list=[HostVulOperateInfo(host_id=..., vul_id_list=None)]` |
+| Specify vulnerability list | `data_list=[VulOperateInfo(vul_id=...) for ...]` |
+| Simultaneous upload | ❌ HSS.0004 |
 
-### confirm 机制
+# # # confirm mechanism
 
-所有变动类操作（cordon/drain/uncordon/reboot/change_vul_status）均需要 `confirm=true` 才真正执行。
+All change operations (cordon/drain/uncordon/reboot/change_vul_status) require `confirm=true` before they are actually executed.
 
 ---
 
-## 7. 错误码速查
+# # 7. Error code quick check
 
-| 错误码 | 含义 | 实际含义与处理 |
+| Error code | Meaning | Actual meaning and processing |
 |--------|------|--------------|
-| HSS.0004 | 数据库操作失败 | data_list 和 host_data_list 不能同时传 |
-| HSS.0013 | Insufficient permissions | AK/SK 无 HSS 修复权限，在控制台授权 |
-| HSS.0191 | 主机未开启防护 | 先开启 HSS 防护 |
-| HSS.1059 | 漏洞状态不允许操作 | 确认漏洞状态为 unfix 才能触发修复 |
-| HSS.1060 | 修复失败 | 检查 HSS Agent 状态和节点系统日志 |
-| HSS.1061 | 漏洞正在修复中 | 等待修复完成（HSS.1105 也可能同时出现，属正常幂等） |
-| **HSS.1105** | **Unknown error** | ⚠️ **不是失败！是幂等回调信号，首次调用已成功，后续调用被拦截** |
+| HSS.0004 | Database operation failed | data_list and host_data_list cannot be transmitted at the same time |
+| HSS.0013 | Insufficient permissions | AK/SK no HSS repair permissions, authorized in the console |
+| HSS.0191 | Host protection is not enabled | Enable HSS protection first |
+| HSS.1059 | Vulnerability status does not allow operation | Confirm that the vulnerability status is unfix to trigger repair |
+| HSS.1060 | Repair failed | Check HSS Agent status and node system logs |
+| HSS.1061 | The vulnerability is being repaired | Waiting for the repair to be completed (HSS.1105 may also appear at the same time, which is normal idempotence) |
+| **HSS.1105** | **Unknown error** | ⚠️ **Not a failure! It is an idempotent callback signal. The first call is successful, and subsequent calls are intercepted** |
 
 ---
 
-## 8. 验证要求
+# # 8. Verification requirements
 
-### 验证时机
+# # # Verification timing
 
-- **错误做法**：API 调用返回 200 后立即验证 → 此时状态可能还是 fixing
-- **正确做法**：reboot 后等待 2-3 分钟再验证 → kernel 补丁生效后才能看到 fixed
+- **Wrong practice**: Verify immediately after the API call returns 200 → the status may still be fixing at this time
+- **Correct approach**: Wait 2-3 minutes after reboot and then verify → Only after the kernel patch takes effect can you see fixed
 
-### 验证判断标准
+# # # Verification judgment criteria
 
-| 漏洞类型 | 修复成功后状态 |
+| Vulnerability type | Status after successful repair |
 |---------|--------------|
-| 非内核漏洞（bind/openssl/cups等） | `fixed` 或 `unfix`（取决于 HSS Agent 是否完成安装） |
-| 内核漏洞（HCE2-SA-2025-0327等） | `fixed`（必须在 reboot 后才能变为 fixed） |
+| Non-kernel vulnerabilities (bind/openssl/cups, etc.) | `fixed` or `unfix` (depending on whether the HSS Agent has been installed) |
+| Kernel vulnerabilities (HCE2-SA-2025-0327, etc.) | `fixed` (can only be changed to fixed after reboot) |
 
 ---
 
-## 9. 非预期影响应对
+# # 9. Response to Unintended Impacts
 
-修复过程中如发现业务受影响，按以下顺序处理：
+If the business is found to be affected during the repair process, proceed in the following order:
 
-1. **立即 cordon 异常节点**（阻止新 Pod 调度）
-2. **检查节点 Pod 状态**：`huawei_get_cce_pods`
-3. **扩容新节点**承担当前业务
-4. **驱逐异常节点**上的 Pod（drain）
-5. **分析根因**：检查 HSS 修复日志、节点系统状态
-6. **决策**：继续修复其他节点或暂停本次修复计划
+1. **cordon the abnormal node immediately** (prevent new Pod scheduling)
+2. **Check node Pod status**: `huawei_get_cce_pods`
+3. **Expand new nodes** to undertake current business
+4. **Evict the Pod on the abnormal node** (drain)
+5. **Root cause analysis**: Check HSS repair logs and node system status
+6. **Decision**: Continue to repair other nodes or suspend this repair plan
 
 ---
 
-## 10. 其他参考
+# # 10. Other references
 
-- [节点故障检测策略配置](./CCE_Node_Fault_Detection_Configuration.md)
-- [CCE 安全组配置说明](./CCE_Security_Group_Configuration.md)
+- [Node fault detection policy configuration](./CCE_Node_Fault_Detection_Configuration.md)
+- [CCE Security Group Configuration Instructions](./CCE_Security_Group_Configuration.md)

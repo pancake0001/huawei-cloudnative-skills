@@ -1,7 +1,6 @@
-# Risk Rules
+# RiskRules
 
-- 只允许自动执行诊断、查询和报告生成。
-- 不直接执行扩缩容、删除、drain、reboot、漏洞状态修改、集群休眠/唤醒。
-- 根因报告中的恢复建议必须区分可自动验证动作和需用户确认动作。
-- 不用单一告警直接下结论，必须至少给出时间线或证据链。
-
+- Only automated diagnostics, queries, and report generation are allowed.
+- Do not directly perform expansion and contraction, deletion, drain, reboot, vulnerability status modification, cluster sleep/wakeup.
+- Recovery recommendations in the root cause report must distinguish between automatically verifiable actions and actions that require user confirmation.
+- Instead of drawing direct conclusions from a single alarm, at least a timeline or chain of evidence must be given.

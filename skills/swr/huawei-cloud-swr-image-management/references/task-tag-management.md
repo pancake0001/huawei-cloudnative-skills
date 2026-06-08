@@ -1,21 +1,21 @@
 # Task: Tag Management
 
-## Overview
+# # Overview
 
 Image tags (versions) represent specific image builds within a repository. This task covers querying, creating (retagging), and deleting image tags.
 
-## Operations Catalog
+# # Operations Catalog
 
-| Operation          | Method | Description              | Key Parameters                                  |
-| ------------------ | ------ | ------------------------ | ----------------------------------------------- |
-| `ListRepositoryTags` | GET | 查询镜像tag列表          | `--namespace`, `--repository`, `--limit`, `--offset` |
-| `ShowRepoTag`      | GET    | 查询指定tag的镜像        | `--namespace`, `--repository`, `--tag`          |
-| `CreateRepoTag`    | POST   | 创建镜像tag              | `--namespace`, `--repository`, `--source_tag`, `--destination_tag`, `--override` |
-| `DeleteRepoTag`    | DELETE | 删除镜像tag              | `--namespace`, `--repository`, `--tag`          |
+| Operation | Method | Description | Key Parameters |
+| ------------------ | ------ | ---------------------------------- | -------------------------------------------------- |
+| `ListRepositoryTags` | GET | Query the mirror tag list | `--namespace`, `--repository`, `--limit`, `--offset` |
+| `ShowRepoTag` | GET | Query the image of the specified tag | `--namespace`, `--repository`, `--tag` |
+| `CreateRepoTag` | POST | Create image tag | `--namespace`, `--repository`, `--source_tag`, `--destination_tag`, `--override` |
+| `DeleteRepoTag` | DELETE | Delete image tag | `--namespace`, `--repository`, `--tag` |
 
 ## Workflows
 
-### W1: List All Tags in a Repository
+## # W1: List All Tags in a Repository
 
 ```bash
 # List all tags
@@ -45,7 +45,7 @@ hcloud SWR ListRepositoryTags --namespace=group-dev --repository=nginx --tag=v1.
 - `scanned`: Security scan status (boolean)
 - `tag_type`: Tag type (0=normal)
 
-### W2: View Tag Details
+## # W2: View Tag Details
 
 ```bash
 hcloud SWR ShowRepoTag --namespace=group-dev --repository=nginx --tag=v1.0 --cli-region=cn-north-4
@@ -56,7 +56,7 @@ hcloud SWR ShowRepoTag --namespace=group-dev --repository=nginx --tag=v1.0 --cli
 - Check image size for storage management
 - Confirm tag exists before retagging or deleting
 
-### W3: Create a Tag (Retag)
+## # W3: Create a Tag (Retag)
 
 Retagging creates a new tag pointing to the same image as an existing tag. This is useful for:
 - Creating version aliases (e.g., `v1.0` → `stable`)
@@ -83,7 +83,7 @@ hcloud SWR ShowRepoTag --namespace=group-dev --repository=nginx --tag=v1.0 --cli
 - `--destination_tag` (required): New tag name to create
 - `--override` (optional): Whether to overwrite if destination tag exists (`true`/`false`, default `false`)
 
-### W4: Delete a Tag
+## # W4: Delete a Tag
 
 ⚠️ **CAUTION**: Deleting a tag permanently removes the image version. This is irreversible.
 
@@ -93,9 +93,7 @@ hcloud SWR ShowRepoTag --namespace=group-dev --repository=nginx --tag=v1.0 --cli
 hcloud SWR ShowRepoTag --namespace=group-dev --repository=nginx --tag=v1.0-old --cli-region=cn-north-4
 ```
 2. Confirm with user that the image version will be permanently deleted
-3. Check if other tags reference the same image digest (they won't be affected)
-
-```bash
+3. Check if other tags reference the same image digest (they won't be affected)```bash
 hcloud SWR DeleteRepoTag --namespace=group-dev --repository=nginx --tag=v1.0-old --cli-region=cn-north-4
 ```
 
@@ -106,9 +104,9 @@ hcloud SWR DeleteRepoTag --namespace=group-dev --repository=nginx --tag=v1.0-old
 hcloud SWR ListRepositoryTags --namespace=group-dev --repository=nginx --tag=v1.0-old --cli-region=cn-north-4
 ```
 
-## Common Scenarios
+# # Common Scenarios
 
-### S1: Tag Versioning Strategy
+## # S1: Tag Versioning Strategy
 
 Apply semantic versioning with retagging:
 
@@ -127,7 +125,7 @@ hcloud SWR CreateRepoTag --namespace=group-dev --repository=my-app --source_tag=
 - `stable` — current production-ready version
 - `latest` — most recently pushed version
 
-### S2: Clean Up Old Tags
+## # S2: Clean Up Old Tags
 
 Periodically remove outdated tags to manage storage:
 
@@ -140,7 +138,7 @@ hcloud SWR ShowRepoTag --namespace=group-dev --repository=my-app --tag=v1.0-beta
 hcloud SWR DeleteRepoTag --namespace=group-dev --repository=my-app --tag=v1.0-beta --cli-region=cn-north-4
 ```
 
-### S3: Check Image Inventory
+## # S3: Check Image Inventory
 
 Audit all images across namespaces:
 

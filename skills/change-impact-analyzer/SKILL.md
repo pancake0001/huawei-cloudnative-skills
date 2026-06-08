@@ -5,44 +5,44 @@ description: Use this skill when a Huawei Cloud CCE incident may be caused by re
 
 # change-impact-analyzer
 
-你负责把“故障发生前后有哪些变更”变成可证明的诱因分析。默认输出一份完整 Markdown 报告，包含排查过程、核心变更时间线、证据矩阵、爆炸半径、Top 风险预警、结论和数据缺口。
+You are responsible for turning "what changed before and after the failure occurred" into a provable cause analysis. By default, a complete Markdown report is output, including the troubleshooting process, core change timeline, evidence matrix, explosion radius, Top risk warning, conclusion and data gaps.
 
-## 四阶段流水线
+# # Four-stage pipeline
 
-1. **Scope & Ingestion**：确认 `region`、`cluster_id`、`namespace` 或全集群范围、目标对象和时间窗口；生成 `Analysis-Trace-ID`；并行采集审计日志、K8s 历史事件、AOM active+history 告警、当前资源拓扑快照。
-2. **Filtering & Categorization**：对审计写操作做语义降噪，过滤 HPA 副本变更、controller 写入、Token/Lease/Status 等干扰；保留镜像、环境变量、CoreDNS、Service/Ingress、NetworkPolicy、RBAC、Node taint 等核心变更。
-3. **Impact & Blast Radius Modeling**：把核心变更映射到当前 Pod、Service、Ingress、Node、ConfigMap/Secret、Security Group/VPC ACL 快照，推断影响面和传播路径。
-4. **Synthesis & Reporting**：按变更敏感度、拓扑波及范围、安全边界跨度、故障时间邻近度、事件/告警相关性评分，输出 Markdown 报告。
+1. **Scope & Ingestion**: Confirm `region`, `cluster_id`, `namespace` or the entire cluster range, target object and time window; generate `Analysis-Trace-ID`; collect audit logs, K8s historical events, AOM active+history alarms, and current resource topology snapshots in parallel.
+2. **Filtering & Categorization**: Semantic noise reduction for audit write operations, filtering interference such as HPA copy changes, controller writes, Token/Lease/Status, etc.; retaining core changes such as images, environment variables, CoreDNS, Service/Ingress, NetworkPolicy, RBAC, and Node taint.
+3. **Impact & Blast Radius Modeling**: Map core changes to current Pod, Service, Ingress, Node, ConfigMap/Secret, Security Group/VPC ACL snapshots, and infer the impact area and propagation path.
+4. **Synthesis & Reporting**: Output Markdown reports based on change sensitivity, topology scope, safety boundary span, failure time proximity, and event/alarm correlation scores.
 
-## 推荐 action
+# # Recommended action
 
-首选：`huawei_change_impact_analyze`。它会返回结构化字段和 `report_markdown`，可用 `output_file` 写出 `.md` 文件。
+Preferred: `huawei_change_impact_analyze`. It returns structured fields and `report_markdown`, which can be used to write out `.md` files using `output_file`.
 
-常用参数：
+Commonly used parameters:
 
-- `region`、`cluster_id`：必填。
-- `hours` 或 `start_time`/`end_time`：分析窗口，默认过去 1 小时。
-- `namespace`、`target_name`、`workload_name`、`app_name`：收敛目标范围，但不要因此忽略 kube-system/CoreDNS 等全集群变更。
-- `fault_time` 或 `incident_time`：故障时间点，用于时间邻近度打分。
-- `log_group_id`/`log_stream_id` 或日志组/流名称：审计日志自动发现失败时手工指定。
-- `include_audit`、`include_k8s_events`、`include_aom`、`include_snapshots`：按需关闭某类采集。
-- `top_n`：报告中最高风险预警数量，默认 3。
+- `region`, `cluster_id`: required.
+- `hours` or `start_time`/`end_time`: analysis window, default is 1 hour in the past.
+- `namespace`, `target_name`, `workload_name`, `app_name`: Convergence target ranges, but don’t ignore cluster-wide changes such as kube-system/CoreDNS.
+- `fault_time` or `incident_time`: Fault time point, used for time proximity scoring.
+- `log_group_id`/`log_stream_id` or log group/stream name: manually specified when automatic audit log discovery fails.
+- `include_audit`, `include_k8s_events`, `include_aom`, `include_snapshots`: Close certain types of collection on demand.
+- `top_n`: The highest number of risk warnings in the report, default 3.
 
-## 处理原则
+# # Processing principles
 
-- 先找变更，再找影响，再与告警/事件/故障时间对齐；不要只因为对象发生过更新就直接判定根因。
-- CoreDNS、kube-proxy、网络插件、Ingress 控制器等基础配置变更即使发生在 `kube-system`，也必须纳入业务故障分析。
-- Deployment 仅 HPA 调整 `replicas` 通常视为噪声；镜像、启动参数、探针、资源规格、环境变量、ConfigMap/Secret 引用变化视为核心变更。
-- NetworkPolicy/RBAC 变更要重点关联连接超时、403、DNS 异常、跨命名空间访问失败。
-- Node taint、cordon/drain、节点池扩缩容、集群升级等基础设施变更需要结合 Pod Pending、Evicted、NotReady 和节点事件判断。
+- First look for changes, then for impacts, and then align with alarm/event/fault time; do not directly determine the root cause just because the object has been updated.
+- Basic configuration changes such as CoreDNS, kube-proxy, network plug-ins, and Ingress controllers must be included in business failure analysis even if they occur in `kube-system`.
+- Deployment HPA-only adjustments to `replicas` are generally considered noise; changes in images, startup parameters, probes, resource specifications, environment variables, and ConfigMap/Secret references are considered core changes.
+- NetworkPolicy/RBAC changes should focus on connection timeouts, 403, DNS exceptions, and cross-namespace access failures.
+- Infrastructure changes such as Node taint, cordon/drain, node pool expansion and contraction, cluster upgrade, etc. need to be judged based on Pod Pending, Evicted, NotReady and node events.
 
-## References
+# # References
 
-- 具体流水线和评分规则读 `references/workflow.md`。
-- 可复用能力、当前缺口和建议补齐的原子能力读 `references/capability-map.md`。
-- 输出字段和 Markdown 模板读 `references/output-schema.md`。
-- 只读边界和恢复动作交接读 `references/risk-rules.md`。
+- For specific pipeline and scoring rules, please read `references/workflow.md`.
+- Read `references/capability-map.md` for reusable capabilities, current gaps and recommended atomic capabilities.
+- Output fields and Markdown templates read `references/output-schema.md`.
+- Read-only boundaries and recovery action handovers read `references/risk-rules.md`.
 
-## 风险约束
+# # Risk constraints
 
-本 skill 只做只读分析和报告生成。不修改工作负载、不回滚、不改 ConfigMap/Secret、不调整安全组/ACL/NetworkPolicy/RBAC、不 cordon/drain/reboot 节点。任何恢复动作都必须转交 `auto-remediation-runner` 预览并由用户确认。
+This skill only performs read-only analysis and report generation. No modification of workload, no rollback, no change of ConfigMap/Secret, no adjustment of security group/ACL/NetworkPolicy/RBAC, no cordon/drain/reboot node. Any restoration actions must be forwarded to the `auto-remediation-runner` for preview and confirmed by the user.

@@ -66,7 +66,7 @@
     {
       "rank": 1,
       "type": "CrashLoopBackOff",
-      "title": "容器反复启动失败并进入退避重试",
+      "title": "Container repeatedly fails to start and enters backoff to retry",
       "confidence": 0.92,
       "affected_count": 1,
       "affected_pods": ["default/demo-xxx"],
@@ -76,7 +76,7 @@
   ],
   "recommended_actions": [
     {
-      "action": "读取 previous 日志并结合退出码定位应用启动失败点。",
+      "action": "Read the previous log and combine the exit code to locate the application startup failure point.",
       "source_cause": "CrashLoopBackOff",
       "requires_confirmation": false
     }

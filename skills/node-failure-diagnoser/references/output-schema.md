@@ -1,6 +1,6 @@
 # Output Schema
 
-主工具 `huawei_node_failure_diagnose` 返回结构化证据和 Markdown 报告。最终面向用户的输出应优先使用 `report_markdown`。
+The main tool `huawei_node_failure_diagnose` returns structured evidence and Markdown reports. Final user-facing output should preferably use `report_markdown`.
 
 ```json
 {
@@ -35,12 +35,12 @@
     "case": "A | B | C | D",
     "ready": "True | False | Unknown",
     "lease_stale": true,
-    "conclusion": "控制面与节点失联",
-    "inference": "Ready=Unknown 且 Lease 续约超过阈值..."
+    "conclusion": "Control surface and node lost contact",
+    "inference": "Ready=Unknown and Lease renewal exceeds the threshold..."
   },
   "root_category": "ControlPlaneDisconnected | MemoryPressure | DiskPressure | Network | Kubelet | NotReady | Healthy",
-  "conclusion": "控制面与节点失联（网络链路或 Kubelet/CRI 心跳中断，需节点侧验证）",
-  "confidence": "高 (High)",
+  "conclusion": "The control plane loses contact with the node (network link or Kubelet/CRI heartbeat is interrupted, node-side verification is required)",
+  "confidence": "High",
   "scores": {
     "ControlPlaneDisconnected": 8,
     "MemoryPressure": 11,
@@ -74,8 +74,8 @@
   },
   "health_items": [
     {
-      "item": "内存压力",
-      "status": "不可判定",
+      "item": "Memory pressure",
+      "status": "Undecidable",
       "detail": "MemoryPressure=Unknown; evidence_score=0"
     }
   ],
@@ -83,15 +83,15 @@
   "pod_events": [],
   "metrics": {},
   "metric_error": null,
-  "report_markdown": "# Kubernetes 节点自动化诊断报告\n..."
+  "report_markdown": "# Kubernetes node automated diagnostic report\n..."
 }
 ```
 
-## Markdown 报告必须包含
+# # Markdown reports must contain
 
-1. `# Kubernetes 节点自动化诊断报告`
-2. `## 1. 诊断总览`：目标节点、诊断结论、置信度、爆炸半径。
-3. `## 2. 节点状态健康度`：NotReady、内存压力、磁盘压力、网络状态、Kubelet 状态、节点调度污点；当压力条件因 `NodeStatusUnknown` 变为 `Unknown` 且无独立证据时标为“不可判定”，不要写成“正常”。
-4. `## 3. 关键排查`：控制面存活状态分流、关键事件时序、节点负载异常观测、指标快照、证据矩阵。
-5. `## 4. 诊断结论`：把证据推导成明确结论，并指出仍需本地日志确认的部分。
-6. `## 5. 运维处置建议`：只给建议和验证步骤，不直接执行变更。
+1. `# Kubernetes node automated diagnostic report`
+2. `## 1. Diagnosis overview`: target node, diagnosis conclusion, confidence, explosion radius.
+3. `## 2. Node status health`: NotReady, memory pressure, disk pressure, network status, Kubelet status, node scheduling taint; when the pressure condition changes to `Unknown` due to `NodeStatusUnknown` and there is no independent evidence, it is marked as "undecidable", do not write "normal".
+4. `## 3. Key troubleshooting`: control plane survival status diversion, key event timing, node load abnormality observation, indicator snapshot, evidence matrix.
+5. `## 4. Diagnostic conclusion`: deduce the evidence into a clear conclusion and point out the parts that still need to be confirmed by local logs.
+6. `## 5. Operation and maintenance disposal suggestions`: only give suggestions and verification steps, and do not directly implement changes.

@@ -1,10 +1,10 @@
-# Risk Rules
+# RiskRules
 
-## R1 只读验证
+# # R1 read-only verification
 
-- Pod、Node、Events、诊断和状态查询可以自动执行。
+- Pods, Nodes, Events, diagnostics and status queries can be automated.
 
-## R2 影响运行态
+# # R2 affects the running state
 
 - `huawei_scale_cce_workload`
 - `huawei_resize_cce_workload`
@@ -17,11 +17,11 @@
 - `huawei_unbind_cce_cluster_eip`
 - `huawei_configure_cce_hpa`
 - `huawei_rollback_cce_workload`
-- `huawei_auto_remediation_run`（当策略为 Deployment rollback、scale、resize 等运行态变更时）
+- `huawei_auto_remediation_run` (when the policy is Deployment rollback, scale, resize and other running state changes)
 
-规则：必须先预览，禁止自动添加 `confirm=true`。
+Rules: Must be previewed first, automatic addition of `confirm=true` is prohibited.
 
-## R3 高风险或破坏性
+# # R3 High Risk or Disruptive
 
 - `huawei_delete_cce_cluster`
 - `huawei_delete_cce_node`
@@ -32,4 +32,4 @@
 - `huawei_awake_cce_cluster`
 - `huawei_hss_change_vul_status`
 
-规则：必须用户明确确认动作和对象后才能传 `confirm=true`。执行后必须验证。禁止自动、批量、模糊对象执行。
+Rules: The user must explicitly confirm the action and object before passing `confirm=true`. Must be verified after execution. Automatic, batch, and fuzzy object execution are prohibited.

@@ -1,21 +1,21 @@
 # Task: Repository Permissions
 
-## Overview
+# # Overview
 
 SWR repository permissions provide granular access control for individual image repositories within a namespace. This task covers granting, querying, modifying, and revoking repository-level permissions.
 
-## Operations Catalog
+# # Operations Catalog
 
-| Operation          | Method | Description              | Key Parameters                                  |
-| ------------------ | ------ | ------------------------ | ----------------------------------------------- |
-| `ShowUserRepositoryAuth` | GET | 查询镜像仓库权限       | `--namespace`, `--repository`                   |
-| `CreateUserRepositoryAuth` | POST | 创建镜像仓库权限     | `--namespace`, `--repository`, `--[N].auth`, `--[N].user_id`, `--[N].user_name` |
-| `UpdateUserRepositoryAuth` | PUT | 修改镜像仓库权限      | `--namespace`, `--repository`, `--[N].auth`, `--[N].user_id`, `--[N].user_name` |
-| `DeleteUserRepositoryAuth` | DELETE | 删除镜像仓库权限     | `--namespace`, `--repository`, `--[N].user_id`, `--[N].user_name` |
+| Operation | Method | Description | Key Parameters |
+| ------------------ | ------ | ---------------------------------- | -------------------------------------------------- |
+| `ShowUserRepositoryAuth` | GET | Query image warehouse permissions | `--namespace`, `--repository` |
+| `CreateUserRepositoryAuth` | POST | Create image repository permissions | `--namespace`, `--repository`, `--[N].auth`, `--[N].user_id`, `--[N].user_name` |
+| `UpdateUserRepositoryAuth` | PUT | Modify image repository permissions | `--namespace`, `--repository`, `--[N].auth`, `--[N].user_id`, `--[N].user_name` |
+| `DeleteUserRepositoryAuth` | DELETE | Delete image repository permission | `--namespace`, `--repository`, `--[N].user_id`, `--[N].user_name` |
 
 ## Workflows
 
-### W1: Audit Repository Permissions
+## # W1: Audit Repository Permissions
 
 ```bash
 # Show who has access to a specific repository
@@ -34,7 +34,7 @@ hcloud SWR ShowUserRepositoryAuth --namespace=pancake --repository=openclaw-sand
 
 **⚠️ Important**: Same structure as namespace auth — `self_auth` is separate from `others_auths`.
 
-### W2: Grant Repository Permission
+## # W2: Grant Repository Permission
 
 **Pre-grant Checklist**:
 1. Verify repository exists: `hcloud SWR ShowRepository --namespace=<name> --repository=<repo> --cli-region=cn-north-4`
@@ -60,7 +60,7 @@ hcloud SWR CreateUserRepositoryAuth --namespace=pancake --repository=openclaw-sa
 hcloud SWR ShowUserRepositoryAuth --namespace=pancake --repository=openclaw-sandbox --cli-region=cn-north-4
 ```
 
-### W3: Modify Repository Permission
+## # W3: Modify Repository Permission
 
 ```bash
 # Downgrade from manage to edit
@@ -70,7 +70,7 @@ hcloud SWR UpdateUserRepositoryAuth --namespace=pancake --repository=openclaw-sa
 hcloud SWR UpdateUserRepositoryAuth --namespace=pancake --repository=openclaw-sandbox --1.auth=3 --1.user_id=<user-id> --1.user_name=<user-name> --cli-region=cn-north-4
 ```
 
-### W4: Revoke Repository Permission
+## # W4: Revoke Repository Permission
 
 ```bash
 hcloud SWR DeleteUserRepositoryAuth --namespace=pancake --repository=openclaw-sandbox --1.user_id=05949eb5350010e21f85c017722182de --1.user_name=hwstaff_p00506267 --cli-region=cn-north-4
@@ -82,9 +82,7 @@ hcloud SWR DeleteUserRepositoryAuth --namespace=pancake --repository=openclaw-sa
 hcloud SWR ShowUserRepositoryAuth --namespace=pancake --repository=openclaw-sandbox --cli-region=cn-north-4
 ```
 
-## Namespace vs Repository Permissions
-
-| Aspect           | Namespace Permission              | Repository Permission            |
+# # Namespace vs Repository Permissions| Aspect           | Namespace Permission              | Repository Permission            |
 | ---------------- | --------------------------------- | -------------------------------- |
 | Scope            | ALL repositories under namespace  | Single specific repository       |
 | Use case         | Broad team/project access         | Granular per-repo access         |
@@ -95,9 +93,9 @@ hcloud SWR ShowUserRepositoryAuth --namespace=pancake --repository=openclaw-sand
 - **Namespace permission**: When a user needs consistent access across all repos in the namespace
 - **Repository permission**: When a user only needs access to specific repos, or when you want to grant different levels for different repos
 
-## Common Scenarios
+# # Common Scenarios
 
-### S1: External Partner Access to Specific Repository
+## # S1: External Partner Access to Specific Repository
 
 Grant an external partner read access to only one repository:
 
@@ -106,7 +104,7 @@ Grant an external partner read access to only one repository:
 hcloud SWR CreateUserRepositoryAuth --namespace=team-backend --repository=shared-base-image --1.auth=1 --1.user_id=<partner-id> --1.user_name=<partner-name> --cli-region=cn-north-4
 ```
 
-### S2: CI/CD Pipeline Push Access
+## # S2: CI/CD Pipeline Push Access
 
 Grant a CI/CD pipeline edit access to push images:
 
@@ -115,7 +113,7 @@ Grant a CI/CD pipeline edit access to push images:
 hcloud SWR CreateUserRepositoryAuth --namespace=team-backend --repository=my-app --1.auth=3 --1.user_id=<pipeline-id> --1.user_name=<pipeline-name> --cli-region=cn-north-4
 ```
 
-### S3: Mixed Permission Levels
+## # S3: Mixed Permission Levels
 
 Grant different levels for different repositories within the same namespace:
 

@@ -1,8 +1,8 @@
 # Output Schema
 
-## CCE Metrics (Pod/Node)
+# # CCE Metrics (Pod/Node)
 
-### TopN Result
+## # TopN Result
 
 | Field | Description |
 |-------|-------------|
@@ -16,7 +16,7 @@
 | `top_n` | Number of items requested |
 | `hours` | Time window queried |
 
-### Metrics Data Structure
+## # Metrics Data Structure
 
 ```json
 {
@@ -35,7 +35,7 @@
 }
 ```
 
-### Status Values
+## # Status Values
 
 | Status | Condition | Threshold |
 |--------|-----------|-----------|
@@ -46,64 +46,64 @@
 
 ---
 
-## Cloud Resource Metrics (ECS/ELB/EIP/NAT)
+# # Cloud Resource Metrics (ECS/ELB/EIP/NAT)
 
-### ECS Metrics
+## # ECS Metrics
 
 **API**: `huawei_get_ecs_metrics`
 
 | Metric | Description | Unit |
 |--------|-------------|------|
-| `cpu_util` | CPU 使用率 | % |
-| `mem_util` | 内存使用率 | % |
-| `disk_util` | 磁盘使用率 | % |
-| `network_incoming_bytes_rate` | 网络入带宽速率 | B/s |
-| `network_outgoing_bytes_rate` | 网络出带宽速率 | B/s |
-| `disk_read_bytes_rate` | 磁盘读速率 | B/s |
-| `disk_write_bytes_rate` | 磁盘写速率 | B/s |
+| `cpu_util` | CPU utilization | % |
+| `mem_util` | Memory utilization | % |
+| `disk_util` | Disk utilization | % |
+| `network_incoming_bytes_rate` | Inbound network bandwidth rate | B/s |
+| `network_outgoing_bytes_rate` | Outbound network bandwidth rate | B/s |
+| `disk_read_bytes_rate` | Disk read rate | B/s |
+| `disk_write_bytes_rate` | Disk write rate | B/s |
 
-### ELB Metrics
+## # ELB Metrics
 
 **API**: `huawei_get_elb_metrics`
 
 | Metric | Description | Unit |
 |--------|-------------|------|
-| `m1_cps` | L4 新建连接数 | count/s |
-| `m14_l7_rt` | L7 响应时间 | ms |
+| `m1_cps` | L4 new connections | count/s |
+| `m14_l7_rt` | L7 response time | ms |
 | `mb_l7_qps` | L7 QPS | count/s |
-| `mc_l7_http_2xx` | HTTP 2xx 响应码数量 | count |
-| `md_l7_http_3xx` | HTTP 3xx 响应码数量 | count |
-| `me_l7_http_4xx` | HTTP 4xx 响应码数量 | count |
-| `mf_l7_http_5xx` | HTTP 5xx 响应码数量 | count |
+| `mc_l7_http_2xx` | Number of HTTP 2xx responses | count |
+| `md_l7_http_3xx` | Number of HTTP 3xx responses | count |
+| `me_l7_http_4xx` | Number of HTTP 4xx responses | count |
+| `mf_l7_http_5xx` | Number of HTTP 5xx responses | count |
 
-### EIP Metrics
+## # EIP Metrics
 
 **API**: `huawei_get_eip_metrics`
 
 | Metric | Description | Unit |
 |--------|-------------|------|
-| `upstream_bandwidth` | 上行带宽 | bit/s |
-| `downstream_bandwidth` | 下行带宽 | bit/s |
-| `upstream_bandwidth_usage` | 上行带宽使用率 | % |
-| `downstream_bandwidth_usage` | 下行带宽使用率 | % |
-| `upstream_traffic` | 上行流量 | B |
-| `downstream_traffic` | 下行流量 | B |
-| `packet_loss_rate` | 丢包率 | % |
+| `upstream_bandwidth` | Upstream bandwidth | bit/s |
+| `downstream_bandwidth` | Downstream bandwidth | bit/s |
+| `upstream_bandwidth_usage` | Upstream bandwidth utilization | % |
+| `downstream_bandwidth_usage` | Downstream bandwidth utilization | % |
+| `upstream_traffic` | Upstream traffic | B |
+| `downstream_traffic` | Downstream traffic | B |
+| `packet_loss_rate` | Packet loss rate | % |
 
-### NAT Gateway Metrics
+## # NAT Gateway Metrics
 
 **API**: `huawei_get_nat_gateway_metrics`
 
 | Metric | Description | Unit |
 |--------|-------------|------|
-| `snat_connection` | SNAT 连接数 | count |
-| `inbound_bandwidth` | 入带宽 | bit/s |
-| `outbound_bandwidth` | 出带宽 | bit/s |
-| `snat_connection_ratio` | SNAT 连接利用率 | % |
+| `snat_connection` | Number of SNAT connections | count |
+| `inbound_bandwidth` | Inbound bandwidth | bit/s |
+| `outbound_bandwidth` | Outbound bandwidth | bit/s |
+| `snat_connection_ratio` | SNAT connection utilization | % |
 
 ---
 
-## Time-Series Item
+# # Time-Series Item
 
 | Field | Description |
 |-------|-------------|

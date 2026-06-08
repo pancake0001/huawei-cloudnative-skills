@@ -1,10 +1,10 @@
 # SWR Enterprise Instance - Command Reference
 
-## 1. Instance Lifecycle
+# # 1. Instance Lifecycle
 
 **⚠️ hcloud CLI CreateInstance Bug**: The `hcloud SWR CreateInstance` command has a known bug where the
 `--project_id` parameter appears twice (path and body) with the same name. hcloud CLI rejects duplicate
-parameter names (`重复的参数:project_id`), making it impossible to use hcloud CLI for instance creation.
+parameter names (`duplicate parameter:project_id`), making it impossible to use hcloud CLI for instance creation.
 Use the Python SDK script as an alternative:
 
 ```bash
@@ -42,14 +42,14 @@ hcloud SWR DeleteInstance --instance_id=<instance-id> --cli-region=cn-north-4
 - Start with lowercase letter
 - Followed by lowercase letters, digits, or hyphens (`-`)
 - No consecutive hyphens
-- Cannot end with hyphen
+-Cannot end with hyphen
 - Length: 3-48 characters
 
 **Instance Spec Options**: `swr.ee.basic` (basic edition), `swr.ee.professional` (professional edition)
 
 **Instance Status Values**: `Initial`, `Creating`, `Running`, `Unavailable`
 
-## 2. Instance Namespaces
+# # 2. Instance Namespaces
 
 ```bash
 # Create a namespace with auto-scan and vulnerability blocking
@@ -76,18 +76,16 @@ hcloud SWR DeleteInstanceNamespace --instance_id=<instance-id> --namespace_name=
 - Start with lowercase letter or digit
 - Followed by lowercase letters, digits, dots, underscores, or hyphens
 - Dots, underscores, hyphens cannot be directly connected
-- End with lowercase letter or digit
+-End with lowercase letter or digit
 - Length: 1-64 characters
 
 **Vulnerability Severity Levels**: `none`, `low`, `medium`, `high`, `critical`
 
-## 3. Instance Registries (Sync Targets)
+# # 3. Instance Registries (Sync Targets)
 
 ```bash
 # Create a registry (sync target for another SWR enterprise instance)
-hcloud SWR CreateInstanceRegistry --instance_id=<instance-id> --name=target-instance --type=swr-pro-internal --url=<target-url> --credential.type=basic --credential.access_key=<ak> --credential.access_secret=<sk> --insecure=false --instance_id=<target-instance-id> --project_id=<target-project-id> --region_id=cn-east-3 --cli-region=cn-north-4
-
-# Create a registry for open-source Harbor
+hcloud SWR CreateInstanceRegistry --instance_id=<instance-id> --name=target-instance --type=swr-pro-internal --url=<target-url> --credential.type=basic --credential.access_key=<ak> --credential.access_secret=<sk> --insecure=false --instance_id=<target-instance-id> --project_id=<target-project-id> --region_id=cn-east-3 --cli-region=cn-north-4# Create a registry for open-source Harbor
 hcloud SWR CreateInstanceRegistry --instance_id=<instance-id> --name=harbor-target --type=swr-pro --url=https://harbor.example.com --credential.type=basic --credential.access_key=<username> --credential.access_secret=<password> --insecure=false --cli-region=cn-north-4
 
 # List registries
@@ -105,7 +103,7 @@ hcloud SWR DeleteInstanceRegistry --instance_id=<instance-id> --registry_id=<reg
 
 **Registry Types**: `swr-pro` (open-source Harbor), `swr-pro-internal` (another SWR enterprise instance), `huawei-SWR` (basic SWR)
 
-## 4. Instance Repositories
+# # 4. Instance Repositories
 
 ```bash
 # List repositories in instance
@@ -124,7 +122,7 @@ hcloud SWR UpdateInstanceRepository --instance_id=<instance-id> --namespace_name
 hcloud SWR DeleteInstanceRepository --instance_id=<instance-id> --namespace_name=group-dev --repository_name=my-app --cli-region=cn-north-4
 ```
 
-## 5. Instance Artifacts (Image Versions)
+# # 5. Instance Artifacts (Image Versions)
 
 ```bash
 # List artifacts in a repository
@@ -154,7 +152,7 @@ hcloud SWR DeleteInstanceArtifact --instance_id=<instance-id> --namespace_name=g
 
 **Artifact Types**: `IMAGE` (container image), `CHART` (Helm chart)
 
-## 6. Instance Credentials
+# # 6. Instance Credentials
 
 ```bash
 # Create a long-term access credential
@@ -175,7 +173,7 @@ hcloud SWR DeleteInstanceLtCredential --instance_id=<instance-id> --credential_i
 
 **Credential Naming Rules** (same as namespace): lowercase/digit start, 1-64 chars
 
-## 7. Instance Endpoints (Network Access)
+# # 7. Instance Endpoints (Network Access)
 
 ```bash
 # Create internal VPC endpoint
@@ -203,7 +201,7 @@ hcloud SWR ShowInstanceEndpointPolicy --instance_id=<instance-id> --cli-region=c
 hcloud SWR UpdateInstanceEndpointPolicy --instance_id=<instance-id> --ip_list.1.ip=10.0.0.0/8 --ip_list.1.description="Internal network" --ip_list.2.ip=192.168.0.0/16 --ip_list.2.description="VPN network" --cli-region=cn-north-4
 ```
 
-## 8. Instance Domains
+# # 8. Instance Domains
 
 ```bash
 # Add a custom domain
@@ -222,7 +220,7 @@ hcloud SWR DeleteDomainName --instance_id=<instance-id> --domainname_id=<domain-
 hcloud SWR UpdateDomainName --instance_id=<instance-id> --domainname_id=<domain-id> --certificate_id=<new-cert-id> --cli-region=cn-north-4
 ```
 
-## 9. Instance Statistics and Jobs
+# # 9. Instance Statistics and Jobs
 
 ```bash
 # Get instance statistics

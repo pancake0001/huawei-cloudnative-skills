@@ -1,21 +1,21 @@
 # Task: Namespace Management
 
-## Overview
+# # Overview
 
 Kubernetes namespaces provide the organizational foundation for all resources in a cluster. Namespaces isolate resources, enable multi-tenant environments, and serve as scope boundaries for RBAC policies, resource quotas, and network policies. This task covers creating, listing, describing, and deleting namespaces in CCE clusters.
 
-## Operations Catalog
+# # Operations Catalog
 
-| Operation          | Method | Description              | Key Parameters                    |
-| ------------------ | ------ | ------------------------ | --------------------------------- |
-| `create namespace` | POST   | 创建命名空间             | `<name>` (required)              |
-| `get namespaces`   | GET    | 列出命名空间列表         | (none)                           |
-| `describe namespace` | GET  | 获取命名空间详情         | `<name>` (required)              |
-| `delete namespace` | DELETE | 删除命名空间             | `<name>` (required, CAUTION)     |
+| Operation | Method | Description | Key Parameters |
+| ------------------ | ------ | ---------------------------------- | ---------------------------------- |
+| `create namespace` | POST | Create a namespace | `<name>` (required) |
+| `get namespaces` | GET | List namespaces | (none) |
+| `describe namespace` | GET | Get namespace details | `<name>` (required) |
+| `delete namespace` | DELETE | Delete a namespace | `<name>` (required, CAUTION) |
 
 ## Workflows
 
-### W1: Create a Namespace
+## # W1: Create a Namespace
 
 ```bash
 kubectl --kubeconfig=<kubeconfig-file> create namespace <name>
@@ -39,13 +39,13 @@ kubectl --kubeconfig=<kubeconfig-file> get namespace <name>
 
 Expected: Namespace appears in list with `Active` status.
 
-### W2: List Namespaces
+## # W2: List Namespaces
 
 ```bash
 kubectl --kubeconfig=<kubeconfig-file> get namespaces
 ```
 
-With additional detail:
+With additional details:
 
 ```bash
 kubectl --kubeconfig=<kubeconfig-file> get namespaces -o wide
@@ -58,7 +58,7 @@ kubectl --kubeconfig=<kubeconfig-file> get namespaces -o yaml
 - `STATUS`: Current status (`Active` or `Terminating`)
 - `AGE`: Time since creation
 
-### W3: Describe a Namespace
+## # W3: Describe a Namespace
 
 ```bash
 kubectl --kubeconfig=<kubeconfig-file> describe namespace <name>
@@ -72,7 +72,7 @@ kubectl --kubeconfig=<kubeconfig-file> describe namespace <name>
 - `Resource Quotas`: Applied resource limits (CPU, memory, pod count, etc.)
 - `Limit Ranges`: Default and limit constraints for containers
 
-### W4: Delete a Namespace
+## # W4: Delete a Namespace
 
 ⚠️ **CAUTION**: Deleting a namespace deletes ALL resources within it (deployments, pods, services, configmaps, secrets, PVCs, etc.). This is irreversible. Always confirm with the user before deletion.
 
@@ -94,7 +94,7 @@ kubectl --kubeconfig=<kubeconfig-file> get namespace <name>
 
 Expected: Namespace not found error, or namespace shows `Terminating` status during graceful shutdown.
 
-## Namespace Best Practices
+# # Namespace Best Practices
 
 - Always specify `-n <namespace>` when running kubectl commands — the default namespace may be empty or contain unrelated resources
 - Use per-environment namespaces (e.g., `prod`, `staging`, `dev`) to isolate deployments
@@ -103,9 +103,9 @@ Expected: Namespace not found error, or namespace shows `Terminating` status dur
 - Use labels on namespaces for organizational grouping (e.g., `env: production`, `team: backend`)
 - Avoid using the `default` namespace for production workloads
 
-## Common Scenarios
+# # Common Scenarios
 
-### S1: Create Environment Namespaces
+## # S1: Create Environment Namespaces
 
 ```bash
 kubectl --kubeconfig=my-kubeconfig.yaml create namespace prod
@@ -115,7 +115,7 @@ kubectl --kubeconfig=my-kubeconfig.yaml create namespace staging
 kubectl --kubeconfig=my-kubeconfig.yaml create namespace dev
 ```
 
-### S2: Verify Namespace Exists Before Deployment
+## # S2: Verify Namespace Exists Before Deployment
 
 ```bash
 kubectl --kubeconfig=my-kubeconfig.yaml get namespace prod
@@ -127,13 +127,11 @@ If the namespace does not exist, create it first:
 kubectl --kubeconfig=my-kubeconfig.yaml create namespace prod
 ```
 
-Then deploy resources:
-
-```bash
+Then deploy resources:```bash
 kubectl --kubeconfig=my-kubeconfig.yaml apply -f deployment.yaml -n prod
 ```
 
-### S3: Clean Up Test Namespace
+## # S3: Clean Up Test Namespace
 
 Before deletion, review resources:
 

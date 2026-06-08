@@ -1,25 +1,25 @@
 # Task: Image Sharing
 
-## Overview
+# # Overview
 
-SWR image sharing allows repositories to be shared across organizations and users. This task covers listing shared repositories, querying sharing feature gates, checking global feature gates, checking agency status, creating agency delegation, and listing repository accessories and references.
+SWR image sharing allows repositories to be shared across organizations and users. This task covers listing shared repositories, querying sharing feature gates, checking global feature gates, checking agency status, creating delegation agency, and listing repository accessories and references.
 
-## Operations Catalog
+# # Operations Catalog
 
-| Operation          | Method | Description              | Key Parameters                                  |
-| ------------------ | ------ | ------------------------ | ----------------------------------------------- |
-| `ListSharedReposDetails` | GET | 获取共享镜像仓库列表   | (no required params beyond region)              |
-| `ListSharedRepoDetails` | GET  | 获取共享镜像仓库详情列表 | (no required params beyond region)            |
-| `ShowShareFeatureGates` | GET  | 获取共享特性开关       | (no required params beyond region)              |
-| `ListGlobalFeatureGates` | GET | 获取全局特性开关       | (no required params beyond region)              |
-| `CheckAgency`     | GET    | 查询委托状态             | (no required params beyond region)              |
-| `CreateAgency`    | POST   | 创建委托                 | (no required params beyond region)              |
-| `ListRepoAccessories` | GET | 获取镜像仓库附件列表   | `--namespace`, `--repository`                   |
-| `ListReferences`  | GET    | 获取镜像仓库引用列表     | `--namespace`, `--repository`                   |
+| Operation | Method | Description | Key Parameters |
+| ------------------ | ------ | ---------------------------------- | -------------------------------------------------- |
+| `ListSharedReposDetails` | GET | Get a list of shared mirror repositories | (no required params beyond region) |
+| `ListSharedRepoDetails` | GET | Get a list of shared image repository details | (no required params beyond region) |
+| `ShowShareFeatureGates` | GET | Get share feature switches | (no required params beyond region) |
+| `ListGlobalFeatureGates` | GET | Get global feature switches | (no required params beyond region) |
+| `CheckAgency` | GET | Query the delegation status | (no required params beyond region) |
+| `CreateAgency` | POST | Create agent | (no required params beyond region) |
+| `ListRepoAccessories` | GET | Get the list of mirror warehouse attachments | `--namespace`, `--repository` |
+| `ListReferences` | GET | Get the mirror repository reference list | `--namespace`, `--repository` |
 
 ## Workflows
 
-### W1: List Shared Repositories
+## # W1: List Shared Repositories
 
 ```bash
 # List all shared repositories
@@ -33,7 +33,7 @@ hcloud SWR ListSharedReposDetails --cli-region=cn-north-4
 hcloud SWR ListSharedRepoDetails --cli-region=cn-north-4
 ```
 
-### W2: Check Sharing Feature Gates
+## # W2: Check Sharing Feature Gates
 
 ```bash
 hcloud SWR ShowShareFeatureGates --cli-region=cn-north-4
@@ -71,7 +71,7 @@ hcloud SWR ShowShareFeatureGates --cli-region=cn-north-4
 - `enable_cci_service`: Whether CCI service integration is enabled
 - `enable_pipeline`: Whether pipeline feature is enabled
 
-### W3: Check Global Feature Gates
+## # W3: Check Global Feature Gates
 
 ```bash
 hcloud SWR ListGlobalFeatureGates --cli-region=cn-north-4
@@ -96,7 +96,7 @@ hcloud SWR ListGlobalFeatureGates --cli-region=cn-north-4
 - `enableIntranetAccessSwitch`: Whether intranet access toggle is available
 - `enableOBSEncryptUserKmsKey`: Whether OBS encryption with user KMS key is enabled
 
-### W4: Check Agency Delegation
+## # W4: Check Agency Delegation
 
 ```bash
 # Check if agency delegation is configured
@@ -113,14 +113,12 @@ hcloud SWR CheckAgency --cli-region=cn-north-4
 ```
 
 - `is_agency`: Whether agency delegation is configured (boolean)
-- `domain_id`: Domain ID (hex string)
-
-**Use Cases**:
+- `domain_id`: Domain ID (hex string)**Use Cases**:
 - Before setting up image sync, verify agency is configured
 - Before creating CCE triggers, verify agency is configured
 - Troubleshoot agency-related feature failures
 
-### W5: Create Agency Delegation
+## # W5: Create Agency Delegation
 
 ```bash
 # Create agency delegation for SWR
@@ -140,7 +138,7 @@ hcloud SWR CheckAgency --cli-region=cn-north-4
 
 Expected: `is_agency` should now be `true`.
 
-### W6: List Repository Accessories
+## # W6: List Repository Accessories
 
 ```bash
 hcloud SWR ListRepoAccessories --namespace=pancake --repository=openclaw-sandbox --cli-region=cn-north-4
@@ -158,15 +156,15 @@ hcloud SWR ListRepoAccessories --namespace=pancake --repository=openclaw-sandbox
 - `total`: Total count of accessories
 - `accessories`: Array of accessory objects (null when empty)
 
-### W7: List Repository References
+## # W7: List Repository References
 
 ```bash
 hcloud SWR ListReferences --namespace=pancake --repository=openclaw-sandbox --cli-region=cn-north-4
 ```
 
-## Common Scenarios
+# # Common Scenarios
 
-### S1: Pre-Deployment Feature Check
+## # S1: Pre-Deployment Feature Check
 
 Before deploying features that depend on SWR capabilities:
 
@@ -181,7 +179,7 @@ hcloud SWR ListGlobalFeatureGates --cli-region=cn-north-4
 hcloud SWR CheckAgency --cli-region=cn-north-4
 ```
 
-### S2: Setup for Image Sync
+## # S2: Setup for Image Sync
 
 Before configuring cross-region image sync:
 
@@ -200,7 +198,7 @@ hcloud SWR CheckAgency --cli-region=cn-north-4
 hcloud SWR CreateAgency --cli-region=cn-north-4
 ```
 
-### S3: Audit Shared Image Inventory
+## # S3: Audit Shared Image Inventory
 
 Review all shared repositories across the organization:
 

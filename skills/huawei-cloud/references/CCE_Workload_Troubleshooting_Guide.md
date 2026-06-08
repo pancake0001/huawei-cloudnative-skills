@@ -1,238 +1,236 @@
-# 华为云 CCE 工作负载异常排查指南 / CCE Workload Troubleshooting Guide
+# Huawei Cloud CCE Workload Troubleshooting Guide / CCE Workload Troubleshooting Guide
 
-**更新时间：2026-04-02 GMT+8**
+**Update time: 2026-04-02 GMT+8**
 
-**来源：华为云官方文档 https://support.huaweicloud.com/cce_faq/cce_faq_00134.html**
-
----
-
-## 文档概述
-
-本文档整理了华为云 CCE（云容器引擎）工作负载状态异常时的完整排查路径，包含所有相关链接和排查方向。可作为日常运维的问题定位指南。
+**Source: Huawei Cloud official document https://support.huaweicloud.com/cce_faq/cce_faq_00134.html**
 
 ---
 
-## 定位流程
+# # Document overview
+
+This document organizes the complete troubleshooting path when the workload status of Huawei Cloud CCE (Cloud Container Engine) is abnormal, including all relevant links and troubleshooting directions. It can be used as a problem location guide for daily operation and maintenance.
+
+---
+
+# # Positioning process
 
 ```
-工作负载状态异常
+Abnormal workload status
        │
        ▼
-   查看Pod状态 + 事件
+   View Pod status + events
        │
-       ├─ Pending ──→ 调度失败 / 挂卷失败 / 添加存储失败
-       ├─ ImagePullBackOff ──→ 拉取镜像失败
-       ├─ CrashLoopBackOff ──→ 启动容器失败
-       ├─ Evicted ──→ Pod被驱逐
-       ├─ Creating ──→ 一直创建中
-       ├─ Terminating ──→ 一直终止中
-       ├─ Stopped ──→ 已停止
-       └─ Running但不工作 → 配置问题
+       ├─ Pending ──→ Scheduling failed/volume mounting failed/adding storage failed
+       ├─ ImagePullBackOff ──→ Failed to pull the image
+       ├─ CrashLoopBackOff ──→ Failed to start container
+       ├─ Evicted ──→ Pod was evicted
+       ├─ Creating ──→ Always creating
+       ├─ Terminating ──→ Always terminating
+       ├─ Stopped ──→ Stopped
+       └─ Running but not working → Configuration problem
 ```
 
 ---
 
-## 异常状态与排查链接
+# # Abnormal status and troubleshooting links
 
-| 状态 | 说明 | 排查文档 |
+| Status | Description | Troubleshooting Documents |
 |------|------|----------|
-| **Pending** | 实例调度失败 | [实例调度失败](https://support.huaweicloud.com/cce_faq/cce_faq_00098.html) |
-| **Pending** | 存储卷无法挂载 | [存储卷无法挂载](https://support.huaweicloud.com/cce_faq/cce_faq_00200.html) |
-| **Pending** | 添加存储失败 | [添加存储失败](https://support.huaweicloud.com/cce_faq/cce_faq_00433.html) |
-| **ImagePullBackOff** | 拉取镜像失败 | [实例拉取镜像失败](https://support.huaweicloud.com/cce_faq/cce_faq_00015.html) |
-| **CrashLoopBackOff** | 启动容器失败 | [启动容器失败](https://support.huaweicloud.com/cce_faq/cce_faq_00018.html) |
-| **Evicted** | Pod被驱逐 | [实例驱逐异常](https://support.huaweicloud.com/cce_faq/cce_faq_00209.html) |
-| **Creating** | 一直创建中 | [一直处于创建中](https://support.huaweicloud.com/cce_faq/cce_faq_00140.html) |
-| **Terminating** | 一直终止中 | [Pod Terminating](https://support.huaweicloud.com/cce_faq/cce_faq_00210.html) |
-| **Stopped** | 已停止 | [已停止](https://support.huaweicloud.com/cce_faq/cce_faq_00012.html) |
-| **Running** | 运行中但不工作 | [状态正常但未正常工作](https://support.huaweicloud.com/cce_faq/cce_faq_00471.html) |
-| **Init:Error** | Init容器启动失败 | [Init容器启动失败](https://support.huaweicloud.com/cce_faq/cce_faq_00469.html) |
+| **Pending** | Instance scheduling failed | [Instance scheduling failed](https://support.huaweicloud.com/cce_faq/cce_faq_00098.html) |
+| **Pending** | The storage volume cannot be mounted | [The storage volume cannot be mounted](https://support.huaweicloud.com/cce_faq/cce_faq_00200.html) |
+| **Pending** | Failed to add storage | [Failed to add storage](https://support.huaweicloud.com/cce_faq/cce_faq_00433.html) |
+| **ImagePullBackOff** | Failed to pull the image | [Failed to pull the image from the instance](https://support.huaweicloud.com/cce_faq/cce_faq_00015.html) |
+| **CrashLoopBackOff** | Failed to start the container | [Failed to start the container](https://support.huaweicloud.com/cce_faq/cce_faq_00018.html) |
+| **Evicted** | Pod was evicted | [Instance eviction exception](https://support.huaweicloud.com/cce_faq/cce_faq_00209.html) |
+| **Creating** | Always being created | [Always being created](https://support.huaweicloud.com/cce_faq/cce_faq_00140.html) |
+| **Terminating** | Still being terminated | [Pod Terminating](https://support.huaweicloud.com/cce_faq/cce_faq_00210.html) |
+| **Stopped** | Stopped | [Stopped](https://support.huaweicloud.com/cce_faq/cce_faq_00012.html) |
+| **Running** | Running but not working | [Status normal but not working properly](https://support.huaweicloud.com/cce_faq/cce_faq_00471.html) |
+| **Init:Error** | Init container failed to start | [Init container failed to start](https://support.huaweicloud.com/cce_faq/cce_faq_00469.html) |
 
 ---
 
-## 详细排查项
+# # Detailed troubleshooting items
 
-### 1. 实例调度失败
+## # 1. Instance scheduling failed
 
-**链接**: https://support.huaweicloud.com/cce_faq/cce_faq_00098.html
+**Link**: https://support.huaweicloud.com/cce_faq/cce_faq_00098.html
 
-**常见错误信息**:
+**Common error messages**:
 
-| 错误信息 | 问题原因 |
+| Error message | Cause of the problem |
 |---------|----------|
-| `no nodes available` | 集群无可用节点 |
-| `Insufficient cpu/memory` | CPU/内存不足 |
-| `volume node affinity conflict` | 存储卷与节点不在同一可用区 |
-| `node(s) had taints` | Pod不满足污点容忍 |
-| `Too many pods` | 节点Pod数量超限 |
-| `everest driver not found` | everest插件异常 |
-| `Thin Pool has xxxx free data blocks` | 节点存储空间不足 |
+| `no nodes available` | There are no nodes available in the cluster |
+| `Insufficient cpu/memory` | CPU/memory is insufficient |
+| `volume node affinity conflict` | The storage volume and the node are not in the same availability zone |
+| `node(s) had taints` | Pod does not meet taint tolerance |
+| `Too many pods` | The number of node Pods exceeds the limit |
+| `everest driver not found` | everest plug-in exception |
+| `Thin Pool has xxxx free data blocks` | Insufficient node storage space |
 
-**排查子项**:
+**Troubleshooting sub-items**:
 
-- 排查项一：集群内是否无可用节点
-- 排查项二：节点资源（CPU、内存等）是否充足
-- 排查项三：检查工作负载的亲和性配置
-- 排查项四：挂载的存储卷与节点是否处于同一可用区
-- 排查项五：检查Pod污点容忍情况
-- 排查项六：检查临时卷使用量
-- 排查项七：检查everest插件是否工作正常
-- 排查项八：检查节点thinpool空间是否充足
-- 排查项九：检查节点上调度的Pod是否过多
-- 排查项十：kubelet静态绑核异常
+-Troubleshooting item 1: Whether there are no available nodes in the cluster
+-Troubleshooting item 2: Whether node resources (CPU, memory, etc.) are sufficient
+- Troubleshooting item three: Check the affinity configuration of the workload
+- Check item 4: Whether the mounted storage volume and the node are in the same availability zone
+- Troubleshooting Item 5: Check Pod Taint Tolerance
+- Troubleshooting item six: Check temporary volume usage
+- Troubleshooting item 7: Check whether the everest plug-in is working properly
+- Troubleshooting item eight: Check whether the node thinpool space is sufficient
+- Troubleshooting item nine: Check whether there are too many Pods scheduled on the node
+- Troubleshooting item 10: kubelet static binding core exception
 
 ---
 
-### 2. 存储卷无法挂载
+## # 2. The storage volume cannot be mounted.
 
-**链接**: https://support.huaweicloud.com/cce_faq/cce_faq_00200.html
+**Link**: https://support.huaweicloud.com/cce_faq/cce_faq_00200.html
 
-| 存储类型 | 常见问题 | 解决方案 |
+| Storage Types | Frequently Asked Questions | Solutions |
 |---------|----------|----------|
-| **EVS云硬盘** | 可用区不一致 | 确保磁盘与节点在同一可用区 |
-| **EVS云硬盘** | 多实例挂载同一卷 | 副本数只能为1 |
-| **EVS云硬盘** | 文件系统损坏 | 使用 fsck 修复 |
-| **SFS Turbo** | 共享地址错误 | 检查PV中everest.io/share-export-location |
-| **SFS Turbo** | 网络不通 | 测试节点到SFS Turbo网络 |
-| **SFS通用版** | 未创建VPCEP | 在集群VPC创建VPC终端节点 |
+| **EVS cloud disk** | Availability zone is inconsistent | Make sure the disk and node are in the same availability zone |
+| **EVS cloud disk** | Multiple instances mount the same volume | The number of copies can only be 1 |
+| **EVS cloud disk** | File system damage | Use fsck to repair |
+| **SFS Turbo** | Shared address error | Check everest.io/share-export-location in PV |
+| **SFS Turbo** | Network failure | Test node to SFS Turbo network |
+| **SFS Universal Edition** | VPCEP is not created | Create VPC endpoint in cluster VPC |
 
 ---
 
-### 3. 拉取镜像失败
+## # 3. Failed to pull the image
 
-**链接**: https://support.huaweicloud.com/cce_faq/cce_faq_00015.html
+**Link**: https://support.huaweicloud.com/cce_faq/cce_faq_00015.html
 
-| 错误信息 | 问题原因 | 解决方案 |
+| Error Message | Cause of Problem | Solution |
 |---------|----------|----------|
-| `denied: You may not login yet` | 未配置imagePullSecret | 配置SWR密钥 |
-| `no such host` | 镜像地址错误 | 检查镜像地址 |
-| `no space left on device` | 节点磁盘不足 | 清理磁盘空间 |
-| `certificate signed by unknown authority` | 仓库证书问题 | 使用可信证书或自签名 |
-| `context canceled` | 镜像过大 | 优化镜像大小 |
-| `request canceled` | 网络不通 | 检查网络/镜像仓库连通性 |
-| `Too Many Requests` | Docker Hub限速 | 登录Docker Hub或使用SWR |
+| `denied: You may not login yet` | imagePullSecret not configured | Configure SWR key |
+| `no such host` | Mirror address error | Check mirror address |
+| `no space left on device` | Insufficient node disk | Clear disk space |
+| `certificate signed by unknown authority` | Warehouse certificate issues | Use trusted certificates or self-signed |
+| `context canceled` | Image is too large | Optimize image size |
+| `request canceled` | Network failure | Check network/mirror warehouse connectivity |
+| `Too Many Requests` | Docker Hub rate limit | Log in to Docker Hub or use SWR |
 
 ---
 
-### 4. 启动容器失败
+## # 4. Failed to start container
 
-**链接**: https://support.huaweicloud.com/cce_faq/cce_faq_00018.html
+**Link**: https://support.huaweicloud.com/cce_faq/cce_faq_00018.html
 
-| 退出码 | 问题原因 | 解决方案 |
+| Exit code | Cause of problem | Solution |
 |-------|----------|----------|
-| exit(0) | 容器无持续进程 | 保持前台进程运行 |
-| exit(137) | 健康检查失败 | 检查Liveness Probe配置 |
-| - | 磁盘空间不足 | 清理thinpool空间 |
-| - | OOM内存不足 | 增加Pod内存限制 |
-| - | 端口冲突 | 检查容器端口配置 |
-| - | Secret未Base64编码 | 对Secret值进行编码 |
-| - | 架构不匹配(ARM/x86) | 使用匹配架构的镜像 |
-| exit(141) | tail -f 不兼容 | 更换启动命令 |
-| - | Java探针版本不兼容 | 升级/降级探针版本 |
+| exit(0) | The container has no ongoing process | Keep the foreground process running |
+| exit(137) | Health check failed | Check Liveness Probe configuration |
+| - | Insufficient disk space | Clean up thinpool space |
+| - | Insufficient OOM memory | Increase Pod memory limit |
+| - | Port conflict | Check container port configuration |
+| - | Secret is not Base64 encoded | Encode the Secret value |
+| - | Architecture mismatch (ARM/x86) | Use image with matching architecture |
+| exit(141) | tail -f is incompatible | Replace the startup command |
+| - | Java probe version is incompatible | Upgrade/downgrade probe version |
 
 ---
 
-### 5. Pod被驱逐 (Evicted)
+## # 5. Pod was evicted (Evicted)
 
-**链接**: https://support.huaweicloud.com/cce_faq/cce_faq_00209.html
+**Link**: https://support.huaweicloud.com/cce_faq/cce_faq_00209.html
 
-常见原因：节点资源超出限制（内存/CPU/磁盘）
-
----
-
-### 6. Pod一直处于Terminating
-
-**链接**: https://support.huaweicloud.com/cce_faq/cce_faq_00210.html
+Common reasons: Node resources exceed limit (memory/CPU/disk)
 
 ---
 
-### 7. 状态正常但无法访问
+## # 6. Pod is always in Terminating
 
-**链接**: https://support.huaweicloud.com/cce_faq/cce_faq_00471.html
-
----
-
-### 8. Init容器启动失败
-
-**链接**: https://support.huaweicloud.com/cce_faq/cce_faq_00469.html
+**Link**: https://support.huaweicloud.com/cce_faq/cce_faq_00210.html
 
 ---
 
-## 常用排查命令
+## # 7. The status is normal but inaccessible
+
+**Link**: https://support.huaweicloud.com/cce_faq/cce_faq_00471.html
+
+---
+
+## # 8. Init container failed to start**Link**: https://support.huaweicloud.com/cce_faq/cce_faq_00469.html
+
+---
+
+# # Common troubleshooting commands
 
 ```bash
-# 查看Pod状态
+# Check Pod status
 kubectl get pod -n {namespace}
 
-# 查看Pod详细事件
+# View Pod detailed events
 kubectl describe pod {pod-name} -n {namespace}
 
-# 查看Pod日志
+# View Pod logs
 kubectl logs {pod-name} -n {namespace}
 
-# 查看上一条日志（容器重启後）
+# View the previous log (after the container is restarted)
 kubectl logs {pod-name} -n {namespace} --previous
 
-# 查看节点状态
+# Check node status
 kubectl get node
 
-# 查看节点污点
+# Check node taint
 kubectl describe node {node-name}
 
-# 查看节点资源情况
+# Check node resource status
 kubectl describe node {node-name} | grep -A 5 "Allocated resources"
 
-# 查看磁盘使用情况
-df -h
+# Check disk usage
+df-h
 
-# 查看节点上Pod数量
+# Check the number of Pods on the node
 kubectl get pods -o wide | grep {node-ip}
 
-# 查看OOM日志
+# View OOM log
 grep -i oom /var/log/messages
 
-# 进入容器调试
+# Enter container debugging
 kubectl exec -it {pod-name} -n {namespace} -- /bin/sh
 ```
 
 ---
 
-## Pod事件查看方法
+# # Pod event viewing method
 
-### 方式一：控制台查看
+## # Method 1: View on the console
 
-1. 登录CCE控制台
-2. 进入集群 → 工作负载
-3. 点击工作负载名称
-4. 找到异常实例 → 更多 → 事件
+1. Log in to the CCE console
+2. Enter the cluster → Workload
+3. Click the workload name
+4. Find the exception instance → More → Events
 
-### 方式二：命令行查看
+## # Method 2: Command line view
 
 ```bash
 kubectl describe pod {pod-name} -n {namespace}
 ```
 
-重点关注 Events 部分，常见事件类型：
+Focus on the Events section, common event types:
 
-| 事件 | 含义 |
+| Event | Meaning |
 |------|------|
-| FailedScheduling | 调度失败 |
-| SuccessfulCreatePod | Pod创建成功 |
-| Pulling | 正在拉取镜像 |
-| Pulled | 镜像拉取成功 |
-| Created | 容器创建成功 |
-| Started | 容器启动成功 |
-| Killing | 正在终止容器 |
-| BackOff | 容器启动失败，正在重试 |
-| Unhealthy | 健康检查失败 |
+| FailedScheduling | Scheduling failed |
+| SuccessfulCreatePod | Pod created successfully |
+| Pulling | Pulling the image |
+| Pulled | Image pulled successfully |
+| Created | Container created successfully |
+| Started | The container started successfully |
+| Killing | Terminating container |
+| BackOff | Container startup failed, retrying |
+| Unhealthy | Health check failed |
 
 ---
 
-## 相关文档
+# # Related documents
 
-| 文档 | 链接 |
+| Documentation | Links |
 |------|------|
-| 工作负载状态异常定位方法（主文档） | https://support.huaweicloud.com/cce_faq/cce_faq_00134.html |
-| 登录容器方法 | https://support.huaweicloud.com/usermanual-cce/cce_10_00356.html |
-| 集群可用但节点不可用 | https://support.huaweicloud.com/cce_faq/cce_faq_00120.html |
-| 重置节点 | https://support.huaweicloud.com/usermanual-cce/cce_10_0003.html |
+| Workload status abnormality locating method (main document) | https://support.huaweicloud.com/cce_faq/cce_faq_00134.html |
+| How to log in to the container | https://support.huaweicloud.com/usermanual-cce/cce_10_00356.html |
+| The cluster is available but the node is unavailable | https://support.huaweicloud.com/cce_faq/cce_faq_00120.html |
+| Reset node | https://support.huaweicloud.com/usermanual-cce/cce_10_0003.html |

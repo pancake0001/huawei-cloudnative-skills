@@ -1,4 +1,4 @@
-name: 全链路压测
+name: Full link stress test
 level: L5
 domain: performance-engineering
 description: Build a complete CCE end-to-end traffic path from k6 client through ELB to nginx-ingress to workload pods. Support short-connection, keepalive, and ramp traffic models. Collect ELB metrics and AOM observability, evaluate elasticity phases, and generate bilingual Markdown and HTML reports with performance curves.

@@ -1,6 +1,6 @@
 # Output Schema
 
-`huawei_network_failure_diagnose` 返回结构化 JSON，并在 `report_markdown` 中内嵌最终报告。
+`huawei_network_failure_diagnose` returns structured JSON with the final report embedded in `report_markdown`.
 
 ```json
 {
@@ -10,13 +10,13 @@
   "cluster_id": "cluster-id",
   "namespace": "default",
   "conclusion": "high signal conclusion",
-  "confidence": "高 (High)",
+  "confidence": "High",
   "pipeline_pruned": false,
   "findings": [
     {
-      "stage": "第三阶段：东西向路由与策略层诊断",
+      "stage": "The third stage: east-west routing and policy layer diagnosis",
       "type": "NetworkPolicyBlocked",
-      "title": "NetworkPolicy 选择了目标 Pod，但未放行源 Pod 标签或目标端口",
+      "title": "NetworkPolicy selected the target Pod but did not allow the source Pod label or target port",
       "confidence": 1.0,
       "severity": "critical",
       "evidence": [],
@@ -44,26 +44,26 @@
       "vpc_acls": {}
     }
   },
-  "report_markdown": "# CCE 网络故障自动化诊断报告\n..."
+  "report_markdown": "# CCE network fault automatic diagnosis report\n..."
 }
 ```
 
-## Markdown Sections
+# # Markdown Sections
 
-`report_markdown` 必须包含以下标题：
+`report_markdown` must contain the following headers:
 
-- `# CCE 网络故障自动化诊断报告`
-- `## 1. 诊断总览`
-- `## 2. 排查过程`
-- `## 3. 链路拓扑`
-- `## 4. 关键对象快照`
-- `## 5. 证据矩阵`
-- `## 6. 诊断结论`
-- `## 7. 建议动作与验证标准`
+- `# CCE network fault automated diagnosis report`
+- `## 1. Diagnosis Overview`
+- `## 2. Troubleshooting process`
+- `## 3. Link topology`
+- `## 4. Key object snapshot`
+- `## 5. Evidence Matrix`
+- `## 6. Diagnostic conclusion`
+- `## 7. Recommended actions and verification standards`
 
-## Finding Types
+# # Finding Types
 
-常见 `type` 值：
+Common `type` values:
 
 - `NodeUnhealthy`
 - `NodePressure`

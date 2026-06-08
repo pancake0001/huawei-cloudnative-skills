@@ -1,21 +1,21 @@
 # Task: Namespace Management
 
-## Overview
+# # Overview
 
 SWR namespace (organization) is the top-level grouping for image repositories. All repositories must belong to a namespace. This task covers creating, querying, and deleting namespaces.
 
-## Operations Catalog
+# # Operations Catalog
 
-| Operation       | Method | Description              | Key Parameters                    |
-| --------------- | ------ | ------------------------ | --------------------------------- |
-| `ListNamespaces` | GET    | 查询组织列表             | `--filter`                        |
-| `ShowNamespace`  | GET    | 获取组织详情             | `--namespace`                     |
-| `CreateNamespace` | POST   | 创建组织                 | `--namespace`                     |
-| `DeleteNamespaces` | DELETE | 删除组织                 | `--namespace`                     |
+| Operation | Method | Description | Key Parameters |
+| --------------- | ------ | ------------------------ | ---------------------------------- |
+| `ListNamespaces` | GET | Query the organization list | `--filter` |
+| `ShowNamespace` | GET | Get organization details | `--namespace` |
+| `CreateNamespace` | POST | Create organization | `--namespace` |
+| `DeleteNamespaces` | DELETE | Delete an organization | `--namespace` |
 
 ## Workflows
 
-### W1: View All Namespaces
+## # W1: View All Namespaces
 
 ```bash
 # List all namespaces you have permission to
@@ -36,7 +36,7 @@ hcloud SWR ListNamespaces --filter="namespace::group-dev" --cli-region=cn-north-
 - `access_user_count`: Number of users with access
 - `repo_count`: Number of repositories under this namespace
 
-### W2: Check Namespace Details
+## # W2: Check Namespace Details
 
 ```bash
 hcloud SWR ShowNamespace --namespace=group-dev --cli-region=cn-north-4
@@ -47,7 +47,7 @@ hcloud SWR ShowNamespace --namespace=group-dev --cli-region=cn-north-4
 - Check namespace permissions and metadata
 - Troubleshoot "namespace not found" errors
 
-### W3: Create a New Namespace
+## # W3: Create a New Namespace
 
 **Pre-creation Checklist**:
 1. Verify namespace name follows naming rules (1-64 chars, lowercase start)
@@ -64,7 +64,7 @@ hcloud SWR CreateNamespace --namespace=group-dev --cli-region=cn-north-4
 hcloud SWR ShowNamespace --namespace=group-dev --cli-region=cn-north-4
 ```
 
-### W4: Delete a Namespace
+## # W4: Delete a Namespace
 
 ⚠️ **CAUTION**: Deleting a namespace permanently removes ALL repositories and images under it. This is irreversible.
 
@@ -87,9 +87,9 @@ hcloud SWR DeleteNamespaces --namespace=group-dev --cli-region=cn-north-4
 hcloud SWR ShowNamespace --namespace=group-dev --cli-region=cn-north-4
 ```
 
-## Common Scenarios
+# # Common Scenarios
 
-### S1: Organize Images by Team/Project
+## # S1: Organize Images by Team/Project
 
 Create separate namespaces for different teams or projects:
 
@@ -104,7 +104,7 @@ hcloud SWR CreateNamespace --namespace=proj-order-service --cli-region=cn-north-
 hcloud SWR CreateNamespace --namespace=proj-user-service --cli-region=cn-north-4
 ```
 
-### S2: Migrate Namespace
+## # S2: Migrate Namespace
 
 When reorganizing, migrate images by pushing to the new namespace and then deleting the old one:
 
@@ -117,8 +117,6 @@ docker tag old-image:latest swr.cn-north-4.myhuaweicloud.com/team-new-backend/ol
 docker push swr.cn-north-4.myhuaweicloud.com/team-new-backend/old-image:latest
 
 # 3. Verify migration
-hcloud SWR ListReposDetails --namespace=team-new-backend --cli-region=cn-north-4
-
-# 4. Delete old namespace (after confirming migration is complete)
+hcloud SWR ListReposDetails --namespace=team-new-backend --cli-region=cn-north-4# 4. Delete old namespace (after confirming migration is complete)
 hcloud SWR DeleteNamespaces --namespace=team-backend --cli-region=cn-north-4
 ```

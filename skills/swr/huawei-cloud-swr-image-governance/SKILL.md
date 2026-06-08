@@ -4,16 +4,16 @@ name: huawei-cloud-swr-image-governance
 description: |
   Huawei Cloud SWR (Software Repository for Container) image governance skill using hcloud CLI.
   Use this skill when the user wants to: (1) manage SWR namespace permissions - grant/query/modify/revoke, (2) manage repository permissions - grant/query/modify/revoke, (3) manage image retention rules - create/list/update/delete, (4) manage shared download domains - create/list/update/delete, (5) manage image sharing - list shared repos/query feature gates, (6) check SWR agency status and create agency delegation, (7) list repo accessories and references.
-  Trigger: user mentions "SWR image governance", "SWR 镜像治理", "SWR 权限管理", "SWR retention", "SWR 保留策略", "SWR 共享域名", "SWR 共享镜像", "SWR 委托", "SWR agency", "namespace permissions", "repository permissions", "镜像权限", "保留规则", "共享下载", "镜像分享"
+  Trigger: user mentions "SWR image governance", "SWR image governance", "SWR permission management", "SWR retention", "SWR retention policy", "SWR shared domain name", "SWR shared image", "SWR delegation", "SWR agency", "namespace permissions", "repository permissions", "mirror permissions", "retention rules", "shared download", "image sharing"
 tags: [swr, image-governance, permissions, retention, sharing]
 version: 1.0.0
 ---
 
 # Huawei Cloud SWR Image Governance
 
-## Overview
+# # Overview
 
-This skill provides governance capabilities for Huawei Cloud SWR (Software Repository for Container) using the `hcloud` CLI, covering permissions, retention policies, sharing, and agency delegation.
+This skill provides governance capabilities for Huawei Cloud SWR (Software Repository for Container) using the `hcloud` CLI, covering permissions, retention policies, sharing, and delegation agency.
 
 **Architecture**: hcloud CLI → SWR Service API → Permission/Retention/Domain/Share/Agency resources
 
@@ -42,15 +42,15 @@ This skill provides governance capabilities for Huawei Cloud SWR (Software Repos
 - "Check agency delegation status for SWR"
 - "Revoke a user's permission on a repository"
 
-## Prerequisites
+# # Prerequisites
 
-### 1. hcloud CLI Requirements (MANDATORY)
+## # 1. hcloud CLI Requirements (MANDATORY)
 
 - hcloud CLI installed (version >= 7.2.2)
 - Run `hcloud version` to verify installation
 - First-time usage: `printf "y\n" | hcloud version` to accept privacy statement
 
-### 2. Credential Configuration
+## # 2. Credential Configuration
 
 - Valid Huawei Cloud credentials (AK/SK mode)
 - **Security Rules**:
@@ -68,16 +68,14 @@ export HUAWEI_CLOUD_SK=<your-sk>
 export HUAWEI_CLOUD_REGION=cn-north-4
 ```
 
-**⚠️ Important Security Notes**:
+**⚠️Important Security Notes**:
 
-- Never commit credentials to version control
+-Never commit credentials to version control
 - Use IAM users with minimal required permissions
 - Enable MFA for sensitive operations
 - Rotate AK/SK regularly
 
-### 3. IAM Permission Requirements
-
-| API Action                       | Permission        | Purpose                                |
+## # 3. IAM Permission Requirements| API Action                       | Permission        | Purpose                                |
 | -------------------------------- | ----------------- | -------------------------------------- |
 | `swr:namespace:auth:create`      | Create NS auth    | Grant namespace permissions            |
 | `swr:namespace:auth:get`         | Get NS auth       | Query namespace permissions            |
@@ -115,9 +113,9 @@ See [IAM Permission Policies](references/iam-policies.md) for complete policy JS
 3. Guide the user to create a custom policy in the IAM console and grant authorization
 4. Pause execution and wait for user confirmation that permissions have been granted
 
-## Core Commands
+# # Core Commands
 
-### 1. Namespace Permissions
+## # 1. Namespace Permissions
 
 See [Task: Namespace Permissions](references/task-namespace-permissions.md) for detailed workflows.
 
@@ -139,7 +137,7 @@ hcloud SWR DeleteNamespaceAuth --namespace=pancake --1.user_id=05949eb5350010e21
 
 **⚠️ Array-Style Parameters**: Permission operations use `--[N].auth`, `--[N].user_id`, `--[N].user_name` format where `[N]` is the array index (starting from 1). For a single user, use `--1.auth=7 --1.user_id=xxx --1.user_name=xxx`. See [Common Pitfalls](references/common-pitfalls.md) for details.
 
-### 2. Repository Permissions
+## # 2. Repository Permissions
 
 See [Task: Repository Permissions](references/task-repository-permissions.md) for detailed workflows.
 
@@ -159,7 +157,7 @@ hcloud SWR DeleteUserRepositoryAuth --namespace=pancake --repository=openclaw-sa
 
 **Auth Values**: Same as namespace permissions: `7` = manage, `3` = edit, `1` = read
 
-### 3. Agency Delegation
+## # 3. Agency Delegation
 
 ```bash
 # Check if agency delegation is enabled
@@ -174,7 +172,7 @@ hcloud SWR CreateAgency --cli-region=cn-north-4
 - Required for features like image sync to OBS and CCE trigger deployments
 - `CheckAgency` returns whether agency is already configured; `CreateAgency` sets up the delegation
 
-### 4. Retention Rules
+## # 4. Retention Rules
 
 See [Task: Retention Management](references/task-retention-management.md) for detailed workflows.
 
@@ -211,7 +209,7 @@ hcloud SWR ListRetentionHistories --namespace=pancake --repository=openclaw-sand
 
 **Algorithm**: `or` means rules are combined with OR logic (a tag is retained if it matches ANY rule)
 
-### 5. Shared Download Domains
+## # 5. Shared Download Domains
 
 See [Task: Shared Domains](references/task-shared-domains.md) for detailed workflows.
 
@@ -232,7 +230,7 @@ hcloud SWR UpdateRepoDomains --namespace=pancake --repository=openclaw-sandbox -
 hcloud SWR DeleteRepoDomains --namespace=pancake --repository=openclaw-sandbox --access_domain=shared-domain-name --cli-region=cn-north-4
 ```
 
-### 6. Image Sharing
+## # 6. Image Sharing
 
 See [Task: Image Sharing](references/task-image-sharing.md) for detailed workflows.
 
@@ -250,7 +248,7 @@ hcloud SWR ShowShareFeatureGates --cli-region=cn-north-4
 hcloud SWR ListGlobalFeatureGates --cli-region=cn-north-4
 ```
 
-### 7. Repository Accessories & References
+## # 7. Repository Accessories & References
 
 ```bash
 # List repository accessories
@@ -260,9 +258,9 @@ hcloud SWR ListRepoAccessories --namespace=pancake --repository=openclaw-sandbox
 hcloud SWR ListReferences --namespace=pancake --repository=openclaw-sandbox --cli-region=cn-north-4
 ```
 
-## Parameter Reference
+# # Parameter Reference
 
-### Common Parameters
+## # Common Parameters
 
 | Parameter       | Required/Optional | Description                   | Default                              |
 | --------------- | ----------------- | ----------------------------- | ------------------------------------ |
@@ -270,7 +268,7 @@ hcloud SWR ListReferences --namespace=pancake --repository=openclaw-sandbox --cl
 | `--namespace`   | Context-dependent | SWR namespace (organization)  | N/A                                  |
 | `--repository`  | Context-dependent | Image repository name         | N/A                                  |
 
-### Permission Parameters
+## # Permission Parameters
 
 | Parameter       | Required | Description            | Constraints                                    |
 | --------------- | -------- | ---------------------- | ---------------------------------------------- |
@@ -282,7 +280,7 @@ hcloud SWR ListReferences --namespace=pancake --repository=openclaw-sandbox --cl
 
 **⚠️ Array Index Format**: `[N]` starts from 1 (not 0). For granting permission to a single user, use `--1.auth=7 --1.user_id=xxx --1.user_name=xxx`. For multiple users, use `--1.auth=7 --1.user_id=xxx --1.user_name=xxx --2.auth=3 --2.user_id=yyy --2.user_name=yyy`.
 
-### Retention Parameters
+## # Retention Parameters
 
 | Parameter                     | Required | Description              | Constraints                                  |
 | ----------------------------- | -------- | ------------------------ | -------------------------------------------- |
@@ -295,7 +293,7 @@ hcloud SWR ListReferences --namespace=pancake --repository=openclaw-sandbox --cl
 | `--rules.[N].tag_selectors.[N].kind` | Yes | Selector kind    | `label` or `regexp`                          |
 | `--rules.[N].tag_selectors.[N].pattern` | Yes | Selector pattern | Tag name or regex                            |
 
-### Domain Parameters
+## # Domain Parameters
 
 | Parameter       | Required | Description            | Constraints                                    |
 | --------------- | -------- | ---------------------- | ---------------------------------------------- |
@@ -305,7 +303,7 @@ hcloud SWR ListReferences --namespace=pancake --repository=openclaw-sandbox --cl
 | `--access_domain` | Yes (show/delete) | Domain name   | Same as domain                                 |
 | `--permit`      | Yes (update) | Permission type   | `read`                                         |
 
-## Output Format
+# # Output Format
 
 See [Output Format](references/output-format.md) for detailed response format examples (NamespaceAuth, RepositoryAuth, RepoDomains, CheckAgency, ShareFeatureGates, GlobalFeatureGates, Retentions, RepoAccessories, ListSharedReposDetails).
 
@@ -316,11 +314,11 @@ See [Output Format](references/output-format.md) for detailed response format ex
 - `ListRetentions`: Returns flat array (empty `[]` when no rules)
 - `ListRepoAccessories`: Uses `total` + `accessories` (null when empty)
 
-## Verification
+# # Verification
 
 See [Verification Method](references/verification-method.md) for step-by-step verification.
 
-## Best Practices
+# # Best Practices
 
 1. **Least Privilege**: Grant the minimum auth level needed — `1` (read) for pull-only, `3` (edit) for push/pull, `7` (manage) for full control
 2. **Namespace vs Repository Permissions**: Namespace permissions apply to ALL repositories under it; repository permissions are granular per-repo
@@ -330,7 +328,7 @@ See [Verification Method](references/verification-method.md) for step-by-step ve
 6. **Agency Delegation**: Check agency status before configuring image sync or CCE triggers — these require agency to be enabled
 7. **Audit Permissions Regularly**: Use `ShowNamespaceAuth` and `ShowUserRepositoryAuth` to periodically review who has access
 
-## Reference Documents
+# # Reference Documents
 
 | Document                                               | Description                              |
 | ------------------------------------------------------ | ---------------------------------------- |
@@ -345,7 +343,7 @@ See [Verification Method](references/verification-method.md) for step-by-step ve
 | [Task: Shared Domains](references/task-shared-domains.md) | Shared domain workflows |
 | [Task: Image Sharing](references/task-image-sharing.md) | Image sharing workflows |
 
-## Notes
+# # Notes
 
 - **Permission changes are immediate** — no delay between granting and availability
 - **Revoke with caution** — removing manage auth (7) prevents the user from administering the namespace/repository
@@ -354,7 +352,7 @@ See [Verification Method](references/verification-method.md) for step-by-step ve
 - **hcloud CLI is the only supported method** — all operations use `hcloud SWR <Operation>` format
 - **ListRepoDomains timestamps use `created/updated`** — NOT `created_at/updated_at`
 
-## Common Pitfalls
+# # Common Pitfalls
 
 See [Common Pitfalls & Solutions](references/common-pitfalls.md) for detailed troubleshooting guides.
 

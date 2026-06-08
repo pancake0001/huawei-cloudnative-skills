@@ -4,14 +4,14 @@ name: ucs-cluster-onboarding-manager
 description: |
   Huawei Cloud UCS (Universal Cloud Service) cluster onboarding, lifecycle, and fleet grouping management skill using hcloud CLI.
   Use this skill when the user wants to: (1) register self-managed or CCE clusters to UCS - register/query/remove, (2) manage cluster lifecycle - update/query/list clusters, (3) manage fleet groups - create/delete/query cluster groups, (4) obtain cluster access information and kubeconfig, (5) download federation kubeconfig for multi-cluster access, (6) check UCS resource quotas.
-  Trigger: user mentions "UCS cluster onboarding", "UCS 集群纳管", "UCS cluster registration", "UCS 注册集群", "UCS fleet", "UCS 舰队", "UCS 集群组", "cluster group", "fleet grouping", "UCS kubeconfig", "UCS 集群接入", "UCS federation", "UCS 联邦", "UCS 配额", "cluster lifecycle", "集群生命周期", "managed clusters", "纳管集群", "集群管理"
+  Trigger: user mentions "UCS cluster onboarding", "UCS cluster management", "UCS cluster registration", "UCS registration cluster", "UCS fleet", "UCS fleet", "UCS cluster group", "cluster group", "fleet grouping", "UCS kubeconfig", "UCS cluster access", "UCS federation", "UCS federation", "UCS quota", "cluster lifecycle", "cluster lifecycle", "managed clusters", "managed clusters", "cluster management"
 tags: [ucs, cluster-onboarding, fleet, kubeconfig, cluster-lifecycle]
 version: 1.0.0
 ---
 
 # Huawei Cloud UCS Cluster Onboarding Manager
 
-## Overview
+# # Overview
 
 This skill provides cluster onboarding, lifecycle, and fleet grouping management capabilities for Huawei Cloud UCS (Universal Cloud Service) using the `hcloud` CLI.
 
@@ -24,10 +24,10 @@ This skill provides cluster onboarding, lifecycle, and fleet grouping management
 - Register self-managed or CCE clusters to UCS for unified management
 - Remove clusters from UCS management (deregistration)
 - Query cluster details, list managed clusters
-- Update cluster properties and metadata
+-Update cluster properties and metadata
 - Create, delete, update, and query fleet groups for cluster organization
 - Add/remove clusters from fleet groups (join/leave)
-- Retry cluster activation
+-Retry cluster activation
 - Obtain cluster access information and kubeconfig credentials
 - Download federation kubeconfig for multi-cluster access
 - Check UCS resource quotas
@@ -47,15 +47,15 @@ This skill provides cluster onboarding, lifecycle, and fleet grouping management
 - "Remove a cluster from a fleet group"
 - "Retry cluster activation"
 
-## Prerequisites
+# # Prerequisites
 
-### 1. hcloud CLI Requirements (MANDATORY)
+## # 1. hcloud CLI Requirements (MANDATORY)
 
 - hcloud CLI installed (version >= 7.2.2)
 - Run `hcloud version` to verify installation
 - First-time usage: `printf "y\n" | hcloud version` to accept privacy statement
 
-### 2. Credential Configuration
+## # 2. Credential Configuration
 
 - Valid Huawei Cloud credentials (AK/SK mode)
 - **Security Rules**:
@@ -73,16 +73,14 @@ export HUAWEI_CLOUD_SK=<your-sk>
 export HUAWEI_CLOUD_REGION=cn-north-4
 ```
 
-**⚠️ Important Security Notes**:
+**⚠️Important Security Notes**:
 
-- Never commit credentials to version control
+-Never commit credentials to version control
 - Use IAM users with minimal required permissions
 - Enable MFA for sensitive operations
 - Rotate AK/SK regularly
 
-### 3. IAM Permission Requirements
-
-| API Action                       | Permission        | Purpose                                |
+## # 3. IAM Permission Requirements| API Action                       | Permission        | Purpose                                |
 | -------------------------------- | ----------------- | -------------------------------------- |
 | `ucs:cluster:create`             | Register cluster  | Register cluster to UCS                |
 | `ucs:cluster:delete`             | Delete cluster    | Remove cluster from UCS                |
@@ -107,9 +105,9 @@ See [IAM Permission Policies](references/iam-policies.md) for complete policy JS
 3. Guide the user to create a custom policy in the IAM console and grant authorization
 4. Pause execution and wait for user confirmation that permissions have been granted
 
-## Core Commands
+# # Core Commands
 
-### 1. Cluster Registration & Deregistration
+## # 1. Cluster Registration & Deregistration
 
 See [Task: Cluster Registration](references/task-cluster-registration.md) for detailed workflows.
 
@@ -144,7 +142,7 @@ hcloud UCS DeleteCluster --clusterid=<ucs-cluster-id> --cli-region=cn-north-4
 - `grouped`: Cluster managed within a fleet group
 - `discrete`: Cluster managed independently
 
-### 2. Cluster Query & Lifecycle
+## # 2. Cluster Query & Lifecycle
 
 ```bash
 # Show cluster details
@@ -181,7 +179,7 @@ hcloud UCS ShowClusterAccessInfo --clusterid=<ucs-cluster-id> --region=cn-north-
 - `--order`: Sort order (asc, desc)
 - `--order_by`: Sort field
 
-### 3. Fleet Group Management
+## # 3. Fleet Group Management
 
 See [Task: Fleet Management](references/task-fleet-management.md) for detailed workflows.
 
@@ -211,7 +209,7 @@ hcloud UCS LeaveGroup --clusterid=<ucs-cluster-id> --cli-region=cn-north-4
 hcloud UCS DeleteClusterGroup --clustergroupid=<group-id> --cli-region=cn-north-4
 ```
 
-### 4. Kubeconfig & Access Management
+## # 4. Kubeconfig & Access Management
 
 See [Task: Access Management](references/task-access-management.md) for detailed workflows.
 
@@ -230,16 +228,16 @@ hcloud UCS DownloadFederationKubeconfig --clustergroupid=<group-id> --duration=3
 - `--clustergroupid`: Fleet group ID (required path parameter)
 - `--duration`: Token validity duration in seconds (required integer body parameter)
 
-### 5. Quota Management
+## # 5. Quota Management
 
 ```bash
 # Show UCS resource quotas (domainid is required - account ID)
 hcloud UCS ShowQuota --domainid=<account-id> --cli-region=cn-north-4
 ```
 
-## Parameter Reference
+# # Parameter Reference
 
-### Common Parameters
+## # Common Parameters
 
 | Parameter        | Required/Optional | Description                   | Default                              |
 | ---------------- | ----------------- | ----------------------------- | ------------------------------------ |
@@ -247,7 +245,7 @@ hcloud UCS ShowQuota --domainid=<account-id> --cli-region=cn-north-4
 | `--clusterid`    | Context-dependent | UCS cluster ID                | N/A                                  |
 | `--clustergroupid` | Context-dependent | Fleet group ID              | N/A                                  |
 
-### Cluster Registration Parameters (K8s API Style)
+## # Cluster Registration Parameters (K8s API Style)
 
 | Parameter                        | Required | Description                        | Constraints                                  |
 | -------------------------------- | -------- | ---------------------------------- | -------------------------------------------- |
@@ -267,7 +265,7 @@ hcloud UCS ShowQuota --domainid=<account-id> --cli-region=cn-north-4
 | `--spec.clusterGroupID`          | No       | Assign to fleet at registration    | Valid fleet group ID                         |
 | `--metadata.labels.*`            | No       | Custom labels                      | Key-value pairs                              |
 
-### UpdateCluster Parameters (K8s API Style)
+## # UpdateCluster Parameters (K8s API Style)
 
 | Parameter                        | Required | Description                        | Constraints                                  |
 | -------------------------------- | -------- | ---------------------------------- | -------------------------------------------- |
@@ -280,7 +278,7 @@ hcloud UCS ShowQuota --domainid=<account-id> --cli-region=cn-north-4
 | `--spec.workerConfig.replicas`   | No       | Update worker replicas             | Integer                                      |
 | `--spec.workerConfig.strategy.*` | No       | Update worker strategy             | K8s deployment strategy fields               |
 
-### Fleet Group Parameters
+## # Fleet Group Parameters
 
 | Parameter                        | Required | Description              | Constraints                                  |
 | -------------------------------- | -------- | ------------------------ | -------------------------------------------- |
@@ -291,14 +289,14 @@ hcloud UCS ShowQuota --domainid=<account-id> --cli-region=cn-north-4
 | `--description`                  | Yes (UpdateClusterGroup) | New description | Free text                  |
 | `--clusterIds.N`                 | Yes (UpdateClusterGroupAssociatedClusters) | Cluster IDs to add | Indexed |
 
-### Join/Leave Group Parameters
+## # Join/Leave Group Parameters
 
 | Parameter                        | Required | Description              | Constraints                                  |
 | -------------------------------- | -------- | ------------------------ | -------------------------------------------- |
 | `--clusterid`                    | Yes      | UCS cluster ID (path)    | Must be registered cluster                   |
 | `--clusterGroupID`               | Yes (JoinGroup) | Fleet group ID (body) | Valid fleet group ID                       |
 
-### Kubeconfig Parameters
+## # Kubeconfig Parameters
 
 | Parameter                        | Required | Description              | Constraints                                  |
 | -------------------------------- | -------- | ------------------------ | -------------------------------------------- |
@@ -306,13 +304,13 @@ hcloud UCS ShowQuota --domainid=<account-id> --cli-region=cn-north-4
 | `--clustergroupid`               | Yes (DownloadFederationKubeconfig) | Fleet group ID | Valid fleet group ID            |
 | `--duration`                     | Yes (DownloadFederationKubeconfig) | Token duration in seconds | Integer                   |
 
-### Quota Parameters
+## # Quota Parameters
 
 | Parameter                        | Required | Description              | Constraints                                  |
 | -------------------------------- | -------- | ------------------------ | -------------------------------------------- |
 | `--domainid`                     | Yes      | Account ID               | Huawei Cloud account/domain ID               |
 
-### ShowClusterList Filter Parameters
+## # ShowClusterList Filter Parameters
 
 | Parameter        | Required/Optional | Description                   |
 | ---------------- | ----------------- | ----------------------------- |
@@ -326,7 +324,7 @@ hcloud UCS ShowQuota --domainid=<account-id> --cli-region=cn-north-4
 | `--order`        | Optional          | Sort order (asc/desc)         |
 | `--order_by`     | Optional          | Sort field                    |
 
-## Output Format
+# # Output Format
 
 See [Output Format](references/output-format.md) for detailed response format examples (ShowCluster, ShowClusterList, ShowQuota).
 
@@ -335,11 +333,11 @@ See [Output Format](references/output-format.md) for detailed response format ex
 - ShowClusterList: `items[]` (k8s-style array), `total` (count)
 - ShowQuota: `quotas.resources[]` with `type`/`quota`/`used`/`min`/`max`
 
-## Verification
+# # Verification
 
 See [Verification Method](references/verification-method.md) for step-by-step verification.
 
-## Best Practices
+# # Best Practices
 
 1. **Cluster Naming**: Use descriptive names that reflect cluster purpose and environment (e.g., `prod-app-backend`, `staging-data-pipeline`) via `--metadata.name`
 2. **Fleet Grouping**: Organize clusters by environment (production/staging/development) or business domain for unified governance
@@ -349,7 +347,7 @@ See [Verification Method](references/verification-method.md) for step-by-step ve
 6. **Quota Monitoring**: Check quotas before registering new clusters to avoid hitting limits
 7. **Federation Kubeconfig Duration**: Choose appropriate `--duration` for federation kubeconfig tokens based on usage patterns
 
-## Reference Documents
+# # Reference Documents
 
 | Document                                               | Description                              |
 | ------------------------------------------------------ | ---------------------------------------- |
@@ -362,7 +360,7 @@ See [Verification Method](references/verification-method.md) for step-by-step ve
 | [Task: Fleet Management](references/task-fleet-management.md) | Fleet group workflows |
 | [Task: Access Management](references/task-access-management.md) | Kubeconfig and access control workflows |
 
-## Notes
+# # Notes
 
 - **Cluster deregistration is irreversible** — the cluster loses all UCS management capabilities
 - **Self-managed cluster kubeconfig must be valid** — invalid kubeconfig will cause registration failure; pass via `--metadata.annotations.kubeconfig`
@@ -372,7 +370,7 @@ See [Verification Method](references/verification-method.md) for step-by-step ve
 - **RegisterCluster uses K8s API-style parameters** — not flat params like --name/--cluster_type; note: `spec.category` uses `self`/`onpremise` (not `CCE`/`AttachedCluster`), `spec.provider` uses `huaweicloud` (not `huawei_cloud`), `spec.type` uses lowercase `cce` (not `CCE`), `spec.city` uses city codes like `110000` (not city names like `Beijing`)
 - **ShowQuota requires domainid** — the account/domain ID is a required path parameter
 
-## Common Pitfalls
+# # Common Pitfalls
 
 See [Common Pitfalls & Solutions](references/common-pitfalls.md) for detailed troubleshooting guides.
 

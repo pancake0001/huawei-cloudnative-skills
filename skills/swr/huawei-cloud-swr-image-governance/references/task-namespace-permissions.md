@@ -1,21 +1,21 @@
 # Task: Namespace Permissions
 
-## Overview
+# # Overview
 
 SWR namespace permissions control who can access and manage images within an organization (namespace). This task covers granting, querying, modifying, and revoking namespace-level permissions.
 
-## Operations Catalog
+# # Operations Catalog
 
-| Operation          | Method | Description              | Key Parameters                                  |
-| ------------------ | ------ | ------------------------ | ----------------------------------------------- |
-| `ShowNamespaceAuth` | GET   | 查询组织权限             | `--namespace`                                   |
-| `CreateNamespaceAuth` | POST | 创建组织权限             | `--namespace`, `--[N].auth`, `--[N].user_id`, `--[N].user_name` |
-| `UpdateNamespaceAuth` | PUT  | 修改组织权限             | `--namespace`, `--[N].auth`, `--[N].user_id`, `--[N].user_name` |
-| `DeleteNamespaceAuth` | DELETE | 删除组织权限             | `--namespace`, `--[N].user_id`, `--[N].user_name` |
+| Operation | Method | Description | Key Parameters |
+| ------------------ | ------ | ---------------------------------- | -------------------------------------------------- |
+| `ShowNamespaceAuth` | GET | Query organization permissions | `--namespace` |
+| `CreateNamespaceAuth` | POST | Create organization permissions | `--namespace`, `--[N].auth`, `--[N].user_id`, `--[N].user_name` |
+| `UpdateNamespaceAuth` | PUT | Modify organization permissions | `--namespace`, `--[N].auth`, `--[N].user_id`, `--[N].user_name` |
+| `DeleteNamespaceAuth` | DELETE | Delete organization permissions | `--namespace`, `--[N].user_id`, `--[N].user_name` |
 
 ## Workflows
 
-### W1: Audit Namespace Permissions
+## # W1: Audit Namespace Permissions
 
 ```bash
 # Show who has access to a namespace
@@ -35,7 +35,7 @@ hcloud SWR ShowNamespaceAuth --namespace=pancake --cli-region=cn-north-4
 
 **⚠️ Important**: `self_auth` is separate from `others_auths`. When auditing, check both to get the complete access list.
 
-### W2: Grant Namespace Permission
+## # W2: Grant Namespace Permission
 
 **Pre-grant Checklist**:
 1. Verify namespace exists: `hcloud SWR ShowNamespace --namespace=<name> --cli-region=cn-north-4`
@@ -67,7 +67,7 @@ hcloud SWR CreateNamespaceAuth --namespace=pancake --1.auth=7 --1.user_id=<id1> 
 hcloud SWR ShowNamespaceAuth --namespace=pancake --cli-region=cn-north-4
 ```
 
-### W3: Modify Namespace Permission
+## # W3: Modify Namespace Permission
 
 Change an existing user's permission level:
 
@@ -85,15 +85,13 @@ hcloud SWR UpdateNamespaceAuth --namespace=pancake --1.auth=3 --1.user_id=<user-
 hcloud SWR ShowNamespaceAuth --namespace=pancake --cli-region=cn-north-4
 ```
 
-### W4: Revoke Namespace Permission
+## # W4: Revoke Namespace Permission
 
 ⚠️ **CAUTION**: Revoking namespace permission removes access to the namespace AND ALL repositories under it.
 
 ```bash
 hcloud SWR DeleteNamespaceAuth --namespace=pancake --1.user_id=05949eb5350010e21f85c017722182de --1.user_name=hwstaff_p00506267 --cli-region=cn-north-4
-```
-
-**Pre-revoke Checklist**:
+```**Pre-revoke Checklist**:
 1. Check if the user has repository-level permissions that should be preserved
 2. Confirm with the user that they understand the impact
 3. Consider whether a downgrade (Update) is more appropriate than full revocation (Delete)
@@ -104,9 +102,9 @@ hcloud SWR DeleteNamespaceAuth --namespace=pancake --1.user_id=05949eb5350010e21
 hcloud SWR ShowNamespaceAuth --namespace=pancake --cli-region=cn-north-4
 ```
 
-## Common Scenarios
+# # Common Scenarios
 
-### S1: Team Access Setup
+## # S1: Team Access Setup
 
 Grant appropriate permissions to team members:
 
@@ -121,7 +119,7 @@ hcloud SWR CreateNamespaceAuth --namespace=team-backend --1.auth=3 --1.user_id=<
 hcloud SWR CreateNamespaceAuth --namespace=team-backend --1.auth=1 --1.user_id=<qa-id> --1.user_name=<qa-name> --cli-region=cn-north-4
 ```
 
-### S2: Permission Audit
+## # S2: Permission Audit
 
 Regularly review who has access:
 
@@ -133,7 +131,7 @@ hcloud SWR ShowNamespaceAuth --namespace=team-backend --cli-region=cn-north-4
 hcloud SWR UpdateNamespaceAuth --namespace=team-backend --1.auth=3 --1.user_id=<user-id> --1.user_name=<user-name> --cli-region=cn-north-4
 ```
 
-### S3: Least Privilege Implementation
+## # S3: Least Privilege Implementation
 
 Apply least privilege by using the minimum auth level needed:
 
