@@ -18,6 +18,12 @@
 | [使用AI CLI配置、查询和治理CCE AOM告警](aicli-cce-aom-alarm-configuration-query.md) | 集群上线或治理时，需要批量配置AOM告警规则，并进行活跃告警、历史告警、通知规则和静默规则查询。 | 告警规则一键创建、通知规则自动创建、SMN主题绑定、活跃告警查询、历史告警归并、规则启停删除、二次确认 |
 | [基于AICLI和Skill实现CCE到CCI 2.0 Bursting](aicli-cce-cci-bursting.md) | CCE 集群突发流量或资源不足时，将符合条件的 Pod 弹性调度到 CCI 2.0。 | 预检查、VPCEP 创建、bursting 插件配置、虚拟节点验证、冒烟测试 |
 
+## UCS多集群舰队策略治理合规
+
+| 最佳实践 | 场景 | 关键能力 |
+| --- | --- | --- |
+| [基于AI Skill的UCS多集群舰队策略治理合规实践](ucs-policy/ucs-policy-governance-best-practice.md) | UCS 多集群舰队需要统一的合规治理，通过策略实例实现一致的合规策略执行，从 warn 逐步升级为 deny。 | 发现策略定义、创建策略实例、启用策略执行、合规审计、诊断表格 |
+
 ## 编写规范
 
 - 每个最佳实践应包含应用场景、前提条件、操作步骤、诊断结论、预期结果、约束限制和后续建议。
