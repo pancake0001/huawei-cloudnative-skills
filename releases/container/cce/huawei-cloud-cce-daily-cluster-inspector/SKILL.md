@@ -79,37 +79,39 @@ export HUAWEI_REGION=cn-north-4
 digraph inspection_flow {
     rankdir=TB;
     start [shape=doublecircle label="Start Inspection"];
-    quick [shape=box label="Quick Check\nhuawei_cce_quick_check or\nhuawei_cce_auto_inspection"];
+    auto [shape=box label="Auto Inspection\nhuawei_cce_auto_inspection"];
+    quick [shape=box label="Internal Quick Gate\nalarms/events/Pod Node TopN"];
     healthy [shape=box label="Output Heartbeat\nSummary"];
     anomaly [shape=diamond label="Anomalies\nFound?"];
-    deep [shape=box label="Deep Diagnosis\nEvidence Collection"];
+    deep [shape=box label="Internal Deep Diagnosis\nEvidence Collection"];
     classify [shape=box label="Merge alarms/events,\napps, metrics windows,\nperipheral resources"];
-    report [shape=box label="Generate Report\n(P0/P1/P2 risks)"];
     rca [shape=box label="Root Cause Handoff\nroot-cause-analyzer"];
     remediation [shape=box label="Recovery Advice or\nAuthorized Action"];
+    report [shape=box label="Output Summary or\nFormal Report"];
 
-    start -> quick;
+    start -> auto;
+    auto -> quick;
     quick -> anomaly;
     anomaly -> healthy [label="No"];
     anomaly -> deep [label="Yes"];
     deep -> classify;
-    classify -> report;
-    report -> rca;
+    classify -> rca;
     rca -> remediation;
+    remediation -> report;
 }
 ```
 
 **Step-by-step**:
 
 1. Collect region, cluster_id, inspection scope, and report expectations from user
-2. Run quick check first (`huawei_cce_quick_check` or `huawei_cce_auto_inspection`)
+2. Run the combined automation `huawei_cce_auto_inspection` by default. This action internally runs quick check first and triggers deep diagnosis only when anomalies exist.
 3. If healthy → output brief heartbeat summary
-4. If anomalies found → run deep diagnosis. Quick check must only look at AOM alarms, Kubernetes abnormal Events, and Pod/Node monitoring TopN.
-5. In deep diagnosis, merge alarm groups, analyze abnormal Events and related application objects, collect workload/Pod/Node/Service/Ingress state, summarize abnormal metric time windows, and correlate peripheral resources such as ELB, EIP, and NAT when the signal involves ingress/network resources.
+4. If anomalies found → `huawei_cce_auto_inspection` continues into deep diagnosis. The internal quick gate must only look at AOM alarms, Kubernetes abnormal Events, and Pod/Node monitoring TopN.
+5. In internal deep diagnosis, merge alarm groups, analyze abnormal Events and related application objects, collect workload/Pod/Node/Service/Ingress state, summarize abnormal metric time windows, and correlate peripheral resources such as ELB, EIP, and NAT when the signal involves ingress/network resources.
 6. After inspection completes with abnormal findings, package region, cluster_id, namespace, target object, time window, symptoms, evidence, severity, impact scope, and data gaps for `huawei-cloud-cce-root-cause-analyzer`
 7. Use `huawei-cloud-cce-root-cause-analyzer` first to produce root cause, evidence chain, confidence, impact scope, and remediation hints
 8. Pass the root-cause-backed remediation hints to `huawei-cloud-cce-auto-remediation-runner` so it can generate recovery advice, preview actions, or execute only customer-authorized R1 actions
-9. Output the inspection summary, root-cause handoff result, and final recovery recommendation or authorized action result
+9. Output the inspection summary, root-cause handoff status, and remediation-runner result when that downstream skill is invoked
 10. If formal report needed → call `huawei_export_inspection_report`
 
 See `references/workflow.md` for the complete workflow reference.
@@ -122,10 +124,10 @@ All actions dispatched through `scripts/huawei-cloud.py` using `skill action=exe
 
 | Action | Required Parameters | Description |
 |--------|---------------------|-------------|
-| `huawei_cce_quick_check` | region, cluster_id | Lightweight cluster health summary |
-| `huawei_cce_auto_inspection` | region, cluster_id | Automated inspection with anomaly detection |
+| `huawei_cce_auto_inspection` | region, cluster_id | Default workflow entry: quick check first, then deep diagnosis only when anomalies exist |
+| `huawei_cce_quick_check` | region, cluster_id | Manual lightweight anomaly-existence gate when the caller wants to split quick/deep explicitly |
 
-`huawei_cce_quick_check` scope is intentionally narrow:
+The internal quick gate, exposed as `huawei_cce_quick_check`, is intentionally narrow:
 - AOM Critical/Major firing alarms
 - Kubernetes Warning/Failed/BackOff/OOM abnormal Events
 - Pod CPU/Memory TopN threshold existence check
@@ -137,7 +139,22 @@ It must not analyze ELB/EIP/NAT, application root cause, Pod lifecycle details, 
 
 | Action | Required Parameters | Description |
 |--------|---------------------|-------------|
-| `huawei_cce_deep_diagnosis` | region, cluster_id | In-depth cluster diagnosis |
+| `huawei_cce_deep_diagnosis` | region, cluster_id | Manual escalation action: collect and organize RCA evidence after quick anomalies |
+
+The internal deep diagnosis path, exposed as `huawei_cce_deep_diagnosis`, collects and organizes read-only evidence:
+- Merged AOM alarm groups and quick-check symptom correlation
+- Abnormal Event groups with related Pod/Deployment metadata
+- Application evidence including Pod states, Deployment replica mismatches, Services, and Ingresses
+- Pod/Node monitoring abnormal time windows
+- Peripheral ELB/EIP/NAT status and metrics when ingress/network resources are involved
+- A root-cause handoff package for `huawei-cloud-cce-root-cause-analyzer`
+
+### Supplemental Inspection Tools
+
+Use these only when a deeper manual report or domain-specific evidence supplement is needed. They are not part of the default quick-to-deep workflow.
+
+| Action | Required Parameters | Description |
+|--------|---------------------|-------------|
 | `huawei_cce_cluster_inspection_parallel` | region, cluster_id | Parallel multi-domain inspection |
 | `huawei_cce_cluster_inspection_subagent` | region, cluster_id | Subagent-based distributed inspection |
 | `huawei_pod_status_inspection` | region, cluster_id | Pod health inspection |
@@ -146,14 +163,6 @@ It must not analyze ELB/EIP/NAT, application root cause, Pod lifecycle details, 
 | `huawei_event_inspection` | region, cluster_id | Kubernetes Event analysis |
 | `huawei_aom_alarm_inspection` | region, cluster_id | AOM alarm inspection |
 | `huawei_elb_monitoring_inspection` | region, cluster_id | ELB health monitoring inspection |
-
-`huawei_cce_deep_diagnosis` collects and organizes read-only evidence:
-- Merged AOM alarm groups and quick-check symptom correlation
-- Abnormal Event groups with related Pod/Deployment metadata
-- Application evidence including Pod states, Deployment replica mismatches, Services, and Ingresses
-- Pod/Node monitoring abnormal time windows
-- Peripheral ELB/EIP/NAT status and metrics when ingress/network resources are involved
-- A root-cause handoff package for `huawei-cloud-cce-root-cause-analyzer`
 
 ### Aggregation & Reporting
 
@@ -199,18 +208,18 @@ This skill operates under strict read-only inspection constraints:
 ## Verification
 
 1. Run environment check script
-2. Call huawei_cce_cluster_auto_inspection with a test cluster
+2. Call `huawei_cce_auto_inspection` with a test cluster
 3. Verify the report contains all expected sections
 4. Confirm read-only behavior (no mutation actions)
 
 ## Best Practices
 
-1. **Quick check first** — always start with `huawei_cce_quick_check` or `huawei_cce_auto_inspection`; avoid heavy checks on every cycle
+1. **Use auto inspection by default** — start with `huawei_cce_auto_inspection`; use `huawei_cce_quick_check` and `huawei_cce_deep_diagnosis` only when the caller wants manual step-by-step control
 2. **Classify risks** — label each anomaly as P0 (critical), P1 (warning), or P2 (low) with recommended owner
 3. **Analyze root cause before remediation** — after abnormal inspection, use `huawei-cloud-cce-root-cause-analyzer` before selecting recovery advice
 4. **Hand off recovery** — never attempt mutation actions directly; use `huawei-cloud-cce-auto-remediation-runner` for recovery advice, preview, or customer-authorized execution
 5. **Scope appropriately** — provide `namespace` to reduce noise when targeting specific workloads
-6. **Aggregate parallel results** — when using `huawei_cce_cluster_inspection_parallel`, always call `huawei_aggregate_inspection_results` to consolidate
+6. **Aggregate supplemental parallel results** — when manually using `huawei_cce_cluster_inspection_parallel`, call `huawei_aggregate_inspection_results` to consolidate
 7. **Use formal reports for operations reviews** — call `huawei_export_inspection_report` when a persistent report is needed
 
 ## Common Pitfalls
