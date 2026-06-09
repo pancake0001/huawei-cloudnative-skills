@@ -16,7 +16,16 @@
       "title": "risk title",
       "impact": "affected scope",
       "evidence": "facts from tool output",
-      "suggestion": "next step"
+      "suggestion": "next step",
+      "root_cause_handoff": {
+        "skill": "root-cause-analyzer",
+        "required": true,
+        "time_window": "optional",
+        "target_objects": [],
+        "symptoms": [],
+        "evidence": [],
+        "data_gaps": []
+      }
     }
   ],
   "recommended_followups": [],

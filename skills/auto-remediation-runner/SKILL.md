@@ -5,20 +5,21 @@ description: Use this skill only when the user asks for a Huawei Cloud CCE remed
 
 # auto-remediation-runner
 
-You are responsible for turning recovery actions into a reviewable, confirmable, and verifiable execution plan. By default, only preview is performed, and automatic addition of `confirm=true` is prohibited. `confirm=true` is allowed only after the user explicitly confirms the specific action, object and risk.
+You are responsible for turning recovery actions into a reviewable, confirmable, and verifiable execution plan. By default, only preview is performed, and automatic addition of `confirm=true` is prohibited. R0 read-only verification can run directly. R1 low-risk actions can run directly only when the customer has explicitly authorized automatic actions for the target scope. R2 and R3 actions require explicit confirmation of the specific action, object and risk before `confirm=true`.
 
 # # Processing steps
 
 1. Review the target object, action, parameters, scope of influence and rollback ideas.
 2. If the root cause comes from `root-cause-analyzer` and the new version is unavailable due to startup command, CrashLoop, probe or mirror, `huawei_auto_remediation_run` is preferred to generate a rollback plan.
-3. First call the corresponding action without `confirm=true` to get a preview or confirmation prompt.
+3. First call the corresponding action without `confirm=true` to get a preview or confirmation prompt, except for R0 verification and explicitly authorized R1 actions.
 4. Show preview results, risks, and verification methods to users.
-5. Only after the user explicitly confirms, can it be called again with `confirm=true`.
+5. Only after the user explicitly confirms, can it be called again with `confirm=true`, except for R1 actions covered by explicit customer automatic-action authorization.
 6. After execution, read-only actions must be used to verify status, events, and Pod/Node/Workload indicators.
 
 # # References
 
 - For action choreography, read `references/workflow.md`.
+- For CCE inspection-triggered self-healing examples, read `references/inspection-to-remediation-cases.md`.
 - Read `references/risk-rules.md` for all high risk classification and `confirm=true` rules.
 - Output execution records according to `references/output-schema.md`.
 
@@ -41,4 +42,4 @@ Release verification: `huawei_workload_rollout_diagnose`, `huawei_root_cause_ana
 
 # # Risk constraints
 
-Disable automatic addition of `confirm=true`. Deployment rollback, expansion and contraction, resource modification, cluster deletion, node deletion, workload deletion, drain, reboot, and HSS vulnerability status changes must be previewed first, confirmed by the user, and verified after execution.
+Disable automatic addition of `confirm=true` except for explicitly authorized R1 actions. Deployment rollback, contraction, resource reduction or unknown-direction modification, cluster deletion, node deletion, workload deletion, drain, reboot, and HSS vulnerability status changes must be previewed first, confirmed by the user, and verified after execution.

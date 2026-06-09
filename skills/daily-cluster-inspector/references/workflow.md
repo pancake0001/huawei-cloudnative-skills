@@ -4,8 +4,10 @@
 2. Run in-depth diagnosis or parallel inspection when the quick inspection is abnormal.
 3. Classify and summarize issues by Pod, Node, Event, AOM, ELB, and Resource.
 4. AI performs severity grading based on inspection evidence, and the grading results are written into the inspection summary and are not solidified into the tool code or tool output field.
-5. Read-only output report, no automatic repair.
-6. Provide a confirmation list for forwarding to `auto-remediation-runner` for items that require action.
+5. For abnormal findings, build a root-cause handoff package for `root-cause-analyzer`: region, cluster_id, namespace, target object, time window, symptoms, evidence, severity, impact scope, and data gaps.
+6. Use `root-cause-analyzer` to analyze root cause before selecting remediation actions. The inspector should not infer a final root cause from inspection evidence alone when deeper diagnosis is needed.
+7. Read-only output report, no automatic repair.
+8. Provide a confirmation list for forwarding root-cause-backed remediation candidates to `auto-remediation-runner` for items that require action.
 
 # # AI severity level judgment caliber
 
@@ -24,4 +26,4 @@ Prioritize instructions when grading:
 - Current status: active alarm or recovered, replica is available, node is Ready.
 - First appearance and persistence: sudden, persistent, regular recurrence.
 - Root cause evidence: Pod status, events, AOM alarms, indicator peaks, ELB usage, node conditions, etc.
-- Next step suggestions: read-only troubleshooting suggestions or transfer actions that require user confirmation.
+- Next step suggestions: root-cause analysis handoff, read-only troubleshooting suggestions, or transfer actions that require user confirmation after root-cause analysis.

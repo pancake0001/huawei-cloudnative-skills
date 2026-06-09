@@ -11,7 +11,7 @@
   "verification": {},
   "summary": "remediation plan or execution result",
   "action": "huawei_auto_remediation_run | huawei_rollback_cce_workload | huawei_scale_cce_workload",
-  "risk_level": "R1 | R2 | R3",
+  "risk_level": "R0 | R1 | R2 | R3",
   "target": {
     "region": "cn-north-4",
     "cluster_id": "optional",
