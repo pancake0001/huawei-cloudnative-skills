@@ -21,7 +21,7 @@ tags: [cce, remediation, auto-heal, mutation]
 
 ## Overview
 
-This skill converts remediation intent into reviewable, confirmable, verifiable execution plans. It operates in **preview-first mode by default** — all mutation actions require preview without `confirm=true`, explicit user confirmation of action/object/risks, then execution with `confirm=true`, followed by read-only verification.
+This skill converts remediation intent into reviewable, confirmable, verifiable execution plans. It operates in **preview-first mode by default** — R0 read-only verification can run directly; R1 low-risk actions can run directly only when the customer has explicitly authorized automatic actions for the target scope; R2 and R3 actions require preview without `confirm=true`, explicit user confirmation of action/object/risks, then execution with `confirm=true`, followed by read-only verification.
 
 This skill is applicable to the following scenarios:
 
@@ -34,6 +34,7 @@ This skill is applicable to the following scenarios:
 7. Auto-remediation orchestration via `huawei_auto_remediation_run` for multi-step remediation plans
 8. Traffic cutover: bind/unbind cluster EIP
 9. ECS instance operations: start, stop
+10. Inspection-triggered remediation planning from `references/inspection-to-remediation-cases.md`
 
 This skill does NOT handle the following:
 

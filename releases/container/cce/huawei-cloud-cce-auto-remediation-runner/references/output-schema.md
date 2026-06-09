@@ -25,7 +25,7 @@
     "impact_scope": {},
     "rollback_method": ""
   },
-  "risk_level": "R1 | R2 | R3",
+  "risk_level": "R0 | R1 | R2 | R3",
   "rollback_notes": [],
   "summary": "Remediation plan preview — requires user confirmation before execution"
 }
@@ -72,7 +72,7 @@
   "verification": {},
   "summary": "remediation plan or execution result",
   "action": "huawei_auto_remediation_run",
-  "risk_level": "R2 | R3",
+  "risk_level": "R0 | R1 | R2 | R3",
   "target": {
     "region": "cn-north-4",
     "cluster_id": "optional",
