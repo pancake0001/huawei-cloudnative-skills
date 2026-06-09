@@ -93,6 +93,48 @@ Quick check must not include ELB/EIP/NAT diagnosis, application root cause, Depl
       "pod_state_summary": {},
       "deployment_replica_mismatches": []
     },
+    "abnormal_object_analysis": {
+      "abnormal_objects": [
+        {
+          "key": "Pod:default:example-pod",
+          "kind": "Pod | Node | Deployment | Service | Ingress | Cluster",
+          "namespace": "default",
+          "name": "example-pod",
+          "symptoms": [
+            {
+              "source": "aom_alarm | kubernetes_event | monitoring_topn | quick_metric_topn",
+              "symptom": "short abnormal expression",
+              "first_seen": "optional first abnormal timestamp",
+              "last_seen": "optional last abnormal timestamp",
+              "detail": {}
+            }
+          ],
+          "first_seen": "first abnormal timestamp for this object",
+          "last_seen": "last abnormal timestamp for this object",
+          "relationships": {
+            "node": "optional node name",
+            "workload": {},
+            "services": [],
+            "ingresses": [],
+            "elb_ids": [],
+            "eip_addresses": [],
+            "affected_pods": []
+          }
+        }
+      ],
+      "timeline": {
+        "first_seen": "global first abnormal timestamp",
+        "last_seen": "global last abnormal timestamp",
+        "objects_with_time_window": 0
+      },
+      "relationship_summary": {
+        "service_count": 0,
+        "ingress_count": 0,
+        "associated_elb_ids": [],
+        "peripheral_checked": true
+      },
+      "data_gaps": []
+    },
     "peripheral_resources": {
       "checked": true,
       "associated_elb_ids": [],

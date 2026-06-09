@@ -84,7 +84,7 @@ digraph inspection_flow {
     healthy [shape=box label="Output Heartbeat\nSummary"];
     anomaly [shape=diamond label="Anomalies\nFound?"];
     deep [shape=box label="Internal Deep Diagnosis\nEvidence Collection"];
-    classify [shape=box label="Merge alarms/events,\napps, metrics windows,\nperipheral resources"];
+    classify [shape=box label="Build abnormal objects,\ntime windows,\nrelationships"];
     rca [shape=box label="Root Cause Handoff\nroot-cause-analyzer"];
     remediation [shape=box label="Recovery Advice or\nAuthorized Action"];
     report [shape=box label="Output Summary or\nFormal Report"];
@@ -107,12 +107,14 @@ digraph inspection_flow {
 2. Run the combined automation `huawei_cce_auto_inspection` by default. This action internally runs quick check first and triggers deep diagnosis only when anomalies exist.
 3. If healthy → output brief heartbeat summary
 4. If anomalies found → `huawei_cce_auto_inspection` continues into deep diagnosis. The internal quick gate must only look at AOM alarms, Kubernetes abnormal Events, and Pod/Node monitoring TopN.
-5. In internal deep diagnosis, merge alarm groups, analyze abnormal Events and related application objects, collect workload/Pod/Node/Service/Ingress state, summarize abnormal metric time windows, and correlate peripheral resources such as ELB, EIP, and NAT when the signal involves ingress/network resources.
-6. After inspection completes with abnormal findings, package region, cluster_id, namespace, target object, time window, symptoms, evidence, severity, impact scope, and data gaps for `huawei-cloud-cce-root-cause-analyzer`
-7. Use `huawei-cloud-cce-root-cause-analyzer` first to produce root cause, evidence chain, confidence, impact scope, and remediation hints
-8. Pass the root-cause-backed remediation hints to `huawei-cloud-cce-auto-remediation-runner` so it can generate recovery advice, preview actions, or execute only customer-authorized R1 actions
-9. Output the inspection summary, root-cause handoff status, and remediation-runner result when that downstream skill is invoked
-10. If formal report needed → call `huawei_export_inspection_report`
+5. In internal deep diagnosis, first analyze AOM alarms, abnormal Events, and Pod/Node monitoring TopN in detail, then summarize abnormal objects and symptoms across Pod, Node, Workload, Service, and Ingress.
+6. For each abnormal object, derive first/last abnormal timestamps from Events and metric windows, then enrich related objects: Pod->Node/Workload/Service, Service->Ingress/ELB/EIP, Ingress->Service, and Node->affected Pods.
+7. When peripheral resources are involved, correlate ELB/EIP/NAT status and metrics with the related Service/Ingress chain.
+8. After inspection completes with abnormal findings, package region, cluster_id, namespace, target objects, time window, symptoms, evidence, severity, impact scope, and data gaps for `huawei-cloud-cce-root-cause-analyzer`
+9. Use `huawei-cloud-cce-root-cause-analyzer` first to produce root cause, evidence chain, confidence, impact scope, and remediation hints
+10. Pass the root-cause-backed remediation hints to `huawei-cloud-cce-auto-remediation-runner` so it can generate recovery advice, preview actions, or execute only customer-authorized R1 actions
+11. Output the inspection summary, root-cause handoff status, and remediation-runner result when that downstream skill is invoked
+12. If formal report needed → call `huawei_export_inspection_report`
 
 See `references/workflow.md` for the complete workflow reference.
 
@@ -142,11 +144,11 @@ It must not analyze ELB/EIP/NAT, application root cause, Pod lifecycle details, 
 | `huawei_cce_deep_diagnosis` | region, cluster_id | Manual escalation action: collect and organize RCA evidence after quick anomalies |
 
 The internal deep diagnosis path, exposed as `huawei_cce_deep_diagnosis`, collects and organizes read-only evidence:
-- Merged AOM alarm groups and quick-check symptom correlation
-- Abnormal Event groups with related Pod/Deployment metadata
-- Application evidence including Pod states, Deployment replica mismatches, Services, and Ingresses
-- Pod/Node monitoring abnormal time windows
-- Peripheral ELB/EIP/NAT status and metrics when ingress/network resources are involved
+- Detailed AOM alarm, abnormal Event, and Pod/Node monitoring TopN analysis
+- Abnormal object analysis across Pod, Node, Workload, Service, Ingress, and Cluster scope
+- First/last abnormal timestamps per object, derived from Events and metric time windows
+- Object relationship chains: Pod->Node/Workload/Service, Service->Ingress/ELB/EIP, Ingress->Service, Node->affected Pods
+- Peripheral ELB/EIP/NAT status and metrics when related Service/Ingress resources are involved
 - A root-cause handoff package for `huawei-cloud-cce-root-cause-analyzer`
 
 ### Supplemental Inspection Tools

@@ -307,11 +307,11 @@ def cce_deep_diagnosis(
     """CCE 集群深度诊断（快检发现异常后调用）
 
     执行多项只读 API 获取完整诊断证据：
-    1. 归并 AOM 告警项
-    2. 分析异常事件及关联应用对象
-    3. 采集工作负载、Pod、Node、Service、Ingress 状态
-    4. 分析 Pod/Node 监控异常时间段
-    5. 若事件或服务涉及 ELB/EIP/NAT，关联分析周边资源状态
+    1. 详细分析告警、异常事件、Pod/Node 监控 TopN
+    2. 梳理异常对象及异常表现（Pod、Node、Workload、Service、Ingress 等）
+    3. 结合事件与监控时序分析每个异常对象的首次/末次异常时间点
+    4. 采集异常对象关联链路（Pod->Node/Workload/Service，Service->Ingress/ELB/EIP，Ingress->Service）
+    5. 若涉及 ELB/EIP/NAT，关联分析周边资源状态
     6. 生成 root-cause-analyzer 交接包
 
     根因分析不在本函数内执行，必须交给 huawei-cloud-cce-root-cause-analyzer。
@@ -501,21 +501,35 @@ def cce_deep_diagnosis(
         hours=cfg["peripheral_metric_hours"],
     )
 
-    # ---- 诊断 Step 6: 根因分析交接 ----
+    # ---- 诊断 Step 6: 异常对象画像与关联链路 ----
+    result["diagnosis"]["abnormal_object_analysis"] = _build_abnormal_object_analysis(
+        quick_anomalies=result["quick_check_anomalies"],
+        alarm_correlation=result["diagnosis"].get("alarm_correlation", {}),
+        event_analysis=result["diagnosis"].get("event_analysis", {}),
+        monitoring_windows=result["diagnosis"].get("monitoring_windows", {}),
+        pods_result=result["diagnosis"].get("pods", {}),
+        deployments_result=result["diagnosis"].get("deployments", {}),
+        nodes_result=result["diagnosis"].get("nodes", {}),
+        services_result=result["diagnosis"].get("services", {}),
+        ingresses_result=result["diagnosis"].get("ingresses", {}),
+        peripheral_resources=result["diagnosis"].get("peripheral_resources", {}),
+    )
+
+    # ---- 诊断 Step 7: 根因分析交接 ----
     result["root_cause_handoff"] = {
         "skill": "huawei-cloud-cce-root-cause-analyzer",
         "required": True,
         "region": region,
         "cluster_id": cluster_id,
         "cluster_name": cluster_name,
-        "time_window": _derive_handoff_time_window(result["diagnosis"].get("monitoring_windows", {})),
+        "time_window": _derive_handoff_time_window(result["diagnosis"].get("abnormal_object_analysis", {})),
         "symptoms": result["quick_check_anomalies"],
         "evidence": result["diagnosis"],
         "analysis_focus": [
-            "correlate merged AOM alarms with Kubernetes abnormal events",
-            "verify affected application/workload evidence before selecting root cause",
-            "inspect Pod/Node metric abnormal windows and event timestamps for temporal order",
-            "include ELB/EIP/NAT status when ingress, service, or network symptoms are present",
+            "start from abnormal_object_analysis and verify each object's symptoms, first_seen, and last_seen",
+            "correlate merged AOM alarms, abnormal Kubernetes events, and Pod/Node TopN windows by object",
+            "verify Pod/Node/Workload/Service/Ingress relationships before selecting root cause",
+            "include ELB/EIP/NAT status when Service or Ingress relationships point to peripheral resources",
         ],
         "data_gaps": _collect_diagnosis_data_gaps(result["diagnosis"]),
     }
@@ -640,6 +654,7 @@ def _detect_event_anomalies(events: List[Dict[str, Any]]) -> List[Dict[str, Any]
                 "type": event_type,
                 "message": message[:240],
                 "count": event.get("count", 1),
+                "first_timestamp": event.get("first_timestamp"),
                 "last_timestamp": event.get("last_timestamp"),
                 "object": involved,
             })
@@ -798,6 +813,8 @@ def _find_abnormal_window(time_series: List[Any], threshold: float) -> Optional[
     return {
         "start": _format_ts(points[0][0]),
         "end": _format_ts(points[-1][0]),
+        "first_seen": _format_ts(points[0][0]),
+        "last_seen": _format_ts(points[-1][0]),
         "peak": round(max(value for _, value in points), 2),
         "abnormal_points": len(points),
     }
@@ -811,6 +828,67 @@ def _format_ts(ts: Any) -> Any:
         return datetime.fromtimestamp(ts_value, timezone(timedelta(hours=8))).strftime("%Y-%m-%d %H:%M:%S CST")
     except (TypeError, ValueError, OSError):
         return ts
+
+
+def _parse_time_value(value: Any) -> Optional[float]:
+    if value in (None, ""):
+        return None
+    if isinstance(value, (int, float)):
+        ts_value = float(value)
+        return ts_value / 1000 if ts_value > 10_000_000_000 else ts_value
+    text = str(value).strip()
+    if not text:
+        return None
+    normalized = text.replace(" CST", "+08:00")
+    if normalized.endswith("Z"):
+        normalized = normalized[:-1] + "+00:00"
+    for pattern in ("%Y-%m-%d %H:%M:%S%z", "%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%dT%H:%M:%S.%f%z"):
+        try:
+            return datetime.strptime(normalized, pattern).timestamp()
+        except ValueError:
+            continue
+    try:
+        return datetime.fromisoformat(normalized).timestamp()
+    except ValueError:
+        return None
+
+
+def _min_time(current: Any, candidate: Any) -> Any:
+    if not candidate:
+        return current
+    if not current:
+        return candidate
+    current_ts = _parse_time_value(current)
+    candidate_ts = _parse_time_value(candidate)
+    if current_ts is not None and candidate_ts is not None:
+        return candidate if candidate_ts < current_ts else current
+    return min(str(current), str(candidate))
+
+
+def _max_time(current: Any, candidate: Any) -> Any:
+    if not candidate:
+        return current
+    if not current:
+        return candidate
+    current_ts = _parse_time_value(current)
+    candidate_ts = _parse_time_value(candidate)
+    if current_ts is not None and candidate_ts is not None:
+        return candidate if candidate_ts > current_ts else current
+    return max(str(current), str(candidate))
+
+
+def _min_many(values: List[Any]) -> Any:
+    result = None
+    for value in values:
+        result = _min_time(result, value)
+    return result
+
+
+def _max_many(values: List[Any]) -> Any:
+    result = None
+    for value in values:
+        result = _max_time(result, value)
+    return result
 
 
 def _analyze_abnormal_events(
@@ -828,6 +906,7 @@ def _analyze_abnormal_events(
             "namespace": obj.get("namespace") or event.get("namespace"),
             "event_count": 0,
             "reasons": {},
+            "first_event_time": None,
             "latest_event_time": None,
             "messages": [],
         })
@@ -835,7 +914,8 @@ def _analyze_abnormal_events(
         group["event_count"] += event.get("count") or 1
         reason = event.get("reason") or "Unknown"
         group["reasons"][reason] = group["reasons"].get(reason, 0) + 1
-        group["latest_event_time"] = event.get("last_timestamp") or group["latest_event_time"]
+        group["first_event_time"] = _min_time(group.get("first_event_time"), event.get("first_timestamp"))
+        group["latest_event_time"] = _max_time(group.get("latest_event_time"), event.get("last_timestamp"))
         if event.get("message") and len(group["messages"]) < 5:
             group["messages"].append(event["message"])
 
@@ -936,6 +1016,485 @@ def _find_deployment_mismatches(deployments: List[Dict[str, Any]]) -> List[Dict[
                 "available": deployment.get("available_replicas", 0),
             })
     return mismatches
+
+
+def _build_abnormal_object_analysis(
+    quick_anomalies: List[Dict[str, Any]],
+    alarm_correlation: Dict[str, Any],
+    event_analysis: Dict[str, Any],
+    monitoring_windows: Dict[str, Any],
+    pods_result: Dict[str, Any],
+    deployments_result: Dict[str, Any],
+    nodes_result: Dict[str, Any],
+    services_result: Dict[str, Any],
+    ingresses_result: Dict[str, Any],
+    peripheral_resources: Dict[str, Any],
+) -> Dict[str, Any]:
+    objects: Dict[str, Dict[str, Any]] = {}
+    relation_index = _build_relation_index(
+        pods_result=pods_result,
+        deployments_result=deployments_result,
+        nodes_result=nodes_result,
+        services_result=services_result,
+        ingresses_result=ingresses_result,
+        peripheral_resources=peripheral_resources,
+    )
+
+    for group in alarm_correlation.get("merged_alarm_groups", []) if isinstance(alarm_correlation, dict) else []:
+        obj = _ensure_abnormal_object(objects, "Cluster", None, "cluster")
+        _add_object_symptom(
+            obj,
+            source="aom_alarm",
+            symptom=group.get("name") or "AOM alarm",
+            detail={
+                "severity": group.get("severity"),
+                "count": group.get("count"),
+                "statuses": group.get("statuses"),
+                "messages": group.get("messages", [])[:3],
+            },
+        )
+
+    for anomaly in quick_anomalies or []:
+        if anomaly.get("type") == "aom_alarm":
+            obj = _ensure_abnormal_object(objects, "Cluster", None, "cluster")
+            _add_object_symptom(
+                obj,
+                source="quick_alarm",
+                symptom=anomaly.get("name") or "AOM alarm",
+                detail={
+                    "severity": anomaly.get("severity"),
+                    "status": anomaly.get("status"),
+                    "message": anomaly.get("message"),
+                },
+            )
+        for metric in anomaly.get("metrics", []) or []:
+            kind = "Pod" if metric.get("scope") == "pod" else "Node"
+            namespace = metric.get("namespace") if kind == "Pod" else None
+            obj = _ensure_abnormal_object(objects, kind, namespace, metric.get("name") or metric.get("node_ip"))
+            _add_object_symptom(
+                obj,
+                source="quick_metric_topn",
+                symptom=f"{metric.get('metric')} over threshold",
+                detail=metric,
+            )
+        for event in anomaly.get("events", []) or []:
+            event_obj = event.get("object") or {}
+            obj = _ensure_abnormal_object(
+                objects,
+                event_obj.get("kind") or "Unknown",
+                event_obj.get("namespace") or event.get("namespace"),
+                event_obj.get("name") or "unknown",
+            )
+            _add_object_symptom(
+                obj,
+                source="quick_event",
+                symptom=event.get("reason") or "abnormal_event",
+                detail={"message": event.get("message"), "count": event.get("count")},
+                first_seen=event.get("first_timestamp"),
+                last_seen=event.get("last_timestamp"),
+            )
+
+    for group in event_analysis.get("groups", []) if isinstance(event_analysis, dict) else []:
+        event_obj = group.get("object") or {}
+        obj = _ensure_abnormal_object(
+            objects,
+            event_obj.get("kind") or "Unknown",
+            event_obj.get("namespace") or group.get("namespace"),
+            event_obj.get("name") or "unknown",
+        )
+        _add_object_symptom(
+            obj,
+            source="kubernetes_event",
+            symptom=";".join(sorted((group.get("reasons") or {}).keys())) or "abnormal_event",
+            detail={
+                "event_count": group.get("event_count"),
+                "reasons": group.get("reasons"),
+                "messages": group.get("messages", [])[:5],
+            },
+            first_seen=group.get("first_event_time"),
+            last_seen=group.get("latest_event_time"),
+        )
+
+    for window in monitoring_windows.get("abnormal_windows", []) if isinstance(monitoring_windows, dict) else []:
+        kind = "Pod" if window.get("scope") == "pod" else "Node"
+        obj = _ensure_abnormal_object(objects, kind, window.get("namespace") if kind == "Pod" else None, window.get("name"))
+        _add_object_symptom(
+            obj,
+            source="monitoring_topn",
+            symptom=f"{window.get('metric')} abnormal window",
+            detail={
+                "metric": window.get("metric"),
+                "threshold": window.get("threshold"),
+                "peak": window.get("peak"),
+                "abnormal_points": window.get("abnormal_points"),
+            },
+            first_seen=window.get("first_seen") or window.get("start"),
+            last_seen=window.get("last_seen") or window.get("end"),
+        )
+
+    _expand_related_workload_objects(objects, relation_index)
+    for obj in objects.values():
+        obj["relationships"] = _relationships_for_object(obj, relation_index, objects)
+
+    abnormal_objects = sorted(
+        objects.values(),
+        key=lambda item: (
+            item.get("kind") or "",
+            item.get("namespace") or "",
+            item.get("name") or "",
+        ),
+    )
+    return {
+        "abnormal_objects": abnormal_objects,
+        "object_count": len(abnormal_objects),
+        "timeline": _summarize_object_timeline(abnormal_objects),
+        "relationship_summary": {
+            "service_count": len(relation_index.get("services", [])),
+            "ingress_count": len(relation_index.get("ingresses", [])),
+            "associated_elb_ids": peripheral_resources.get("associated_elb_ids", []) if isinstance(peripheral_resources, dict) else [],
+            "peripheral_checked": peripheral_resources.get("checked") if isinstance(peripheral_resources, dict) else False,
+        },
+        "data_gaps": _object_analysis_data_gaps(relation_index, peripheral_resources),
+        "note": "Object analysis is evidence for root-cause-analyzer. It does not select final root cause.",
+    }
+
+
+def _ensure_abnormal_object(
+    objects: Dict[str, Dict[str, Any]],
+    kind: Optional[str],
+    namespace: Optional[str],
+    name: Optional[str],
+) -> Dict[str, Any]:
+    normalized_kind = kind or "Unknown"
+    normalized_name = name or "unknown"
+    key = _object_key(normalized_kind, namespace, normalized_name)
+    if key not in objects:
+        objects[key] = {
+            "key": key,
+            "kind": normalized_kind,
+            "namespace": namespace,
+            "name": normalized_name,
+            "symptoms": [],
+            "first_seen": None,
+            "last_seen": None,
+            "relationships": {},
+        }
+    return objects[key]
+
+
+def _object_key(kind: Optional[str], namespace: Optional[str], name: Optional[str]) -> str:
+    return f"{kind or 'Unknown'}:{namespace or '-'}:{name or 'unknown'}"
+
+
+def _add_object_symptom(
+    obj: Dict[str, Any],
+    source: str,
+    symptom: str,
+    detail: Dict[str, Any],
+    first_seen: Any = None,
+    last_seen: Any = None,
+) -> None:
+    obj["symptoms"].append({
+        "source": source,
+        "symptom": symptom,
+        "detail": detail,
+        "first_seen": first_seen,
+        "last_seen": last_seen,
+    })
+    obj["first_seen"] = _min_time(obj.get("first_seen"), first_seen)
+    obj["last_seen"] = _max_time(obj.get("last_seen"), last_seen)
+
+
+def _build_relation_index(
+    pods_result: Dict[str, Any],
+    deployments_result: Dict[str, Any],
+    nodes_result: Dict[str, Any],
+    services_result: Dict[str, Any],
+    ingresses_result: Dict[str, Any],
+    peripheral_resources: Dict[str, Any],
+) -> Dict[str, Any]:
+    pods = pods_result.get("pods", []) if isinstance(pods_result, dict) else []
+    deployments = deployments_result.get("deployments", []) if isinstance(deployments_result, dict) else []
+    nodes = nodes_result.get("nodes", []) if isinstance(nodes_result, dict) else []
+    services = services_result.get("services", []) if isinstance(services_result, dict) else []
+    ingresses = ingresses_result.get("ingresses", []) if isinstance(ingresses_result, dict) else []
+
+    pod_by_key = {_object_key("Pod", pod.get("namespace"), pod.get("name")): pod for pod in pods if pod.get("name")}
+    node_by_name = {node.get("name") or node.get("node_name") or node.get("internal_ip"): node for node in nodes}
+    deployment_by_key = {
+        _object_key("Deployment", dep.get("namespace"), dep.get("name")): dep
+        for dep in deployments if dep.get("name")
+    }
+    services_by_key = {
+        _object_key("Service", svc.get("namespace"), svc.get("name")): svc
+        for svc in services if svc.get("name")
+    }
+    ingresses_by_key = {
+        _object_key("Ingress", ing.get("namespace"), ing.get("name")): ing
+        for ing in ingresses if ing.get("name")
+    }
+
+    service_to_pods: Dict[str, List[Dict[str, Any]]] = {}
+    pod_to_services: Dict[str, List[Dict[str, Any]]] = {}
+    for svc_key, svc in services_by_key.items():
+        selector = svc.get("selector") or {}
+        selected = [pod for pod in pods if _selector_matches(selector, pod.get("labels") or {}) and pod.get("namespace") == svc.get("namespace")]
+        service_to_pods[svc_key] = selected
+        for pod in selected:
+            pod_key = _object_key("Pod", pod.get("namespace"), pod.get("name"))
+            pod_to_services.setdefault(pod_key, []).append(svc)
+
+    service_to_ingresses: Dict[str, List[Dict[str, Any]]] = {}
+    for ingress in ingresses:
+        for service_name in _ingress_backend_service_names(ingress):
+            svc_key = _object_key("Service", ingress.get("namespace"), service_name)
+            service_to_ingresses.setdefault(svc_key, []).append(ingress)
+
+    return {
+        "pods": pods,
+        "deployments": deployments,
+        "nodes": nodes,
+        "services": services,
+        "ingresses": ingresses,
+        "pod_by_key": pod_by_key,
+        "node_by_name": node_by_name,
+        "deployment_by_key": deployment_by_key,
+        "services_by_key": services_by_key,
+        "ingresses_by_key": ingresses_by_key,
+        "service_to_pods": service_to_pods,
+        "pod_to_services": pod_to_services,
+        "service_to_ingresses": service_to_ingresses,
+        "peripheral_resources": peripheral_resources,
+    }
+
+
+def _selector_matches(selector: Dict[str, Any], labels: Dict[str, Any]) -> bool:
+    if not selector:
+        return False
+    return all(str(labels.get(key)) == str(value) for key, value in selector.items())
+
+
+def _ingress_backend_service_names(ingress: Dict[str, Any]) -> List[str]:
+    names = []
+    default_backend = ingress.get("default_backend") or {}
+    if default_backend.get("service_name"):
+        names.append(default_backend["service_name"])
+    for rule in ingress.get("rules", []) or []:
+        for path in rule.get("paths", []) or []:
+            backend = path.get("backend") or {}
+            if backend.get("service_name"):
+                names.append(backend["service_name"])
+    return sorted(set(names))
+
+
+def _expand_related_workload_objects(objects: Dict[str, Dict[str, Any]], relation_index: Dict[str, Any]) -> None:
+    for obj in list(objects.values()):
+        if obj.get("kind") != "Pod":
+            continue
+        pod = relation_index.get("pod_by_key", {}).get(obj["key"])
+        workload = _infer_workload_from_pod(pod, relation_index)
+        if not workload:
+            continue
+        workload_obj = _ensure_abnormal_object(objects, workload.get("kind") or "Workload", workload.get("namespace"), workload.get("name"))
+        _add_object_symptom(
+            workload_obj,
+            source="related_pod",
+            symptom="affected by abnormal pod",
+            detail={"pod": obj["key"], "pod_symptoms": [s.get("symptom") for s in obj.get("symptoms", [])[:5]]},
+            first_seen=obj.get("first_seen"),
+            last_seen=obj.get("last_seen"),
+        )
+
+
+def _infer_workload_from_pod(pod: Optional[Dict[str, Any]], relation_index: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    if not pod:
+        return None
+    namespace = pod.get("namespace")
+    for ref in pod.get("owner_references") or []:
+        if ref.get("kind") in {"Deployment", "StatefulSet", "DaemonSet", "Job", "CronJob"}:
+            return relation_index.get("deployment_by_key", {}).get(_object_key(ref.get("kind"), namespace, ref.get("name"))) or {
+                "kind": ref.get("kind"),
+                "namespace": namespace,
+                "name": ref.get("name"),
+            }
+        if ref.get("kind") == "ReplicaSet":
+            deployment_name = _deployment_name_from_replicaset(ref.get("name"))
+            if deployment_name:
+                return relation_index.get("deployment_by_key", {}).get(_object_key("Deployment", namespace, deployment_name)) or {
+                    "kind": "Deployment",
+                    "namespace": namespace,
+                    "name": deployment_name,
+                }
+    return None
+
+
+def _deployment_name_from_replicaset(name: Optional[str]) -> Optional[str]:
+    if not name or "-" not in name:
+        return None
+    base, suffix = name.rsplit("-", 1)
+    if len(suffix) >= 5:
+        return base
+    return None
+
+
+def _relationships_for_object(
+    obj: Dict[str, Any],
+    relation_index: Dict[str, Any],
+    abnormal_objects: Dict[str, Dict[str, Any]],
+) -> Dict[str, Any]:
+    kind = obj.get("kind")
+    key = obj.get("key")
+    if kind == "Pod":
+        pod = relation_index.get("pod_by_key", {}).get(key)
+        services = relation_index.get("pod_to_services", {}).get(key, [])
+        workload = _infer_workload_from_pod(pod, relation_index)
+        ingresses = _ingresses_for_services(services, relation_index)
+        return {
+            "node": pod.get("node") if pod else None,
+            "workload": _object_ref(workload.get("kind") or "Workload", workload.get("namespace"), workload.get("name")) if workload else None,
+            "services": [_service_ref(svc) for svc in services],
+            "ingresses": [_ingress_ref(ing) for ing in ingresses],
+            "elb_ids": _elb_ids_for_services_and_ingresses(services, ingresses),
+            "eip_addresses": _eip_addresses_for_services(services),
+        }
+    if kind == "Node":
+        node_name = obj.get("name")
+        affected_pods = [
+            item for item in abnormal_objects.values()
+            if item.get("kind") == "Pod"
+            and (relation_index.get("pod_by_key", {}).get(item.get("key")) or {}).get("node") == node_name
+        ]
+        return {
+            "affected_pods": [_object_ref("Pod", pod.get("namespace"), pod.get("name")) for pod in affected_pods],
+            "node_status": (relation_index.get("node_by_name", {}).get(node_name) or {}).get("status"),
+        }
+    if kind in {"Deployment", "StatefulSet", "DaemonSet", "Job", "CronJob", "Workload"}:
+        pods = [
+            pod for pod in relation_index.get("pods", [])
+            if (_infer_workload_from_pod(pod, relation_index) or {}).get("name") == obj.get("name")
+            and pod.get("namespace") == obj.get("namespace")
+            and ((_infer_workload_from_pod(pod, relation_index) or {}).get("kind") == kind or kind == "Workload")
+        ]
+        services = _services_for_pods(pods, relation_index)
+        ingresses = _ingresses_for_services(services, relation_index)
+        return {
+            "pods": [_object_ref("Pod", pod.get("namespace"), pod.get("name")) for pod in pods[:20]],
+            "services": [_service_ref(svc) for svc in services],
+            "ingresses": [_ingress_ref(ing) for ing in ingresses],
+            "elb_ids": _elb_ids_for_services_and_ingresses(services, ingresses),
+            "eip_addresses": _eip_addresses_for_services(services),
+        }
+    if kind == "Cluster":
+        peripheral = relation_index.get("peripheral_resources", {}) or {}
+        return {
+            "associated_elb_ids": peripheral.get("associated_elb_ids", []),
+            "peripheral_checked": peripheral.get("checked"),
+            "peripheral_data_gaps": peripheral.get("data_gaps", []),
+        }
+    if kind == "Service":
+        svc = relation_index.get("services_by_key", {}).get(key)
+        ingresses = relation_index.get("service_to_ingresses", {}).get(key, [])
+        return {
+            "selected_pods": [
+                _object_ref("Pod", pod.get("namespace"), pod.get("name"))
+                for pod in relation_index.get("service_to_pods", {}).get(key, [])[:20]
+            ],
+            "ingresses": [_ingress_ref(ing) for ing in ingresses],
+            "elb_ids": _elb_ids_for_services_and_ingresses([svc] if svc else [], ingresses),
+            "eip_addresses": _eip_addresses_for_services([svc] if svc else []),
+        }
+    if kind == "Ingress":
+        ingress = relation_index.get("ingresses_by_key", {}).get(key)
+        return {
+            "backend_services": [
+                _object_ref("Service", ingress.get("namespace"), svc_name)
+                for svc_name in _ingress_backend_service_names(ingress or {})
+            ],
+            "elb_ids": _elb_ids_for_services_and_ingresses([], [ingress] if ingress else []),
+            "load_balancer_ingress": (ingress or {}).get("load_balancer_ingress", []),
+        }
+    return {}
+
+
+def _services_for_pods(pods: List[Dict[str, Any]], relation_index: Dict[str, Any]) -> List[Dict[str, Any]]:
+    services = {}
+    for pod in pods or []:
+        pod_key = _object_key("Pod", pod.get("namespace"), pod.get("name"))
+        for svc in relation_index.get("pod_to_services", {}).get(pod_key, []):
+            services[_object_key("Service", svc.get("namespace"), svc.get("name"))] = svc
+    return list(services.values())
+
+
+def _ingresses_for_services(services: List[Dict[str, Any]], relation_index: Dict[str, Any]) -> List[Dict[str, Any]]:
+    ingresses = {}
+    for svc in services or []:
+        svc_key = _object_key("Service", svc.get("namespace"), svc.get("name"))
+        for ingress in relation_index.get("service_to_ingresses", {}).get(svc_key, []):
+            ingresses[_object_key("Ingress", ingress.get("namespace"), ingress.get("name"))] = ingress
+    return list(ingresses.values())
+
+
+def _service_ref(service: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        **_object_ref("Service", service.get("namespace"), service.get("name")),
+        "type": service.get("type"),
+        "ports": service.get("ports", []),
+    }
+
+
+def _ingress_ref(ingress: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        **_object_ref("Ingress", ingress.get("namespace"), ingress.get("name")),
+        "hosts": [rule.get("host") for rule in ingress.get("rules", []) or [] if rule.get("host")],
+    }
+
+
+def _object_ref(kind: str, namespace: Optional[str], name: Optional[str]) -> Dict[str, Any]:
+    return {"kind": kind, "namespace": namespace, "name": name, "key": _object_key(kind, namespace, name)}
+
+
+def _elb_ids_for_services_and_ingresses(services: List[Dict[str, Any]], ingresses: List[Dict[str, Any]]) -> List[str]:
+    ids = set()
+    for item in (services or []) + (ingresses or []):
+        annotations = (item or {}).get("annotations", {}) or {}
+        for key in ("kubernetes.io/elb.id", "elb.id", "loadbalancer.openstack.org/id"):
+            if annotations.get(key):
+                ids.add(annotations[key])
+    return sorted(ids)
+
+
+def _eip_addresses_for_services(services: List[Dict[str, Any]]) -> List[str]:
+    addresses = set()
+    for svc in services or []:
+        for value in (svc.get("load_balancer_ip"), svc.get("external_ip"), svc.get("external_ips")):
+            if isinstance(value, list):
+                addresses.update(str(item) for item in value if item)
+            elif value:
+                addresses.add(str(value))
+        for lb in svc.get("load_balancer_ingress", []) or []:
+            if lb.get("ip"):
+                addresses.add(str(lb["ip"]))
+    return sorted(addresses)
+
+
+def _summarize_object_timeline(objects: List[Dict[str, Any]]) -> Dict[str, Any]:
+    first_values = [obj.get("first_seen") for obj in objects if obj.get("first_seen")]
+    last_values = [obj.get("last_seen") for obj in objects if obj.get("last_seen")]
+    return {
+        "first_seen": _min_many(first_values),
+        "last_seen": _max_many(last_values),
+        "objects_with_time_window": len([obj for obj in objects if obj.get("first_seen") or obj.get("last_seen")]),
+    }
+
+
+def _object_analysis_data_gaps(relation_index: Dict[str, Any], peripheral_resources: Dict[str, Any]) -> List[Dict[str, Any]]:
+    gaps = []
+    for key in ("pods", "deployments", "nodes", "services", "ingresses"):
+        if not relation_index.get(key):
+            gaps.append({"source": key, "reason": "empty_or_unavailable"})
+    if isinstance(peripheral_resources, dict):
+        gaps.extend(peripheral_resources.get("data_gaps", []) or [])
+    return gaps
 
 
 def _analyze_peripheral_resources(
@@ -1062,6 +1621,9 @@ def _select_nat_gateway_ids(nat_gateways: Dict[str, Any]) -> List[str]:
 
 
 def _derive_handoff_time_window(monitoring_windows: Dict[str, Any]) -> str:
+    timeline = monitoring_windows.get("timeline", {}) if isinstance(monitoring_windows, dict) else {}
+    if timeline.get("first_seen") and timeline.get("last_seen"):
+        return f"{timeline['first_seen']} ~ {timeline['last_seen']}"
     windows = monitoring_windows.get("abnormal_windows", []) if isinstance(monitoring_windows, dict) else []
     starts = [item.get("start") for item in windows if item.get("start")]
     ends = [item.get("end") for item in windows if item.get("end")]
