@@ -10,8 +10,14 @@
 # Detect latest stable version
 curl -L -s https://dl.k8s.io/release/stable.txt
 
-# Download kubectl binary
-curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+# Detect CPU architecture (amd64 for x86_64, arm64 for aarch64)
+ARCH=$(uname -m | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/')
+
+# Download kubectl binary for detected architecture
+curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/${ARCH}/kubectl"
+
+# Verify binary matches your architecture
+file kubectl
 
 # Install
 sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
@@ -58,11 +64,11 @@ sudo yum install -y kubectl
 #### Option 1: curl (Recommended)
 
 ```bash
-# Download kubectl binary
-curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/darwin/amd64/kubectl"
+# Detect CPU architecture (amd64 for Intel, arm64 for Apple Silicon)
+ARCH=$(uname -m | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/')
 
-# For Apple Silicon (M1/M2)
-curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/darwin/arm64/kubectl"
+# Download kubectl binary for detected architecture
+curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/darwin/${ARCH}/kubectl"
 
 # Install
 chmod +x ./kubectl
@@ -91,7 +97,10 @@ kubectl version --client
 # Download kubectl binary
 curl -LO "https://dl.k8s.io/release/stable.txt"
 $version = (Get-Content stable.txt).Trim()
-curl -LO "https://dl.k8s.io/release/$version/bin/windows/amd64/kubectl.exe"
+
+# Detect CPU architecture (amd64 for x86_64, arm64 for ARM64)
+$arch = if ($env:PROCESSOR_ARCHITECTURE -eq 'ARM64') { 'arm64' } else { 'amd64' }
+curl -LO "https://dl.k8s.io/release/$version/bin/windows/$arch/kubectl.exe"
 
 # Add to PATH (move to a directory in your PATH or add the directory to PATH)
 Move-Item kubectl.exe C:\Windows\
