@@ -1,5 +1,25 @@
 from .common import *
 
+def _json_safe(value):
+    """Convert SDK model objects to JSON-serializable values."""
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, list):
+        return [_json_safe(item) for item in value]
+    if isinstance(value, tuple):
+        return [_json_safe(item) for item in value]
+    if isinstance(value, dict):
+        return {str(key): _json_safe(item) for key, item in value.items()}
+    if hasattr(value, "to_dict"):
+        return _json_safe(value.to_dict())
+    if hasattr(value, "__dict__"):
+        return {
+            str(key): _json_safe(item)
+            for key, item in value.__dict__.items()
+            if not key.startswith("_")
+        }
+    return str(value)
+
 
 def _list_value(value: Optional[str | List[str]]) -> Optional[List[str]]:
     if value is None:
@@ -181,9 +201,9 @@ def list_elb_loadbalancers(region: str, ak: Optional[str] = None, sk: Optional[s
                         "eip_id": lb.eip_info.eip_id if lb.eip_info else None
                     } if hasattr(lb, 'eip_info') else None
                 if hasattr(lb, 'az'):
-                    lb_info["az"] = lb.az
+                    lb_info["az"] = _json_safe(lb.az)
                 if hasattr(lb, 'tags'):
-                    lb_info["tags"] = lb.tags
+                    lb_info["tags"] = _json_safe(lb.tags)
                 loadbalancers.append(lb_info)
 
         # Get pagination info
