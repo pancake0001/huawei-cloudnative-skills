@@ -210,7 +210,6 @@ def cce_quick_check(
             ak=access_key,
             sk=secret_key,
             project_id=proj_id,
-            metric_type="cpu",
             top_n=10,
             hours=0.25,  # 只看最近 15 分钟，加快查询
         )
@@ -220,13 +219,11 @@ def cce_quick_check(
         # 检查业务 Pod CPU 是否超阈值
         if cpu_result.get("success"):
             high_cpu_pods = []
-            for pod in cpu_result.get("pods", [])[:10]:
-                pod_name = pod.get("name", "")
-                values = pod.get("metric", {}).get("values", [])
-                if values:
-                    latest_cpu = float(values[-1][1])
-                    if latest_cpu > cfg["pod_cpu_avg_percent"]:
-                        high_cpu_pods.append({"name": pod_name, "cpu_percent": latest_cpu})
+            for pod in cpu_result.get("metrics", {}).get("cpu_top_n", []):
+                pod_name = pod.get("pod", "")
+                cpu_pct = pod.get("cpu_usage_percent")
+                if cpu_pct is not None and cpu_pct > cfg["pod_cpu_avg_percent"]:
+                    high_cpu_pods.append({"name": pod_name, "cpu_percent": cpu_pct})
 
             if high_cpu_pods:
                 result["has_anomaly"] = True
@@ -473,7 +470,6 @@ def cce_deep_diagnosis(
             ak=access_key,
             sk=secret_key,
             project_id=proj_id,
-            metric_type="memory",
             top_n=10,
             hours=0.5,
         )
@@ -662,11 +658,34 @@ def _analyze_root_cause(quick_check: Dict, diagnosis: Dict) -> Dict[str, Any]:
 
     # 场景2: 纯 CPU 高（无 ELB 异常）
     elif "high_pod_cpu" in anomaly_types and "elb_high_qps" not in anomaly_types:
+        # 从 Pod 列表提取所有受影响的 workload
+        cpu_anomaly = next((a for a in anomalies if a.get("type") == "high_pod_cpu"), {})
+        cpu_pods = cpu_anomaly.get("pods", [])
+        deployments = diagnosis.get("deployments", {}).get("deployments", [])
+
+        # 通过遍历每个 CPU 异常的 Pod，反推其对应的 workload（避免 pod 名称切分不准确）
+        workloads_seen = set()
+        workload_infos = []
+        for p in cpu_pods:
+            pod_name = p.get("name", "")
+            if not pod_name:
+                continue
+            wl_name, wl_ns = None, "default"
+            for dep in deployments:
+                dep_name = dep.get("name", "")
+                if dep_name and pod_name.startswith(dep_name):
+                    wl_name, wl_ns = dep_name, dep.get("namespace", "default")
+                    break
+            if wl_name and wl_name not in workloads_seen:
+                workloads_seen.add(wl_name)
+                workload_infos.append({"workload_name": wl_name, "namespace": wl_ns})
+
         root_cause = {
             "type": "cpu_high",
             "chain": ["Pod CPU 使用率高", "可能是业务逻辑问题或内部调用增加"],
             "summary": "Pod CPU 使用率偏高，需进一步确认是业务增长还是代码问题",
             "confidence": "medium",
+            "workload_infos": workload_infos,  # 可能是多个 workload
         }
 
     # 场景3: 纯告警异常
@@ -732,8 +751,24 @@ def _generate_recovery_plan(root_cause: Dict, diagnosis: Dict) -> List[Dict[str,
                 })
 
     elif rc_type == "cpu_high":
+        wl_infos = root_cause.get("workload_infos", [])
+        step = 1
+        for wl in wl_infos:
+            wl_name = wl.get("workload_name", "")
+            wl_ns = wl.get("namespace", "default")
+            if not wl_name:
+                continue
+            plan.append({
+                "step": step,
+                "action": "scale_cce_workload",
+                "description": f"扩容 {wl_name}（{wl_ns}，高 CPU 持续）",
+                "params": {"name": wl_name, "namespace": wl_ns, "replicas": "+1"},
+                "effect": "增加副本分摊负载，降低单 Pod CPU",
+                "risk": "low",
+            })
+            step += 1
         plan.append({
-            "step": 1,
+            "step": len(plan) + 1,
             "action": "check_logs",
             "description": "检查高 CPU Pod 的业务日志",
             "effect": "确认 CPU 高的根因（业务增长/代码问题/异常流量）",
@@ -770,6 +805,78 @@ def _generate_recovery_plan(root_cause: Dict, diagnosis: Dict) -> List[Dict[str,
         })
 
     return plan
+
+
+def _execute_recovery_plan(
+    recovery_plan: List[Dict[str, Any]],
+    region: str,
+    cluster_id: str,
+    ak: str,
+    sk: str,
+    project_id: str,
+) -> List[Dict[str, Any]]:
+    """
+    自动执行 R0(zero risk) 和 R1(low risk) 的恢复步骤。
+    R2(medium) 和 R3(high) 需要用户确认，跳过。
+    """
+    executed = []
+    skip_info = {"check_logs", "verify_recovery", "investigate_scheduling",
+                 "check_crashloop_logs", "manual_intervention_required"}
+
+    for step in recovery_plan:
+        risk = step.get("risk", "none")
+        action = step.get("action", "")
+        params = step.get("params", {})
+
+        # R0(zero) / R1(low) 自动执行；R2/R3 跳过
+        if risk not in ("none", "low"):
+            continue
+        # 信息类步骤跳过（不执行）
+        if action in skip_info:
+            continue
+
+        try:
+            if action == "scale_cce_workload":
+                # replicas 可能是 "+1" 字符串，需先查询当前副本数
+                target_replicas = params.get("replicas", 1)
+                if isinstance(target_replicas, str) and target_replicas.startswith("+"):
+                    delta = int(target_replicas[1:])
+                    # 获取当前副本数
+                    deps_result = get_kubernetes_deployments(region, cluster_id, ak, sk, project_id)
+                    deps = deps_result.get("deployments", []) if isinstance(deps_result, dict) else []
+                    current_replicas = 1
+                    for dep in deps:
+                        if dep.get("name") == params.get("name") and dep.get("namespace") == params.get("namespace"):
+                            current_replicas = dep.get("replicas", 1)
+                            break
+                    target_replicas = current_replicas + delta
+                result = scale_cce_workload(
+                    region=region,
+                    cluster_id=cluster_id,
+                    workload_type="deployment",
+                    name=params.get("name"),
+                    namespace=params.get("namespace"),
+                    replicas=int(target_replicas),
+                    confirm=True,
+                    ak=ak,
+                    sk=sk,
+                    project_id=project_id,
+                )
+                executed.append({
+                    "step": step["step"],
+                    "action": action,
+                    "result": result,
+                    "description": step.get("description"),
+                })
+        except Exception as e:
+            executed.append({
+                "step": step["step"],
+                "action": action,
+                "error": str(e),
+                "description": step.get("description"),
+            })
+
+    return executed
 
 
 def _parse_cpu(cpu_str: str) -> float:
