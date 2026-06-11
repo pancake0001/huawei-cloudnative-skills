@@ -50,6 +50,36 @@ Preview output when `confirm` is absent or false:
 }
 ```
 
+## `huawei_list_elb_flavors`
+
+```json
+{
+  "success": true,
+  "region": "cn-north-4",
+  "action": "huawei_list_elb_flavors",
+  "risk_level": "R3",
+  "count": 2,
+  "l4_count": 1,
+  "l7_count": 1,
+  "flavors": [
+    {
+      "id": "...",
+      "name": "...",
+      "type": "L4",
+      "shared": false,
+      "project_id": "...",
+      "flavor_sold_out": false,
+      "public_border_group": "...",
+      "category": 0,
+      "info": {}
+    }
+  ],
+  "l4_flavors": [],
+  "l7_flavors": [],
+  "page_info": {}
+}
+```
+
 Execution output:
 
 ```json

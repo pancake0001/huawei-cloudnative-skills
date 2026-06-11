@@ -10,16 +10,18 @@ import sys
 from typing import Any, Dict, Optional
 
 try:
-    from huaweicloudsdkcore.auth.credentials import BasicCredentials
+    from huaweicloudsdkcore.auth.credentials import BasicCredentials, GlobalCredentials
     from huaweicloudsdkcore.exceptions.exceptions import ClientRequestException
     from huaweicloudsdkelb.v3 import ElbClient
     from huaweicloudsdkelb.v3.model import (
+        ListFlavorsRequest,
         ListLoadBalancersRequest,
         ShowLoadBalancerRequest,
         UpdateLoadBalancerOption,
         UpdateLoadBalancerRequest,
         UpdateLoadBalancerRequestBody,
     )
+    from huaweicloudsdkiam.v3 import IamClient, KeystoneListProjectsRequest
 
     SDK_AVAILABLE = True
     IMPORT_ERROR = None
@@ -47,6 +49,8 @@ ELB_ENDPOINTS = {
     "eu-west-0": "elb.eu-west-0.myhuaweicloud.com",
     "ap-northeast-1": "elb.ap-northeast-1.myhuaweicloud.com",
 }
+IAM_ENDPOINT = "https://iam.myhuaweicloud.com"
+_PROJECT_ID_CACHE: dict[str, str] = {}
 
 
 def _bool(value: Any, default: bool = False) -> bool:
@@ -64,6 +68,35 @@ def _int(value: Any, default: int) -> int:
         return default
 
 
+def _csv_list(value: Any) -> Optional[list[str]]:
+    if value is None:
+        return None
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+    items = [item.strip() for item in str(value).split(",")]
+    return [item for item in items if item]
+
+
+def _json_safe(value: Any) -> Any:
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, list):
+        return [_json_safe(item) for item in value]
+    if isinstance(value, tuple):
+        return [_json_safe(item) for item in value]
+    if isinstance(value, dict):
+        return {str(key): _json_safe(item) for key, item in value.items()}
+    if hasattr(value, "to_dict"):
+        return _json_safe(value.to_dict())
+    if hasattr(value, "__dict__"):
+        return {
+            str(key): _json_safe(item)
+            for key, item in value.__dict__.items()
+            if not key.startswith("_")
+        }
+    return str(value)
+
+
 def _credentials(params: Dict[str, Any]) -> tuple[Optional[str], Optional[str], Optional[str]]:
     ak = params.get("ak") or os.getenv("HUAWEI_AK") or os.getenv("HUAWEI_CLOUD_AK")
     sk = params.get("sk") or os.getenv("HUAWEI_SK") or os.getenv("HUAWEI_CLOUD_SK")
@@ -71,7 +104,39 @@ def _credentials(params: Dict[str, Any]) -> tuple[Optional[str], Optional[str], 
     return ak, sk, project_id
 
 
+def _create_iam_client(ak: str, sk: str) -> IamClient:
+    credentials = GlobalCredentials(ak=ak, sk=sk)
+    return IamClient.new_builder().with_credentials(credentials).with_endpoint(IAM_ENDPOINT).build()
+
+
+def _get_project_id_for_region(region: str, ak: str, sk: str) -> Optional[str]:
+    if region in _PROJECT_ID_CACHE:
+        return _PROJECT_ID_CACHE[region]
+    try:
+        client = _create_iam_client(ak, sk)
+        request = KeystoneListProjectsRequest()
+        request.name = region
+        response = client.keystone_list_projects(request)
+        for project in getattr(response, "projects", None) or []:
+            if getattr(project, "name", None) == region and getattr(project, "id", None):
+                _PROJECT_ID_CACHE[region] = project.id
+                return project.id
+
+        fallback = KeystoneListProjectsRequest()
+        response = client.keystone_list_projects(fallback)
+        for project in getattr(response, "projects", None) or []:
+            name = getattr(project, "name", None)
+            project_id = getattr(project, "id", None)
+            if name and project_id:
+                _PROJECT_ID_CACHE[name] = project_id
+        return _PROJECT_ID_CACHE.get(region)
+    except Exception:
+        return None
+
+
 def _create_elb_client(region: str, ak: str, sk: str, project_id: Optional[str]) -> ElbClient:
+    if not project_id:
+        project_id = _get_project_id_for_region(region, ak, sk)
     credentials = BasicCredentials(ak=ak, sk=sk, project_id=project_id) if project_id else BasicCredentials(ak=ak, sk=sk)
     endpoint = ELB_ENDPOINTS.get(region, f"elb.{region}.myhuaweicloud.com")
     return ElbClient.new_builder().with_credentials(credentials).with_endpoint(endpoint).build()
@@ -122,6 +187,78 @@ def _lb_to_dict(lb: Any) -> Dict[str, Any]:
             "eip_id": getattr(eip_info, "eip_id", None),
         }
     return result
+
+
+def _flavor_to_dict(flavor: Any) -> Dict[str, Any]:
+    return {
+        "id": getattr(flavor, "id", None),
+        "name": getattr(flavor, "name", None),
+        "type": getattr(flavor, "type", None),
+        "shared": getattr(flavor, "shared", None),
+        "project_id": getattr(flavor, "project_id", None),
+        "flavor_sold_out": getattr(flavor, "flavor_sold_out", None),
+        "public_border_group": getattr(flavor, "public_border_group", None),
+        "category": getattr(flavor, "category", None),
+        "info": _json_safe(getattr(flavor, "info", None)),
+    }
+
+
+def huawei_list_elb_flavors(params: Dict[str, Any]) -> Dict[str, Any]:
+    missing = [key for key in ("region",) if not params.get(key)]
+    if missing:
+        return {"success": False, "error": f"Missing required parameters: {', '.join(missing)}"}
+    guard = _ensure_sdk_and_auth(params)
+    if guard:
+        return guard
+
+    ak, sk, project_id = _credentials(params)
+    try:
+        client = _create_elb_client(params["region"], ak, sk, project_id)
+        request = ListFlavorsRequest()
+        request.limit = _int(params.get("limit"), 200)
+        if params.get("marker"):
+            request.marker = params["marker"]
+        if "list_all" in params:
+            request.list_all = _bool(params.get("list_all"), False)
+        if "shared" in params:
+            request.shared = _bool(params.get("shared"), False)
+        if "flavor_sold_out" in params:
+            request.flavor_sold_out = _bool(params.get("flavor_sold_out"), False)
+        if params.get("type"):
+            request.type = _csv_list(params.get("type"))
+        if params.get("name"):
+            request.name = _csv_list(params.get("name"))
+        if params.get("id"):
+            request.id = _csv_list(params.get("id"))
+        if params.get("public_border_group"):
+            request.public_border_group = _csv_list(params.get("public_border_group"))
+        if params.get("category"):
+            request.category = [_int(item, 0) for item in _csv_list(params.get("category")) or []]
+
+        response = client.list_flavors(request)
+        flavors = [_flavor_to_dict(flavor) for flavor in (getattr(response, "flavors", None) or [])]
+        l4_flavors = [flavor for flavor in flavors if str(flavor.get("type") or "").lower() in {"l4", "layer4", "4"}]
+        l7_flavors = [flavor for flavor in flavors if str(flavor.get("type") or "").lower() in {"l7", "layer7", "7"}]
+        result = {
+            "success": True,
+            "region": params["region"],
+            "action": "huawei_list_elb_flavors",
+            "risk_level": "R3",
+            "count": len(flavors),
+            "l4_count": len(l4_flavors),
+            "l7_count": len(l7_flavors),
+            "flavors": flavors,
+            "l4_flavors": l4_flavors,
+            "l7_flavors": l7_flavors,
+        }
+        page_info = getattr(response, "page_info", None)
+        if page_info:
+            result["page_info"] = _json_safe(page_info)
+        return result
+    except ClientRequestException as exc:
+        return {"success": False, "error": f"{exc.error_code} - {exc.error_msg}", "request_id": getattr(exc, "request_id", None)}
+    except Exception as exc:
+        return {"success": False, "error": str(exc), "error_type": type(exc).__name__}
 
 
 def huawei_list_elb(params: Dict[str, Any]) -> Dict[str, Any]:
@@ -235,6 +372,7 @@ def huawei_resize_elb_flavor(params: Dict[str, Any]) -> Dict[str, Any]:
 
 
 ACTIONS = {
+    "huawei_list_elb_flavors": huawei_list_elb_flavors,
     "huawei_list_elb": huawei_list_elb,
     "huawei_resize_elb_flavor": huawei_resize_elb_flavor,
 }

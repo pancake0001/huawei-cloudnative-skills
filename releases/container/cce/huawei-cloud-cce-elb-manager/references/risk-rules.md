@@ -4,7 +4,7 @@ Risk levels follow the current CCE remediation convention:
 
 | Risk | Meaning | ELB manager usage |
 |------|---------|-------------------|
-| R3 | Read-only operation | `huawei_list_elb` |
+| R3 | Read-only operation | `huawei_list_elb`, `huawei_list_elb_flavors` |
 | R2 | Low-risk operation that does not involve cost | Not used |
 | R1 | Medium-risk operation | Not used |
 | R0 | High-risk operation | `huawei_resize_elb_flavor` |

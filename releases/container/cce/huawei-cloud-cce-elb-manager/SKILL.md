@@ -14,10 +14,11 @@ tags: [cce, elb, load-balancer, peripheral-resource, remediation]
 
 ## Scope
 
-This skill manages Huawei Cloud ELB instances used as CCE peripheral resources. It currently provides two focused capabilities:
+This skill manages Huawei Cloud ELB instances used as CCE peripheral resources. It currently provides three focused capabilities:
 
 1. List ELB load balancer instances in a region.
-2. Change the flavor of a dedicated ELB instance by updating `l4_flavor_id` and/or `l7_flavor_id`.
+2. List available ELB L4/L7 flavors in a region.
+3. Change the flavor of a dedicated ELB instance by updating `l4_flavor_id` and/or `l7_flavor_id`.
 
 The resize action is for dedicated ELB flavor changes. Shared ELB capacity or EIP bandwidth changes are outside this skill's current execution scope and should be handled by a separate EIP/bandwidth capability.
 
@@ -26,6 +27,7 @@ The resize action is for dedicated ELB flavor changes. Shared ELB capacity or EI
 | Action | Purpose | Risk |
 |--------|---------|------|
 | `huawei_list_elb` | List ELB instances and return ID, name, type, status, VIP, current L4/L7 flavor IDs, and EIP info when available. | R3 |
+| `huawei_list_elb_flavors` | List available ELB L4/L7 flavors and return flavor IDs, names, type, category, shared flag, sold-out flag, and performance info. | R3 |
 | `huawei_resize_elb_flavor` | Update a dedicated ELB instance's `l4_flavor_id` and/or `l7_flavor_id`. Requires `confirm=true` to execute. | R0 |
 
 ## Risk Rules
@@ -54,6 +56,30 @@ Example:
 
 ```bash
 python scripts/huawei-cloud.py --action huawei_list_elb --params '{"region":"cn-north-4","limit":100}'
+```
+
+### `huawei_list_elb_flavors`
+
+Required:
+
+- `region`: Huawei Cloud region, for example `cn-north-4`.
+
+Optional:
+
+- `project_id`: Project ID.
+- `ak`, `sk`: Huawei Cloud credentials. Prefer environment variables.
+- `limit`: Page size, default `200`.
+- `marker`: Pagination marker.
+- `type`: Comma-separated flavor type filter such as `L4`, `L7`, or `L4,L7`.
+- `shared`: Filter shared or dedicated flavors when supported by the API.
+- `list_all`: Whether to list all flavors when supported by the API.
+- `category`: Comma-separated category filter.
+- `flavor_sold_out`: Filter sold-out status when supported by the API.
+
+Example:
+
+```bash
+python scripts/huawei-cloud.py --action huawei_list_elb_flavors --params '{"region":"cn-north-4","type":"L4,L7","limit":200}'
 ```
 
 ### `huawei_resize_elb_flavor`
@@ -87,11 +113,12 @@ python scripts/huawei-cloud.py --action huawei_resize_elb_flavor --params '{"reg
 ## Workflow
 
 1. Run `huawei_list_elb` to identify the target ELB and capture current `l4_flavor_id` and `l7_flavor_id`.
-2. Confirm that the target is a dedicated ELB. If no flavor IDs are present, treat it as unsupported for this skill.
-3. Prepare `huawei_resize_elb_flavor` as a preview and show current and target flavor IDs.
-4. Execute only after explicit authorization and `confirm=true`.
-5. Re-run `huawei_list_elb` to verify the updated flavor IDs and provisioning status.
+2. Run `huawei_list_elb_flavors` to find valid target L4/L7 flavor IDs in the same region.
+3. Confirm that the target is a dedicated ELB. If no flavor IDs are present, treat it as unsupported for this skill.
+4. Prepare `huawei_resize_elb_flavor` as a preview and show current and target flavor IDs.
+5. Execute only after explicit authorization and `confirm=true`.
+6. Re-run `huawei_list_elb` to verify the updated flavor IDs and provisioning status.
 
 ## Remediation Handoff
 
-When RCA outputs `PeripheralResourceBottleneck` caused by high ELB connection or bandwidth usage, this skill can provide the executable ELB flavor-change candidate only if the target ELB ID and target flavor ID are known. Otherwise, return a high-risk manual recommendation that asks the operator to choose a target ELB flavor first.
+When RCA outputs `PeripheralResourceBottleneck` caused by high ELB connection or bandwidth usage, this skill can list candidate L4/L7 flavors first. It can provide the executable ELB flavor-change candidate only if the target ELB ID and target flavor ID are known. Otherwise, return a high-risk manual recommendation that asks the operator to choose a target ELB flavor first.
