@@ -1,0 +1,15 @@
+name: huawei-cloud-cce-elb-manager
+level: L3
+domain: cce-peripheral-resource-management
+description: Manage Huawei Cloud ELB instances used by CCE workloads, including listing ELB load balancers and changing dedicated ELB L4/L7 flavor specifications.
+tools:
+  - huawei_list_elb
+  - huawei_resize_elb_flavor
+references:
+  - references/risk-rules.md
+  - references/output-schema.md
+guardrails:
+  max_auto_risk: R3
+  dangerous_operations:
+    - huawei_resize_elb_flavor
+  requires_confirmation: true
