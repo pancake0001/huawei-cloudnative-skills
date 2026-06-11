@@ -331,6 +331,26 @@ def _get_aom_metrics(params: Dict[str, str]) -> Dict[str, Any]:
     return aom.get_aom_prom_metrics_http(params["region"], params["aom_instance_id"], params["query"], None if params.get("start") is None else int(params["start"]), None if params.get("end") is None else int(params["end"]), _to_int(params.get("step"), 60), _to_int(params.get("hours"), 1), params.get("ak"), params.get("sk"), params.get("project_id"))
 
 
+def _inspection_thresholds(params: Dict[str, str]) -> Dict[str, Any] | None:
+    thresholds: Dict[str, Any] = {}
+    if params.get("thresholds"):
+        try:
+            parsed = json.loads(params["thresholds"])
+            if isinstance(parsed, dict):
+                thresholds.update(parsed)
+        except (json.JSONDecodeError, TypeError):
+            pass
+    for key in (
+        "inspection_window_hours",
+        "inspection_window_minutes",
+        "inspection_period_hours",
+        "inspection_period_minutes",
+    ):
+        if params.get(key) not in (None, ""):
+            thresholds[key] = params.get(key)
+    return thresholds or None
+
+
 def _list_aom_alarm_rules(params: Dict[str, str]) -> Dict[str, Any]:
     return aom.list_aom_alarm_rules(
         params["region"],
@@ -1150,13 +1170,7 @@ def _analyze_aom_alarms(params: Dict[str, str]) -> Dict[str, Any]:
 
 def _cce_quick_check_action(params: Dict[str, str]) -> Dict[str, Any]:
     """快检：3 个 API，< 30s，判断是否有异常"""
-    # Parse optional thresholds
-    thresholds = None
-    if params.get("thresholds"):
-        try:
-            thresholds = json.loads(params["thresholds"])
-        except (json.JSONDecodeError, TypeError):
-            pass
+    thresholds = _inspection_thresholds(params)
 
     # Parse optional elb_ids
     elb_ids = None
@@ -1192,17 +1206,13 @@ def _cce_deep_diagnosis_action(params: Dict[str, str]) -> Dict[str, Any]:
         project_id=params.get("project_id"),
         notify_email=params.get("notify_email"),
         report_file=params.get("report_file"),
+        thresholds=_inspection_thresholds(params),
     )
 
 
 def _cce_auto_inspection_action(params: Dict[str, str]) -> Dict[str, Any]:
     """自动巡检：快检 + 判断 + (诊断 | HEARTBEAT_OK) 一步到位"""
-    thresholds = None
-    if params.get("thresholds"):
-        try:
-            thresholds = json.loads(params["thresholds"])
-        except (json.JSONDecodeError, TypeError):
-            pass
+    thresholds = _inspection_thresholds(params)
 
     elb_ids = None
     if params.get("elb_ids"):
@@ -1599,7 +1609,7 @@ ACTION_SPECS: Dict[str, tuple[tuple[str, ...], Handler]] = {
     # ECS operations
     "huawei_reboot_ecs": (("region", "instance_id"), _reboot_ecs),
     "huawei_rollback_cce_workload": (("region", "cluster_id", "namespace", "workload_type", "name"), lambda params: auto_remediation.rollback_cce_workload_action(params)),
-    "huawei_auto_remediation_run": (("region", "cluster_id", "namespace"), lambda params: auto_remediation.auto_remediation_run_action(params)),
+    "huawei_auto_remediation_run": (("region", "cluster_id"), lambda params: auto_remediation.auto_remediation_run_action(params)),
 
     # CCE EIP operations
     "huawei_bind_cce_cluster_eip": (("region", "cluster_id", "eip_id"), _bind_cce_cluster_eip),

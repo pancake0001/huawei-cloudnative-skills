@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import json
 import time
 import uuid
 from datetime import datetime
@@ -33,6 +34,18 @@ def _to_int(value: Any, default: int) -> int:
     try:
         return int(value) if value not in (None, "") else default
     except (TypeError, ValueError):
+        return default
+
+
+def _json_param(params: Dict[str, Any], key: str, default: Any = None) -> Any:
+    value = params.get(key)
+    if value in (None, ""):
+        return default
+    if isinstance(value, (dict, list)):
+        return value
+    try:
+        return json.loads(str(value))
+    except (TypeError, json.JSONDecodeError):
         return default
 
 
@@ -185,7 +198,7 @@ def rollback_cce_workload(params: Dict[str, str]) -> Dict[str, Any]:
                 "success": False,
                 "requires_confirmation": True,
                 "operation": "rollback_cce_workload",
-                "risk_level": "R2",
+                "risk_level": "R1",
                 "warning": f"即将把 Deployment {namespace}/{name} 回滚到 revision {_revision(target_rs)}。",
                 "cluster_id": cluster_id,
                 "namespace": namespace,
@@ -211,7 +224,7 @@ def rollback_cce_workload(params: Dict[str, str]) -> Dict[str, Any]:
         return {
             "success": True,
             "operation": "rollback_cce_workload",
-            "risk_level": "R2",
+            "risk_level": "R1",
             "region": region,
             "cluster_id": cluster_id,
             "namespace": namespace,
@@ -273,7 +286,14 @@ def _top_cause_type(diagnosis: Dict[str, Any]) -> Optional[str]:
 
 
 def _rollback_is_suitable(cause_type: Optional[str]) -> bool:
-    return cause_type in {"ContainerCommandNotFound", "CrashLoopOrAppExit", "ProbeFailure", "ImagePullBlocked"}
+    return cause_type in {
+        "RolloutTimeout",
+        "ContainerCommandNotFound",
+        "CrashLoopOrAppExit",
+        "ProbeFailure",
+        "ImagePullBlocked",
+        "PodRuntimeFailure",
+    }
 
 
 def _wait_for_recovery(params: Dict[str, str], wait_seconds: int, interval_seconds: int) -> Dict[str, Any]:
@@ -298,6 +318,179 @@ def _wait_for_recovery(params: Dict[str, str], wait_seconds: int, interval_secon
         if time.time() >= deadline:
             return {"success": False, "status": "timeout", "attempts": attempts, "diagnosis": diagnosis}
         time.sleep(max(1, interval_seconds))
+
+
+def _default_action_for_strategy(strategy: str) -> str:
+    return {
+        "rollback_previous_revision": "huawei_rollback_cce_workload",
+        "scale_workload_out": "huawei_scale_cce_workload",
+        "configure_hpa": "huawei_configure_cce_hpa",
+        "resize_or_hpa_preview": "huawei_configure_cce_hpa",
+        "resize_workload": "huawei_resize_cce_workload",
+        "rollback_or_resize_workload": "huawei_rollback_cce_workload",
+        "fix_image_or_pull_secret": "manual_review_image_pull_secret",
+        "fix_image_or_pull_secret_preview": "manual_review_image_pull_secret",
+        "scale_nodepool_or_adjust_scheduling_preview": "manual_select_node_or_nodepool_action",
+        "cordon_drain_or_scale_nodepool_preview": "manual_select_node_or_nodepool_action",
+        "node_repair_or_observation_preview": "manual_select_node_or_nodepool_action",
+        "node_cordon_drain_or_scale_nodepool_preview": "manual_select_node_or_nodepool_action",
+        "cordon_node": "huawei_cce_node_cordon",
+        "drain_node_after_cordon": "huawei_cce_node_drain",
+    }.get(strategy, "manual_review_required")
+
+
+def _risk_for_strategy(strategy: str, action: str) -> str:
+    if action in {
+        "huawei_delete_cce_cluster",
+        "huawei_delete_cce_node",
+        "huawei_delete_cce_workload",
+        "huawei_reboot_ecs",
+        "huawei_stop_ecs_instance",
+        "huawei_hibernate_cce_cluster",
+        "huawei_awake_cce_cluster",
+        "huawei_bind_cce_cluster_eip",
+        "huawei_unbind_cce_cluster_eip",
+        "huawei_hss_change_vul_status",
+    }:
+        return "R0"
+    if action == "manual_review_image_pull_secret":
+        return "R3"
+    if action in {"huawei_scale_cce_workload", "huawei_cce_node_cordon", "huawei_cce_node_uncordon"}:
+        return "R2"
+    if strategy in {"configure_hpa", "resize_or_hpa_preview"}:
+        return "R2"
+    if action in {"huawei_rollback_cce_workload", "huawei_resize_cce_workload", "huawei_cce_node_drain"}:
+        return "R1"
+    if strategy in {
+        "scale_nodepool_or_adjust_scheduling_preview",
+        "cordon_drain_or_scale_nodepool_preview",
+        "node_repair_or_observation_preview",
+        "node_cordon_drain_or_scale_nodepool_preview",
+    }:
+        return "R1"
+    return "R1"
+
+
+def _candidate_from_params(params: Dict[str, Any], strategy: str) -> Dict[str, Any]:
+    action = params.get("action") or _default_action_for_strategy(strategy)
+    risk_level = params.get("risk_level") or _risk_for_strategy(strategy, action)
+    workload_name = params.get("workload_name") or params.get("name")
+    namespace = params.get("namespace")
+    workload_type = params.get("workload_type") or params.get("kind") or "deployment"
+    action_params = {
+        "region": params.get("region"),
+        "cluster_id": params.get("cluster_id"),
+        "namespace": namespace,
+        "workload_type": workload_type,
+        "name": workload_name,
+        "workload_name": workload_name,
+        "min_replicas": params.get("min_replicas"),
+        "max_replicas": params.get("max_replicas"),
+        "replicas": params.get("replicas"),
+        "node_name": params.get("node_name"),
+        "nodepool_id": params.get("nodepool_id"),
+        "target_count": params.get("target_count"),
+    }
+    return {
+        "skill": "huawei-cloud-cce-auto-remediation-runner",
+        "strategy": strategy,
+        "action": action,
+        "risk_level": risk_level,
+        "target": {
+            "region": params.get("region"),
+            "cluster_id": params.get("cluster_id"),
+            "namespace": namespace,
+            "workload_type": workload_type,
+            "name": workload_name,
+            "node_name": params.get("node_name"),
+            "nodepool_id": params.get("nodepool_id"),
+        },
+        "params": {key: value for key, value in action_params.items() if value not in (None, "")},
+        "reason": params.get("reason") or "Generated from remediation strategy parameters.",
+        "verification": params.get("verification") or ["huawei_workload_rollout_diagnose", "huawei_get_cce_events"],
+        "requires_confirmation": risk_level != "R3",
+    }
+
+
+def _normalize_candidates(params: Dict[str, Any], strategy: str) -> List[Dict[str, Any]]:
+    candidates = _json_param(params, "remediation_candidates", [])
+    if isinstance(candidates, dict):
+        candidates = [candidates]
+    if not isinstance(candidates, list):
+        candidates = []
+    normalized = []
+    for item in candidates:
+        if not isinstance(item, dict):
+            continue
+        candidate = dict(item)
+        candidate.setdefault("strategy", strategy)
+        candidate.setdefault("action", _default_action_for_strategy(candidate["strategy"]))
+        candidate.setdefault("risk_level", _risk_for_strategy(candidate["strategy"], candidate["action"]))
+        candidate.setdefault("params", {})
+        candidate.setdefault("target", {})
+        candidate.setdefault("verification", [])
+        candidate.setdefault("requires_confirmation", candidate.get("risk_level") != "R3")
+        normalized.append(candidate)
+    if not normalized:
+        normalized.append(_candidate_from_params(params, strategy))
+    return normalized
+
+
+def _build_candidate_preview(trace_id: str, params: Dict[str, Any], candidates: List[Dict[str, Any]], confirm: bool) -> Dict[str, Any]:
+    executable_now = []
+    blocked = []
+    for candidate in candidates:
+        risk = candidate.get("risk_level") or "R1"
+        if risk == "R3":
+            state = "read_only_allowed"
+        elif risk == "R2" and (_to_bool(params.get("r2_authorized"), False) or _to_bool(params.get("r1_authorized"), False)):
+            state = "authorized_low_risk"
+        elif confirm:
+            state = "requires_specific_action_execution"
+        else:
+            state = "preview_requires_confirmation"
+        item = dict(candidate)
+        item["execution_state"] = state
+        item["confirm_hint"] = None if state in {"read_only_allowed", "authorized_low_risk"} else "Review this candidate, then execute the specific action with confirm=true."
+        if state in {"read_only_allowed", "authorized_low_risk"}:
+            executable_now.append(item)
+        else:
+            blocked.append(item)
+
+    report_lines = [
+        "# CCE Auto Remediation Candidate Preview",
+        "",
+        f"- Remediation-Trace-ID: `{trace_id}`",
+        f"- 集群: `{params.get('cluster_id')}`",
+        f"- 区域: `{params.get('region')}`",
+        f"- 候选动作数: `{len(candidates)}`",
+        "",
+        "## Candidates",
+        "",
+    ]
+    for idx, candidate in enumerate(candidates, 1):
+        report_lines.extend([
+            f"### {idx}. {candidate.get('strategy')}",
+            f"- action: `{candidate.get('action')}`",
+            f"- risk_level: `{candidate.get('risk_level')}`",
+            f"- target: `{_md_cell(candidate.get('target'), 360)}`",
+            f"- reason: {_md_cell(candidate.get('reason'), 360)}",
+            f"- verification: `{candidate.get('verification')}`",
+            "",
+        ])
+
+    return {
+        "success": False,
+        "requires_confirmation": bool(blocked),
+        "remediation_trace_id": trace_id,
+        "strategy": params.get("strategy"),
+        "mode": "candidate_preview",
+        "candidates": candidates,
+        "executable_now": executable_now,
+        "blocked_until_confirmation": blocked,
+        "summary": "Generated preview from root-cause remediation candidates; no state-changing action was executed.",
+        "report_markdown": "\n".join(report_lines),
+    }
 
 
 def build_markdown_report(
@@ -360,27 +553,44 @@ def build_markdown_report(
 
 
 def auto_remediation_run(params: Dict[str, str]) -> Dict[str, Any]:
-    missing = [key for key in ("region", "cluster_id", "namespace") if not params.get(key)]
+    missing = [key for key in ("region", "cluster_id") if not params.get(key)]
     if missing:
         return {"success": False, "error": f"{', '.join(missing)} is required"}
-    if not (params.get("workload_name") or params.get("name")):
-        return {"success": False, "error": "workload_name or name is required"}
 
     trace_id = params.get("remediation_trace_id") or f"ARR-{datetime.now().strftime('%Y%m%d%H%M%S')}-{uuid.uuid4().hex[:8]}"
     confirm = _to_bool(params.get("confirm"), False)
     strategy = params.get("strategy") or "rollback_previous_revision"
+    if strategy != "rollback_previous_revision" or params.get("remediation_candidates"):
+        candidates = _normalize_candidates(params, strategy)
+        return _build_candidate_preview(trace_id, params, candidates, confirm)
+
+    if not params.get("namespace"):
+        return {"success": False, "error": "namespace is required for rollback_previous_revision"}
+    if not (params.get("workload_name") or params.get("name")):
+        return {"success": False, "error": "workload_name or name is required for rollback_previous_revision"}
+
     diagnosis = _safe_rollout_diagnose(params, include_logs=_to_bool(params.get("include_logs"), True))
     cause_type = _top_cause_type(diagnosis)
 
-    if strategy != "rollback_previous_revision":
-        return {"success": False, "error": f"unsupported remediation strategy: {strategy}", "diagnosis": diagnosis}
     if diagnosis.get("success") and not _rollback_is_suitable(cause_type):
-        report = build_markdown_report(trace_id, params, diagnosis, {"success": False, "error": f"top cause {cause_type} is not safe for automatic rollback"}, None, confirm)
+        error = f"top cause {cause_type} is not safe for automatic rollback"
+        reason = f"top cause {cause_type} is not suitable for automatic rollback"
+        hint = None
+        if cause_type == "HealthyOrConverging":
+            hint = (
+                "Rollback-only orchestration only evaluates rollout health. "
+                "For resource bottlenecks such as ApplicationPerformanceOrQuotaBottleneck, "
+                "call huawei_auto_remediation_run with RCA remediation_candidates to get scale-out/HPA candidates."
+            )
+            error = f"{error}; {hint}"
+            reason = hint
+        report = build_markdown_report(trace_id, params, diagnosis, {"success": False, "error": error}, None, confirm)
         return {
             "success": False,
             "requires_confirmation": False,
             "remediation_trace_id": trace_id,
-            "reason": f"top cause {cause_type} is not suitable for automatic rollback",
+            "reason": reason,
+            "hint": hint,
             "diagnosis": diagnosis,
             "report_markdown": report,
         }

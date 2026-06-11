@@ -21,7 +21,7 @@ tags: [cce, remediation, auto-heal, mutation]
 
 ## Overview
 
-This skill converts remediation intent into reviewable, confirmable, verifiable execution plans. It operates in **preview-first mode by default** — R0 read-only verification can run directly; R1 low-risk actions can run directly only when the customer has explicitly authorized automatic actions for the target scope; R2 and R3 actions require preview without `confirm=true`, explicit user confirmation of action/object/risks, then execution with `confirm=true`, followed by read-only verification.
+This skill converts remediation intent into reviewable, confirmable, verifiable execution plans. It operates in **preview-first mode by default** — R3 read-only verification can run directly; R2 low-risk actions can run directly only when the customer has explicitly authorized automatic actions for the target scope; R1 and R0 actions require preview without `confirm=true`, explicit user confirmation of action/object/risks, then execution with `confirm=true`, followed by read-only verification.
 
 This skill is applicable to the following scenarios:
 
@@ -111,7 +111,21 @@ All actions are dispatched through `scripts/huawei-cloud.py` using `skill action
 
 | Action | Required Parameters | Description |
 |--------|---------------------|-------------|
-| `huawei_auto_remediation_run` | region, cluster_id, strategy | Orchestrate multi-step remediation plan; strategy determines actions (rollback_previous_revision, scale_out, drain_and_replace, etc.) |
+| `huawei_auto_remediation_run` | region, cluster_id, strategy or remediation_candidates | Orchestrate rollback execution for `rollback_previous_revision`, or convert RCA `remediation_candidates` into advice/preview for strategies such as `scale_workload_out`, `configure_hpa`, `resize_workload`, `fix_image_or_pull_secret_preview`, `cordon_node`, `drain_node_after_cordon`, and node recovery previews |
+
+Preferred RCA handoff:
+
+```bash
+python3 releases/container/cce/huawei-cloud-cce-auto-remediation-runner/scripts/huawei-cloud.py \
+  huawei_auto_remediation_run \
+  region=<region> \
+  cluster_id=<cluster_id> \
+  remediation_candidates='<huawei_root_cause_analyze remediation_candidates JSON>'
+```
+
+When `remediation_candidates` is present, the runner returns `candidate_preview` and does not run rollback-only rollout checks. Use this path for resource bottlenecks such as `ApplicationPerformanceOrQuotaBottleneck`, because it can surface `scale_workload_out`, `configure_hpa`, and `resize_workload` candidates.
+
+Avoid passing only `strategy=rollback_previous_revision namespace=<ns> workload_name=<name>` unless the intended recovery is specifically a Deployment rollback. Rollback-only orchestration checks rollout state and may stop on `HealthyOrConverging`.
 
 ### Workload Actions
 
@@ -200,6 +214,7 @@ All actions are dispatched through `scripts/huawei-cloud.py` using `skill action
 | replicas | Yes* | Target replica count (required for scale) |
 | target_count | Yes* | Target node count (required for node pool resize) |
 | strategy | Yes* | Remediation strategy (required for auto-remediation) |
+| remediation_candidates | No | JSON array from `huawei_root_cause_analyze`; preferred handoff contract for inspection/RCA-triggered recovery |
 | confirm | No | Set to `true` ONLY after explicit user confirmation |
 
 *Required for specific actions as noted.
@@ -318,7 +333,7 @@ All actions are dispatched through `scripts/huawei-cloud.py` using `skill action
 4. Use `huawei_rollback_cce_workload` preview mode to verify it shows current vs expected state
 5. After rollback execution, verify workload health with `huawei_workload_rollout_diagnose`
 6. Use `huawei_auto_remediation_run` preview mode to verify multi-step orchestration plan is shown before execution
-7. Confirm that all R3 actions (drain, reboot, delete, hibernate) require explicit user confirmation
+7. Confirm that all R0 actions (reboot, delete, hibernate, EIP bind/unbind) require explicit user confirmation
 8. Verify that post-execution verification actions return healthy/expected status
 
 ---
@@ -329,7 +344,7 @@ All actions are dispatched through `scripts/huawei-cloud.py` using `skill action
 2. **State the four essentials**: Before confirmation, restate the action, object, parameters, impact scope, and rollback plan to the user
 3. **Prefer rollback for deployment failures**: If root cause is from `huawei-cloud-cce-root-cause-analyzer` and involves startup command, CrashLoop, probe, or image causing new version unavailability, prefer `huawei_auto_remediation_run` with `rollback_previous_revision` strategy
 4. **Verify after execution**: Every execution must be followed by read-only verification (Pod status, Node status, Events, workload rollout diagnosis)
-5. **Classify risk correctly**: Refer to `references/risk-rules.md` for R1/R2/R3 classification; apply appropriate confirmation requirements
+5. **Classify risk correctly**: Refer to `references/risk-rules.md` for R0/R1/R2/R3 classification; apply appropriate confirmation requirements
 6. **Never auto-add confirm**: Deployment rollback, scale, resize, resource modification, delete cluster/node/workload, drain, reboot, and HSS vulnerability status change must all be preview → user confirm → execute → verify
 7. **Use auto-remediation orchestration for multi-step plans**: When remediation involves multiple actions, use `huawei_auto_remediation_run` to produce a complete execution report with diagnosis basis, action results, and verification results
 8. **Cross-skill handoff for diagnosis**: When root cause analysis is needed before remediation, hand off to `huawei-cloud-cce-root-cause-analyzer`; this skill only executes confirmed remediation actions
@@ -363,10 +378,10 @@ All actions are dispatched through `scripts/huawei-cloud.py` using `skill action
 ## Common Pitfalls
 
 1. **Auto-adding confirm=true** — The most critical pitfall. NEVER assume user intent implies confirmation. Always preview first, show results, and wait for explicit user confirmation
-2. **Skipping preview for R2 actions** — Even medium-risk actions (scale, resize, cordon, rollback) require preview. No mutation action may skip the preview step
-3. **Not verifying after execution** — Every R2/R3 execution must be followed by read-only verification (Pod/Node/Workload/Events status). Skipping verification leaves remediation unconfirmed
-4. **Batch or fuzzy-target remediation** — R3 actions (drain, reboot, delete, hibernate) must have explicit, specific target objects. Never execute with vague or batch targets without per-object confirmation
+2. **Skipping preview for R1/R0 actions** — Medium/high-risk actions (resize, rollback, drain, reboot, delete) require preview. No mutation action may skip the preview step
+3. **Not verifying after execution** — Every R2/R1/R0 execution must be followed by read-only verification (Pod/Node/Workload/Events status). Skipping verification leaves remediation unconfirmed
+4. **Batch or fuzzy-target remediation** — R0 actions (reboot, delete, hibernate, EIP bind/unbind) must have explicit, specific target objects. Never execute with vague or batch targets without per-object confirmation
 5. **Not documenting rollback method** — Every remediation plan must state how to revert if the action causes unintended effects. Omitting rollback notes is a safety hazard
 6. **Executing remediation without diagnosis** — Always confirm root cause via `huawei-cloud-cce-root-cause-analyzer` or domain diagnoser before remediation. Blind remediation without evidence is prohibited
-7. **Confusing R2 and R3 risk levels** — R2 (runtime impact) requires preview+confirm; R3 (destructive) requires explicit per-object confirmation with additional verification. See `references/risk-rules.md`
+7. **Confusing risk direction** — R0 is highest risk and R3 is read-only. R1/R0 require preview+confirm; R2 can run only with explicit low-risk authorization. See `references/risk-rules.md`
 8. **Not restating the plan to the user** — Before requesting confirmation, restate the action, target object, region, cluster_id, expected impact, and rollback plan. The user must confirm all four essentials

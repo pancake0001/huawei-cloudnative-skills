@@ -33,9 +33,9 @@ Verification:
 
 Risk:
 
-- Cordon and uncordon are R1 when the target node is covered by explicit customer automatic-action authorization.
-- Drain is R2.
-- Reboot and destructive replacement are R3.
+- Cordon and uncordon are R2 when the target node is covered by explicit customer automatic-action authorization.
+- Drain is R1.
+- Reboot and destructive replacement are R0.
 
 ## Case 2: CoreDNS Degradation Recovery
 
@@ -88,10 +88,10 @@ Verification:
 
 Risk:
 
-- Customer-authorized workload scale-out, node pool scale-out, cordon, and uncordon can be R1.
-- HPA changes can be R1 only when the current Pod count is known, `minReplicas >= currentPodCount`, and `maxReplicas > currentPodCount`.
-- Workload resize, rollback, scale-in, node pool resize with unknown direction, and HPA changes outside the R1 condition are R2.
-- Workload deletion is R3.
+- Customer-authorized workload scale-out, cordon, and uncordon can be R2 when they do not add cloud-resource cost.
+- HPA changes can be R2 only when the current Pod count is known, `minReplicas >= currentPodCount`, `maxReplicas > currentPodCount`, and the change does not add cloud-resource cost.
+- Workload resize, rollback, scale-in, node pool resize, and HPA changes outside the R2 condition are R1.
+- Workload deletion is R0.
 
 ## Case 4: ImagePullBackOff Secret Refresh
 
@@ -196,4 +196,4 @@ Verification:
 Risk:
 
 - Quota changes and workload scale-down are state-changing and must be previewed.
-- Deleting workloads or batch resources can be R3 depending on scope.
+- Deleting workloads or batch resources can be R0 depending on scope.

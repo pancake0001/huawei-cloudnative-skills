@@ -37,4 +37,4 @@ references:
   - references/risk-rules.md
   - references/output-schema.md
 guardrails:
-  max_auto_risk: R3
+  max_auto_risk: R2

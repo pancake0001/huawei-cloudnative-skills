@@ -20,7 +20,7 @@ tags: [cce, root-cause-analysis, cross-domain-diagnosis, kubernetes, fault-diagn
 
 ## Overview
 
-This skill converges multi-domain evidence into root cause conclusions for CCE incidents. It orchestrates workload rollout diagnosis, dependency impact analysis, change impact analysis, AOM alarm analysis, and cross-domain drill-down (network, node) to produce a complete Markdown report with investigation steps, timeline, evidence chain, impact scope, Top3 root causes, confidence, counter-evidence, and remediation handoff.
+This skill converges multi-domain evidence into root cause conclusions for CCE incidents. A daily-inspector handoff such as `abnormal_object_analysis` is accepted only as a scope hint: it can identify suspected resources, symptoms, and time windows, but it is not root-cause evidence by itself. RCA must independently collect Events, workload rollout evidence, Pod/Node metrics, dependency topology, recent changes, AOM alarms, and related network/node evidence before ranking causes. It produces a complete Markdown report with investigation steps, timeline, evidence chain, impact scope, Top3 root causes, confidence, counter-evidence, and remediation handoff.
 
 This skill is applicable to the following scenarios:
 
@@ -30,6 +30,89 @@ This skill is applicable to the following scenarios:
 4. Dependency impact propagation analysis (Service → Ingress → Pod → Node chain)
 5. Workload rollout failures requiring evidence funnel (generation → ReplicaSet → Pod Ready → events → logs → command/args → probes → image)
 6. Producing structured Top3 root cause reports with evidence, counter-evidence, and confidence scores
+7. Consuming `abnormal_object_analysis` from `huawei-cloud-cce-daily-cluster-inspector` as an optional scope hint when available
+
+## RCA Entry Criteria
+
+Use this skill only when the user needs to know **why** an abnormal condition happened, not merely whether a resource is abnormal. Prefer `huawei_root_cause_analyze` when the incident involves one or more abnormal objects with time correlation, relationship chains, repeated events, or multi-domain symptoms.
+
+### Resource and Symptom Matrix
+
+| Resource | Trigger RCA When | Required / Preferred Evidence | Typical Root Cause Domains | Recovery Handoff Focus |
+|----------|------------------|-------------------------------|----------------------------|------------------------|
+| Pod | CrashLoopBackOff, OOMKilled, ImagePullBackOff, ErrImagePull, Pending, probe failure, repeated Warning Events, Pod TopN CPU/memory abnormal window | RCA-collected Events, Pod status/container states, logs when enabled, command/args, image, probes, limits/requests, Pod metrics, related workload/service/node | workload, image, runtime, scheduling, resource pressure | rollback, resize workload, fix image/pull secret, restart after verified cause |
+| Workload | Deployment/StatefulSet/DaemonSet unavailable, rollout stuck, replicas not ready, new revision failure, workload linked to abnormal Pods | RCA-collected rollout funnel, ReplicaSet/Pod readiness, Events, current spec, recent image/config/HPA changes, Pod metrics, related services/nodes | rollout, config, image, probe, quota/admission, traffic/resource saturation | rollback previous revision, adjust probes/resources, scale after RCA |
+| Node | Node NotReady, MemoryPressure/DiskPressure/PIDPressure, scheduling failures, many abnormal Pods on same node, node TopN CPU/memory/disk abnormal window | RCA-collected node conditions, taints, allocatable/capacity, node metric windows, affected Pods, system/node Events, ECS/security group context when available | node pressure, kubelet/runtime, ECS/network/storage | cordon/drain preview, node repair/reboot, nodepool scale-out |
+| Service | Service unavailable, selector mismatch, no ready backend Pods, abnormal Pods behind same Service, ingress/backend errors | Service selector, selected Pods, Endpoint/Pod readiness, related Ingress/ELB/EIP, abnormal object relationships | dependency, workload backend, network, configuration | fix selector/backend, recover backend workload, network recovery plan |
+| Ingress | Ingress access failure, backend Service abnormal, TLS/backend rule issue, ELB relation present | Ingress rules, backend Services, TLS config, related Service/Pod objects, ELB status/metrics | network, dependency, peripheral resource, config | update backend/rules, recover Service/ELB path |
+| ELB / EIP / NAT | Service/Ingress chain points to peripheral resources and access, connection, bandwidth, backend health, or NAT/EIP status is abnormal | Peripheral status and metrics, ELB backend health, EIP/NAT state, Service/Ingress relationship chain | peripheral resource, network, dependency | network/peripheral recovery plan, backend health repair |
+| AOM Alarm | Critical/Major alarms correlate with Events/metrics/object timeline, repeated alarms across resources, sudden alarm bursts | Alarm groups, firing/resolved state, alarm time window, matched abnormal objects | alarm correlation, resource pressure, workload/network symptoms | use as RCA evidence only, then hand recovery hints downstream |
+| Recent Change | Failure window follows deployment, config, image, HPA, network, security group, nodepool, or addon change | RCA-collected audit/change timeline, changed object, before/after diff when available, Events and metrics after change | change, rollout, config, network, node | rollback or revert preview through remediation runner |
+| Cluster / Addon | Multiple namespaces affected, system components abnormal, DNS/CoreDNS/CNI/storage/addon symptoms, broad scheduling or network issue | Cluster-level abnormal objects, addon Pod status, Events, node distribution, service impact scope | cluster, addon, network, storage, node | addon repair guidance, capacity/network/storage recovery plan |
+| CoreDNS | CoreDNS CPU high, DNS success rate below 99%, or P99 DNS latency above 100ms | RCA-collected CoreDNS Prometheus metrics, CoreDNS Pod status/events, DNS error/latency timeline, related service impact scope | dns, addon, cluster | scale CoreDNS replicas first, then verify DNS CPU/success-rate/latency |
+
+### Ranked Root Cause Candidate Types
+
+Only fault-origin candidates should enter `top_causes`:
+
+- Workload rollout/startup causes from rollout diagnoser, such as `RolloutTimeout`, `ImagePullBlocked`, `ContainerCommandNotFound`, `CrashLoopOrAppExit`, and `ProbeFailure`.
+- `ImagePullBlocked` from RCA-collected Kubernetes image pull Events.
+- `PodRuntimeFailure` from CrashLoop, OOMKilled, or container restart failure evidence.
+- `SchedulingOrNodeConstraint` from FailedScheduling, insufficient capacity, node pressure, NotReady, taints, affinity, or quota constraints.
+- `NodeCapacityOrSystemBottleneck` from abnormal Node conditions or Node CPU/memory/disk thresholds.
+- `NodeConditionAbnormal` when Node conditions are abnormal but resource thresholds do not yet prove a capacity bottleneck.
+- `ApplicationPerformanceOrQuotaBottleneck` when Pod resources are saturated while Nodes are normal; traffic spike evidence strengthens but is not mandatory.
+- `DnsPerformanceBottleneck` when RCA-collected CoreDNS CPU is high or P99 DNS latency rises above 100ms; success rate below 99% strengthens the conclusion.
+- `Change:<category>` only when a recent change is time-correlated with RCA-collected failure evidence.
+
+Dependency propagation and alarm correlation are not ranked root causes by themselves:
+
+- `DependencyImpactScope` belongs in `supporting_findings` and explains blast radius/propagation path.
+- `AlarmEvidence` belongs in `supporting_findings` and strengthens or weakens other candidates by timeline correlation.
+
+### Remediation Candidate Mapping
+
+- `ApplicationPerformanceOrQuotaBottleneck`: first propose `scale_workload_out` with `huawei_scale_cce_workload`; then propose `configure_hpa`; these are R2 only when they do not add cloud-resource cost. Use `resize_workload` as an R1 fallback when limits/requests are too small.
+- `DnsPerformanceBottleneck`: propose `scale_coredns_out` with `huawei_scale_cce_workload` targeting `Deployment/kube-system/coredns`; this is R2 when current CoreDNS Pod count is known and scaling does not add cloud-resource cost, otherwise R1 preview.
+- `NodeCapacityOrSystemBottleneck`: if affected node names are known, first propose `cordon_node` with `huawei_cce_node_cordon`; then propose `drain_node_after_cordon` as R1 only when existing Pods must be evicted or migrated.
+- `NodeConditionAbnormal`: propose `cordon_node` only when the node is concrete and abnormal; otherwise return a manual node repair/observation preview.
+- `SchedulingOrNodeConstraint`: propose node pool scale-out or scheduling adjustment preview when no single node should be isolated.
+- `ImagePullBlocked`: first propose R3 image/pull secret verification; rollback is R1 when a new revision is unavailable and a previous stable revision exists.
+- Rollout/startup failures: propose `rollback_previous_revision` when rollback is the safest recovery path.
+
+### Inspector Input Boundary
+
+Daily inspection output is useful as an entry point, not as a root-cause authority:
+
+- It may provide suspected objects, abnormal points, related resources, and first/last abnormal timestamps.
+- RCA may use those fields to narrow query scope, choose namespace/target/node, and set the initial time window.
+- RCA must independently query and analyze required resources before ranking causes.
+- A root cause candidate must cite RCA-collected evidence such as Events, rollout state, Pod/Node metrics, dependency topology, change records, alarms, logs, or peripheral resource status.
+- Never rank a cause solely because it appears in `abnormal_object_analysis`.
+
+Resource-specific RCA expectations:
+
+- Workload abnormality: check whether failure appeared after a deployment/config/image/HPA change, whether Pod CPU/memory suggests traffic or resource saturation, whether Events/logs point to runtime/probe/image issues, and whether affected Pods concentrate on specific nodes.
+- Node abnormality: check node conditions, taints, schedulability, CPU/memory/disk metrics, affected Pods, system/node Events, and whether symptoms point to kubelet/runtime/ECS/network/storage rather than only workload pressure.
+- Service/Ingress/network abnormality: check Service selector/endpoints, Pod readiness, Ingress backends, ELB backend health, EIP/NAT metrics/status, and whether backend workload or node issues explain network symptoms.
+- Alarm-only input: use alarms as a time and symptom signal, then verify with Events, metrics, objects, and changes before concluding.
+
+Resource-usage RCA rules:
+
+- If Pod CPU/memory is sustained high but rollout, Pod lifecycle Events, AOM alarms, dependency health, and Node CPU/memory/disk/conditions show no clear abnormality, RCA must check Pod traffic metrics before concluding `ApplicationPerformanceOrQuotaBottleneck`.
+- If Pod traffic receive/transmit rate rises sharply in the same window, RCA may strengthen the conclusion to traffic-driven application/resource saturation.
+- If traffic does not rise sharply or traffic metrics are unavailable, RCA may still conclude application performance bottleneck or Pod limit/request too small, but must record the missing or negative traffic evidence.
+- If Node CPU/memory/disk reaches configured thresholds or Node conditions show `Ready=False`, `MemoryPressure=True`, `DiskPressure=True`, `PIDPressure=True`, `NetworkUnavailable=True`, or NPD `*Problem=True`, RCA may conclude `NodeCapacityOrSystemBottleneck`.
+- Do not infer node bottleneck from a related node name alone. Node conclusions require RCA-collected node metrics or abnormal conditions.
+- A healthy rollout is counter-evidence, not a root cause. It must not outrank resource bottleneck candidates.
+
+### Do Not Start RCA For
+
+1. Healthy heartbeat or quick check with `has_anomaly=false`
+2. A single informational or already-resolved alarm without affected object, timeline, or repeated signal
+3. One-time metric spike below agreed impact threshold and no Events, alarms, or user-visible impact
+4. User only asks for read-only status summary, inventory, or monitoring TopN
+5. Recovery execution requests without root-cause evidence; hand those to `huawei-cloud-cce-auto-remediation-runner` only after RCA or explicit authorized recovery context
 
 This skill does NOT handle the following:
 
@@ -175,6 +258,9 @@ All actions are dispatched through `scripts/huawei-cloud.py` using `skill action
 | target_name | Optional workload/app/service name for scope narrowing |
 | hours | Metric/query time range in hours (default 1) |
 | top_n | Number of top results for ranking (default 3) |
+| abnormal_object_analysis | Optional JSON object from daily inspector; used only as scope hints, not root-cause proof |
+| root_cause_handoff | Optional JSON handoff from daily inspector; may contain `evidence.abnormal_object_analysis` scope hints |
+| inspection_result | Optional full daily inspection JSON; may contain `diagnosis.abnormal_object_analysis` scope hints |
 
 ---
 
@@ -220,10 +306,39 @@ All actions are dispatched through `scripts/huawei-cloud.py` using `skill action
       }
     }
   ],
+  "remediation_candidates": [
+    {
+      "skill": "huawei-cloud-cce-auto-remediation-runner",
+      "strategy": "rollback_previous_revision | configure_hpa | resize_workload | fix_image_or_pull_secret_preview | node_cordon_drain_or_scale_nodepool_preview",
+      "action": "huawei_rollback_cce_workload | huawei_configure_cce_hpa | huawei_resize_cce_workload | manual_review_image_pull_secret | manual_select_node_or_nodepool_action",
+      "risk_level": "R0 | R1 | R2 | R3",
+      "target": {},
+      "params": {},
+      "reason": "why this recovery candidate is suitable",
+      "verification": [],
+      "requires_confirmation": true
+    }
+  ],
+  "remediation_handoff": {
+    "skill": "huawei-cloud-cce-auto-remediation-runner",
+    "input_field": "remediation_candidates"
+  },
   "report_markdown": "# CCE Comprehensive Root Cause Analysis Report...",
   "report_file": "optional"
 }
 ```
+
+Pass `remediation_candidates` directly to `huawei_auto_remediation_run`:
+
+```bash
+python3 releases/container/cce/huawei-cloud-cce-auto-remediation-runner/scripts/huawei-cloud.py \
+  huawei_auto_remediation_run \
+  region=<region> \
+  cluster_id=<cluster_id> \
+  remediation_candidates='<this output remediation_candidates JSON>'
+```
+
+Do not replace the candidate handoff with rollback-only parameters unless the selected candidate is specifically `rollback_previous_revision`.
 
 ### Supporting Domain Outputs
 

@@ -139,6 +139,8 @@ def get_cce_pod_metrics_topN(region: str, cluster_id: str, ak: Optional[str] = N
     aom_instance_id = aom_result.get("aom_instance_id")
 
     # ========== 4. 构建 PromQL 查询 ==========
+    cluster_filter_clause = f',cluster_name="{cluster_name}"'
+
     # 构建 Pod 过滤条件
     pod_filter_clause = ""
     if pod_filter_list:
@@ -154,16 +156,16 @@ def get_cce_pod_metrics_topN(region: str, cluster_id: str, ak: Optional[str] = N
     # 默认 CPU 使用率 PromQL (相对 Limit %)
     if cpu_query is None:
         if namespace:
-            cpu_query = f'topk({top_n}, sum by (pod, namespace) (rate(container_cpu_usage_seconds_total{{image!="",namespace="{namespace}"{pod_filter_clause}{node_filter_clause}}}[5m])) / on (pod, namespace) group_left sum by (pod, namespace) (kube_pod_container_resource_limits{{resource="cpu",namespace="{namespace}"{pod_filter_clause}{node_filter_clause}}}) * 100)'
+            cpu_query = f'topk({top_n}, sum by (cluster_name, pod, namespace) (rate(container_cpu_usage_seconds_total{{image!="",cluster_name="{cluster_name}",namespace="{namespace}"{pod_filter_clause}{node_filter_clause}}}[5m])) / on (cluster_name, pod, namespace) group_left sum by (cluster_name, pod, namespace) (kube_pod_container_resource_limits{{resource="cpu",cluster_name="{cluster_name}",namespace="{namespace}"{pod_filter_clause}{node_filter_clause}}}) * 100)'
         else:
-            cpu_query = f'topk({top_n}, sum by (pod, namespace) (rate(container_cpu_usage_seconds_total{{image!=""{pod_filter_clause}{node_filter_clause}}}[5m])) / on (pod, namespace) group_left sum by (pod, namespace) (kube_pod_container_resource_limits{{resource="cpu"{pod_filter_clause}{node_filter_clause}}}) * 100)'
+            cpu_query = f'topk({top_n}, sum by (cluster_name, pod, namespace) (rate(container_cpu_usage_seconds_total{{image!=""{cluster_filter_clause}{pod_filter_clause}{node_filter_clause}}}[5m])) / on (cluster_name, pod, namespace) group_left sum by (cluster_name, pod, namespace) (kube_pod_container_resource_limits{{resource="cpu"{cluster_filter_clause}{pod_filter_clause}{node_filter_clause}}}) * 100)'
 
     # 默认内存使用率 PromQL (相对 Limit %)
     if memory_query is None:
         if namespace:
-            memory_query = f'topk({top_n}, sum by (pod, namespace) (container_memory_working_set_bytes{{image!="",namespace="{namespace}"{pod_filter_clause}{node_filter_clause}}}) / on (pod, namespace) group_left sum by (pod, namespace) (kube_pod_container_resource_limits{{resource="memory",namespace="{namespace}"{pod_filter_clause}{node_filter_clause}}}) * 100)'
+            memory_query = f'topk({top_n}, sum by (cluster_name, pod, namespace) (container_memory_working_set_bytes{{image!="",cluster_name="{cluster_name}",namespace="{namespace}"{pod_filter_clause}{node_filter_clause}}}) / on (cluster_name, pod, namespace) group_left sum by (cluster_name, pod, namespace) (kube_pod_container_resource_limits{{resource="memory",cluster_name="{cluster_name}",namespace="{namespace}"{pod_filter_clause}{node_filter_clause}}}) * 100)'
         else:
-            memory_query = f'topk({top_n}, sum by (pod, namespace) (container_memory_working_set_bytes{{image!=""{pod_filter_clause}{node_filter_clause}}}) / on (pod, namespace) group_left sum by (pod, namespace) (kube_pod_container_resource_limits{{resource="memory"{pod_filter_clause}{node_filter_clause}}}) * 100)'
+            memory_query = f'topk({top_n}, sum by (cluster_name, pod, namespace) (container_memory_working_set_bytes{{image!=""{cluster_filter_clause}{pod_filter_clause}{node_filter_clause}}}) / on (cluster_name, pod, namespace) group_left sum by (cluster_name, pod, namespace) (kube_pod_container_resource_limits{{resource="memory"{cluster_filter_clause}{pod_filter_clause}{node_filter_clause}}}) * 100)'
 
     # ========== 5. 执行查询 ==========
     cpu_result = aom.get_aom_prom_metrics_http(region, aom_instance_id, cpu_query, hours=hours, ak=access_key, sk=secret_key, project_id=proj_id)
@@ -181,6 +183,7 @@ def get_cce_pod_metrics_topN(region: str, cluster_id: str, ak: Optional[str] = N
                     cpu_metrics.append({
                         "pod": metric.get("pod", "unknown"),
                         "namespace": metric.get("namespace", "unknown"),
+                        "cluster_name": metric.get("cluster_name", cluster_name),
                         "cpu_usage_percent": round(latest_value, 2),
                         "status": "critical" if latest_value > 80 else "warning" if latest_value > 50 else "normal",
                         "time_series": values  # 保存完整的时序数据
@@ -199,6 +202,7 @@ def get_cce_pod_metrics_topN(region: str, cluster_id: str, ak: Optional[str] = N
                     memory_metrics.append({
                         "pod": metric.get("pod", "unknown"),
                         "namespace": metric.get("namespace", "unknown"),
+                        "cluster_name": metric.get("cluster_name", cluster_name),
                         "memory_usage_percent": round(latest_value, 2),
                         "status": "critical" if latest_value > 80 else "warning" if latest_value > 50 else "normal",
                         "time_series": values  # 保存完整的时序数据
@@ -330,14 +334,15 @@ def get_cce_pod_metrics(region: str, cluster_id: str, pod_name: str, ak: Optiona
     # ========== 4. 构建 PromQL 查询（筛选指定Pod） ==========
     pod_filter = f',pod="{pod_name}"'
     namespace_filter = f',namespace="{namespace}"' if namespace else ""
+    cluster_filter = f',cluster_name="{cluster_name}"'
 
     # 默认 CPU 使用率 PromQL (相对 Limit %)
     if cpu_query is None:
-        cpu_query = f'sum by (pod, namespace) (rate(container_cpu_usage_seconds_total{{image!=""{namespace_filter}{pod_filter}}}[5m])) / on (pod, namespace) group_left sum by (pod, namespace) (kube_pod_container_resource_limits{{resource="cpu"{namespace_filter}{pod_filter}}}) * 100'
+        cpu_query = f'sum by (cluster_name, pod, namespace) (rate(container_cpu_usage_seconds_total{{image!=""{cluster_filter}{namespace_filter}{pod_filter}}}[5m])) / on (cluster_name, pod, namespace) group_left sum by (cluster_name, pod, namespace) (kube_pod_container_resource_limits{{resource="cpu"{cluster_filter}{namespace_filter}{pod_filter}}}) * 100'
 
     # 默认内存使用率 PromQL (相对 Limit %)
     if memory_query is None:
-        memory_query = f'sum by (pod, namespace) (container_memory_working_set_bytes{{image!=""{namespace_filter}{pod_filter}}}) / on (pod, namespace) group_left sum by (pod, namespace) (kube_pod_container_resource_limits{{resource="memory"{namespace_filter}{pod_filter}}}) * 100'
+        memory_query = f'sum by (cluster_name, pod, namespace) (container_memory_working_set_bytes{{image!=""{cluster_filter}{namespace_filter}{pod_filter}}}) / on (cluster_name, pod, namespace) group_left sum by (cluster_name, pod, namespace) (kube_pod_container_resource_limits{{resource="memory"{cluster_filter}{namespace_filter}{pod_filter}}}) * 100'
 
     # ========== 5. 执行查询 ==========
     cpu_result = aom.get_aom_prom_metrics_http(region, aom_instance_id, cpu_query, hours=hours, ak=access_key, sk=secret_key, project_id=proj_id)

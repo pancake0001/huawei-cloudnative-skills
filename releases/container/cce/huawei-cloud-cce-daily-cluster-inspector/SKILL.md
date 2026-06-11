@@ -2,8 +2,8 @@
 id: huawei-cloud-cce-daily-cluster-inspector
 name: huawei-cloud-cce-daily-cluster-inspector
 description: |
-  Use when performing periodic, low-risk health checks on Huawei Cloud CCE clusters — daily inspection, quick health check, heartbeat summary, or continuous operations report.
-  This skill prioritizes quick checks first, escalating to deep diagnosis only when anomalies are found. Read-only only — no mutation actions.
+  Use when performing periodic CCE health checks on Huawei Cloud CCE clusters — daily inspection, quick health check, heartbeat summary, or continuous operations report.
+  This skill prioritizes quick checks first, escalating to deep diagnosis only when anomalies are found. Inspection and RCA evidence collection are read-only; after RCA, R3 read-only candidates may run directly, R2 low-risk candidates may run only with customer authorization, and R1/R0 candidates are returned as advice.
   Trigger: "cluster inspection", "集群巡检", "daily inspection", "日常巡检", "health check", "健康检查", "cluster heartbeat", "集群心跳", "quick check", "快检", "CCE inspection", "CCE 巡检"
 tags: [cce, inspection, health-check, daily]
 ---
@@ -12,14 +12,13 @@ tags: [cce, inspection, health-check, daily]
 
 ## Overview
 
-This skill performs periodic, low-risk CCE cluster health inspections. It follows a **quick-check-first** strategy: quick check only answers whether anomalies exist, and deep diagnosis only runs when anomalies are detected. This avoids running heavy diagnostic actions on every inspection cycle.
+This skill performs periodic CCE cluster health inspections. It follows a **quick-check-first** strategy: quick check only answers whether anomalies exist, and deep diagnosis only runs when anomalies are detected. This avoids running heavy diagnostic actions on every inspection cycle.
 
-This skill is **strictly read-only** — it never performs mutation actions. When risks are found, it packages the inspection evidence for `huawei-cloud-cce-root-cause-analyzer` first, then hands root-cause-backed remediation candidates to the appropriate remediation skill.
+The inspection and root-cause evidence collection phases are **read-only**. When risks are found, the skill packages only abnormal inspection findings for `huawei-cloud-cce-root-cause-analyzer`; healthy/normal check items are excluded from RCA handoff. After RCA returns `remediation_candidates`, execute only R3 read-only candidates directly and R2 low-risk candidates when the customer has explicitly authorized automatic recovery for the target scope; for R1/R0, output recommendations and wait for user approval outside this skill.
 
 **Architecture**: `python3 scripts/huawei-cloud.py` dispatcher → Huawei Cloud Python SDK + Kubernetes client → cluster status, Events, metrics, AOM alarms
 
 **Related Skills**:
-- `huawei-cloud-cce-auto-remediation-runner` — execute confirmed remediation actions (scale, drain, rollback, etc.)
 - `huawei-cloud-cce-root-cause-analyzer` — cross-domain root cause analysis
 - `huawei-cloud-cce-pod-failure-diagnoser` — deep Pod failure diagnosis
 - `huawei-cloud-cce-node-failure-diagnoser` — deep Node failure diagnosis
@@ -36,7 +35,7 @@ This skill is **strictly read-only** — it never performs mutation actions. Whe
 - First-pass triage before escalating to deep diagnosis
 
 **Do NOT use for**:
-- Executing remediation actions → use `huawei-cloud-cce-auto-remediation-runner`
+- Executing R1/R0 or destructive remediation actions without explicit user approval
 - Deep single-resource diagnosis → use domain-specific diagnoser skills
 - Capacity forecasting → use `huawei-cloud-cce-capacity-trend-forecaster`
 
@@ -79,42 +78,69 @@ export HUAWEI_REGION=cn-north-4
 digraph inspection_flow {
     rankdir=TB;
     start [shape=doublecircle label="Start Inspection"];
-    auto [shape=box label="Auto Inspection\nhuawei_cce_auto_inspection"];
-    quick [shape=box label="Internal Quick Gate\nalarms/events/Pod Node TopN"];
+    auto [shape=box label="huawei_cce_auto_inspection"];
+    quick [shape=box label="Quick Gate\nAOM alarms / Events / TopN"];
     healthy [shape=box label="Output Heartbeat\nSummary"];
     anomaly [shape=diamond label="Anomalies\nFound?"];
-    deep [shape=box label="Internal Deep Diagnosis\nEvidence Collection"];
-    classify [shape=box label="Build abnormal objects,\ntime windows,\nrelationships"];
-    rca [shape=box label="Root Cause Handoff\nroot-cause-analyzer"];
-    remediation [shape=box label="Recovery Advice or\nAuthorized Action"];
-    report [shape=box label="Output Summary or\nFormal Report"];
+    deep [shape=box label="Signal Merge + Related\nMonitoring Inspection"];
+    rca [shape=box label="huawei_root_cause_analyze\n(MANDATORY step)"];
+    remediation [shape=box label="Direct recovery\nR3 read-only\nR2 authorized\nR1/R0 advise"];
+    report [shape=box label="Output Complete\nInspection Report"];
 
     start -> auto;
     auto -> quick;
     quick -> anomaly;
     anomaly -> healthy [label="No"];
     anomaly -> deep [label="Yes"];
-    deep -> classify;
-    classify -> rca;
+    deep -> rca;
     rca -> remediation;
     remediation -> report;
 }
 ```
 
+**⚠️ Agent Execution Contract (Mandatory Chain)**
+
+巡检 Skill 与 Agent 之间有明确的执行契约。**发现异常后，以下两步是强制要求，不可跳过：**
+
+1. **Step 1 → 调用 `huawei_root_cause_analyze`**
+   - 使用 `huawei_cce_auto_inspection` 的输出字段 `root_cause_handoff` 作为输入
+   - `root_cause_handoff.evidence` 只包含异常项，不包含正常巡检项
+   - 目的：获得根因、置信度、证据链、影响面
+
+2. **Step 2 → 直接处理 RCA `remediation_candidates`**
+   - 读取 `huawei_root_cause_analyze` 输出的 `remediation_candidates`
+   - `risk_level` 为 `R3`：只读候选可直接调用候选中的 `action`，使用候选中的 `params`
+   - `risk_level` 为 `R2`：仅在客户已明确授权该集群/命名空间/工作负载/节点的自动恢复范围内执行
+   - `risk_level` 为 `R1` 或 `R0`：不执行，只输出恢复建议、影响面、验证方式和需要用户确认的参数
+
 **Step-by-step**:
 
 1. Collect region, cluster_id, inspection scope, and report expectations from user
-2. Run the combined automation `huawei_cce_auto_inspection` by default. This action internally runs quick check first and triggers deep diagnosis only when anomalies exist.
-3. If healthy → output brief heartbeat summary
-4. If anomalies found → `huawei_cce_auto_inspection` continues into deep diagnosis. The internal quick gate must only look at AOM alarms, Kubernetes abnormal Events, and Pod/Node monitoring TopN.
-5. In internal deep diagnosis, first analyze AOM alarms, abnormal Events, and Pod/Node monitoring TopN in detail, then summarize abnormal objects and symptoms across Pod, Node, Workload, Service, and Ingress.
-6. For each abnormal object, derive first/last abnormal timestamps from Events and metric windows, then enrich related objects: Pod->Node/Workload/Service, Service->Ingress/ELB/EIP, Ingress->Service, and Node->affected Pods.
-7. When peripheral resources are involved, correlate ELB/EIP/NAT status and metrics with the related Service/Ingress chain.
-8. After inspection completes with abnormal findings, package region, cluster_id, namespace, target objects, time window, symptoms, evidence, severity, impact scope, and data gaps for `huawei-cloud-cce-root-cause-analyzer`
-9. Use `huawei-cloud-cce-root-cause-analyzer` first to produce root cause, evidence chain, confidence, impact scope, and remediation hints
-10. Pass the root-cause-backed remediation hints to `huawei-cloud-cce-auto-remediation-runner` so it can generate recovery advice, preview actions, or execute only customer-authorized R1 actions
-11. Output the inspection summary, root-cause handoff status, and remediation-runner result when that downstream skill is invoked
-12. If formal report needed → call `huawei_export_inspection_report`
+2. Run `huawei_cce_auto_inspection` by default. This action internally runs quick check first and triggers deep diagnosis only when anomalies exist.
+3. If healthy → output brief heartbeat summary → **stop** (no further chain required)
+4. If anomalies found → `huawei_cce_auto_inspection` continues into deep inspection.
+5. The deep inspection phase merges alarms, Events, Pod/Node TopN, and CoreDNS signals; identifies abnormal objects and related Kubernetes objects; and collects read-only monitoring evidence for involved ELB, EIP, NAT, and ECS resources. It does not infer the final root cause or choose recovery actions. Normal check items remain in the inspection report but are not passed into RCA handoff evidence.
+6. After inspection completes with abnormal findings → **MUST call `huawei_root_cause_analyze`** (Step 1 of the mandatory chain)
+7. After root-cause analysis completes → process RCA `remediation_candidates` directly: execute R3 read-only candidates, execute R2 low-risk candidates only with customer authorization, and advise only for R1/R0 candidates
+8. Output the complete inspection report including: quick check result, deep inspection evidence, root cause analysis result, executed R3/R2-authorized recovery actions, and R1/R0 recovery advice
+9. If formal report needed → call `huawei_export_inspection_report`
+
+> **Note**: `huawei_cce_auto_inspection` does NOT automatically call downstream skills — it only packages the root-cause handoff data. The Agent is responsible for calling RCA first, then applying RCA-generated remediation candidates according to the risk policy below. Do not pass the inspector's placeholder `remediation_handoff` as an executable recovery plan.
+> RCA handoff note: pass only `root_cause_handoff`, whose `evidence` field has already filtered out healthy/normal inspection items.
+
+**RCA → Remediation Parameter Handoff**
+
+After `huawei_root_cause_analyze` returns, iterate over the RCA output field `remediation_candidates`:
+
+```bash
+for candidate in huawei_root_cause_analyze.remediation_candidates:
+  if candidate.risk_level == "R3" or (candidate.risk_level == "R2" and customer_authorized_for_target):
+    call candidate.action with candidate.params
+  else:
+    output candidate as advice and ask the user to confirm before any execution
+```
+
+Do not call `huawei_auto_remediation_run` from this daily-inspector chain. Also do not convert resource bottleneck cases into rollback-only parameters such as `strategy=rollback_previous_revision namespace=<ns> workload_name=<name>`. For `ApplicationPerformanceOrQuotaBottleneck`, execute the R2 candidates such as `huawei_scale_cce_workload` or `huawei_configure_cce_hpa` directly from RCA candidate params only when customer authorization covers the target scope.
 
 See `references/workflow.md` for the complete workflow reference.
 
@@ -129,27 +155,39 @@ All actions dispatched through `scripts/huawei-cloud.py` using `skill action=exe
 | `huawei_cce_auto_inspection` | region, cluster_id | Default workflow entry: quick check first, then deep diagnosis only when anomalies exist |
 | `huawei_cce_quick_check` | region, cluster_id | Manual lightweight anomaly-existence gate when the caller wants to split quick/deep explicitly |
 
+Inspection uses one unified time window for alarms and monitoring. Default is the past 6 hours. Override it with one of:
+- `inspection_period_minutes=10` for a 10-minute scheduled inspection cycle
+- `inspection_period_hours=2` for a 2-hour scheduled inspection cycle
+- `inspection_window_minutes` or `inspection_window_hours` when you want to name the query window directly
+- `thresholds='{"inspection_period_minutes":10}'` for JSON-based callers
+
 The internal quick gate, exposed as `huawei_cce_quick_check`, is intentionally narrow:
 - AOM Critical/Major firing alarms
 - Kubernetes Warning/Failed/BackOff/OOM abnormal Events
 - Pod CPU/Memory TopN threshold existence check
 - Node CPU/Memory/Disk TopN threshold existence check
+- CoreDNS CPU usage, Prometheus success rate > 99%, and P99 DNS latency < 100ms existence check
 
-It must not analyze ELB/EIP/NAT, application root cause, Pod lifecycle details, or Deployment replica mismatches. Those belong to deep diagnosis and root-cause analysis.
+It must not analyze ELB/EIP/NAT, application root cause, Pod lifecycle details, or Deployment replica mismatches.
 
-### Deep Diagnosis (Escalation)
+### Deep Inspection (Escalation)
 
 | Action | Required Parameters | Description |
 |--------|---------------------|-------------|
-| `huawei_cce_deep_diagnosis` | region, cluster_id | Manual escalation action: collect and organize RCA evidence after quick anomalies |
+| `huawei_cce_deep_diagnosis` | region, cluster_id | Manual escalation action: merge abnormal signals, identify abnormal objects, and collect related monitoring evidence after quick anomalies |
 
-The internal deep diagnosis path, exposed as `huawei_cce_deep_diagnosis`, collects and organizes read-only evidence:
-- Detailed AOM alarm, abnormal Event, and Pod/Node monitoring TopN analysis
-- Abnormal object analysis across Pod, Node, Workload, Service, Ingress, and Cluster scope
-- First/last abnormal timestamps per object, derived from Events and metric time windows
-- Object relationship chains: Pod->Node/Workload/Service, Service->Ingress/ELB/EIP, Ingress->Service, Node->affected Pods
-- Peripheral ELB/EIP/NAT status and metrics when related Service/Ingress resources are involved
-- A root-cause handoff package for `huawei-cloud-cce-root-cause-analyzer`
+The internal escalation path, exposed as `huawei_cce_deep_diagnosis`, performs read-only inspection evidence collection:
+- Merge AOM alarm signals into compact alarm groups
+- Merge Kubernetes abnormal Events by involved object, reason, and time window
+- Extract Pod CPU/Memory and Node CPU/Memory/Disk abnormal monitoring windows
+- Preserve CoreDNS CPU, success rate, latency, anomalies, and monitoring data gaps
+- Build abnormal object evidence for Pod, Node, Workload, Service, Ingress, and Cluster objects
+- Map related Service/Ingress/ELB/EIP and node/ECS relationships when the object evidence points to them
+- Collect related ELB, EIP, NAT, and ECS monitoring/status evidence when involved
+- Produce a root-cause handoff package for `huawei-cloud-cce-root-cause-analyzer`
+- Exclude healthy/normal check results from the RCA handoff package; keep them only in the inspection report
+
+It must not conclude the final root cause or select remediation actions.
 
 ### Supplemental Inspection Tools
 
@@ -193,18 +231,19 @@ See `references/output-schema.md` for the complete JSON response structure.
 - `status` — `HEALTHY`, `WARNING`, or `CRITICAL`
 - `cluster.region` / `cluster.cluster_id` — cluster identification
 - `checks` — list of check results
-- `risks` — classified risk items (P0/P1/P2)
+- `risks` — inspection severity and owner hints; recovery risk comes from RCA `remediation_candidates[].risk_level`
 - `recommended_followups` — root-cause analysis and recovery handoff recommendations
 - `report_file` — optional exported report path
 
 ## Risk Constraints
 
-This skill operates under strict read-only inspection constraints:
+This skill operates under strict inspection and controlled-recovery constraints:
 
-- Only read-only actions allowed — no scaling, deletion, drain, reboot, hibernate, or awake
+- Inspection and root-cause evidence collection are read-only
+- After RCA, only R3 read-only `remediation_candidates` may be executed directly; R2 low-risk candidates require customer authorization for the target scope
+- R1/R0 candidates must be output as user-facing advice only, unless the user separately confirms execution
 - Inspection reports must never contain AK/SK, tokens, certificates, or full kubeconfig
 - Anomalies must be analyzed by `huawei-cloud-cce-root-cause-analyzer` before remediation is selected
-- Recovery advice and any customer-authorized recovery action must be handled by `huawei-cloud-cce-auto-remediation-runner`
 - See `references/risk-rules.md` for full risk boundary details
 
 ## Verification
@@ -218,8 +257,8 @@ This skill operates under strict read-only inspection constraints:
 
 1. **Use auto inspection by default** — start with `huawei_cce_auto_inspection`; use `huawei_cce_quick_check` and `huawei_cce_deep_diagnosis` only when the caller wants manual step-by-step control
 2. **Classify risks** — label each anomaly as P0 (critical), P1 (warning), or P2 (low) with recommended owner
-3. **Analyze root cause before remediation** — after abnormal inspection, use `huawei-cloud-cce-root-cause-analyzer` before selecting recovery advice
-4. **Hand off recovery** — never attempt mutation actions directly; use `huawei-cloud-cce-auto-remediation-runner` for recovery advice, preview, or customer-authorized execution
+3. **✅ ALWAYS chain to root-cause-analyzer when anomalies found** — after `huawei_cce_auto_inspection` returns anomalies, the mandatory next step is `huawei_root_cause_analyze`. Do not stop at the inspection summary.
+4. **✅ ALWAYS process RCA recovery candidates after RCA** — after `huawei_root_cause_analyze` completes, process `remediation_candidates` directly by `risk_level`: execute R3 read-only actions, execute R2 low-risk actions only with customer authorization, and output R1/R0 candidates as advice only. Never select recovery from inspection evidence alone.
 5. **Scope appropriately** — provide `namespace` to reduce noise when targeting specific workloads
 6. **Aggregate supplemental parallel results** — when manually using `huawei_cce_cluster_inspection_parallel`, call `huawei_aggregate_inspection_results` to consolidate
 7. **Use formal reports for operations reviews** — call `huawei_export_inspection_report` when a persistent report is needed
@@ -229,7 +268,8 @@ This skill operates under strict read-only inspection constraints:
 | Pitfall | Symptom | Quick Fix |
 |---------|---------|-----------|
 | Running deep diagnosis every cycle | Slow inspection, wasted resources | Start with quick check; escalate only on anomaly |
-| Attempting remediation directly | Skill scope violation | Run `huawei-cloud-cce-root-cause-analyzer` first, then hand recovery to `huawei-cloud-cce-auto-remediation-runner` |
+| Skipping the mandatory downstream chain | Inspection reports only "发现异常" but no root cause or remediation | After finding anomalies, **always** call `huawei_root_cause_analyze`, then process RCA `remediation_candidates` by risk level — do not stop at the inspection summary |
+| Attempting recovery before RCA | Recovery chosen from inspection evidence only | Run `huawei-cloud-cce-root-cause-analyzer` first, then execute only R3 candidates and authorized R2 candidates; advise on R1/R0 candidates |
 | Missing cluster_id | Action fails immediately | Provide `cluster_id` from `huawei_get_cce_clusters` |
 | No AOM Prom instance | Metrics return empty | Verify AOM instance exists; check `aom:instance:list` permission |
 | Not aggregating parallel results | Incomplete or fragmented report | Call `huawei_aggregate_inspection_results` after parallel inspection |
@@ -248,5 +288,5 @@ This skill operates under strict read-only inspection constraints:
 1. This skill is **read-only** — it inspects and reports, never mutates cluster state
 2. AK/SK must never be hardcoded — use environment variables only
 3. All actions dispatched through `scripts/huawei-cloud.py` via `skill action=exec`; do not run scripts directly in shell
-4. When inspection finds anomalies, first hand evidence to `huawei-cloud-cce-root-cause-analyzer`, then hand root-cause-backed recovery hints to `huawei-cloud-cce-auto-remediation-runner`
+4. When inspection finds anomalies, first hand evidence to `huawei-cloud-cce-root-cause-analyzer`, then process root-cause-backed `remediation_candidates` directly: execute R3, execute authorized R2, and advise on R1/R0
 5. For deep single-resource diagnosis, delegate to domain-specific diagnoser skills (`huawei-cloud-cce-pod-failure-diagnoser`, `huawei-cloud-cce-node-failure-diagnoser`, etc.)

@@ -1,5 +1,35 @@
 # Output Schema
 
+## Candidate Preview From RCA Handoff
+
+When `huawei_auto_remediation_run` receives RCA `remediation_candidates`, it returns a candidate preview and does not execute state-changing actions automatically.
+
+```json
+{
+  "success": false,
+  "requires_confirmation": true,
+  "remediation_trace_id": "ARR-...",
+  "strategy": "optional",
+  "mode": "candidate_preview",
+  "candidates": [
+    {
+      "strategy": "scale_workload_out",
+      "action": "huawei_scale_cce_workload",
+      "risk_level": "R2",
+      "target": {},
+      "params": {},
+      "reason": "",
+      "verification": [],
+      "requires_confirmation": true
+    }
+  ],
+  "executable_now": [],
+  "blocked_until_confirmation": [],
+  "summary": "Generated preview from root-cause remediation candidates; no state-changing action was executed.",
+  "report_markdown": "# CCE Auto Remediation Candidate Preview..."
+}
+```
+
 ## Remediation Preview (confirm=false)
 
 ```json
@@ -66,7 +96,7 @@
   "success": false,
   "requires_confirmation": true,
   "remediation_trace_id": "ARR-...",
-  "strategy": "rollback_previous_revision | scale_out | drain_and_replace | ...",
+  "strategy": "rollback_previous_revision | scale_workload_out | configure_hpa | resize_workload | fix_image_or_pull_secret_preview | cordon_node | drain_node_after_cordon | node_cordon_drain_or_scale_nodepool_preview | ...",
   "diagnosis": {},
   "action_result": {},
   "verification": {},

@@ -27,11 +27,10 @@
         "data_gaps": []
       },
       "remediation_handoff": {
-        "skill": "huawei-cloud-cce-auto-remediation-runner",
         "requires_root_cause": true,
-        "mode": "advice | preview | authorized_execution",
-        "authorization_required": true,
-        "remediation_hints": []
+        "input_source": "root-cause-analyzer.remediation_candidates",
+        "policy": "execute R3 read-only candidates directly; execute R2 low-risk candidates only with customer authorization; advise only for R1/R0 candidates",
+        "do_not_call": "huawei-cloud-cce-auto-remediation-runner"
       }
     }
   ],
@@ -50,7 +49,7 @@
   "has_anomaly": true,
   "anomaly_details": [
     {
-      "type": "aom_alarm | k8s_event_anomaly | pod_metric_topn_anomaly | node_metric_topn_anomaly",
+      "type": "aom_alarm | k8s_event_anomaly | pod_metric_topn_anomaly | node_metric_topn_anomaly | coredns_metric_anomaly",
       "message": "short symptom summary"
     }
   ],
@@ -59,7 +58,16 @@
     "alarms": {},
     "events": {},
     "pod_metrics_topn": {},
-    "node_metrics_topn": {}
+    "node_metrics_topn": {},
+    "coredns": {
+      "metrics": {
+        "cpu_usage_percent": {},
+        "success_rate_percent": {},
+        "p99_latency_ms": {}
+      },
+      "anomalies": [],
+      "data_gaps": []
+    }
   }
 }
 ```
@@ -68,41 +76,72 @@ Quick check must not include ELB/EIP/NAT diagnosis, application root cause, Depl
 
 ## Deep Diagnosis Response
 
-`huawei_cce_deep_diagnosis` collects root-cause evidence but does not decide final root cause:
+`huawei_cce_deep_diagnosis` merges abnormal signals and collects read-only monitoring evidence for related resources. It does not conclude root cause or choose recovery strategy:
 
 ```json
 {
   "success": true,
   "quick_check_anomalies": [],
   "diagnosis": {
-    "alarm_analysis": {},
-    "alarm_correlation": {
-      "merged_alarm_groups": []
+    "mode": "abnormal_signal_merge_and_monitoring_inspection",
+    "inspection_boundary": "merge abnormal signals and collect read-only monitoring evidence; no root cause conclusion",
+    "alarms": {},
+    "alarm_merge": {
+      "merged_alarm_groups": [],
+      "quick_alarm_names": []
     },
     "pod_metrics_topn": {},
     "node_metrics_topn": {},
+    "coredns": {
+      "metrics": {
+        "cpu_usage_percent": {},
+        "success_rate_percent": {},
+        "p99_latency_ms": {}
+      },
+      "anomalies": [],
+      "data_gaps": []
+    },
     "monitoring_windows": {
-      "abnormal_windows": []
+      "abnormal_windows": [],
+      "count": 0
     },
     "events": {},
-    "event_analysis": {
-      "groups": []
+    "abnormal_events": [],
+    "event_merge": {
+      "groups": [],
+      "total_abnormal_events": 0
     },
-    "application_evidence": {
-      "affected_objects": [],
-      "pod_state_summary": {},
-      "deployment_replica_mismatches": []
+    "pods": {},
+    "deployments": {},
+    "nodes": {},
+    "services": {},
+    "ingresses": {},
+    "peripheral_monitoring": {
+      "checked": true,
+      "associated_elb_ids": [],
+      "elb": {},
+      "eip": {},
+      "nat": {},
+      "ecs": {
+        "checked": true,
+        "target_node_names": [],
+        "target_node_ips": [],
+        "matched_instances": [],
+        "metrics": {},
+        "data_gaps": []
+      },
+      "data_gaps": []
     },
     "abnormal_object_analysis": {
       "abnormal_objects": [
         {
           "key": "Pod:default:example-pod",
-          "kind": "Pod | Node | Deployment | Service | Ingress | Cluster",
+          "kind": "Pod | Node | Deployment | Service | Ingress | Cluster | Unknown",
           "namespace": "default",
           "name": "example-pod",
           "symptoms": [
             {
-              "source": "aom_alarm | kubernetes_event | monitoring_topn | quick_metric_topn",
+              "source": "aom_alarm | kubernetes_event | pod_metric_topn | node_metric_topn | quick_metric_topn",
               "symptom": "short abnormal expression",
               "first_seen": "optional first abnormal timestamp",
               "last_seen": "optional last abnormal timestamp",
@@ -117,11 +156,11 @@ Quick check must not include ELB/EIP/NAT diagnosis, application root cause, Depl
             "services": [],
             "ingresses": [],
             "elb_ids": [],
-            "eip_addresses": [],
-            "affected_pods": []
+            "eip_addresses": []
           }
         }
       ],
+      "object_count": 0,
       "timeline": {
         "first_seen": "global first abnormal timestamp",
         "last_seen": "global last abnormal timestamp",
@@ -131,31 +170,43 @@ Quick check must not include ELB/EIP/NAT diagnosis, application root cause, Depl
         "service_count": 0,
         "ingress_count": 0,
         "associated_elb_ids": [],
+        "associated_ecs_ids": [],
         "peripheral_checked": true
       },
-      "data_gaps": []
+      "data_gaps": [],
+      "note": "inspection evidence only; downstream root-cause-analyzer owns root cause conclusion"
     },
-    "peripheral_resources": {
-      "checked": true,
-      "associated_elb_ids": [],
-      "elb": {},
-      "eip": {},
-      "nat": {},
-      "data_gaps": []
+    "abnormal_object_discovery": {
+      "mode": "discovery_only",
+      "abnormal_objects": [],
+      "abnormal_events": [],
+      "object_count": 0,
+      "event_count": 0
     }
   },
   "root_cause_handoff": {
     "skill": "huawei-cloud-cce-root-cause-analyzer",
     "required": true,
     "symptoms": [],
-    "evidence": {},
+    "evidence": {
+      "handoff_policy": "Only abnormal inspection findings are included. Healthy/normal check items are excluded.",
+      "quick_check_anomalies": [],
+      "abnormal_object_analysis": {},
+      "alarm_merge": {},
+      "event_merge": {},
+      "monitoring_windows": {},
+      "coredns": {},
+      "peripheral_monitoring": {},
+      "data_gaps": []
+    },
     "analysis_focus": [],
     "data_gaps": []
   },
   "remediation_handoff": {
-    "skill": "huawei-cloud-cce-auto-remediation-runner",
     "requires_root_cause": true,
-    "mode": "advice | preview | authorized_execution"
+    "input_source": "root-cause-analyzer.remediation_candidates",
+    "policy": "execute R3 read-only candidates directly; execute R2 low-risk candidates only with customer authorization; advise only for R1/R0 candidates",
+    "do_not_call": "huawei-cloud-cce-auto-remediation-runner"
   }
 }
 ```

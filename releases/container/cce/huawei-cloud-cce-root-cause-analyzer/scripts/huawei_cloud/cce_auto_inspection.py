@@ -4,8 +4,8 @@
 CCE 集群自动巡检模块 —— 快检 + 诊断分离架构
 
 设计理念：
-  快检（Quick Check）: 3 个 API 串行，<30s，判断是否有异常
-  诊断（Deep Diagnosis）: 异常时才执行，6+ 个 API 串行/并行，生成完整诊断报告
+  快检（Quick Check）: 只看告警、事件、Pod/Node 监控 TopN、CoreDNS 关键指标，判断是否存在异常
+  深度巡检（Deep Inspection）: 异常时才执行，归并异常信号并采集关联资源监控证据
 
 使用方式：
   # 快检（用于 cron 高频调用）
@@ -22,12 +22,11 @@ cron 配置建议：
   - 发现异常时由 agent 自行 spawn 诊断子任务，不占巡检超时
 
 异常判断阈值（可配置）：
-  - CPU 告警 > 80%（不管是否恢复）
-  - 业务 Pod CPU 平均 > 60%
-  - ELB 最近 5min QPS > 1500
-  - ELB 最近 5min P99 时延 > 100ms
-  - 可用副本 ≠ 期望副本
-  - Pod CrashLoopBackOff / OOMKilled
+  - AOM firing Critical/Major 告警
+  - Kubernetes Warning/Failed/BackOff/OOM/Event 异常事件
+  - Pod CPU/Memory TopN 超阈值
+  - Node CPU/Memory/Disk TopN 超阈值
+  - CoreDNS CPU 使用率、解析成功率、P99 解析时延
 """
 
 from __future__ import annotations
@@ -38,14 +37,26 @@ from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, List, Optional
 
 from .common import get_credentials_with_region
-from .aom import list_aom_alarms, get_aom_prom_metrics_http, list_aom_instances
+from . import aom
+from .aom import list_aom_alarms, list_aom_instances
 from .cce import (
     get_kubernetes_deployments,
+    get_kubernetes_events,
+    get_kubernetes_ingresses,
+    get_kubernetes_nodes,
     get_kubernetes_pods,
+    get_kubernetes_services,
     list_cce_clusters,
 )
-from .cce_metrics import get_cce_pod_metrics_topN
-from .elb import get_elb_metrics
+from .cce_metrics import get_cce_node_metrics_topN, get_cce_pod_metrics_topN
+from .ecs import get_ecs_metrics, list_ecs_instances
+from .elb import get_elb_backend_status, get_elb_metrics
+from .network import (
+    get_eip_metrics,
+    get_nat_gateway_metrics,
+    list_eip_addresses,
+    list_nat_gateways,
+)
 from .cce_inspection import (
     aom_alarm_inspection,
     node_status_inspection,
@@ -55,25 +66,64 @@ from .cce_inspection import (
     addon_pod_monitoring_inspection,
     biz_pod_monitoring_inspection,
 )
-from .cce_diagnosis import workload_diagnose, network_diagnose
+from .cce_diagnosis import get_aom_instance, workload_diagnose, network_diagnose
 from .report_generator import generate_detailed_html_report
 
 
 # ========== 默认阈值配置 ==========
 
 DEFAULT_THRESHOLDS = {
-    "cpu_alarm_percent": 80,           # CPU 告警阈值
-    "pod_cpu_avg_percent": 60,         # 业务 Pod CPU 平均值阈值
-    "elb_qps": 1500,                   # ELB QPS 阈值
-    "elb_p99_ms": 100,                 # ELB P99 时延阈值 (ms)
-    "elb_recent_minutes": 5,           # ELB 只看最近 N 分钟数据
-    "alarm_hours": 0.5,                # 告警查询时间窗口 (小时)
-    "replica_mismatch": True,          # 是否检查副本数不匹配
-    "pod_crashloop": True,             # 是否检查 CrashLoopBackOff
+    "inspection_window_hours": 6,      # 默认统一巡检时间窗 (小时)
+    "alarm_hours": 6,                  # 告警查询时间窗口 (小时)
+    "event_limit": 200,                # 快检事件采样条数
+    "pod_metric_hours": 6,             # 快检 Pod TopN 监控窗口
+    "node_metric_hours": 6,            # 快检 Node TopN 监控窗口
+    "pod_cpu_avg_percent": 60,         # Pod CPU TopN 异常阈值
+    "pod_memory_avg_percent": 80,      # Pod Memory TopN 异常阈值
+    "node_cpu_percent": 80,            # Node CPU TopN 异常阈值
+    "node_memory_percent": 80,         # Node Memory TopN 异常阈值
+    "node_disk_percent": 85,           # Node Disk TopN 异常阈值
+    "coredns_cpu_percent": 80,         # CoreDNS CPU 使用率阈值
+    "coredns_success_rate_percent": 99, # CoreDNS 解析成功率阈值
+    "coredns_latency_ms": 100,         # CoreDNS P99 解析时延阈值
+    "deep_event_limit": 500,           # 深诊事件采样条数
+    "deep_metric_hours": 6,            # 深诊监控窗口
+    "peripheral_metric_hours": 6,      # 周边资源监控窗口
 }
 
 
-# ========== 快检：3 个 API，< 30s ==========
+def _to_positive_float(value: Any) -> Optional[float]:
+    try:
+        parsed = float(value)
+        return parsed if parsed > 0 else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _normalize_inspection_window(cfg: Dict[str, Any]) -> Dict[str, Any]:
+    """Use one time window for alarms and all monitoring queries."""
+    period_minutes = _to_positive_float(cfg.get("inspection_period_minutes"))
+    period_hours = _to_positive_float(cfg.get("inspection_period_hours"))
+    window_minutes = _to_positive_float(cfg.get("inspection_window_minutes"))
+    window_hours = None
+    if period_minutes is not None:
+        window_hours = period_minutes / 60
+    elif period_hours is not None:
+        window_hours = period_hours
+    elif window_minutes is not None:
+        window_hours = window_minutes / 60
+    else:
+        window_hours = _to_positive_float(cfg.get("inspection_window_hours"))
+    if window_hours is None:
+        window_hours = 6
+
+    cfg["inspection_window_hours"] = window_hours
+    for key in ("alarm_hours", "pod_metric_hours", "node_metric_hours", "deep_metric_hours", "peripheral_metric_hours"):
+        cfg[key] = window_hours
+    return cfg
+
+
+# ========== 快检：告警 + 事件 + Pod/Node TopN，< 30s ==========
 
 def cce_quick_check(
     region: str,
@@ -87,10 +137,14 @@ def cce_quick_check(
 ) -> Dict[str, Any]:
     """CCE 集群快速巡检（<30s）
 
-    只做 3 件事：
-    1. 查 AOM 告警（active+history，近 30 分钟）
-    2. 查 Pod CPU TopN
-    3. 查 ELB 监控（最近 5 分钟）
+    只做轻量异常存在性判断：
+    1. AOM 告警是否存在 Critical/Major firing
+    2. Kubernetes Warning/Failed/BackOff/OOM 等异常事件是否存在
+    3. Pod CPU/Memory TopN 是否超阈值
+    4. Node CPU/Memory/Disk TopN 是否超阈值
+
+    quick 不做应用归因、ELB/EIP/NAT 关联、Pod 状态遍历或副本数分析。
+    quick 只判断异常是否存在；deep 负责归并异常信号并采集关联资源监控证据。
 
     Args:
         region: 华为云区域
@@ -99,7 +153,7 @@ def cce_quick_check(
         sk: Secret Access Key
         project_id: Project ID
         thresholds: 自定义阈值（覆盖 DEFAULT_THRESHOLDS）
-        elb_ids: 需要检查的 ELB ID 列表（默认自动发现）
+        elb_ids: 保留兼容参数，quick 阶段不使用
         business_labels: 业务 Pod 标签列表，如 ["app=nginx", "app=api"]
 
     Returns:
@@ -111,8 +165,9 @@ def cce_quick_check(
             "duration_seconds": 12.3,
             "metrics": {
                 "alarms": {...},
-                "cpu_topn": {...},
-                "elb_metrics": {...},
+                "events": {...},
+                "pod_metrics_topn": {...},
+                "node_metrics_topn": {...},
             }
         }
     """
@@ -122,6 +177,7 @@ def cce_quick_check(
     cfg = {**DEFAULT_THRESHOLDS}
     if thresholds:
         cfg.update(thresholds)
+    cfg = _normalize_inspection_window(cfg)
 
     result = {
         "success": True,
@@ -162,210 +218,146 @@ def cce_quick_check(
         alarm_data = alarm_result if alarm_result.get("success") else {"error": alarm_result.get("error", "Unknown")}
         result["metrics"]["alarms"] = alarm_data
 
-        # 检查是否有 CPU/内存/磁盘类告警
         if alarm_result.get("success"):
-            resource_keywords = ["CPU", "cpu", "Memory", "memory", "内存", "磁盘", "Disk", "OOM", "oom",
-                                 "Pressure", "pressure", "压力", "CrashLoopBackOff"]
             for alarm in alarm_result.get("events", []):
                 alarm_text = alarm.get("event_name", "") + " " + alarm.get("message", "")
                 severity = alarm.get("event_severity", "Info")
+                status = str(alarm.get("status", "")).lower()
 
-                # 资源类告警检查
-                if any(kw in alarm_text for kw in resource_keywords):
-                    if severity in ("Critical", "Major"):
-                        result["has_anomaly"] = True
-                        result["anomaly_details"].append({
-                            "type": "resource_alarm",
-                            "severity": severity,
-                            "name": alarm.get("event_name"),
-                            "status": alarm.get("status"),
-                            "message": alarm.get("message", "")[:200],
-                        })
-
-                # 严重告警不管类型都标记
-                if severity == "Critical" and alarm.get("status") == "firing":
+                if severity in ("Critical", "Major") and status == "firing":
                     result["has_anomaly"] = True
                     result["anomaly_details"].append({
-                        "type": "critical_alarm",
+                        "type": "aom_alarm",
                         "severity": severity,
                         "name": alarm.get("event_name"),
-                        "status": "firing",
+                        "status": alarm.get("status"),
                         "message": alarm.get("message", "")[:200],
+                        "raw_text": alarm_text[:300],
                     })
 
             if not result["anomaly_details"]:
                 result["normal_details"].append(
                     f"AOM 告警正常：{alarm_result.get('firing_count', 0)} firing, "
-                    f"{alarm_result.get('resolved_count', 0)} resolved，无资源类严重告警"
+                    f"{alarm_result.get('resolved_count', 0)} resolved，无 Critical/Major firing"
                 )
     except Exception as e:
         result["metrics"]["alarms"] = {"error": str(e)}
 
-    # ---- Step 2: Pod CPU TopN ----
-    cpu_data = {}
+    # ---- Step 2: Kubernetes 异常事件采样 ----
     try:
-        cpu_result = get_cce_pod_metrics_topN(
+        events_result = get_kubernetes_events(
             region=region,
             cluster_id=cluster_id,
             ak=access_key,
             sk=secret_key,
             project_id=proj_id,
-            metric_type="cpu",
-            top_n=10,
-            hours=0.25,  # 只看最近 15 分钟，加快查询
+            limit=cfg["event_limit"],
         )
-        cpu_data = cpu_result if cpu_result.get("success") else {"error": cpu_result.get("error", "Unknown")}
-        result["metrics"]["cpu_topn"] = cpu_data
-
-        # 检查业务 Pod CPU 是否超阈值
-        if cpu_result.get("success"):
-            high_cpu_pods = []
-            for pod in cpu_result.get("pods", [])[:10]:
-                pod_name = pod.get("name", "")
-                values = pod.get("metric", {}).get("values", [])
-                if values:
-                    latest_cpu = float(values[-1][1])
-                    if latest_cpu > cfg["pod_cpu_avg_percent"]:
-                        high_cpu_pods.append({"name": pod_name, "cpu_percent": latest_cpu})
-
-            if high_cpu_pods:
+        result["metrics"]["events"] = events_result if events_result.get("success") else {
+            "error": events_result.get("error", "Unknown")
+        }
+        if events_result.get("success"):
+            event_anomalies = _detect_event_anomalies(events_result.get("events", []))
+            if event_anomalies:
                 result["has_anomaly"] = True
                 result["anomaly_details"].append({
-                    "type": "high_pod_cpu",
-                    "threshold": cfg["pod_cpu_avg_percent"],
-                    "pods": high_cpu_pods,
-                    "message": f"{len(high_cpu_pods)} 个 Pod CPU > {cfg['pod_cpu_avg_percent']}%: "
-                               + ", ".join(f"{p['name']}({p['cpu_percent']:.1f}%)" for p in high_cpu_pods[:5]),
+                    "type": "k8s_event_anomaly",
+                    "events": event_anomalies[:20],
+                    "message": f"发现 {len(event_anomalies)} 条异常 Kubernetes Event",
                 })
             else:
-                result["normal_details"].append(f"Pod CPU 正常：Top 10 均 < {cfg['pod_cpu_avg_percent']}%")
+                result["normal_details"].append(f"Kubernetes Event 正常：最近 {events_result.get('count', 0)} 条无异常事件")
     except Exception as e:
-        result["metrics"]["cpu_topn"] = {"error": str(e)}
+        result["metrics"]["events"] = {"error": str(e)}
 
-    # ---- Step 3: ELB 监控（自动发现或指定 ID） ----
-    elb_data = {}
-    elb_anomalies = []
-
-    # 如果未指定 ELB ID，从 Service 列表自动发现
-    if not elb_ids:
-        try:
-            from .cce import get_kubernetes_services
-            svc_result = get_kubernetes_services(region, cluster_id, access_key, secret_key, proj_id)
-            if svc_result.get("success"):
-                elb_ids = []
-                for svc in svc_result.get("services", []):
-                    if svc.get("type") == "LoadBalancer":
-                        elb_id = svc.get("annotations", {}).get("kubernetes.io/elb.id", "")
-                        if elb_id and elb_id not in elb_ids:
-                            elb_ids.append(elb_id)
-        except Exception:
-            elb_ids = []
-
-    if elb_ids:
-        for eid in elb_ids:
-            try:
-                elb_result = get_elb_metrics(region, eid, access_key, secret_key, proj_id)
-                elb_data[eid] = elb_result if elb_result.get("success") else {"error": elb_result.get("error", "Unknown")}
-
-                # 只看最近 N 分钟数据判断异常
-                if elb_result.get("success"):
-                    metrics = elb_result.get("metrics", {})
-                    recent_min = cfg["elb_recent_minutes"]
-
-                    # 检查新建连接数 (NCPS)
-                    ncps_data = metrics.get("m4_ncps", {})
-                    if isinstance(ncps_data, dict) and "time_series" in ncps_data:
-                        recent_ncps = _get_recent_values(ncps_data["time_series"], recent_min)
-                        if recent_ncps and max(recent_ncps) > cfg["elb_qps"]:
-                            peak_ncps = max(recent_ncps)
-                            elb_anomalies.append({
-                                "type": "elb_high_qps",
-                                "elb_id": eid,
-                                "value": peak_ncps,
-                                "threshold": cfg["elb_qps"],
-                                "message": f"ELB {eid} 最近 {recent_min}min NCPS: {peak_ncps:.0f}/s > {cfg['elb_qps']}",
-                            })
-
-                    # 检查并发连接数
-                    cps_data = metrics.get("m1_cps", {})
-                    if isinstance(cps_data, dict) and "time_series" in cps_data:
-                        recent_cps = _get_recent_values(cps_data["time_series"], recent_min)
-                        if recent_cps and max(recent_cps) > 10000:
-                            peak_cps = max(recent_cps)
-                            elb_anomalies.append({
-                                "type": "elb_high_connections",
-                                "elb_id": eid,
-                                "value": peak_cps,
-                                "message": f"ELB {eid} 并发连接数: {peak_cps:.0f}",
-                            })
-
-                    # 检查带宽使用率
-                    for bw_key, bw_name in [("m22_in_bandwidth", "入带宽"), ("m23_out_bandwidth", "出带宽")]:
-                        bw_data = metrics.get(bw_key, {})
-                        if isinstance(bw_data, dict) and "latest_value" in bw_data:
-                            if bw_data["latest_value"] and bw_data["latest_value"] > 100_000_000:  # > 100Mbps
-                                elb_anomalies.append({
-                                    "type": "elb_high_bandwidth",
-                                    "elb_id": eid,
-                                    "direction": bw_name,
-                                    "value_bps": bw_data["latest_value"],
-                                    "message": f"ELB {eid} {bw_name}: {bw_data['latest_value']/1_000_000:.1f} Mbps",
-                                })
-
-            except Exception as e:
-                elb_data[eid] = {"error": str(e)}
-
-    result["metrics"]["elb_metrics"] = elb_data
-
-    if elb_anomalies:
-        result["has_anomaly"] = True
-        result["anomaly_details"].extend(elb_anomalies)
-    elif elb_ids:
-        result["normal_details"].append(f"ELB 正常：{len(elb_ids)} 个 ELB 最近 {cfg['elb_recent_minutes']}分钟内无异常")
-    else:
-        result["normal_details"].append("ELB：未发现 LoadBalancer Service")
-
-    # ---- 附加检查：副本数不匹配 / CrashLoop ----
+    # ---- Step 3: Pod CPU/Memory TopN ----
     try:
-        pods_result = get_kubernetes_pods(region, cluster_id, access_key, secret_key, proj_id)
-        if pods_result.get("success"):
-            pods = pods_result.get("pods", [])
-            crashloop_pods = []
-            for p in pods:
-                if p.get("state_reason") == "CrashLoopBackOff":
-                    crashloop_pods.append(p.get("name"))
-            if crashloop_pods and cfg.get("pod_crashloop"):
+        pod_topn = get_cce_pod_metrics_topN(
+            region=region,
+            cluster_id=cluster_id,
+            ak=access_key,
+            sk=secret_key,
+            project_id=proj_id,
+            top_n=10,
+            hours=cfg["pod_metric_hours"],
+        )
+        result["metrics"]["pod_metrics_topn"] = pod_topn if pod_topn.get("success") else {
+            "error": pod_topn.get("error", "Unknown")
+        }
+        if pod_topn.get("success"):
+            pod_metric_anomalies = _detect_pod_topn_anomalies(pod_topn, cfg)
+            if pod_metric_anomalies:
                 result["has_anomaly"] = True
                 result["anomaly_details"].append({
-                    "type": "pod_crashloop",
-                    "pods": crashloop_pods[:10],
-                    "message": f"{len(crashloop_pods)} 个 Pod CrashLoopBackOff: "
-                               + ", ".join(crashloop_pods[:5]),
+                    "type": "pod_metric_topn_anomaly",
+                    "metrics": pod_metric_anomalies[:20],
+                    "message": f"发现 {len(pod_metric_anomalies)} 个 Pod TopN 监控异常",
                 })
-    except Exception:
-        pass
+            else:
+                result["normal_details"].append("Pod 监控 TopN 正常：CPU/Memory 未超过阈值")
+    except Exception as e:
+        result["metrics"]["pod_metrics_topn"] = {"error": str(e)}
 
-    # ---- 副本数检查 ----
-    if cfg.get("replica_mismatch"):
-        try:
-            deploys_result = get_kubernetes_deployments(region, cluster_id, access_key, secret_key, proj_id)
-            if deploys_result.get("success"):
-                mismatched = []
-                for dep in deploys_result.get("deployments", []):
-                    ready = dep.get("ready_replicas", 0)
-                    desired = dep.get("replicas", 0)
-                    if ready != desired and desired > 0:
-                        mismatched.append({"name": dep.get("name"), "ready": ready, "desired": desired})
-                if mismatched:
-                    result["has_anomaly"] = True
-                    result["anomaly_details"].append({
-                        "type": "replica_mismatch",
-                        "deployments": mismatched,
-                        "message": f"{len(mismatched)} 个 Deployment 副本不匹配: "
-                                   + ", ".join(f"{d['name']}({d['ready']}/{d['desired']})" for d in mismatched[:5]),
-                    })
-        except Exception:
-            pass
+    # ---- Step 4: Node CPU/Memory/Disk TopN ----
+    try:
+        node_topn = get_cce_node_metrics_topN(
+            region=region,
+            cluster_id=cluster_id,
+            ak=access_key,
+            sk=secret_key,
+            project_id=proj_id,
+            top_n=10,
+            hours=cfg["node_metric_hours"],
+        )
+        result["metrics"]["node_metrics_topn"] = node_topn if node_topn.get("success") else {
+            "error": node_topn.get("error", "Unknown")
+        }
+        if node_topn.get("success"):
+            node_metric_anomalies = _detect_node_topn_anomalies(node_topn, cfg)
+            if node_metric_anomalies:
+                result["has_anomaly"] = True
+                result["anomaly_details"].append({
+                    "type": "node_metric_topn_anomaly",
+                    "metrics": node_metric_anomalies[:20],
+                    "message": f"发现 {len(node_metric_anomalies)} 个 Node TopN 监控异常",
+                })
+            else:
+                result["normal_details"].append("Node 监控 TopN 正常：CPU/Memory/Disk 未超过阈值")
+    except Exception as e:
+        result["metrics"]["node_metrics_topn"] = {"error": str(e)}
+
+    # ---- Step 5: CoreDNS CPU / success rate / latency ----
+    try:
+        coredns_result = _inspect_coredns_metrics(
+            region=region,
+            cluster_id=cluster_id,
+            cluster_name=cluster_name,
+            ak=access_key,
+            sk=secret_key,
+            project_id=proj_id,
+            hours=cfg["pod_metric_hours"],
+            cfg=cfg,
+        )
+        result["metrics"]["coredns"] = coredns_result
+        if coredns_result.get("success"):
+            coredns_anomalies = coredns_result.get("anomalies", [])
+            if coredns_anomalies:
+                result["has_anomaly"] = True
+                result["anomaly_details"].append({
+                    "type": "coredns_metric_anomaly",
+                    "metrics": coredns_anomalies,
+                    "message": f"发现 {len(coredns_anomalies)} 个 CoreDNS 监控异常",
+                })
+            else:
+                result["normal_details"].append(
+                    "CoreDNS 未发现异常：可用指标均符合阈值；未查询到的 CoreDNS 指标不作为异常上报"
+                )
+        else:
+            result["normal_details"].append(
+                f"CoreDNS 监控未形成异常结论：{coredns_result.get('error', 'metrics unavailable')}"
+            )
+    except Exception as e:
+        result["metrics"]["coredns"] = {"success": False, "error": str(e)}
 
     result["duration_seconds"] = round(time.time() - start_time, 2)
 
@@ -383,18 +375,21 @@ def cce_deep_diagnosis(
     project_id: str = None,
     notify_email: str = None,
     report_file: str = None,
+    thresholds: Dict[str, Any] = None,
 ) -> Dict[str, Any]:
     """CCE 集群深度诊断（快检发现异常后调用）
 
-    执行 6+ 个 API 获取完整诊断数据：
-    1. 告警智能分类 (analyze_aom_alarms)
-    2. Pod 内存 TopN
-    3. 工作负载详情
-    4. 节点状态
-    5. 集群事件
-    6. 根因定位
-    7. 生成恢复方案
-    8. （可选）生成 HTML 报告 + 发邮件
+    执行多项只读 API 获取异常巡检证据：
+    1. 发现 AOM 告警、Kubernetes 异常事件、Pod/Node TopN 异常信号
+    2. 归并告警、事件、监控 TopN，梳理异常对象及异常表现
+    3. 基于 Pod/Workload/Service/Ingress/Node 关系定位关联对象
+    4. 对涉及的 ELB、EIP、NAT、ECS 执行只读监控巡检
+    5. 生成 root-cause-analyzer 交接包
+
+    本函数只做巡检证据归并和只读监控采集，不做根因结论或恢复策略选择。
+
+    根因分析不在本函数内执行，必须交给 huawei-cloud-cce-root-cause-analyzer。
+    RCA 完成后直接处理 remediation_candidates：R3 只读候选可直接执行，R2 低风险候选仅在客户授权范围内执行，R1/R0 只输出建议。
 
     Args:
         region: 华为云区域
@@ -419,8 +414,8 @@ def cce_deep_diagnosis(
         "diagnosis_time": datetime.now(timezone(timedelta(hours=8))).strftime("%Y-%m-%d %H:%M:%S CST"),
         "quick_check_anomalies": [],
         "diagnosis": {},
-        "root_cause": None,
-        "recovery_plan": [],
+        "root_cause_handoff": {},
+        "remediation_handoff": {},
         "duration_seconds": 0,
     }
 
@@ -428,9 +423,8 @@ def cce_deep_diagnosis(
     if quick_check_result and quick_check_result.get("anomaly_details"):
         result["quick_check_anomalies"] = quick_check_result["anomaly_details"]
 
-    # ---- 获取集群名称 & AOM 实例 ----
+    # ---- 获取集群名称 ----
     cluster_name = cluster_id
-    aom_instance_id = None
     try:
         clusters = list_cce_clusters(region, access_key, secret_key, proj_id)
         if clusters.get("success"):
@@ -441,76 +435,199 @@ def cce_deep_diagnosis(
     except Exception:
         pass
 
-    try:
-        aom_result = list_aom_instances(region, access_key, secret_key, proj_id)
-        if aom_result.get("success"):
-            for inst in aom_result.get("instances", []):
-                if inst.get("cluster_id") == cluster_id or inst.get("cluster_name") == cluster_name:
-                    aom_instance_id = inst.get("id")
-                    break
-    except Exception:
-        pass
+    cfg = {**DEFAULT_THRESHOLDS}
+    if thresholds:
+        cfg.update(thresholds)
+    cfg = _normalize_inspection_window(cfg)
 
-    # ---- 诊断 Step 1: AOM 告警智能分类 ----
-    try:
-        from .aom import analyze_aom_alarms
-        alarm_analysis = analyze_aom_alarms(
-            region=region,
-            ak=access_key,
-            sk=secret_key,
-            project_id=proj_id,
-            hours=1,
-        )
-        result["diagnosis"]["alarm_analysis"] = alarm_analysis
-    except Exception as e:
-        result["diagnosis"]["alarm_analysis"] = {"error": str(e)}
+    result["diagnosis"]["mode"] = "abnormal_signal_merge_and_monitoring_inspection"
+    result["diagnosis"]["inspection_boundary"] = (
+        "daily inspector merges abnormal alarms/events/monitoring signals and collects read-only monitoring "
+        "evidence for related resources; root cause conclusion and recovery planning are downstream tasks"
+    )
+    result["diagnosis"]["alarms"] = (
+        (quick_check_result or {}).get("metrics", {}).get("alarms", {})
+        if isinstance(quick_check_result, dict)
+        else {}
+    )
 
-    # ---- 诊断 Step 2: Pod 内存 TopN ----
+    # ---- 发现 Step 1: Pod/Node 监控 TopN 异常对象 ----
     try:
-        mem_result = get_cce_pod_metrics_topN(
+        pod_topn = get_cce_pod_metrics_topN(
             region=region,
             cluster_id=cluster_id,
             ak=access_key,
             sk=secret_key,
             project_id=proj_id,
-            metric_type="memory",
             top_n=10,
-            hours=0.5,
+            hours=cfg["deep_metric_hours"],
         )
-        result["diagnosis"]["memory_topn"] = mem_result
+        result["diagnosis"]["pod_metrics_topn"] = pod_topn
     except Exception as e:
-        result["diagnosis"]["memory_topn"] = {"error": str(e)}
+        result["diagnosis"]["pod_metrics_topn"] = {"error": str(e)}
 
-    # ---- 诊断 Step 3: 工作负载详情 ----
     try:
-        deploys_result = get_kubernetes_deployments(region, cluster_id, access_key, secret_key, proj_id)
-        result["diagnosis"]["deployments"] = deploys_result
+        node_topn = get_cce_node_metrics_topN(
+            region=region,
+            cluster_id=cluster_id,
+            ak=access_key,
+            sk=secret_key,
+            project_id=proj_id,
+            top_n=10,
+            hours=cfg["deep_metric_hours"],
+        )
+        result["diagnosis"]["node_metrics_topn"] = node_topn
     except Exception as e:
-        result["diagnosis"]["deployments"] = {"error": str(e)}
+        result["diagnosis"]["node_metrics_topn"] = {"error": str(e)}
 
-    # ---- 诊断 Step 4: 节点状态 ----
     try:
-        from .cce import get_kubernetes_nodes
-        nodes_result = get_kubernetes_nodes(region, cluster_id, access_key, secret_key, proj_id)
-        result["diagnosis"]["nodes"] = nodes_result
+        result["diagnosis"]["coredns"] = _inspect_coredns_metrics(
+            region=region,
+            cluster_id=cluster_id,
+            cluster_name=cluster_name,
+            ak=access_key,
+            sk=secret_key,
+            project_id=proj_id,
+            hours=cfg["deep_metric_hours"],
+            cfg=cfg,
+        )
     except Exception as e:
-        result["diagnosis"]["nodes"] = {"error": str(e)}
+        result["diagnosis"]["coredns"] = {"success": False, "error": str(e)}
 
-    # ---- 诊断 Step 5: 集群事件 ----
+    # ---- 巡检 Step 2: Kubernetes 对象和异常事件 ----
     try:
-        from .cce import get_kubernetes_events
-        events_result = get_kubernetes_events(region, cluster_id, access_key, secret_key, proj_id)
+        events_result = get_kubernetes_events(
+            region,
+            cluster_id,
+            access_key,
+            secret_key,
+            proj_id,
+            limit=cfg["deep_event_limit"],
+        )
         result["diagnosis"]["events"] = events_result
     except Exception as e:
         result["diagnosis"]["events"] = {"error": str(e)}
 
-    # ---- 诊断 Step 6: 根因定位 ----
-    root_cause = _analyze_root_cause(quick_check_result, result["diagnosis"])
-    result["root_cause"] = root_cause
+    result["diagnosis"]["abnormal_events"] = _detect_event_anomalies(
+        result["diagnosis"].get("events", {}).get("events", [])
+        if isinstance(result["diagnosis"].get("events"), dict)
+        else []
+    )
 
-    # ---- 诊断 Step 7: 恢复方案 ----
-    recovery_plan = _generate_recovery_plan(root_cause, result["diagnosis"])
-    result["recovery_plan"] = recovery_plan
+    for field, getter in (
+        ("pods", get_kubernetes_pods),
+        ("deployments", get_kubernetes_deployments),
+        ("nodes", get_kubernetes_nodes),
+        ("services", get_kubernetes_services),
+        ("ingresses", get_kubernetes_ingresses),
+    ):
+        try:
+            result["diagnosis"][field] = getter(region, cluster_id, access_key, secret_key, proj_id)
+        except Exception as e:
+            result["diagnosis"][field] = {"error": str(e)}
+
+    # ---- 巡检 Step 3: 告警/事件/监控窗口归并 ----
+    result["diagnosis"]["alarm_merge"] = _summarize_alarm_correlation(
+        result["diagnosis"].get("alarms", {}),
+        result["quick_check_anomalies"],
+    )
+    result["diagnosis"]["event_merge"] = _analyze_abnormal_events(
+        result["diagnosis"].get("events", {}),
+        result["diagnosis"].get("pods", {}),
+        result["diagnosis"].get("deployments", {}),
+    )
+    result["diagnosis"]["monitoring_windows"] = _analyze_monitoring_windows(
+        result["diagnosis"].get("pod_metrics_topn", {}),
+        result["diagnosis"].get("node_metrics_topn", {}),
+        cfg,
+    )
+
+    # ---- 巡检 Step 4: 周边资源监控巡检（只读）----
+    peripheral_monitoring = _analyze_peripheral_resources(
+        region=region,
+        cluster_id=cluster_id,
+        ak=access_key,
+        sk=secret_key,
+        project_id=proj_id,
+        services=result["diagnosis"].get("services", {}),
+        ingresses=result["diagnosis"].get("ingresses", {}),
+        events=result["diagnosis"].get("events", {}),
+        quick_anomalies=result["quick_check_anomalies"],
+        hours=cfg["peripheral_metric_hours"],
+    )
+
+    # ---- 巡检 Step 5: 异常对象、关系和 ECS 监控证据 ----
+    abnormal_object_analysis = _build_abnormal_object_analysis(
+        quick_anomalies=result["quick_check_anomalies"],
+        alarm_correlation=result["diagnosis"].get("alarm_merge", {}),
+        event_analysis=result["diagnosis"].get("event_merge", {}),
+        monitoring_windows=result["diagnosis"].get("monitoring_windows", {}),
+        pods_result=result["diagnosis"].get("pods", {}),
+        deployments_result=result["diagnosis"].get("deployments", {}),
+        nodes_result=result["diagnosis"].get("nodes", {}),
+        services_result=result["diagnosis"].get("services", {}),
+        ingresses_result=result["diagnosis"].get("ingresses", {}),
+        peripheral_resources=peripheral_monitoring,
+    )
+    peripheral_monitoring["ecs"] = _analyze_ecs_monitoring(
+        region=region,
+        ak=access_key,
+        sk=secret_key,
+        project_id=proj_id,
+        nodes_result=result["diagnosis"].get("nodes", {}),
+        abnormal_object_analysis=abnormal_object_analysis,
+        hours=cfg["peripheral_metric_hours"],
+    )
+    if peripheral_monitoring["ecs"].get("checked"):
+        peripheral_monitoring["checked"] = True
+    result["diagnosis"]["peripheral_monitoring"] = peripheral_monitoring
+    result["diagnosis"]["abnormal_object_analysis"] = _build_abnormal_object_analysis(
+        quick_anomalies=result["quick_check_anomalies"],
+        alarm_correlation=result["diagnosis"].get("alarm_merge", {}),
+        event_analysis=result["diagnosis"].get("event_merge", {}),
+        monitoring_windows=result["diagnosis"].get("monitoring_windows", {}),
+        pods_result=result["diagnosis"].get("pods", {}),
+        deployments_result=result["diagnosis"].get("deployments", {}),
+        nodes_result=result["diagnosis"].get("nodes", {}),
+        services_result=result["diagnosis"].get("services", {}),
+        ingresses_result=result["diagnosis"].get("ingresses", {}),
+        peripheral_resources=result["diagnosis"].get("peripheral_monitoring", {}),
+    )
+    result["diagnosis"]["abnormal_object_discovery"] = _build_abnormal_object_discovery(
+        quick_anomalies=result["quick_check_anomalies"],
+        alarms=result["diagnosis"].get("alarms", {}),
+        events_result=result["diagnosis"].get("events", {}),
+        pod_topn=result["diagnosis"].get("pod_metrics_topn", {}),
+        node_topn=result["diagnosis"].get("node_metrics_topn", {}),
+        cfg=cfg,
+    )
+
+    # ---- 交接：根因分析由 root-cause-analyzer 完成 ----
+    result["root_cause_handoff"] = {
+        "skill": "huawei-cloud-cce-root-cause-analyzer",
+        "required": True,
+        "region": region,
+        "cluster_id": cluster_id,
+        "cluster_name": cluster_name,
+        "time_window": _derive_handoff_time_window(result["diagnosis"].get("abnormal_object_analysis", {})),
+        "symptoms": result["quick_check_anomalies"],
+        "evidence": _build_root_cause_handoff_evidence(result["diagnosis"], result["quick_check_anomalies"]),
+        "inspection_boundary": "abnormal signal merge and read-only monitoring inspection only; no root cause conclusion",
+        "analysis_focus": [
+            "start from abnormal_object_analysis, alarm_merge, event_merge, monitoring_windows, and peripheral_monitoring",
+            "use only abnormal inspection signals; healthy/normal check items are intentionally excluded from RCA handoff",
+            "verify time correlation and root cause in root-cause-analyzer",
+            "do not treat daily inspector monitoring evidence as final root cause",
+        ],
+        "data_gaps": _collect_diagnosis_data_gaps(result["diagnosis"]),
+    }
+    result["remediation_handoff"] = {
+        "requires_root_cause": True,
+        "input_source": "root-cause-analyzer.remediation_candidates",
+        "policy": "execute R3 read-only candidates directly; execute R2 low-risk candidates only with customer authorization; advise only for R1/R0 candidates",
+        "do_not_call": "huawei-cloud-cce-auto-remediation-runner",
+        "message": "Run root-cause analysis first, then process RCA remediation_candidates directly by risk_level.",
+    }
 
     result["duration_seconds"] = round(time.time() - start_time, 2)
 
@@ -583,6 +700,7 @@ def cce_auto_inspection(
         sk=sk,
         project_id=project_id,
         notify_email=notify_email,
+        thresholds=thresholds,
     )
 
     diag_result["auto_inspection"] = "ANOMALY_DETECTED"
@@ -593,6 +711,1409 @@ def cce_auto_inspection(
 
 
 # ========== 辅助函数 ==========
+
+def _inspect_coredns_metrics(
+    region: str,
+    cluster_id: str,
+    cluster_name: str,
+    ak: str,
+    sk: str,
+    project_id: str,
+    hours: float,
+    cfg: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Inspect CoreDNS CPU, Prometheus success rate, and P99 request latency."""
+    aom_result = get_aom_instance(region, cluster_id, ak, sk, project_id)
+    if not aom_result.get("success"):
+        return {
+            "success": False,
+            "error": aom_result.get("error", "未找到可用的 AOM Prometheus 实例"),
+            "error_type": aom_result.get("error_type"),
+            "data_gaps": ["aom_instance_unavailable"],
+        }
+
+    aom_instance_id = aom_result.get("aom_instance_id")
+    coredns_filter = f'cluster_name="{cluster_name}",namespace="kube-system",pod=~".*coredns.*"'
+
+    queries = {
+        "cpu_usage_percent": (
+            "max("
+            f'sum by (pod, namespace) (rate(container_cpu_usage_seconds_total{{image!="",{coredns_filter}}}[5m])) '
+            "/ on (pod, namespace) group_left "
+            f'sum by (pod, namespace) (kube_pod_container_resource_limits{{resource="cpu",{coredns_filter}}}) * 100'
+            ")"
+        ),
+        "success_rate_percent": (
+            "sum(rate(coredns_dns_responses_total{rcode!~\"SERVFAIL|REFUSED\"}[5m])) "
+            "/ sum(rate(coredns_dns_responses_total[5m])) * 100"
+        ),
+        "p99_latency_ms": (
+            "histogram_quantile(0.99, sum(rate(coredns_dns_request_duration_seconds_bucket[5m])) by (le)) * 1000"
+        ),
+    }
+
+    thresholds = {
+        "cpu_usage_percent": cfg["coredns_cpu_percent"],
+        "success_rate_percent": cfg["coredns_success_rate_percent"],
+        "p99_latency_ms": cfg["coredns_latency_ms"],
+    }
+    comparisons = {
+        "cpu_usage_percent": "lte",
+        "success_rate_percent": "gte",
+        "p99_latency_ms": "lte",
+    }
+
+    metrics = {}
+    anomalies = []
+    unavailable_metrics = []
+    raw = {}
+    for metric_name, query in queries.items():
+        query_result = aom.get_aom_prom_metrics_http(
+            region,
+            aom_instance_id,
+            query,
+            hours=hours,
+            ak=ak,
+            sk=sk,
+            project_id=project_id,
+        )
+        raw[metric_name] = {
+            "success": query_result.get("success"),
+            "error": query_result.get("error"),
+        }
+        summary = _summarize_prom_metric(query_result)
+        if summary is None:
+            unavailable_metrics.append(metric_name)
+            metrics[metric_name] = {
+                "value": None,
+                "threshold": thresholds[metric_name],
+                "comparison": comparisons[metric_name],
+                "status": "unavailable",
+                "query": query,
+                "note": "metric not found or has no samples; not reported as an anomaly",
+            }
+            continue
+
+        threshold = thresholds[metric_name]
+        comparison = comparisons[metric_name]
+        value = summary["latest"]
+        is_anomaly = value < threshold if comparison == "gte" else value > threshold
+        metric_payload = {
+            **summary,
+            "threshold": threshold,
+            "comparison": comparison,
+            "status": "abnormal" if is_anomaly else "normal",
+            "query": query,
+        }
+        metrics[metric_name] = metric_payload
+        if is_anomaly:
+            anomalies.append({
+                "scope": "coredns",
+                "metric": metric_name,
+                "value": value,
+                "threshold": threshold,
+                "comparison": comparison,
+                "latest_time": summary.get("latest_time"),
+            })
+
+    return {
+        "success": True,
+        "cluster_id": cluster_id,
+        "cluster_name": cluster_name,
+        "aom_instance_id": aom_instance_id,
+        "hours": hours,
+        "metrics": metrics,
+        "anomalies": anomalies,
+        "data_gaps": [],
+        "unavailable_metrics": unavailable_metrics,
+        "raw_query_status": raw,
+        "summary": {
+            "healthy": not anomalies,
+            "anomaly_count": len(anomalies),
+            "unavailable_metric_count": len(unavailable_metrics),
+        },
+    }
+
+
+def _summarize_prom_metric(query_result: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    series = (
+        query_result.get("result", {})
+        .get("data", {})
+        .get("result", [])
+        if isinstance(query_result, dict)
+        else []
+    )
+    points = []
+    for item in series or []:
+        for point in item.get("values", []) or []:
+            if isinstance(point, (list, tuple)) and len(point) >= 2:
+                value = _to_float(point[1])
+                if value is not None:
+                    points.append((point[0], value))
+    if not points:
+        return None
+    points.sort(key=lambda item: _parse_time_value(item[0]) or 0)
+    latest_ts, latest_value = points[-1]
+    values = [value for _, value in points]
+    return {
+        "latest": round(latest_value, 2),
+        "latest_time": _format_ts(latest_ts),
+        "min": round(min(values), 2),
+        "max": round(max(values), 2),
+        "avg": round(sum(values) / len(values), 2),
+        "sample_count": len(points),
+    }
+
+EVENT_ANOMALY_KEYWORDS = (
+    "Warning",
+    "Failed",
+    "BackOff",
+    "CrashLoopBackOff",
+    "ImagePullBackOff",
+    "ErrImagePull",
+    "Unhealthy",
+    "FailedScheduling",
+    "FailedMount",
+    "OOMKilled",
+    "Killing",
+    "NotReady",
+)
+
+
+def _detect_event_anomalies(events: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Detect abnormal Kubernetes events without doing root-cause analysis."""
+    anomalies = []
+    for event in events or []:
+        event_type = event.get("type")
+        reason = event.get("reason") or ""
+        message = event.get("message") or ""
+        text = f"{event_type} {reason} {message}"
+        if event_type == "Warning" or any(keyword in text for keyword in EVENT_ANOMALY_KEYWORDS):
+            involved = _get_event_involved_object(event)
+            anomalies.append({
+                "namespace": event.get("namespace") or involved.get("namespace"),
+                "reason": reason,
+                "type": event_type,
+                "message": message[:240],
+                "count": event.get("count", 1),
+                "first_timestamp": event.get("first_timestamp"),
+                "last_timestamp": event.get("last_timestamp"),
+                "object": involved,
+            })
+    return anomalies
+
+
+def _get_event_involved_object(event: Dict[str, Any]) -> Dict[str, Any]:
+    obj = event.get("involved_object") or event.get("involvedObject") or {}
+    return {
+        "kind": obj.get("kind") or event.get("object_kind"),
+        "name": obj.get("name") or event.get("object_name") or event.get("name"),
+        "namespace": obj.get("namespace") or event.get("namespace"),
+    }
+
+
+def _detect_pod_topn_anomalies(topn: Dict[str, Any], cfg: Dict[str, Any]) -> List[Dict[str, Any]]:
+    metrics = topn.get("metrics", {}) if isinstance(topn, dict) else {}
+    anomalies = []
+    for item in metrics.get("cpu_top_n", []) or []:
+        value = item.get("cpu_usage_percent")
+        if _to_float(value) is not None and float(value) > cfg["pod_cpu_avg_percent"]:
+            anomalies.append({
+                "scope": "pod",
+                "metric": "cpu_usage_percent",
+                "namespace": item.get("namespace"),
+                "name": item.get("pod"),
+                "value": value,
+                "threshold": cfg["pod_cpu_avg_percent"],
+            })
+    for item in metrics.get("memory_top_n", []) or []:
+        value = item.get("memory_usage_percent")
+        if _to_float(value) is not None and float(value) > cfg["pod_memory_avg_percent"]:
+            anomalies.append({
+                "scope": "pod",
+                "metric": "memory_usage_percent",
+                "namespace": item.get("namespace"),
+                "name": item.get("pod"),
+                "value": value,
+                "threshold": cfg["pod_memory_avg_percent"],
+            })
+    return anomalies
+
+
+def _detect_node_topn_anomalies(topn: Dict[str, Any], cfg: Dict[str, Any]) -> List[Dict[str, Any]]:
+    metrics = topn.get("metrics", {}) if isinstance(topn, dict) else {}
+    checks = [
+        ("cpu_top_n", "cpu_usage_percent", cfg["node_cpu_percent"]),
+        ("memory_top_n", "memory_usage_percent", cfg["node_memory_percent"]),
+        ("disk_top_n", "disk_usage_percent", cfg["node_disk_percent"]),
+    ]
+    anomalies = []
+    for list_key, metric_name, threshold in checks:
+        for item in metrics.get(list_key, []) or []:
+            value = item.get(metric_name)
+            if _to_float(value) is not None and float(value) > threshold:
+                anomalies.append({
+                    "scope": "node",
+                    "metric": metric_name,
+                    "name": item.get("node_name") or item.get("node_ip") or item.get("instance"),
+                    "node_ip": item.get("node_ip"),
+                    "value": value,
+                    "threshold": threshold,
+                })
+    return anomalies
+
+
+def _to_float(value: Any) -> Optional[float]:
+    try:
+        parsed = float(value)
+        if parsed != parsed or parsed in (float("inf"), float("-inf")):
+            return None
+        return parsed
+    except (TypeError, ValueError):
+        return None
+
+
+def _summarize_alarm_correlation(alarm_analysis: Dict[str, Any], quick_anomalies: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Merge alarm output into compact evidence groups for RCA."""
+    quick_alarm_names = {
+        item.get("name")
+        for item in quick_anomalies or []
+        if item.get("type") == "aom_alarm" and item.get("name")
+    }
+    groups = {}
+    for key in ("alarms", "events", "alarm_events", "items"):
+        for alarm in alarm_analysis.get(key, []) if isinstance(alarm_analysis, dict) else []:
+            name = alarm.get("event_name") or alarm.get("name") or alarm.get("alarm_name") or "unknown"
+            severity = alarm.get("event_severity") or alarm.get("severity") or "Info"
+            group_key = f"{severity}:{name}"
+            groups.setdefault(group_key, {
+                "name": name,
+                "severity": severity,
+                "count": 0,
+                "statuses": set(),
+                "messages": [],
+                "matched_quick_check": name in quick_alarm_names,
+            })
+            groups[group_key]["count"] += 1
+            if alarm.get("status"):
+                groups[group_key]["statuses"].add(str(alarm.get("status")))
+            msg = alarm.get("message") or alarm.get("description")
+            if msg and len(groups[group_key]["messages"]) < 3:
+                groups[group_key]["messages"].append(str(msg)[:240])
+
+    merged = []
+    for group in groups.values():
+        group["statuses"] = sorted(group["statuses"])
+        merged.append(group)
+    return {
+        "merged_alarm_groups": sorted(merged, key=lambda x: (x["severity"], x["name"])),
+        "quick_alarm_names": sorted(quick_alarm_names),
+        "raw_summary": alarm_analysis.get("summary") if isinstance(alarm_analysis, dict) else None,
+    }
+
+
+def _analyze_monitoring_windows(
+    pod_topn: Dict[str, Any],
+    node_topn: Dict[str, Any],
+    cfg: Dict[str, Any],
+) -> Dict[str, Any]:
+    windows = []
+    pod_metrics = pod_topn.get("metrics", {}) if isinstance(pod_topn, dict) else {}
+    node_metrics = node_topn.get("metrics", {}) if isinstance(node_topn, dict) else {}
+    metric_specs = [
+        ("pod", pod_metrics.get("cpu_top_n", []), "cpu_usage_percent", cfg["pod_cpu_avg_percent"], "pod"),
+        ("pod", pod_metrics.get("memory_top_n", []), "memory_usage_percent", cfg["pod_memory_avg_percent"], "pod"),
+        ("node", node_metrics.get("cpu_top_n", []), "cpu_usage_percent", cfg["node_cpu_percent"], "node_name"),
+        ("node", node_metrics.get("memory_top_n", []), "memory_usage_percent", cfg["node_memory_percent"], "node_name"),
+        ("node", node_metrics.get("disk_top_n", []), "disk_usage_percent", cfg["node_disk_percent"], "node_name"),
+    ]
+    for scope, items, metric_name, threshold, name_key in metric_specs:
+        for item in items or []:
+            abnormal_window = _find_abnormal_window(item.get("time_series", []), threshold)
+            if abnormal_window:
+                windows.append({
+                    "scope": scope,
+                    "metric": metric_name,
+                    "name": item.get(name_key) or item.get("node_ip") or item.get("instance"),
+                    "namespace": item.get("namespace"),
+                    "threshold": threshold,
+                    **abnormal_window,
+                })
+    return {
+        "abnormal_windows": windows,
+        "count": len(windows),
+        "analysis_note": "Windows are derived from AOM TopN time_series and should be correlated with event/alarm timestamps by root-cause-analyzer.",
+    }
+
+
+def _find_abnormal_window(time_series: List[Any], threshold: float) -> Optional[Dict[str, Any]]:
+    points = []
+    for point in time_series or []:
+        if isinstance(point, (list, tuple)) and len(point) >= 2:
+            value = _to_float(point[1])
+            if value is not None and value > threshold:
+                points.append((point[0], value))
+    if not points:
+        return None
+    return {
+        "start": _format_ts(points[0][0]),
+        "end": _format_ts(points[-1][0]),
+        "first_seen": _format_ts(points[0][0]),
+        "last_seen": _format_ts(points[-1][0]),
+        "peak": round(max(value for _, value in points), 2),
+        "abnormal_points": len(points),
+    }
+
+
+def _format_ts(ts: Any) -> Any:
+    try:
+        ts_value = float(ts)
+        if ts_value > 10_000_000_000:
+            ts_value = ts_value / 1000
+        return datetime.fromtimestamp(ts_value, timezone(timedelta(hours=8))).strftime("%Y-%m-%d %H:%M:%S CST")
+    except (TypeError, ValueError, OSError):
+        return ts
+
+
+def _parse_time_value(value: Any) -> Optional[float]:
+    if value in (None, ""):
+        return None
+    if isinstance(value, (int, float)):
+        ts_value = float(value)
+        return ts_value / 1000 if ts_value > 10_000_000_000 else ts_value
+    text = str(value).strip()
+    if not text:
+        return None
+    normalized = text.replace(" CST", "+08:00")
+    if normalized.endswith("Z"):
+        normalized = normalized[:-1] + "+00:00"
+    for pattern in ("%Y-%m-%d %H:%M:%S%z", "%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%dT%H:%M:%S.%f%z"):
+        try:
+            return datetime.strptime(normalized, pattern).timestamp()
+        except ValueError:
+            continue
+    try:
+        return datetime.fromisoformat(normalized).timestamp()
+    except ValueError:
+        return None
+
+
+def _min_time(current: Any, candidate: Any) -> Any:
+    if not candidate:
+        return current
+    if not current:
+        return candidate
+    current_ts = _parse_time_value(current)
+    candidate_ts = _parse_time_value(candidate)
+    if current_ts is not None and candidate_ts is not None:
+        return candidate if candidate_ts < current_ts else current
+    return min(str(current), str(candidate))
+
+
+def _max_time(current: Any, candidate: Any) -> Any:
+    if not candidate:
+        return current
+    if not current:
+        return candidate
+    current_ts = _parse_time_value(current)
+    candidate_ts = _parse_time_value(candidate)
+    if current_ts is not None and candidate_ts is not None:
+        return candidate if candidate_ts > current_ts else current
+    return max(str(current), str(candidate))
+
+
+def _min_many(values: List[Any]) -> Any:
+    result = None
+    for value in values:
+        result = _min_time(result, value)
+    return result
+
+
+def _max_many(values: List[Any]) -> Any:
+    result = None
+    for value in values:
+        result = _max_time(result, value)
+    return result
+
+
+def _analyze_abnormal_events(
+    events_result: Dict[str, Any],
+    pods_result: Dict[str, Any],
+    deployments_result: Dict[str, Any],
+) -> Dict[str, Any]:
+    abnormal_events = _detect_event_anomalies(events_result.get("events", []) if isinstance(events_result, dict) else [])
+    grouped = {}
+    for event in abnormal_events:
+        obj = event.get("object", {})
+        key = f"{obj.get('namespace') or event.get('namespace')}/{obj.get('kind') or 'Unknown'}/{obj.get('name') or 'unknown'}"
+        grouped.setdefault(key, {
+            "object": obj,
+            "namespace": obj.get("namespace") or event.get("namespace"),
+            "event_count": 0,
+            "reasons": {},
+            "first_event_time": None,
+            "latest_event_time": None,
+            "messages": [],
+        })
+        group = grouped[key]
+        group["event_count"] += event.get("count") or 1
+        reason = event.get("reason") or "Unknown"
+        group["reasons"][reason] = group["reasons"].get(reason, 0) + 1
+        group["first_event_time"] = _min_time(group.get("first_event_time"), event.get("first_timestamp"))
+        group["latest_event_time"] = _max_time(group.get("latest_event_time"), event.get("last_timestamp"))
+        if event.get("message") and len(group["messages"]) < 5:
+            group["messages"].append(event["message"])
+
+    pods_by_name = _index_by_namespace_name(pods_result.get("pods", []) if isinstance(pods_result, dict) else [])
+    deployments_by_name = _index_by_namespace_name(
+        deployments_result.get("deployments", []) if isinstance(deployments_result, dict) else []
+    )
+    for group in grouped.values():
+        obj = group["object"]
+        ns = obj.get("namespace")
+        name = obj.get("name")
+        if obj.get("kind") == "Pod":
+            group["pod"] = pods_by_name.get(f"{ns}/{name}")
+        if obj.get("kind") in ("Deployment", "ReplicaSet"):
+            group["deployment"] = deployments_by_name.get(f"{ns}/{name}")
+
+    return {
+        "abnormal_events": abnormal_events[:100],
+        "groups": list(grouped.values()),
+        "count": len(abnormal_events),
+    }
+
+
+def _index_by_namespace_name(items: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    return {
+        f"{item.get('namespace')}/{item.get('name')}": item
+        for item in items or []
+        if item.get("name")
+    }
+
+
+def _analyze_application_evidence(
+    quick_anomalies: List[Dict[str, Any]],
+    event_analysis: Dict[str, Any],
+    pods_result: Dict[str, Any],
+    deployments_result: Dict[str, Any],
+    services_result: Dict[str, Any],
+    ingresses_result: Dict[str, Any],
+) -> Dict[str, Any]:
+    affected = {}
+    for group in event_analysis.get("groups", []) if isinstance(event_analysis, dict) else []:
+        obj = group.get("object", {})
+        key = f"{obj.get('namespace')}/{obj.get('kind')}/{obj.get('name')}"
+        affected[key] = {
+            "object": obj,
+            "event_reasons": group.get("reasons", {}),
+            "event_count": group.get("event_count"),
+            "latest_event_time": group.get("latest_event_time"),
+            "pod_status": (group.get("pod") or {}).get("status"),
+            "pod_state_reason": (group.get("pod") or {}).get("state_reason"),
+            "deployment_replicas": _deployment_replica_summary(group.get("deployment")),
+        }
+
+    return {
+        "affected_objects": list(affected.values()),
+        "pod_state_summary": _summarize_pod_states(pods_result.get("pods", []) if isinstance(pods_result, dict) else []),
+        "deployment_replica_mismatches": _find_deployment_mismatches(
+            deployments_result.get("deployments", []) if isinstance(deployments_result, dict) else []
+        ),
+        "service_count": len(services_result.get("services", []) if isinstance(services_result, dict) else []),
+        "ingress_count": len(ingresses_result.get("ingresses", []) if isinstance(ingresses_result, dict) else []),
+        "quick_symptom_types": sorted({item.get("type") for item in quick_anomalies or [] if item.get("type")}),
+        "note": "This is application fault evidence for root-cause-analyzer, not the final root cause.",
+    }
+
+
+def _deployment_replica_summary(deployment: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    if not deployment:
+        return None
+    return {
+        "name": deployment.get("name"),
+        "namespace": deployment.get("namespace"),
+        "ready": deployment.get("ready_replicas", 0),
+        "desired": deployment.get("replicas", 0),
+        "available": deployment.get("available_replicas", 0),
+    }
+
+
+def _summarize_pod_states(pods: List[Dict[str, Any]]) -> Dict[str, int]:
+    summary = {}
+    for pod in pods or []:
+        status = pod.get("state_reason") or pod.get("status") or "Unknown"
+        summary[status] = summary.get(status, 0) + 1
+    return summary
+
+
+def _find_deployment_mismatches(deployments: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    mismatches = []
+    for deployment in deployments or []:
+        desired = deployment.get("replicas", 0)
+        ready = deployment.get("ready_replicas", 0)
+        if desired and ready != desired:
+            mismatches.append({
+                "namespace": deployment.get("namespace"),
+                "name": deployment.get("name"),
+                "ready": ready,
+                "desired": desired,
+                "available": deployment.get("available_replicas", 0),
+            })
+    return mismatches
+
+
+def _build_abnormal_object_discovery(
+    quick_anomalies: List[Dict[str, Any]],
+    alarms: Dict[str, Any],
+    events_result: Dict[str, Any],
+    pod_topn: Dict[str, Any],
+    node_topn: Dict[str, Any],
+    cfg: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Build a raw discovery view for downstream compatibility."""
+    objects: Dict[str, Dict[str, Any]] = {}
+    abnormal_events = _detect_event_anomalies(events_result.get("events", []) if isinstance(events_result, dict) else [])
+
+    for alarm in _extract_alarm_items(alarms):
+        obj = _ensure_abnormal_object(objects, "Cluster", None, "cluster")
+        _add_object_symptom(
+            obj,
+            source="aom_alarm",
+            symptom=alarm.get("event_name") or alarm.get("name") or "AOM alarm",
+            detail={
+                "severity": alarm.get("event_severity") or alarm.get("severity"),
+                "status": alarm.get("status"),
+                "message": (alarm.get("message") or alarm.get("description") or "")[:240],
+            },
+            first_seen=alarm.get("first_timestamp") or alarm.get("starts_at") or alarm.get("created_at"),
+            last_seen=alarm.get("last_timestamp") or alarm.get("updated_at") or alarm.get("ends_at"),
+        )
+
+    for anomaly in quick_anomalies or []:
+        if anomaly.get("type") == "aom_alarm":
+            obj = _ensure_abnormal_object(objects, "Cluster", None, "cluster")
+            _add_object_symptom(
+                obj,
+                source="quick_alarm",
+                symptom=anomaly.get("name") or "AOM alarm",
+                detail={
+                    "severity": anomaly.get("severity"),
+                    "status": anomaly.get("status"),
+                    "message": anomaly.get("message"),
+                },
+            )
+        for event in anomaly.get("events", []) or []:
+            _add_event_discovery_object(objects, event, "quick_event")
+        for metric in anomaly.get("metrics", []) or []:
+            kind = "Pod" if metric.get("scope") == "pod" else "Node"
+            namespace = metric.get("namespace") if kind == "Pod" else None
+            obj = _ensure_abnormal_object(objects, kind, namespace, metric.get("name") or metric.get("node_ip"))
+            _add_object_symptom(
+                obj,
+                source="quick_metric_topn",
+                symptom=f"{metric.get('metric')} over threshold",
+                detail=metric,
+            )
+
+    for event in abnormal_events:
+        _add_event_discovery_object(objects, event, "kubernetes_event")
+
+    for metric in _detect_pod_topn_anomalies(pod_topn, cfg):
+        obj = _ensure_abnormal_object(objects, "Pod", metric.get("namespace"), metric.get("name"))
+        _add_object_symptom(
+            obj,
+            source="pod_metric_topn",
+            symptom=f"{metric.get('metric')} over threshold",
+            detail=metric,
+        )
+
+    for metric in _detect_node_topn_anomalies(node_topn, cfg):
+        obj = _ensure_abnormal_object(objects, "Node", None, metric.get("name") or metric.get("node_ip"))
+        _add_object_symptom(
+            obj,
+            source="node_metric_topn",
+            symptom=f"{metric.get('metric')} over threshold",
+            detail=metric,
+        )
+
+    abnormal_objects = sorted(
+        objects.values(),
+        key=lambda item: (item.get("kind") or "", item.get("namespace") or "", item.get("name") or ""),
+    )
+    return {
+        "mode": "discovery_only",
+        "abnormal_objects": abnormal_objects,
+        "abnormal_events": abnormal_events[:200],
+        "object_count": len(abnormal_objects),
+        "event_count": len(abnormal_events),
+        "timeline": _summarize_object_timeline(abnormal_objects),
+        "data_gaps": [],
+        "note": "Raw discovery view for compatibility. Deep inspection also provides merged signals, relationships, and peripheral monitoring evidence.",
+    }
+
+
+def _extract_alarm_items(alarms: Dict[str, Any]) -> List[Dict[str, Any]]:
+    if not isinstance(alarms, dict):
+        return []
+    items = []
+    for key in ("events", "alarms", "items", "alarm_events"):
+        value = alarms.get(key)
+        if isinstance(value, list):
+            items.extend(value)
+    return items
+
+
+def _add_event_discovery_object(objects: Dict[str, Dict[str, Any]], event: Dict[str, Any], source: str) -> None:
+    event_obj = event.get("object") or {}
+    obj = _ensure_abnormal_object(
+        objects,
+        event_obj.get("kind") or "Unknown",
+        event_obj.get("namespace") or event.get("namespace"),
+        event_obj.get("name") or "unknown",
+    )
+    _add_object_symptom(
+        obj,
+        source=source,
+        symptom=event.get("reason") or "abnormal_event",
+        detail={"message": event.get("message"), "count": event.get("count"), "type": event.get("type")},
+        first_seen=event.get("first_timestamp"),
+        last_seen=event.get("last_timestamp"),
+    )
+
+
+def _build_abnormal_object_analysis(
+    quick_anomalies: List[Dict[str, Any]],
+    alarm_correlation: Dict[str, Any],
+    event_analysis: Dict[str, Any],
+    monitoring_windows: Dict[str, Any],
+    pods_result: Dict[str, Any],
+    deployments_result: Dict[str, Any],
+    nodes_result: Dict[str, Any],
+    services_result: Dict[str, Any],
+    ingresses_result: Dict[str, Any],
+    peripheral_resources: Dict[str, Any],
+) -> Dict[str, Any]:
+    objects: Dict[str, Dict[str, Any]] = {}
+    relation_index = _build_relation_index(
+        pods_result=pods_result,
+        deployments_result=deployments_result,
+        nodes_result=nodes_result,
+        services_result=services_result,
+        ingresses_result=ingresses_result,
+        peripheral_resources=peripheral_resources,
+    )
+
+    for group in alarm_correlation.get("merged_alarm_groups", []) if isinstance(alarm_correlation, dict) else []:
+        obj = _ensure_abnormal_object(objects, "Cluster", None, "cluster")
+        _add_object_symptom(
+            obj,
+            source="aom_alarm",
+            symptom=group.get("name") or "AOM alarm",
+            detail={
+                "severity": group.get("severity"),
+                "count": group.get("count"),
+                "statuses": group.get("statuses"),
+                "messages": group.get("messages", [])[:3],
+            },
+        )
+
+    for anomaly in quick_anomalies or []:
+        if anomaly.get("type") == "aom_alarm":
+            obj = _ensure_abnormal_object(objects, "Cluster", None, "cluster")
+            _add_object_symptom(
+                obj,
+                source="quick_alarm",
+                symptom=anomaly.get("name") or "AOM alarm",
+                detail={
+                    "severity": anomaly.get("severity"),
+                    "status": anomaly.get("status"),
+                    "message": anomaly.get("message"),
+                },
+            )
+        for metric in anomaly.get("metrics", []) or []:
+            kind = "Pod" if metric.get("scope") == "pod" else "Node"
+            namespace = metric.get("namespace") if kind == "Pod" else None
+            obj = _ensure_abnormal_object(objects, kind, namespace, metric.get("name") or metric.get("node_ip"))
+            _add_object_symptom(
+                obj,
+                source="quick_metric_topn",
+                symptom=f"{metric.get('metric')} over threshold",
+                detail=metric,
+            )
+        for event in anomaly.get("events", []) or []:
+            event_obj = event.get("object") or {}
+            obj = _ensure_abnormal_object(
+                objects,
+                event_obj.get("kind") or "Unknown",
+                event_obj.get("namespace") or event.get("namespace"),
+                event_obj.get("name") or "unknown",
+            )
+            _add_object_symptom(
+                obj,
+                source="quick_event",
+                symptom=event.get("reason") or "abnormal_event",
+                detail={"message": event.get("message"), "count": event.get("count")},
+                first_seen=event.get("first_timestamp"),
+                last_seen=event.get("last_timestamp"),
+            )
+
+    for group in event_analysis.get("groups", []) if isinstance(event_analysis, dict) else []:
+        event_obj = group.get("object") or {}
+        obj = _ensure_abnormal_object(
+            objects,
+            event_obj.get("kind") or "Unknown",
+            event_obj.get("namespace") or group.get("namespace"),
+            event_obj.get("name") or "unknown",
+        )
+        _add_object_symptom(
+            obj,
+            source="kubernetes_event",
+            symptom=";".join(sorted((group.get("reasons") or {}).keys())) or "abnormal_event",
+            detail={
+                "event_count": group.get("event_count"),
+                "reasons": group.get("reasons"),
+                "messages": group.get("messages", [])[:5],
+            },
+            first_seen=group.get("first_event_time"),
+            last_seen=group.get("latest_event_time"),
+        )
+
+    for window in monitoring_windows.get("abnormal_windows", []) if isinstance(monitoring_windows, dict) else []:
+        kind = "Pod" if window.get("scope") == "pod" else "Node"
+        obj = _ensure_abnormal_object(objects, kind, window.get("namespace") if kind == "Pod" else None, window.get("name"))
+        _add_object_symptom(
+            obj,
+            source="monitoring_topn",
+            symptom=f"{window.get('metric')} abnormal window",
+            detail={
+                "metric": window.get("metric"),
+                "threshold": window.get("threshold"),
+                "peak": window.get("peak"),
+                "abnormal_points": window.get("abnormal_points"),
+            },
+            first_seen=window.get("first_seen") or window.get("start"),
+            last_seen=window.get("last_seen") or window.get("end"),
+        )
+
+    _expand_related_workload_objects(objects, relation_index)
+    for obj in objects.values():
+        obj["relationships"] = _relationships_for_object(obj, relation_index, objects)
+
+    abnormal_objects = sorted(
+        objects.values(),
+        key=lambda item: (
+            item.get("kind") or "",
+            item.get("namespace") or "",
+            item.get("name") or "",
+        ),
+    )
+    return {
+        "abnormal_objects": abnormal_objects,
+        "object_count": len(abnormal_objects),
+        "timeline": _summarize_object_timeline(abnormal_objects),
+        "relationship_summary": {
+            "service_count": len(relation_index.get("services", [])),
+            "ingress_count": len(relation_index.get("ingresses", [])),
+            "associated_elb_ids": peripheral_resources.get("associated_elb_ids", []) if isinstance(peripheral_resources, dict) else [],
+            "associated_ecs_ids": [
+                item.get("id")
+                for item in (peripheral_resources.get("ecs", {}).get("matched_instances", []) if isinstance(peripheral_resources, dict) else [])
+                if item.get("id")
+            ],
+            "peripheral_checked": peripheral_resources.get("checked") if isinstance(peripheral_resources, dict) else False,
+        },
+        "data_gaps": _object_analysis_data_gaps(relation_index, peripheral_resources),
+        "note": "Object relationships and symptoms are inspection evidence for root-cause-analyzer. They do not select final root cause.",
+    }
+
+
+def _ensure_abnormal_object(
+    objects: Dict[str, Dict[str, Any]],
+    kind: Optional[str],
+    namespace: Optional[str],
+    name: Optional[str],
+) -> Dict[str, Any]:
+    normalized_kind = kind or "Unknown"
+    normalized_name = name or "unknown"
+    key = _object_key(normalized_kind, namespace, normalized_name)
+    if key not in objects:
+        objects[key] = {
+            "key": key,
+            "kind": normalized_kind,
+            "namespace": namespace,
+            "name": normalized_name,
+            "symptoms": [],
+            "first_seen": None,
+            "last_seen": None,
+            "relationships": {},
+        }
+    return objects[key]
+
+
+def _object_key(kind: Optional[str], namespace: Optional[str], name: Optional[str]) -> str:
+    return f"{kind or 'Unknown'}:{namespace or '-'}:{name or 'unknown'}"
+
+
+def _add_object_symptom(
+    obj: Dict[str, Any],
+    source: str,
+    symptom: str,
+    detail: Dict[str, Any],
+    first_seen: Any = None,
+    last_seen: Any = None,
+) -> None:
+    obj["symptoms"].append({
+        "source": source,
+        "symptom": symptom,
+        "detail": detail,
+        "first_seen": first_seen,
+        "last_seen": last_seen,
+    })
+    obj["first_seen"] = _min_time(obj.get("first_seen"), first_seen)
+    obj["last_seen"] = _max_time(obj.get("last_seen"), last_seen)
+
+
+def _build_relation_index(
+    pods_result: Dict[str, Any],
+    deployments_result: Dict[str, Any],
+    nodes_result: Dict[str, Any],
+    services_result: Dict[str, Any],
+    ingresses_result: Dict[str, Any],
+    peripheral_resources: Dict[str, Any],
+) -> Dict[str, Any]:
+    pods = pods_result.get("pods", []) if isinstance(pods_result, dict) else []
+    deployments = deployments_result.get("deployments", []) if isinstance(deployments_result, dict) else []
+    nodes = nodes_result.get("nodes", []) if isinstance(nodes_result, dict) else []
+    services = services_result.get("services", []) if isinstance(services_result, dict) else []
+    ingresses = ingresses_result.get("ingresses", []) if isinstance(ingresses_result, dict) else []
+
+    pod_by_key = {_object_key("Pod", pod.get("namespace"), pod.get("name")): pod for pod in pods if pod.get("name")}
+    node_by_name = {node.get("name") or node.get("node_name") or node.get("internal_ip"): node for node in nodes}
+    deployment_by_key = {
+        _object_key("Deployment", dep.get("namespace"), dep.get("name")): dep
+        for dep in deployments if dep.get("name")
+    }
+    services_by_key = {
+        _object_key("Service", svc.get("namespace"), svc.get("name")): svc
+        for svc in services if svc.get("name")
+    }
+    ingresses_by_key = {
+        _object_key("Ingress", ing.get("namespace"), ing.get("name")): ing
+        for ing in ingresses if ing.get("name")
+    }
+
+    service_to_pods: Dict[str, List[Dict[str, Any]]] = {}
+    pod_to_services: Dict[str, List[Dict[str, Any]]] = {}
+    for svc_key, svc in services_by_key.items():
+        selector = svc.get("selector") or {}
+        selected = [pod for pod in pods if _selector_matches(selector, pod.get("labels") or {}) and pod.get("namespace") == svc.get("namespace")]
+        service_to_pods[svc_key] = selected
+        for pod in selected:
+            pod_key = _object_key("Pod", pod.get("namespace"), pod.get("name"))
+            pod_to_services.setdefault(pod_key, []).append(svc)
+
+    service_to_ingresses: Dict[str, List[Dict[str, Any]]] = {}
+    for ingress in ingresses:
+        for service_name in _ingress_backend_service_names(ingress):
+            svc_key = _object_key("Service", ingress.get("namespace"), service_name)
+            service_to_ingresses.setdefault(svc_key, []).append(ingress)
+
+    return {
+        "pods": pods,
+        "deployments": deployments,
+        "nodes": nodes,
+        "services": services,
+        "ingresses": ingresses,
+        "pod_by_key": pod_by_key,
+        "node_by_name": node_by_name,
+        "deployment_by_key": deployment_by_key,
+        "services_by_key": services_by_key,
+        "ingresses_by_key": ingresses_by_key,
+        "service_to_pods": service_to_pods,
+        "pod_to_services": pod_to_services,
+        "service_to_ingresses": service_to_ingresses,
+        "peripheral_resources": peripheral_resources,
+    }
+
+
+def _selector_matches(selector: Dict[str, Any], labels: Dict[str, Any]) -> bool:
+    if not selector:
+        return False
+    return all(str(labels.get(key)) == str(value) for key, value in selector.items())
+
+
+def _ingress_backend_service_names(ingress: Dict[str, Any]) -> List[str]:
+    names = []
+    default_backend = ingress.get("default_backend") or {}
+    if default_backend.get("service_name"):
+        names.append(default_backend["service_name"])
+    for rule in ingress.get("rules", []) or []:
+        for path in rule.get("paths", []) or []:
+            backend = path.get("backend") or {}
+            if backend.get("service_name"):
+                names.append(backend["service_name"])
+    return sorted(set(names))
+
+
+def _expand_related_workload_objects(objects: Dict[str, Dict[str, Any]], relation_index: Dict[str, Any]) -> None:
+    for obj in list(objects.values()):
+        if obj.get("kind") != "Pod":
+            continue
+        pod = relation_index.get("pod_by_key", {}).get(obj["key"])
+        workload = _infer_workload_from_pod(pod, relation_index)
+        if not workload:
+            continue
+        workload_obj = _ensure_abnormal_object(objects, workload.get("kind") or "Workload", workload.get("namespace"), workload.get("name"))
+        _add_object_symptom(
+            workload_obj,
+            source="related_pod",
+            symptom="affected by abnormal pod",
+            detail={"pod": obj["key"], "pod_symptoms": [s.get("symptom") for s in obj.get("symptoms", [])[:5]]},
+            first_seen=obj.get("first_seen"),
+            last_seen=obj.get("last_seen"),
+        )
+
+
+def _infer_workload_from_pod(pod: Optional[Dict[str, Any]], relation_index: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    if not pod:
+        return None
+    namespace = pod.get("namespace")
+    for ref in pod.get("owner_references") or []:
+        if ref.get("kind") in {"Deployment", "StatefulSet", "DaemonSet", "Job", "CronJob"}:
+            return relation_index.get("deployment_by_key", {}).get(_object_key(ref.get("kind"), namespace, ref.get("name"))) or {
+                "kind": ref.get("kind"),
+                "namespace": namespace,
+                "name": ref.get("name"),
+            }
+        if ref.get("kind") == "ReplicaSet":
+            deployment_name = _deployment_name_from_replicaset(ref.get("name"))
+            if deployment_name:
+                return relation_index.get("deployment_by_key", {}).get(_object_key("Deployment", namespace, deployment_name)) or {
+                    "kind": "Deployment",
+                    "namespace": namespace,
+                    "name": deployment_name,
+                }
+    return None
+
+
+def _deployment_name_from_replicaset(name: Optional[str]) -> Optional[str]:
+    if not name or "-" not in name:
+        return None
+    base, suffix = name.rsplit("-", 1)
+    if len(suffix) >= 5:
+        return base
+    return None
+
+
+def _relationships_for_object(
+    obj: Dict[str, Any],
+    relation_index: Dict[str, Any],
+    abnormal_objects: Dict[str, Dict[str, Any]],
+) -> Dict[str, Any]:
+    kind = obj.get("kind")
+    key = obj.get("key")
+    if kind == "Pod":
+        pod = relation_index.get("pod_by_key", {}).get(key)
+        services = relation_index.get("pod_to_services", {}).get(key, [])
+        workload = _infer_workload_from_pod(pod, relation_index)
+        ingresses = _ingresses_for_services(services, relation_index)
+        return {
+            "node": pod.get("node") if pod else None,
+            "workload": _object_ref(workload.get("kind") or "Workload", workload.get("namespace"), workload.get("name")) if workload else None,
+            "services": [_service_ref(svc) for svc in services],
+            "ingresses": [_ingress_ref(ing) for ing in ingresses],
+            "elb_ids": _elb_ids_for_services_and_ingresses(services, ingresses),
+            "eip_addresses": _eip_addresses_for_services(services),
+        }
+    if kind == "Node":
+        node_name = obj.get("name")
+        affected_pods = [
+            item for item in abnormal_objects.values()
+            if item.get("kind") == "Pod"
+            and (relation_index.get("pod_by_key", {}).get(item.get("key")) or {}).get("node") == node_name
+        ]
+        return {
+            "affected_pods": [_object_ref("Pod", pod.get("namespace"), pod.get("name")) for pod in affected_pods],
+            "node_status": (relation_index.get("node_by_name", {}).get(node_name) or {}).get("status"),
+        }
+    if kind in {"Deployment", "StatefulSet", "DaemonSet", "Job", "CronJob", "Workload"}:
+        pods = [
+            pod for pod in relation_index.get("pods", [])
+            if (_infer_workload_from_pod(pod, relation_index) or {}).get("name") == obj.get("name")
+            and pod.get("namespace") == obj.get("namespace")
+            and ((_infer_workload_from_pod(pod, relation_index) or {}).get("kind") == kind or kind == "Workload")
+        ]
+        services = _services_for_pods(pods, relation_index)
+        ingresses = _ingresses_for_services(services, relation_index)
+        return {
+            "pods": [_object_ref("Pod", pod.get("namespace"), pod.get("name")) for pod in pods[:20]],
+            "services": [_service_ref(svc) for svc in services],
+            "ingresses": [_ingress_ref(ing) for ing in ingresses],
+            "elb_ids": _elb_ids_for_services_and_ingresses(services, ingresses),
+            "eip_addresses": _eip_addresses_for_services(services),
+        }
+    if kind == "Cluster":
+        peripheral = relation_index.get("peripheral_resources", {}) or {}
+        return {
+            "associated_elb_ids": peripheral.get("associated_elb_ids", []),
+            "peripheral_checked": peripheral.get("checked"),
+            "peripheral_data_gaps": peripheral.get("data_gaps", []),
+        }
+    if kind == "Service":
+        svc = relation_index.get("services_by_key", {}).get(key)
+        ingresses = relation_index.get("service_to_ingresses", {}).get(key, [])
+        return {
+            "selected_pods": [
+                _object_ref("Pod", pod.get("namespace"), pod.get("name"))
+                for pod in relation_index.get("service_to_pods", {}).get(key, [])[:20]
+            ],
+            "ingresses": [_ingress_ref(ing) for ing in ingresses],
+            "elb_ids": _elb_ids_for_services_and_ingresses([svc] if svc else [], ingresses),
+            "eip_addresses": _eip_addresses_for_services([svc] if svc else []),
+        }
+    if kind == "Ingress":
+        ingress = relation_index.get("ingresses_by_key", {}).get(key)
+        return {
+            "backend_services": [
+                _object_ref("Service", ingress.get("namespace"), svc_name)
+                for svc_name in _ingress_backend_service_names(ingress or {})
+            ],
+            "elb_ids": _elb_ids_for_services_and_ingresses([], [ingress] if ingress else []),
+            "load_balancer_ingress": (ingress or {}).get("load_balancer_ingress", []),
+        }
+    return {}
+
+
+def _services_for_pods(pods: List[Dict[str, Any]], relation_index: Dict[str, Any]) -> List[Dict[str, Any]]:
+    services = {}
+    for pod in pods or []:
+        pod_key = _object_key("Pod", pod.get("namespace"), pod.get("name"))
+        for svc in relation_index.get("pod_to_services", {}).get(pod_key, []):
+            services[_object_key("Service", svc.get("namespace"), svc.get("name"))] = svc
+    return list(services.values())
+
+
+def _ingresses_for_services(services: List[Dict[str, Any]], relation_index: Dict[str, Any]) -> List[Dict[str, Any]]:
+    ingresses = {}
+    for svc in services or []:
+        svc_key = _object_key("Service", svc.get("namespace"), svc.get("name"))
+        for ingress in relation_index.get("service_to_ingresses", {}).get(svc_key, []):
+            ingresses[_object_key("Ingress", ingress.get("namespace"), ingress.get("name"))] = ingress
+    return list(ingresses.values())
+
+
+def _service_ref(service: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        **_object_ref("Service", service.get("namespace"), service.get("name")),
+        "type": service.get("type"),
+        "ports": service.get("ports", []),
+    }
+
+
+def _ingress_ref(ingress: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        **_object_ref("Ingress", ingress.get("namespace"), ingress.get("name")),
+        "hosts": [rule.get("host") for rule in ingress.get("rules", []) or [] if rule.get("host")],
+    }
+
+
+def _object_ref(kind: str, namespace: Optional[str], name: Optional[str]) -> Dict[str, Any]:
+    return {"kind": kind, "namespace": namespace, "name": name, "key": _object_key(kind, namespace, name)}
+
+
+def _elb_ids_for_services_and_ingresses(services: List[Dict[str, Any]], ingresses: List[Dict[str, Any]]) -> List[str]:
+    ids = set()
+    for item in (services or []) + (ingresses or []):
+        annotations = (item or {}).get("annotations", {}) or {}
+        for key in ("kubernetes.io/elb.id", "elb.id", "loadbalancer.openstack.org/id"):
+            if annotations.get(key):
+                ids.add(annotations[key])
+    return sorted(ids)
+
+
+def _eip_addresses_for_services(services: List[Dict[str, Any]]) -> List[str]:
+    addresses = set()
+    for svc in services or []:
+        for value in (svc.get("load_balancer_ip"), svc.get("external_ip"), svc.get("external_ips")):
+            if isinstance(value, list):
+                addresses.update(str(item) for item in value if item)
+            elif value:
+                addresses.add(str(value))
+        for lb in svc.get("load_balancer_ingress", []) or []:
+            if lb.get("ip"):
+                addresses.add(str(lb["ip"]))
+    return sorted(addresses)
+
+
+def _summarize_object_timeline(objects: List[Dict[str, Any]]) -> Dict[str, Any]:
+    first_values = [obj.get("first_seen") for obj in objects if obj.get("first_seen")]
+    last_values = [obj.get("last_seen") for obj in objects if obj.get("last_seen")]
+    return {
+        "first_seen": _min_many(first_values),
+        "last_seen": _max_many(last_values),
+        "objects_with_time_window": len([obj for obj in objects if obj.get("first_seen") or obj.get("last_seen")]),
+    }
+
+
+def _object_analysis_data_gaps(relation_index: Dict[str, Any], peripheral_resources: Dict[str, Any]) -> List[Dict[str, Any]]:
+    gaps = []
+    for key in ("pods", "deployments", "nodes", "services", "ingresses"):
+        if not relation_index.get(key):
+            gaps.append({"source": key, "reason": "empty_or_unavailable"})
+    if isinstance(peripheral_resources, dict):
+        gaps.extend(peripheral_resources.get("data_gaps", []) or [])
+    return gaps
+
+
+def _analyze_ecs_monitoring(
+    region: str,
+    ak: str,
+    sk: str,
+    project_id: str,
+    nodes_result: Dict[str, Any],
+    abnormal_object_analysis: Dict[str, Any],
+    hours: int = 1,
+) -> Dict[str, Any]:
+    abnormal_nodes = {
+        obj.get("name")
+        for obj in abnormal_object_analysis.get("abnormal_objects", [])
+        if obj.get("kind") == "Node" and obj.get("name")
+    }
+    if not abnormal_nodes:
+        return {
+            "checked": False,
+            "reason": "No abnormal node object found in inspection evidence.",
+            "matched_instances": [],
+        }
+
+    node_items = nodes_result.get("nodes", []) if isinstance(nodes_result, dict) else []
+    abnormal_node_ips = set()
+    for node in node_items or []:
+        node_names = {
+            node.get("name"),
+            node.get("node_name"),
+            node.get("internal_ip"),
+            node.get("hostname"),
+        }
+        if abnormal_nodes.intersection({value for value in node_names if value}):
+            abnormal_node_ips.update(_node_private_ips(node))
+
+    result = {
+        "checked": True,
+        "target_node_names": sorted(abnormal_nodes),
+        "target_node_ips": sorted(abnormal_node_ips),
+        "matched_instances": [],
+        "metrics": {},
+        "data_gaps": [],
+        "note": "ECS metrics are collected for node-related instances only; this is monitoring evidence, not root cause.",
+    }
+
+    try:
+        ecs_list = list_ecs_instances(region, ak, sk, project_id, limit=100, offset=0)
+        result["list"] = ecs_list
+    except Exception as exc:
+        result["data_gaps"].append({"source": "ecs:list", "reason": str(exc)})
+        return result
+
+    if not result.get("list", {}).get("success"):
+        result["data_gaps"].append({
+            "source": "ecs:list",
+            "reason": result.get("list", {}).get("error", "ecs list unavailable"),
+        })
+        return result
+
+    if not abnormal_node_ips:
+        result["data_gaps"].append({
+            "source": "ecs:match",
+            "reason": "Abnormal node ECS mapping requires node private IPs, but none were found.",
+        })
+        return result
+
+    for instance in result["list"].get("instances", []) or []:
+        instance_ips = _instance_private_ips(instance)
+        if not abnormal_node_ips.intersection(instance_ips):
+            continue
+        result["matched_instances"].append({
+            "id": instance.get("id"),
+            "name": instance.get("name"),
+            "status": instance.get("status"),
+            "addresses": instance.get("addresses", []),
+        })
+
+    if not result["matched_instances"]:
+        result["data_gaps"].append({
+            "source": "ecs:match",
+            "reason": "No ECS instance matched abnormal node private IPs.",
+        })
+        return result
+
+    for instance in result["matched_instances"][:10]:
+        instance_id = instance.get("id")
+        if not instance_id:
+            continue
+        try:
+            result["metrics"][instance_id] = get_ecs_metrics(region, instance_id, ak, sk, project_id)
+        except Exception as exc:
+            result["data_gaps"].append({"source": f"ecs:{instance_id}", "reason": str(exc)})
+
+    return result
+
+
+def _node_private_ips(node: Dict[str, Any]) -> set:
+    ips = set()
+    for key in ("internal_ip", "node_ip", "private_ip"):
+        if node.get(key):
+            ips.add(str(node[key]))
+    for address in node.get("addresses", []) or []:
+        if isinstance(address, dict) and address.get("type") in ("InternalIP", "fixed", None) and address.get("address"):
+            ips.add(str(address["address"]))
+    return ips
+
+
+def _instance_private_ips(instance: Dict[str, Any]) -> set:
+    ips = set()
+    for address in instance.get("addresses", []) or []:
+        if not isinstance(address, dict):
+            continue
+        if address.get("addr") and address.get("type") in ("fixed", "InternalIP", None):
+            ips.add(str(address["addr"]))
+    return ips
+
+
+def _analyze_peripheral_resources(
+    region: str,
+    cluster_id: str,
+    ak: str,
+    sk: str,
+    project_id: str,
+    services: Dict[str, Any],
+    ingresses: Dict[str, Any],
+    events: Dict[str, Any],
+    quick_anomalies: List[Dict[str, Any]],
+    hours: int = 1,
+) -> Dict[str, Any]:
+    elb_ids = _discover_elb_ids(services, ingresses)
+    should_check_network = bool(elb_ids) or _has_network_signal(events, quick_anomalies)
+    if not should_check_network:
+        return {
+            "checked": False,
+            "reason": "No LoadBalancer/Ingress ELB id or network-related event/alarm signal found.",
+            "associated_elb_ids": [],
+        }
+
+    resource_status = {
+        "checked": True,
+        "associated_elb_ids": sorted(elb_ids),
+        "elb": {},
+        "eip": {},
+        "nat": {},
+        "data_gaps": [],
+    }
+    for elb_id in sorted(elb_ids):
+        try:
+            resource_status["elb"][elb_id] = {
+                "backend_status": get_elb_backend_status(region, elb_id, ak, sk, project_id),
+                "metrics": get_elb_metrics(
+                    region,
+                    elb_id,
+                    hours=hours,
+                    period=300,
+                    ak=ak,
+                    sk=sk,
+                    project_id=project_id,
+                ),
+            }
+        except Exception as exc:
+            resource_status["data_gaps"].append({"source": f"elb:{elb_id}", "reason": str(exc)})
+
+    try:
+        eips = list_eip_addresses(region, ak, sk, project_id)
+        resource_status["eip"]["list"] = eips
+        for eip_id in _select_eip_ids(eips, services):
+            try:
+                resource_status["eip"].setdefault("metrics", {})[eip_id] = get_eip_metrics(
+                    region, eip_id, hours=hours, period=300, ak=ak, sk=sk, project_id=project_id
+                )
+            except Exception as exc:
+                resource_status["data_gaps"].append({"source": f"eip:{eip_id}", "reason": str(exc)})
+    except Exception as exc:
+        resource_status["data_gaps"].append({"source": "eip:list", "reason": str(exc)})
+
+    try:
+        nat_gateways = list_nat_gateways(region, ak, sk, project_id)
+        resource_status["nat"]["list"] = nat_gateways
+        for nat_id in _select_nat_gateway_ids(nat_gateways):
+            try:
+                resource_status["nat"].setdefault("metrics", {})[nat_id] = get_nat_gateway_metrics(
+                    region, nat_id, hours=hours, period=300, ak=ak, sk=sk, project_id=project_id
+                )
+            except Exception as exc:
+                resource_status["data_gaps"].append({"source": f"nat:{nat_id}", "reason": str(exc)})
+    except Exception as exc:
+        resource_status["data_gaps"].append({"source": "nat:list", "reason": str(exc)})
+    return resource_status
+
+
+def _discover_elb_ids(services: Dict[str, Any], ingresses: Dict[str, Any]) -> set:
+    ids = set()
+    service_items = services.get("services", []) if isinstance(services, dict) else []
+    ingress_items = ingresses.get("ingresses", []) if isinstance(ingresses, dict) else []
+    for svc in service_items:
+        annotations = svc.get("annotations", {}) or {}
+        if svc.get("type") == "LoadBalancer":
+            for key in ("kubernetes.io/elb.id", "elb.id", "loadbalancer.openstack.org/id"):
+                if annotations.get(key):
+                    ids.add(annotations[key])
+    for ingress in ingress_items:
+        annotations = ingress.get("annotations", {}) or {}
+        for key in ("kubernetes.io/elb.id", "elb.id", "loadbalancer.openstack.org/id"):
+            if annotations.get(key):
+                ids.add(annotations[key])
+    return ids
+
+
+def _has_network_signal(events: Dict[str, Any], quick_anomalies: List[Dict[str, Any]]) -> bool:
+    keywords = ("ELB", "EIP", "NAT", "LoadBalancer", "Ingress", "Service", "network", "Network", "连接", "访问")
+    text = json.dumps({"events": events, "quick": quick_anomalies}, ensure_ascii=False)
+    return any(keyword in text for keyword in keywords)
+
+
+def _select_eip_ids(eips: Dict[str, Any], services: Dict[str, Any]) -> List[str]:
+    service_ips = set()
+    service_items = services.get("services", []) if isinstance(services, dict) else []
+    for svc in service_items:
+        for value in (svc.get("load_balancer_ip"), svc.get("external_ip"), svc.get("external_ips")):
+            if isinstance(value, list):
+                service_ips.update(str(item) for item in value if item)
+            elif value:
+                service_ips.add(str(value))
+
+    ids = []
+    eip_items = (eips.get("eips", []) or eips.get("publicips", []) or []) if isinstance(eips, dict) else []
+    for eip in eip_items:
+        eip_addr = eip.get("public_ip_address") or eip.get("publicip_address") or eip.get("ip_address")
+        eip_id = eip.get("id") or eip.get("publicip_id")
+        if eip_id and (not service_ips or str(eip_addr) in service_ips):
+            ids.append(eip_id)
+    return ids[:10]
+
+
+def _select_nat_gateway_ids(nat_gateways: Dict[str, Any]) -> List[str]:
+    gateways = nat_gateways.get("nat_gateways", []) if isinstance(nat_gateways, dict) else []
+    return [item.get("id") for item in gateways if item.get("id")][:10]
+
+
+def _derive_handoff_time_window(monitoring_windows: Dict[str, Any]) -> str:
+    timeline = monitoring_windows.get("timeline", {}) if isinstance(monitoring_windows, dict) else {}
+    if timeline.get("first_seen") and timeline.get("last_seen"):
+        return f"{timeline['first_seen']} ~ {timeline['last_seen']}"
+    windows = monitoring_windows.get("abnormal_windows", []) if isinstance(monitoring_windows, dict) else []
+    starts = [item.get("start") for item in windows if item.get("start")]
+    ends = [item.get("end") for item in windows if item.get("end")]
+    if starts and ends:
+        return f"{min(starts)} ~ {max(ends)}"
+    return "Use quick check, event, alarm, and diagnosis timestamps"
 
 def _get_recent_values(time_series: list, recent_minutes: int) -> List[float]:
     """从 time_series 中提取最近 N 分钟的值"""
@@ -615,184 +2136,107 @@ def _get_recent_values(time_series: list, recent_minutes: int) -> List[float]:
     return values
 
 
-def _analyze_root_cause(quick_check: Dict, diagnosis: Dict) -> Dict[str, Any]:
-    """根据快检 + 诊断数据自动定位根因"""
-    root_cause = {
-        "type": "unknown",
-        "chain": [],
-        "summary": "",
-        "confidence": "low",
+def _collect_diagnosis_data_gaps(diagnosis: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Collect failed or missing diagnosis evidence for root-cause handoff."""
+    gaps = []
+    for key, value in diagnosis.items():
+        if isinstance(value, dict) and value.get("error"):
+            gaps.append({"source": key, "reason": value.get("error")})
+        if isinstance(value, dict) and value.get("data_gaps"):
+            for gap in value.get("data_gaps") or []:
+                gaps.append({"source": key, "reason": gap})
+    return gaps
+
+
+def _build_root_cause_handoff_evidence(
+    diagnosis: Dict[str, Any],
+    quick_anomalies: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Build RCA handoff evidence from abnormal findings only."""
+    evidence: Dict[str, Any] = {
+        "quick_check_anomalies": quick_anomalies or [],
+        "handoff_policy": "Only abnormal inspection findings are included. Healthy/normal check items are excluded.",
     }
 
-    anomalies = quick_check.get("anomaly_details", []) if quick_check else []
-    anomaly_types = {a.get("type") for a in anomalies}
+    abnormal_object_analysis = diagnosis.get("abnormal_object_analysis") or {}
+    if abnormal_object_analysis.get("abnormal_objects"):
+        evidence["abnormal_object_analysis"] = abnormal_object_analysis
 
-    # 场景1: 流量突发 → CPU 饱和
-    if "elb_high_qps" in anomaly_types and "high_pod_cpu" in anomaly_types:
-        # 检查是否有 CPU limit 瓶颈
-        deployments = diagnosis.get("deployments", {})
-        low_cpu_pods = []
-        if deployments.get("success"):
-            for dep in deployments.get("deployments", []):
-                for c in dep.get("containers", []):
-                    cpu_limit = c.get("resources", {}).get("limits", {}).get("cpu", "")
-                    if cpu_limit and _parse_cpu(cpu_limit) <= 1:
-                        low_cpu_pods.append({
-                            "deployment": dep.get("name"),
-                            "container": c.get("name"),
-                            "cpu_limit": cpu_limit,
-                        })
+    abnormal_discovery = diagnosis.get("abnormal_object_discovery") or {}
+    if abnormal_discovery.get("abnormal_objects"):
+        evidence["abnormal_object_discovery"] = abnormal_discovery
 
-        root_cause = {
-            "type": "traffic_spike_cpu_bottleneck",
-            "chain": [
-                "外部流量突增",
-                "ELB 连接数暴增",
-                "Pod CPU 饱和",
-                "CPU limit 成为 throttle 瓶颈" if low_cpu_pods else "CPU 资源不足",
-                "响应时延增大",
-            ],
-            "summary": (
-                f"流量突发导致 CPU 饱和"
-                + (f"，{len(low_cpu_pods)} 个容器 CPU limit ≤ 1 核成为 throttle 瓶颈" if low_cpu_pods else "")
-            ),
-            "low_cpu_pods": low_cpu_pods,
-            "confidence": "high",
+    alarm_merge = diagnosis.get("alarm_merge") or {}
+    abnormal_alarm_groups = [
+        group for group in alarm_merge.get("merged_alarm_groups", []) or []
+        if group.get("matched_quick_check") or "firing" in {str(s).lower() for s in group.get("statuses", [])}
+    ]
+    if abnormal_alarm_groups:
+        evidence["alarm_merge"] = {
+            "merged_alarm_groups": abnormal_alarm_groups,
+            "quick_alarm_names": alarm_merge.get("quick_alarm_names", []),
         }
 
-    # 场景2: 纯 CPU 高（无 ELB 异常）
-    elif "high_pod_cpu" in anomaly_types and "elb_high_qps" not in anomaly_types:
-        root_cause = {
-            "type": "cpu_high",
-            "chain": ["Pod CPU 使用率高", "可能是业务逻辑问题或内部调用增加"],
-            "summary": "Pod CPU 使用率偏高，需进一步确认是业务增长还是代码问题",
-            "confidence": "medium",
+    event_merge = diagnosis.get("event_merge") or {}
+    if event_merge.get("abnormal_events") or event_merge.get("groups"):
+        evidence["event_merge"] = {
+            "abnormal_events": event_merge.get("abnormal_events", [])[:100],
+            "groups": event_merge.get("groups", []),
+            "count": event_merge.get("count"),
         }
 
-    # 场景3: 纯告警异常
-    elif "resource_alarm" in anomaly_types or "critical_alarm" in anomaly_types:
-        root_cause = {
-            "type": "alarm_triggered",
-            "chain": ["AOM 告警触发", "需检查具体告警内容"],
-            "summary": "存在资源类严重告警，需关注",
-            "confidence": "medium",
+    monitoring_windows = diagnosis.get("monitoring_windows") or {}
+    if monitoring_windows.get("abnormal_windows"):
+        evidence["monitoring_windows"] = {
+            "abnormal_windows": monitoring_windows.get("abnormal_windows", []),
+            "count": monitoring_windows.get("count"),
         }
 
-    # 场景4: 副本数不匹配
-    elif "replica_mismatch" in anomaly_types:
-        mismatch = [a for a in anomalies if a.get("type") == "replica_mismatch"]
-        root_cause = {
-            "type": "replica_mismatch",
-            "chain": ["Pod 副本数不足", "可能是节点资源不够或调度失败"],
-            "summary": mismatch[0].get("message", "") if mismatch else "副本数不匹配",
-            "confidence": "medium",
+    coredns = diagnosis.get("coredns") or {}
+    if coredns.get("anomalies"):
+        evidence["coredns"] = {
+            "anomalies": coredns.get("anomalies", []),
+            "metrics": _filter_coredns_abnormal_metrics(coredns),
         }
 
-    # 场景5: CrashLoop
-    elif "pod_crashloop" in anomaly_types:
-        crash = [a for a in anomalies if a.get("type") == "pod_crashloop"]
-        root_cause = {
-            "type": "pod_crashloop",
-            "chain": ["Pod 崩溃循环", "需要检查容器日志和配置"],
-            "summary": crash[0].get("message", "") if crash else "Pod CrashLoopBackOff",
-            "confidence": "medium",
+    peripheral = diagnosis.get("peripheral_monitoring") or {}
+    peripheral_gaps = peripheral.get("data_gaps", []) or []
+    ecs_gaps = (peripheral.get("ecs") or {}).get("data_gaps", []) or []
+    if peripheral_gaps or ecs_gaps:
+        evidence["peripheral_monitoring"] = {
+            "data_gaps": peripheral_gaps,
+            "ecs": {"data_gaps": ecs_gaps} if ecs_gaps else {},
         }
 
-    return root_cause
+    data_gaps = _collect_diagnosis_data_gaps(diagnosis)
+    if data_gaps:
+        evidence["data_gaps"] = data_gaps
+
+    return evidence
 
 
-def _generate_recovery_plan(root_cause: Dict, diagnosis: Dict) -> List[Dict[str, Any]]:
-    """根据根因生成恢复方案"""
-    plan = []
-    rc_type = root_cause.get("type", "unknown")
-
-    if rc_type == "traffic_spike_cpu_bottleneck":
-        # 流量突发场景
-        target_deploys = set()
-        for p in root_cause.get("low_cpu_pods", []):
-            target_deploys.add(p["deployment"])
-
-        if target_deploys:
-            for dep_name in target_deploys:
-                plan.append({
-                    "step": len(plan) + 1,
-                    "action": "scale_cce_workload",
-                    "description": f"扩容 {dep_name} 副本（建议 2-3x）",
-                    "params": {"name": dep_name, "namespace": "default"},
-                    "effect": "增加处理能力，降低单 Pod CPU 压力",
-                    "risk": "low",
-                })
-                plan.append({
-                    "step": len(plan) + 1,
-                    "action": "resize_cce_workload",
-                    "description": f"提升 {dep_name} CPU limit 到 4 核",
-                    "params": {"name": dep_name, "namespace": "default", "cpu_limit": "4"},
-                    "effect": "解除 cgroup throttle 瓶颈",
-                    "risk": "medium",
-                })
-
-    elif rc_type == "cpu_high":
-        plan.append({
-            "step": 1,
-            "action": "check_logs",
-            "description": "检查高 CPU Pod 的业务日志",
-            "effect": "确认 CPU 高的根因（业务增长/代码问题/异常流量）",
-            "risk": "none",
-        })
-
-    elif rc_type == "replica_mismatch":
-        for dep in root_cause.get("deployments", []):
-            plan.append({
-                "step": len(plan) + 1,
-                "action": "investigate_scheduling",
-                "description": f"排查 {dep.get('name')} 调度失败原因",
-                "effect": "找到 Pod 无法调度的根因并解决",
-                "risk": "none",
-            })
-
-    elif rc_type == "pod_crashloop":
-        plan.append({
-            "step": 1,
-            "action": "check_crashloop_logs",
-            "description": "查看 CrashLoop Pod 的容器日志和退出码",
-            "effect": "确认崩溃原因",
-            "risk": "none",
-        })
-
-    # 通用收尾步骤
-    if rc_type != "unknown":
-        plan.append({
-            "step": len(plan) + 1,
-            "action": "verify_recovery",
-            "description": "恢复操作后等待 2-5 分钟，验证指标是否恢复正常",
-            "effect": "确认恢复效果",
-            "risk": "none",
-        })
-
-    return plan
-
-
-def _parse_cpu(cpu_str: str) -> float:
-    """解析 CPU 字符串为核心数"""
-    if not cpu_str:
-        return 0
-    cpu_str = str(cpu_str).strip()
-    if cpu_str.endswith("m"):
-        return int(cpu_str[:-1]) / 1000
-    try:
-        return float(cpu_str)
-    except ValueError:
-        return 0
+def _filter_coredns_abnormal_metrics(coredns: Dict[str, Any]) -> Dict[str, Any]:
+    abnormal_names = {
+        item.get("metric")
+        for item in coredns.get("anomalies", []) or []
+        if item.get("metric")
+    }
+    metrics = coredns.get("metrics") or {}
+    return {
+        name: metrics.get(name)
+        for name in abnormal_names
+        if metrics.get(name)
+    }
 
 
 def _format_diagnosis_summary(diag: Dict) -> str:
     """格式化诊断结果为人类可读摘要"""
     qc = diag.get("quick_check", {})
     anomalies = qc.get("anomaly_details", [])
-    root_cause = diag.get("root_cause", {})
-    recovery = diag.get("recovery_plan", [])
+    root_cause_handoff = diag.get("root_cause_handoff", {})
+    remediation_handoff = diag.get("remediation_handoff", {})
 
-    lines = ["🚨 CCE集群异常 - 自动诊断完成", ""]
+    lines = ["🚨 CCE集群异常 - 深度诊断证据采集完成", ""]
 
     # 异常摘要
     lines.append("📊 异常摘要")
@@ -800,20 +2244,14 @@ def _format_diagnosis_summary(diag: Dict) -> str:
         msg = a.get("message", a.get("type", ""))
         lines.append(f"  - {msg}")
 
-    # 根因
-    if root_cause.get("summary"):
-        lines.append("")
-        lines.append(f"🔍 根因：{root_cause['summary']}")
-        if root_cause.get("chain"):
-            lines.append("  链路: " + " → ".join(root_cause["chain"]))
+    lines.append("")
+    lines.append("🔍 根因诊断：待交给 huawei-cloud-cce-root-cause-analyzer")
+    if root_cause_handoff.get("data_gaps"):
+        lines.append(f"  数据缺口: {len(root_cause_handoff['data_gaps'])} 项")
 
-    # 恢复方案
-    if recovery:
-        lines.append("")
-        lines.append("📋 恢复方案（待确认）")
-        for step in recovery:
-            lines.append(f"  {step['step']}. {step['description']}")
-            lines.append(f"     效果: {step.get('effect', '')} | 风险: {step.get('risk', '?')}")
+    lines.append("")
+    lines.append("📋 恢复步骤：待 root-cause-analyzer 输出 remediation_candidates 后直接按风险处理")
+    lines.append("  R3: 只读候选可直接执行；R2: 客户授权范围内可执行；R1/R0: 只给用户建议，不自动执行")
 
     # 耗时
     lines.append(f"\n⏱️ 快检 {qc.get('duration_seconds', 0)}s + 诊断 {diag.get('duration_seconds', 0)}s")
