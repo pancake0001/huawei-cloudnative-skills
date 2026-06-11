@@ -334,6 +334,7 @@ def _default_action_for_strategy(strategy: str) -> str:
         "cordon_drain_or_scale_nodepool_preview": "manual_select_node_or_nodepool_action",
         "node_repair_or_observation_preview": "manual_select_node_or_nodepool_action",
         "node_cordon_drain_or_scale_nodepool_preview": "manual_select_node_or_nodepool_action",
+        "resize_peripheral_resource_preview": "manual_resize_peripheral_resource",
         "cordon_node": "huawei_cce_node_cordon",
         "drain_node_after_cordon": "huawei_cce_node_drain",
     }.get(strategy, "manual_review_required")
@@ -351,6 +352,7 @@ def _risk_for_strategy(strategy: str, action: str) -> str:
         "huawei_bind_cce_cluster_eip",
         "huawei_unbind_cce_cluster_eip",
         "huawei_hss_change_vul_status",
+        "manual_resize_peripheral_resource",
     }:
         return "R0"
     if action == "manual_review_image_pull_secret":

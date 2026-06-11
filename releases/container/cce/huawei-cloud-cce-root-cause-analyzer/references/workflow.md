@@ -18,6 +18,7 @@
 10. For resource-usage incidents:
     - Pod high + Node normal + no rollout/Event/alarm/dependency abnormality => conclude application performance bottleneck, traffic/resource saturation, or Pod quota too small.
     - Node metrics over threshold or abnormal Node conditions => conclude node capacity/system bottleneck.
+    - Associated ELB/EIP connection or bandwidth usage over 80% => conclude peripheral resource bottleneck when timeline and service path align.
     - Healthy rollout is counter-evidence only and must not be ranked above a verified resource bottleneck.
 11. For dependency impact scope, use Service selector, Ingress backend, Pod Ready, Node distribution, ELB/EIP relationships, and peripheral status to determine propagation paths.
 12. For change impact scope, use audit logs, K8s historical events, AOM alarms, current topology, and RCA runtime evidence to verify the "change occurred before failure" causal chain.
@@ -38,5 +39,6 @@ Do not start RCA for healthy heartbeat, isolated informational alarms, one-time 
 | `NodeCapacityOrSystemBottleneck` | `cordon_node` / `huawei_cce_node_cordon` | `drain_node_after_cordon`, node pool scale-out preview | Cordon isolates the affected node from new scheduling and is R2; drain is R1 because it evicts existing Pods. |
 | `NodeConditionAbnormal` | `cordon_node` when node is concrete | node repair/observation preview | If no concrete node is identified, require manual node selection. |
 | `SchedulingOrNodeConstraint` | node pool scale-out or scheduling adjustment preview | workload request/affinity/taint review | Do not cordon a node unless RCA proves a concrete abnormal node. |
+| `PeripheralResourceBottleneck` | `resize_peripheral_resource_preview` / `manual_resize_peripheral_resource` | ELB/EIP metric verification | ELB/EIP connection or bandwidth expansion may affect cost/public entry capacity, so it is R0 advice-only unless explicitly confirmed. |
 | `ImagePullBlocked` | R3 image and pull-secret verification | `rollback_previous_revision` | Do not invent credentials; rollback is R1 when a bad new revision is unavailable. |
 | rollout/startup failures | `rollback_previous_revision` | image/probe/config fix preview | Applies to command missing, CrashLoop, probe failure, bad image, or rollout timeout with a previous stable revision. |

@@ -85,8 +85,8 @@ RCA may use these objects to choose target namespace, workload, node, related re
   "remediation_candidates": [
     {
       "skill": "huawei-cloud-cce-auto-remediation-runner",
-      "strategy": "rollback_previous_revision | scale_workload_out | scale_coredns_out | configure_hpa | resize_workload | fix_image_or_pull_secret_preview | cordon_node | drain_node_after_cordon | node_cordon_drain_or_scale_nodepool_preview",
-      "action": "huawei_rollback_cce_workload | huawei_scale_cce_workload | huawei_configure_cce_hpa | huawei_resize_cce_workload | huawei_cce_node_cordon | huawei_cce_node_drain | manual_review_image_pull_secret | manual_select_node_or_nodepool_action",
+      "strategy": "rollback_previous_revision | scale_workload_out | scale_coredns_out | configure_hpa | resize_workload | fix_image_or_pull_secret_preview | cordon_node | drain_node_after_cordon | node_cordon_drain_or_scale_nodepool_preview | resize_peripheral_resource_preview",
+      "action": "huawei_rollback_cce_workload | huawei_scale_cce_workload | huawei_configure_cce_hpa | huawei_resize_cce_workload | huawei_cce_node_cordon | huawei_cce_node_drain | manual_review_image_pull_secret | manual_select_node_or_nodepool_action | manual_resize_peripheral_resource",
       "risk_level": "R0 | R1 | R2 | R3",
       "target": {
         "region": "cn-north-4",

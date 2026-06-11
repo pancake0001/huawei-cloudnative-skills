@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from . import aom, cce, cce_diagnosis, cce_metrics, change_impact_analysis, dependency_impact_analysis, workload_rollout_diagnosis
+from . import aom, cce, cce_diagnosis, cce_metrics, change_impact_analysis, dependency_impact_analysis, elb, network, workload_rollout_diagnosis
 
 
 REMEDIATION_SKILL = "huawei-cloud-cce-auto-remediation-runner"
@@ -466,6 +466,140 @@ def _capture_coredns_metrics(params: Dict[str, Any], common: Dict[str, Any]) -> 
     }
 
 
+def _capture_peripheral_metrics(
+    params: Dict[str, Any],
+    common: Dict[str, Any],
+    services_result: Dict[str, Any],
+    ingresses_result: Dict[str, Any],
+) -> Dict[str, Any]:
+    region = params["region"]
+    hours = _to_int(params.get("hours"), 1)
+    access_key = common.get("ak")
+    secret_key = common.get("sk")
+    project_id = common.get("project_id")
+    services = services_result.get("services", []) if isinstance(services_result, dict) and services_result.get("success") else []
+    ingresses = ingresses_result.get("ingresses", []) if isinstance(ingresses_result, dict) and ingresses_result.get("success") else []
+    elb_refs = _associated_elb_refs(services, ingresses)
+    service_ips = _service_external_ips(services)
+    data_gaps = []
+    anomalies = []
+    metrics = {"elb": {}, "eip": {}}
+
+    for elb_id, refs in elb_refs.items():
+        raw = elb.get_elb_metrics(region, elb_id, hours=hours, period=300, ak=access_key, sk=secret_key, project_id=project_id)
+        metrics["elb"][elb_id] = {"refs": refs, "result": raw}
+        if not raw.get("success"):
+            data_gaps.append({"source": f"elb:{elb_id}", "reason": raw.get("error", "ELB metric query failed")})
+            continue
+        for metric_name in ("l4_con_usage", "l7_con_usage"):
+            _append_usage_anomaly(anomalies, raw, "ELB", elb_id, metric_name, "connection", refs)
+        for metric_name in ("l4_in_bps_usage", "l4_out_bps_usage", "l7_in_bps_usage", "l7_out_bps_usage"):
+            _append_usage_anomaly(anomalies, raw, "ELB", elb_id, metric_name, "bandwidth", refs)
+
+    if service_ips:
+        eips = network.list_eip_addresses(region, ak=access_key, sk=secret_key, project_id=project_id)
+        if not eips.get("success"):
+            data_gaps.append({"source": "eip:list", "reason": eips.get("error", "EIP list query failed")})
+        else:
+            for eip_info in eips.get("eips", []) or []:
+                public_ip = eip_info.get("ip_address") or eip_info.get("public_ip_address") or eip_info.get("publicip_address")
+                eip_id = eip_info.get("id") or eip_info.get("publicip_id")
+                if not eip_id or str(public_ip) not in service_ips:
+                    continue
+                raw = network.get_eip_metrics(region, eip_id, hours=hours, period=300, ak=access_key, sk=secret_key, project_id=project_id)
+                refs = [{"kind": "ServiceExternalIP", "ip": public_ip}]
+                metrics["eip"][eip_id] = {"refs": refs, "eip": eip_info, "result": raw}
+                if not raw.get("success"):
+                    data_gaps.append({"source": f"eip:{eip_id}", "reason": raw.get("error", "EIP metric query failed")})
+                    continue
+                for metric_name in ("upstream_bandwidth_usage", "downstream_bandwidth_usage"):
+                    _append_usage_anomaly(anomalies, raw, "EIP", eip_id, metric_name, "bandwidth", refs)
+
+    return {
+        "success": True,
+        "checked": bool(elb_refs or service_ips),
+        "associated_elb_ids": sorted(elb_refs),
+        "associated_service_external_ips": sorted(service_ips),
+        "metrics": metrics,
+        "anomalies": anomalies,
+        "data_gaps": data_gaps,
+        "summary": {
+            "anomaly_count": len(anomalies),
+            "elb_count": len(elb_refs),
+            "service_external_ip_count": len(service_ips),
+        },
+    }
+
+
+def _associated_elb_refs(services: List[Dict[str, Any]], ingresses: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
+    refs: Dict[str, List[Dict[str, Any]]] = {}
+    keys = ("kubernetes.io/elb.id", "elb.id", "loadbalancer.openstack.org/id")
+    for service in services or []:
+        annotations = service.get("annotations") or {}
+        if service.get("type") != "LoadBalancer":
+            continue
+        for key in keys:
+            elb_id = annotations.get(key)
+            if elb_id:
+                refs.setdefault(str(elb_id), []).append({
+                    "kind": "Service",
+                    "namespace": service.get("namespace"),
+                    "name": service.get("name"),
+                })
+    for ingress in ingresses or []:
+        annotations = ingress.get("annotations") or {}
+        for key in keys:
+            elb_id = annotations.get(key)
+            if elb_id:
+                refs.setdefault(str(elb_id), []).append({
+                    "kind": "Ingress",
+                    "namespace": ingress.get("namespace"),
+                    "name": ingress.get("name"),
+                })
+    return refs
+
+
+def _service_external_ips(services: List[Dict[str, Any]]) -> set:
+    ips = set()
+    for service in services or []:
+        for key in ("load_balancer_ip", "external_ip"):
+            if service.get(key):
+                ips.add(str(service[key]))
+        for value in service.get("external_ips") or []:
+            if value:
+                ips.add(str(value))
+    return ips
+
+
+def _append_usage_anomaly(
+    anomalies: List[Dict[str, Any]],
+    metric_result: Dict[str, Any],
+    resource_type: str,
+    resource_id: str,
+    metric_name: str,
+    category: str,
+    refs: List[Dict[str, Any]],
+    threshold: float = 80,
+) -> None:
+    metric = (metric_result.get("metrics") or {}).get(metric_name) or {}
+    value = _to_float(metric.get("latest_value"))
+    if value is None or value <= threshold:
+        return
+    anomalies.append({
+        "resource_type": resource_type,
+        "resource_id": resource_id,
+        "resource_name": metric_result.get("elb_name"),
+        "resource_subtype": metric_result.get("elb_type"),
+        "metric": metric_name,
+        "metric_name_cn": metric.get("name_cn"),
+        "category": category,
+        "value": round(value, 2),
+        "threshold": threshold,
+        "status": "critical" if value > 90 else "warning",
+        "refs": refs,
+    })
+
+
 def _capture_runtime_evidence(params: Dict[str, Any], scope_hints: Dict[str, Any]) -> Dict[str, Any]:
     namespace = params.get("namespace")
     region = params["region"]
@@ -491,6 +625,8 @@ def _capture_runtime_evidence(params: Dict[str, Any], scope_hints: Dict[str, Any
         "events": lambda: cce.get_kubernetes_events(region, cluster_id, namespace=namespace, limit=_to_int(params.get("event_limit"), 500), **common),
         "pods": lambda: cce.get_kubernetes_pods(region, cluster_id, namespace=namespace, **common),
         "nodes": lambda: cce.get_kubernetes_nodes(region, cluster_id, **common),
+        "services": lambda: cce.get_kubernetes_services(region, cluster_id, namespace=namespace, **common),
+        "ingresses": lambda: cce.get_kubernetes_ingresses(region, cluster_id, namespace=namespace, **common),
         "pod_metrics_topn": lambda: cce_metrics.get_cce_pod_metrics_topN(
             region=region,
             cluster_id=cluster_id,
@@ -513,11 +649,21 @@ def _capture_runtime_evidence(params: Dict[str, Any], scope_hints: Dict[str, Any
         if not captures[key].get("success"):
             captures["success"] = False
             captures["data_gaps"].append({"source": key, "reason": captures[key].get("error")})
+    captures["peripheral"] = _safe_capture(
+        "peripheral",
+        lambda: _capture_peripheral_metrics(params, common, captures.get("services") or {}, captures.get("ingresses") or {}),
+    )
+    if not captures["peripheral"].get("success"):
+        captures["success"] = False
+        captures["data_gaps"].append({"source": "peripheral", "reason": captures["peripheral"].get("error")})
     captures["summary"] = {
         "headline": "RCA runtime evidence collected independently",
         "events": len(captures.get("events", {}).get("events", []) or []),
         "pods": len(captures.get("pods", {}).get("pods", []) or []),
         "nodes": len(captures.get("nodes", {}).get("nodes", []) or []),
+        "services": len(captures.get("services", {}).get("services", []) or []),
+        "ingresses": len(captures.get("ingresses", {}).get("ingresses", []) or []),
+        "peripheral_anomalies": len(captures.get("peripheral", {}).get("anomalies", []) or []),
     }
     return captures
 
@@ -533,6 +679,7 @@ def _causes_from_runtime_evidence(runtime: Dict[str, Any], scope_hints: Dict[str
     node_topn = runtime.get("node_metrics_topn", {})
     pod_traffic = runtime.get("pod_traffic", {})
     coredns = runtime.get("coredns", {})
+    peripheral = runtime.get("peripheral", {})
 
     event_text = json.dumps(events[:200], ensure_ascii=False).lower()
     if any(token in event_text for token in ("imagepullbackoff", "errimagepull", "pull image", "failed to pull image")):
@@ -634,6 +781,22 @@ def _causes_from_runtime_evidence(runtime: Dict[str, Any], scope_hints: Dict[str
             "recommendation": ["优先扩容 kube-system/coredns 副本数，恢复后复查 CoreDNS CPU、解析成功率和 P99 解析时延。"],
             "remediation_hint": {"skill": REMEDIATION_SKILL, "strategy": "scale_coredns_out", "requires_confirmation": False},
         })
+    peripheral_bottleneck = _peripheral_resource_bottleneck(peripheral)
+    if peripheral_bottleneck:
+        causes.append({
+            "type": "PeripheralResourceBottleneck",
+            "title": "关联 ELB/EIP 连接数或带宽使用率达到瓶颈",
+            "domain": "peripheral",
+            "confidence": peripheral_bottleneck["confidence"],
+            "evidence": [
+                {"source": "rca.peripheral_metrics", **peripheral_bottleneck},
+            ],
+            "counter_evidence": [
+                "需要结合业务入口错误率、ELB 后端健康、Service EndpointSlice 和业务流量确认是否为直接根因。",
+            ],
+            "recommendation": ["优先评估 ELB 规格/连接数配额或 EIP 带宽扩容；该类动作可能涉及费用或公网入口变更，按 R0 高风险建议处理。"],
+            "remediation_hint": {"skill": REMEDIATION_SKILL, "strategy": "resize_peripheral_resource_preview", "requires_confirmation": True},
+        })
     return causes
 
 
@@ -674,6 +837,18 @@ def _current_coredns_pod_count(captures: Dict[str, Dict[str, Any]]) -> Optional[
         if pod.get("namespace") == "kube-system" and "coredns" in str(pod.get("name") or "").lower()
     }
     return len(names) if names else None
+
+
+def _peripheral_anomalies_from_causes(causes: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    anomalies: List[Dict[str, Any]] = []
+    for cause in causes or []:
+        if cause.get("type") != "PeripheralResourceBottleneck":
+            continue
+        for evidence in cause.get("evidence") or []:
+            for item in evidence.get("anomalies") or []:
+                if isinstance(item, dict):
+                    anomalies.append(item)
+    return anomalies
 
 
 def _node_names_from_causes(causes: List[Dict[str, Any]]) -> List[str]:
@@ -899,6 +1074,31 @@ def _build_remediation_candidates(
             params={"region": target.get("region"), "cluster_id": target.get("cluster_id")},
             reason="如果 RCA 未能唯一确定节点或需要补容量，先明确 node_name 或 nodepool_id，再按 R0/R1/R2/R3 风险规则生成预览。",
             verification=["huawei_get_kubernetes_nodes", "huawei_node_diagnose", "huawei_workload_rollout_diagnose"],
+        ))
+
+    if "PeripheralResourceBottleneck" in cause_types:
+        peripheral_anomalies = _peripheral_anomalies_from_causes(ranked_causes)
+        add(_candidate(
+            strategy="resize_peripheral_resource_preview",
+            action="manual_resize_peripheral_resource",
+            risk_level="R0",
+            target={
+                "region": target.get("region"),
+                "cluster_id": target.get("cluster_id"),
+                "resources": [
+                    {
+                        "resource_type": item.get("resource_type"),
+                        "resource_id": item.get("resource_id"),
+                        "metric": item.get("metric"),
+                        "value": item.get("value"),
+                        "refs": item.get("refs"),
+                    }
+                    for item in peripheral_anomalies[:10]
+                ],
+            },
+            params={"region": target.get("region"), "cluster_id": target.get("cluster_id")},
+            reason="关联 ELB/EIP 连接数或带宽使用率超过 80%；建议评估 ELB 规格、连接数配额或 EIP 带宽扩容。该类动作通常涉及费用/公网入口能力变化，属于 R0，只输出建议。",
+            verification=["huawei_elb_monitoring_inspection", "huawei_network_diagnose", "huawei_get_aom_metrics"],
         ))
 
     return candidates
@@ -1216,6 +1416,30 @@ def _coredns_performance_bottleneck(coredns: Dict[str, Any]) -> Optional[Dict[st
         "metrics": metrics,
         "anomalies": anomalies,
         "unavailable_metrics": coredns.get("unavailable_metrics", []),
+        "confidence": confidence,
+    }
+
+
+def _peripheral_resource_bottleneck(peripheral: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    if not isinstance(peripheral, dict) or not peripheral.get("success"):
+        return None
+    anomalies = peripheral.get("anomalies") or []
+    if not anomalies:
+        return None
+    max_value = max((_to_float(item.get("value")) or 0) for item in anomalies)
+    categories = sorted({item.get("category") for item in anomalies if item.get("category")})
+    resource_types = sorted({item.get("resource_type") for item in anomalies if item.get("resource_type")})
+    confidence = 0.82
+    if max_value > 90:
+        confidence = 0.88
+    return {
+        "summary": "关联 ELB/EIP 连接数或带宽使用率超过 80%，符合周边资源容量瓶颈特征。",
+        "categories": categories,
+        "resource_types": resource_types,
+        "anomalies": anomalies[:20],
+        "associated_elb_ids": peripheral.get("associated_elb_ids", []),
+        "associated_service_external_ips": peripheral.get("associated_service_external_ips", []),
+        "data_gaps": peripheral.get("data_gaps", []),
         "confidence": confidence,
     }
 

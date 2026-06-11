@@ -63,6 +63,7 @@ Only fault-origin candidates should enter `top_causes`:
 - `NodeConditionAbnormal` when Node conditions are abnormal but resource thresholds do not yet prove a capacity bottleneck.
 - `ApplicationPerformanceOrQuotaBottleneck` when Pod resources are saturated while Nodes are normal; traffic spike evidence strengthens but is not mandatory.
 - `DnsPerformanceBottleneck` when RCA-collected CoreDNS CPU is high or P99 DNS latency rises above 100ms; success rate below 99% strengthens the conclusion.
+- `PeripheralResourceBottleneck` when RCA-collected associated ELB/EIP connection or bandwidth usage exceeds 80%.
 - `Change:<category>` only when a recent change is time-correlated with RCA-collected failure evidence.
 
 Dependency propagation and alarm correlation are not ranked root causes by themselves:
@@ -77,6 +78,7 @@ Dependency propagation and alarm correlation are not ranked root causes by thems
 - `NodeCapacityOrSystemBottleneck`: if affected node names are known, first propose `cordon_node` with `huawei_cce_node_cordon`; then propose `drain_node_after_cordon` as R1 only when existing Pods must be evicted or migrated.
 - `NodeConditionAbnormal`: propose `cordon_node` only when the node is concrete and abnormal; otherwise return a manual node repair/observation preview.
 - `SchedulingOrNodeConstraint`: propose node pool scale-out or scheduling adjustment preview when no single node should be isolated.
+- `PeripheralResourceBottleneck`: propose `resize_peripheral_resource_preview` with `manual_resize_peripheral_resource`; ELB/EIP specification or bandwidth expansion is R0 because it may affect cost or public entry capacity.
 - `ImagePullBlocked`: first propose R3 image/pull secret verification; rollback is R1 when a new revision is unavailable and a previous stable revision exists.
 - Rollout/startup failures: propose `rollback_previous_revision` when rollback is the safest recovery path.
 
@@ -103,6 +105,7 @@ Resource-usage RCA rules:
 - If Pod traffic receive/transmit rate rises sharply in the same window, RCA may strengthen the conclusion to traffic-driven application/resource saturation.
 - If traffic does not rise sharply or traffic metrics are unavailable, RCA may still conclude application performance bottleneck or Pod limit/request too small, but must record the missing or negative traffic evidence.
 - If Node CPU/memory/disk reaches configured thresholds or Node conditions show `Ready=False`, `MemoryPressure=True`, `DiskPressure=True`, `PIDPressure=True`, `NetworkUnavailable=True`, or NPD `*Problem=True`, RCA may conclude `NodeCapacityOrSystemBottleneck`.
+- If associated Service/Ingress points to ELB/EIP and RCA-collected ELB/EIP connection or bandwidth usage exceeds 80%, RCA may conclude `PeripheralResourceBottleneck` and recommend ELB specification, connection quota, or EIP bandwidth expansion as an R0 advice-only recovery candidate.
 - Do not infer node bottleneck from a related node name alone. Node conclusions require RCA-collected node metrics or abnormal conditions.
 - A healthy rollout is counter-evidence, not a root cause. It must not outrank resource bottleneck candidates.
 
