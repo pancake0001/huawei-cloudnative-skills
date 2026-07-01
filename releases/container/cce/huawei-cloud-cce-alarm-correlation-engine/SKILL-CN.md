@@ -7,6 +7,8 @@ description: 华为云 AOM 告警关联分析技能，支持查询 active/histor
 
 华为云 AOM 告警关联分析技能，用于把 CCE 相关告警从原始事件流整理成可行动的告警线索。核心原则是同时考虑 active 和 history，避免漏掉已经恢复但影响诊断的资源类告警。
 
+> **执行方式：本技能仍通过 `scripts/huawei-cloud.py` 统一入口执行，但入口内部使用 `hcloud` 获取华为云数据。禁止在技能外绕过 dispatcher 直接调用 SDK、curl IAM、openstack 或手写签名 API。**
+
 ## ⛔ 安全约束
 
 ### 告警规则变更二次确认机制
@@ -78,35 +80,40 @@ python3 huawei-cloud.py huawei_create_aom_alarm_rule \
 ✅ **本技能严格遵守以下安全规则：**
 
 1. **禁止持久化存储认证信息** - 从不将 AK/SK、Token、证书等敏感认证信息保存到磁盘文件
-2. **禁止长期内存缓存** - AK/SK 仅在当前 API 请求调用过程中存在于内存，调用结束后自动释放
-3. **仅项目 ID 内存缓存** - 仅将非敏感的项目 ID 缓存在进程内存中（不写入磁盘）
+2. **禁止长期内存缓存** - AK/SK 仅在当前 hcloud 调用过程中存在于内存，调用结束后释放
+3. **不做自定义项目 ID 缓存** - project/profile 解析交给 hcloud 处理
 4. **禁止日志泄露** - 不在任何日志、响应输出或错误信息中包含 AK/SK 等敏感信息
 5. **输出脱敏** - 对外输出只展示告警、资源和规则信息，不展示认证凭证
 
-AK/SK 仅支持以下两种方式使用：
-- 通过环境变量 `HUAWEI_AK` / `HUAWEI_SK` 传入（推荐）
+AK/SK 支持以下三种方式使用：
+- 已配置的 hcloud profile（推荐）
+- 通过环境变量 `HUAWEI_AK` / `HUAWEI_SK` 传入
 - 通过每次调用参数传入（仅本次调用有效）
 
 ---
 
 ## 前置条件
 
-### 环境变量配置
+### hcloud 配置
 
-**方式一：环境变量（推荐）**
+**方式一：使用 hcloud profile（推荐）**
+```bash
+hcloud configure init
+```
+
+**方式二：环境变量**
 ```bash
 export HUAWEI_AK="your-access-key-id"
 export HUAWEI_SK="your-secret-access-key"
 ```
 
-**方式二：每次调用参数传入**
-在每次 API 调用时传入 `ak` 和 `sk` 参数（不推荐用于生产环境）。
+**方式三：每次调用参数传入**
+在每次脚本调用时传入 `ak` 和 `sk` 参数（不推荐用于生产环境）。
 
-### Python 依赖
+### 运行依赖
 
-```bash
-pip install huaweicloudsdkcore huaweicloudsdkaom huaweicloudsdkiam
-```
+- Python 3.8+
+- `hcloud` CLI 7.2.2+，并且可在 `PATH` 中直接执行
 
 ### IAM 权限策略
 
@@ -121,7 +128,6 @@ pip install huaweicloudsdkcore huaweicloudsdkaom huaweicloudsdkiam
 | `aom:alarmRule:delete` | 删除 AOM 告警规则 |
 | `aom:actionRule:list` | 查询 AOM 动作规则 |
 | `aom:muteRule:list` | 查询 AOM 静默规则 |
-| `cce:cluster:list` | 通过集群 ID 获取集群名称和辅助过滤信息 |
 
 ---
 
@@ -140,7 +146,7 @@ pip install huaweicloudsdkcore huaweicloudsdkaom huaweicloudsdkiam
 - `cluster_id` (optional): CCE 集群 ID；传入后只返回该集群相关告警
 - `ak` (optional): Access Key ID，优先使用 `HUAWEI_AK`
 - `sk` (optional): Secret Access Key，优先使用 `HUAWEI_SK`
-- `project_id` (optional): 华为云项目 ID，不传时按 region 自动获取
+- `project_id` (optional): 华为云项目 ID；不传时使用当前 hcloud profile/project 配置
 
 **使用示例：**
 ```bash
@@ -208,7 +214,7 @@ python3 huawei-cloud.py huawei_analyze_aom_alarms \
 - `confirm` (optional): 创建、修改或删除时必须显式设置为 `true` 才会执行
 - `ak` (optional): Access Key ID
 - `sk` (optional): Secret Access Key
-- `project_id` (optional): 华为云项目 ID
+- `project_id` (optional): 华为云项目 ID；不传时使用当前 hcloud profile/project 配置
 
 **使用示例：**
 ```bash
@@ -321,7 +327,7 @@ python3 huawei-cloud.py huawei_list_aom_mute_rules \
 - `cluster_id` (required): CCE 集群 ID
 - `ak` (optional): Access Key ID
 - `sk` (optional): Secret Access Key
-- `project_id` (optional): 华为云项目 ID
+- `project_id` (optional): 华为云项目 ID；不传时使用当前 hcloud profile/project 配置
 
 **使用示例：**
 ```bash
