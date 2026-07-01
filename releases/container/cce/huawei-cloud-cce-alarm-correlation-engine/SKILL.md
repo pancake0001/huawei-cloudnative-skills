@@ -64,6 +64,7 @@ The dispatcher script requires:
 
 - Python >= 3.8
 - Huawei Cloud KooCLI / `hcloud` >= 7.2.2 available in `PATH`
+- A local `hcloud` profile configured with `hcloud configure`; the dispatcher relies on the local hcloud configuration for Huawei Cloud authentication and project/region resolution
 
 ### Credential Configuration
 
@@ -76,7 +77,7 @@ The dispatcher script requires:
 
 🚫 **Never expose or log AK/SK values.** Credentials exist only in the current request call stack and are released after each invocation. Do not write credentials to files, logs, or responses.
 
-✅ **Prefer an hcloud profile** (`hcloud configure`) for normal use. Environment variables `HUAWEI_AK` / `HUAWEI_SK` are also supported for one-off, non-persistent execution.
+✅ **This skill depends on the local hcloud configuration.** Use an hcloud profile (`hcloud configure`) for normal use. Environment variables `HUAWEI_AK` / `HUAWEI_SK` are also supported for one-off, non-persistent execution, but the dispatcher still invokes the local `hcloud` CLI.
 
 **Security rules for credentials:**
 
@@ -117,6 +118,15 @@ python3 scripts/huawei-cloud.py <action> region=<region> [key=value ...]
 
 > **Mutation operations (create, update, delete, enable, disable alarm rules; delete action rules) require `confirm=true` to execute. Without `confirm`, the tool returns a preview and confirmation prompt only.**
 
+#### Risk Level Definitions
+
+| Level | Meaning | Execution Guidance |
+|-------|---------|--------------------|
+| R3 | No-risk read-only operation | May run automatically |
+| R2 | Low-risk change, such as creating monitoring configuration without deleting resources or increasing service capacity/cost | Preview first; execute only when the user asks for the change |
+| R1 | Risky operation, such as restart-like impact, disabling protection, or changes that may increase cost or reduce observability | Requires explicit confirmation and `confirm=true` |
+| R0 | Critical operation, such as deleting clusters, applications, or notification/monitoring protections with broad impact | Do not execute automatically; require explicit user confirmation, impact review, and rollback plan |
+
 **Step 1: Preview** — call without `confirm`:
 ```bash
 python3 scripts/huawei-cloud.py huawei_create_aom_alarm_rule \
@@ -140,13 +150,13 @@ python3 scripts/huawei-cloud.py huawei_create_aom_alarm_rule \
 
 | Tool | Operation | Risk Level | Description |
 |------|-----------|-----------|-------------|
-| `huawei_create_aom_alarm_rule` | Create | 🟡 Medium | Create new AOM alarm rule, may introduce new alarm notifications |
-| `huawei_create_aom_event_alarm_rule` | Create | 🟡 Medium | Create AOM event alarm rule, may introduce new event notifications |
-| `huawei_update_aom_alarm_rule` | Update | 🟠 High | Update AOM alarm rule threshold, toggle, notification action, description, etc. |
-| `huawei_delete_aom_alarm_rule` | Delete | 🔴 High | Delete AOM alarm rule, may prevent future alarms from triggering |
-| `huawei_disable_aom_alarm_rule` | Disable | 🔴 High | Disable AOM alarm rule, may stop related alarms from triggering |
-| `huawei_enable_aom_alarm_rule` | Enable | 🟠 High | Enable AOM alarm rule, may restore and trigger alarm notifications |
-| `huawei_delete_aom_action_rule` | Delete | 🔴 High | Delete AOM notification action rule, may prevent alarm notifications |
+| `huawei_create_aom_alarm_rule` | Create | R2 | Create new AOM alarm rule, may introduce new alarm notifications |
+| `huawei_create_aom_event_alarm_rule` | Create | R2 | Create AOM event alarm rule, may introduce new event notifications |
+| `huawei_update_aom_alarm_rule` | Update | R1 | Update AOM alarm rule threshold, toggle, notification action, description, etc. |
+| `huawei_delete_aom_alarm_rule` | Delete | R0 | Delete AOM alarm rule, may prevent future alarms from triggering |
+| `huawei_disable_aom_alarm_rule` | Disable | R1 | Disable AOM alarm rule, may stop related alarms from triggering |
+| `huawei_enable_aom_alarm_rule` | Enable | R2 | Enable AOM alarm rule, may restore and trigger alarm notifications |
+| `huawei_delete_aom_action_rule` | Delete | R0 | Delete AOM notification action rule, may prevent alarm notifications |
 
 #### Prohibited Actions
 
@@ -161,11 +171,11 @@ If analysis results require scaling, rebooting, draining, vulnerability status c
 
 ### Alarm Query and Correlation (Read-Only)
 
-| Action | Description | Cluster Filter | Required Params |
-|--------|-------------|---------------|-----------------|
-| `huawei_list_aom_alarms` | Query active + history alarms, merged and deduplicated | Supports `cluster_id` | `region` |
-| `huawei_list_aom_current_alarms` | Query current active alarms only | Supports `cluster_id` | `region` |
-| `huawei_analyze_aom_alarms` | Analyze alarms: deduplication, severity grouping, burst/steady identification | Supports `cluster_id` | `region` |
+| Action | Description | Risk Level | Cluster Filter | Required Params |
+|--------|-------------|------------|---------------|-----------------|
+| `huawei_list_aom_alarms` | Query active + history alarms, merged and deduplicated | R3 | Supports `cluster_id` | `region` |
+| `huawei_list_aom_current_alarms` | Query current active alarms only | R3 | Supports `cluster_id` | `region` |
+| `huawei_analyze_aom_alarms` | Analyze alarms: deduplication, severity grouping, burst/steady identification | R3 | Supports `cluster_id` | `region` |
 
 ```bash
 # Query active + history alarms in a region
@@ -194,17 +204,17 @@ python3 scripts/huawei-cloud.py huawei_analyze_aom_alarms \
 - When creating metric alarm rules via `huawei_create_aom_alarm_rule`, PromQL/metric thresholds should reference `references/cce-prometheus-metric-alarms.md`.
 
 | Action | Description | Risk Level | Requires `confirm` | Required Params |
-|--------|-------------|-----------|--------------------|-----------------|
-| `huawei_list_aom_alarm_rules` | Query AOM alarm rules | 🟢 Low | No | `region` |
-| `huawei_create_aom_alarm_rule` | Create AOM metric alarm rule | 🟡 Medium | **Yes** | `region`, `rule_name`, `metric_name`, `namespace`, `comparison_operator`, `threshold`, `period`, `evaluation_periods`, `statistic`, `alarm_level` |
-| `huawei_create_aom_event_alarm_rule` | Create AOM event alarm rule | 🟡 Medium | **Yes** | `region`, `rule_name`, `event_name`, `namespace` |
-| `huawei_update_aom_alarm_rule` | Update AOM alarm rule | 🟠 High | **Yes** | `region`, `rule_name` |
-| `huawei_delete_aom_alarm_rule` | Delete AOM alarm rule | 🔴 High | **Yes** | `region`, `rule_name` |
-| `huawei_disable_aom_alarm_rule` | Disable AOM alarm rule | 🔴 High | **Yes** | `region`, `rule_id` |
-| `huawei_enable_aom_alarm_rule` | Enable AOM alarm rule | 🟠 High | **Yes** | `region`, `rule_id` |
-| `huawei_list_aom_action_rules` | Query AOM action/notification rules | 🟢 Low | No | `region` |
-| `huawei_delete_aom_action_rule` | Delete AOM notification action rule | 🔴 High | **Yes** | `region`, `rule_name` |
-| `huawei_list_aom_mute_rules` | Query AOM mute rules | 🟢 Low | No | `region` |
+|--------|-------------|------------|--------------------|-----------------|
+| `huawei_list_aom_alarm_rules` | Query AOM alarm rules | R3 | No | `region` |
+| `huawei_create_aom_alarm_rule` | Create AOM metric alarm rule | R2 | **Yes** | `region`, `rule_name`, `metric_name`, `namespace`, `comparison_operator`, `threshold`, `period`, `evaluation_periods`, `statistic`, `alarm_level` |
+| `huawei_create_aom_event_alarm_rule` | Create AOM event alarm rule | R2 | **Yes** | `region`, `cluster_id`, `rule_name`, `event_name` |
+| `huawei_update_aom_alarm_rule` | Update AOM alarm rule | R1 | **Yes** | `region`, `rule_name` |
+| `huawei_delete_aom_alarm_rule` | Delete AOM alarm rule | R0 | **Yes** | `region`, `rule_name` |
+| `huawei_disable_aom_alarm_rule` | Disable AOM alarm rule | R1 | **Yes** | `region`, `rule_id` |
+| `huawei_enable_aom_alarm_rule` | Enable AOM alarm rule | R2 | **Yes** | `region`, `rule_id` |
+| `huawei_list_aom_action_rules` | Query AOM action/notification rules | R3 | No | `region` |
+| `huawei_delete_aom_action_rule` | Delete AOM notification action rule | R0 | **Yes** | `region`, `rule_name` |
+| `huawei_list_aom_mute_rules` | Query AOM mute rules | R3 | No | `region` |
 
 ```bash
 # Query alarm rules
@@ -272,9 +282,9 @@ python3 scripts/huawei-cloud.py huawei_list_aom_mute_rules region=cn-north-4
 
 ### Cluster Alarm Inspection (Read-Only)
 
-| Action | Description | Required Params |
-|--------|-------------|-----------------|
-| `huawei_aom_alarm_inspection` | Inspect AOM alarms for a CCE cluster and output risk items | `region`, `cluster_id` |
+| Action | Description | Risk Level | Required Params |
+|--------|-------------|------------|-----------------|
+| `huawei_aom_alarm_inspection` | Inspect AOM alarms for a CCE cluster and output risk items | R3 | `region`, `cluster_id` |
 
 ```bash
 # Inspect alarms for a specific cluster

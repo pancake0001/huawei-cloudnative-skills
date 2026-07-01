@@ -2,6 +2,12 @@
 level: L2
 domain: observability
 description: Correlate Huawei Cloud AOM active and historical alarms for CCE operations.
+dependencies:
+  - type: cli
+    name: hcloud
+    version: ">= 7.2.2"
+    required: true
+    configuration: local hcloud profile configured with `hcloud configure`
 tools:
   - huawei_list_aom_alarms
   - huawei_list_aom_current_alarms

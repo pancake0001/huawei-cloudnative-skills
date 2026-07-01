@@ -17,14 +17,24 @@ description: 华为云 AOM 告警关联分析技能，支持查询 active/histor
 
 #### 需二次确认的操作列表
 
+#### 风险等级定义
+
+| 等级 | 含义 | 执行建议 |
+|------|------|---------|
+| R3 | 无风险只读操作 | 可自动执行 |
+| R2 | 低风险变更，例如创建监控配置，不删除资源、不扩容、不直接增加费用 | 先预览；用户要求变更时再执行 |
+| R1 | 有风险操作，例如类似重启影响、停用保护、可能增加费用或降低可观测性的变更 | 必须显式确认并携带 `confirm=true` |
+| R0 | 致命级别操作，例如删除集群、应用，或删除影响面较大的通知/监控保护 | 禁止自动执行；需要明确确认、影响评估和回滚方案 |
+
 | 工具 | 操作类型 | 风险等级 | 说明 |
 |------|---------|---------|------|
-| `huawei_create_aom_alarm_rule` | 创建 | 🟡 中 | 创建新的 AOM 告警规则，可能引入新的告警通知 |
-| `huawei_update_aom_alarm_rule` | 修改 | 🟠 高 | 修改 AOM 告警规则阈值、开关、通知动作、描述等配置 |
-| `huawei_delete_aom_alarm_rule` | 删除 | 🔴 高 | 删除 AOM 告警规则，可能导致后续告警无法触发 |
-| `huawei_disable_aom_alarm_rule` | 停用 | 🔴 高 | 停用 AOM 告警规则，可能导致相关告警不再触发 |
-| `huawei_enable_aom_alarm_rule` | 启用 | 🟠 高 | 启用 AOM 告警规则，可能恢复并触发告警通知 |
-| `huawei_delete_aom_action_rule` | 删除 | 🔴 高 | 删除 AOM 通知动作规则，可能导致告警无法发送通知 |
+| `huawei_create_aom_alarm_rule` | 创建 | R2 | 创建新的 AOM 告警规则，可能引入新的告警通知 |
+| `huawei_create_aom_event_alarm_rule` | 创建 | R2 | 创建新的 AOM 事件告警规则，可能引入新的事件告警通知 |
+| `huawei_update_aom_alarm_rule` | 修改 | R1 | 修改 AOM 告警规则阈值、开关、通知动作、描述等配置 |
+| `huawei_delete_aom_alarm_rule` | 删除 | R0 | 删除 AOM 告警规则，可能导致后续告警无法触发 |
+| `huawei_disable_aom_alarm_rule` | 停用 | R1 | 停用 AOM 告警规则，可能导致相关告警不再触发 |
+| `huawei_enable_aom_alarm_rule` | 启用 | R2 | 启用 AOM 告警规则，可能恢复并触发告警通知 |
+| `huawei_delete_aom_action_rule` | 删除 | R0 | 删除 AOM 通知动作规则，可能导致告警无法发送通知 |
 
 #### 工作流程
 
@@ -114,6 +124,7 @@ export HUAWEI_SK="your-secret-access-key"
 
 - Python 3.8+
 - `hcloud` CLI 7.2.2+，并且可在 `PATH` 中直接执行
+- 本机已通过 `hcloud configure` 配置可用 profile；dispatcher 依赖本机 hcloud 配置完成华为云认证以及 project/region 解析
 
 ### IAM 权限策略
 
@@ -135,11 +146,11 @@ export HUAWEI_SK="your-secret-access-key"
 
 ### 告警查询与归并
 
-| 工具 | 功能 | 集群过滤 | 参数 |
-|------|------|---------|------|
-| `huawei_list_aom_alarms` | 查询 active + history 告警并合并去重 | 支持 `cluster_id` | `region` |
-| `huawei_list_aom_current_alarms` | 查询当前活跃告警 | 支持 `cluster_id` | `region` |
-| `huawei_analyze_aom_alarms` | 对 active + history 告警做去重、分级和突发/常态识别 | 支持 `cluster_id` | `region` |
+| 工具 | 功能 | 风险等级 | 集群过滤 | 参数 |
+|------|------|---------|---------|------|
+| `huawei_list_aom_alarms` | 查询 active + history 告警并合并去重 | R3 | 支持 `cluster_id` | `region` |
+| `huawei_list_aom_current_alarms` | 查询当前活跃告警 | R3 | 支持 `cluster_id` | `region` |
+| `huawei_analyze_aom_alarms` | 对 active + history 告警做去重、分级和突发/常态识别 | R3 | 支持 `cluster_id` | `region` |
 
 **参数说明：**
 - `region` (required): 华为云区域，例如 `cn-north-4`
@@ -183,15 +194,16 @@ python3 huawei-cloud.py huawei_analyze_aom_alarms \
 
 | 工具 | 功能 | 风险等级 | 需确认 | 参数 |
 |------|------|---------|-------|------|
-| `huawei_list_aom_alarm_rules` | 查询 AOM 告警规则 | 🟢 低 | 否 | `region` |
-| `huawei_create_aom_alarm_rule` | 创建 AOM 告警规则 | 🟡 中 | **是** | `region`, `rule_name`, `metric_name`, `namespace`, `comparison_operator`, `threshold`, `period`, `evaluation_periods`, `statistic`, `alarm_level` |
-| `huawei_update_aom_alarm_rule` | 修改 AOM 告警规则 | 🟠 高 | **是** | `region`, `rule_name` |
-| `huawei_delete_aom_alarm_rule` | 删除 AOM 告警规则 | 🔴 高 | **是** | `region`, `rule_name` |
-| `huawei_disable_aom_alarm_rule` | 停用 AOM 告警规则 | 🔴 高 | **是** | `region`, `rule_id` |
-| `huawei_enable_aom_alarm_rule` | 启用 AOM 告警规则 | 🟠 高 | **是** | `region`, `rule_id` |
-| `huawei_list_aom_action_rules` | 查询 AOM 告警动作规则 | 🟢 低 | 否 | `region`, `enterprise_project_id` |
-| `huawei_delete_aom_action_rule` | 删除 AOM 告警动作规则（通知规则） | 🔴 高 | **是** | `region`, `rule_name` |
-| `huawei_list_aom_mute_rules` | 查询 AOM 静默规则 | 🟢 低 | 否 | `region` |
+| `huawei_list_aom_alarm_rules` | 查询 AOM 告警规则 | R3 | 否 | `region` |
+| `huawei_create_aom_alarm_rule` | 创建 AOM 告警规则 | R2 | **是** | `region`, `rule_name`, `metric_name`, `namespace`, `comparison_operator`, `threshold`, `period`, `evaluation_periods`, `statistic`, `alarm_level` |
+| `huawei_create_aom_event_alarm_rule` | 创建 AOM 事件告警规则 | R2 | **是** | `region`, `cluster_id`, `rule_name`, `event_name` |
+| `huawei_update_aom_alarm_rule` | 修改 AOM 告警规则 | R1 | **是** | `region`, `rule_name` |
+| `huawei_delete_aom_alarm_rule` | 删除 AOM 告警规则 | R0 | **是** | `region`, `rule_name` |
+| `huawei_disable_aom_alarm_rule` | 停用 AOM 告警规则 | R1 | **是** | `region`, `rule_id` |
+| `huawei_enable_aom_alarm_rule` | 启用 AOM 告警规则 | R2 | **是** | `region`, `rule_id` |
+| `huawei_list_aom_action_rules` | 查询 AOM 告警动作规则 | R3 | 否 | `region`, `enterprise_project_id` |
+| `huawei_delete_aom_action_rule` | 删除 AOM 告警动作规则（通知规则） | R0 | **是** | `region`, `rule_name` |
+| `huawei_list_aom_mute_rules` | 查询 AOM 静默规则 | R3 | 否 | `region` |
 
 **参数说明：**
 - `region` (required): 华为云区域
@@ -318,9 +330,9 @@ python3 huawei-cloud.py huawei_list_aom_mute_rules \
 
 ### 集群告警巡检
 
-| 工具 | 功能 | 集群过滤 | 参数 |
-|------|------|---------|------|
-| `huawei_aom_alarm_inspection` | 对指定 CCE 集群做 AOM 告警巡检并输出风险项 | `cluster_id` 必填 | `region`, `cluster_id` |
+| 工具 | 功能 | 风险等级 | 集群过滤 | 参数 |
+|------|------|---------|---------|------|
+| `huawei_aom_alarm_inspection` | 对指定 CCE 集群做 AOM 告警巡检并输出风险项 | R3 | `cluster_id` 必填 | `region`, `cluster_id` |
 
 **参数说明：**
 - `region` (required): 华为云区域
