@@ -392,13 +392,11 @@ def delete_aom_alarm_rule(
     return result
 
 
-def _find_rule_by_id_or_name(region: str, rule_id: Optional[str], rule_name: Optional[str], ak: Optional[str], sk: Optional[str], project_id: Optional[str]) -> Optional[Dict[str, Any]]:
+def _find_rule_by_id(region: str, rule_id: str, ak: Optional[str], sk: Optional[str], project_id: Optional[str]) -> Optional[Dict[str, Any]]:
     result = list_aom_alarm_rules(region, ak, sk, project_id, limit=200, offset=0)
     for item in result.get("rules", []):
         raw = item.get("raw", {})
-        if rule_id and str(item.get("rule_id")) == str(rule_id):
-            return raw
-        if rule_name and item.get("rule_name") == rule_name:
+        if str(item.get("rule_id")) == str(rule_id):
             return raw
     return None
 
@@ -418,7 +416,7 @@ def _set_alarm_rule_enabled(region: str, rule_id: str, enabled: bool, confirm: b
             "message": f"Preview only. Add confirm=true to {action} the AOM alarm rule through hcloud.",
         }
 
-    rule = _find_rule_by_id_or_name(region, rule_id, None, ak, sk, project_id)
+    rule = _find_rule_by_id(region, rule_id, ak, sk, project_id)
     if not rule:
         return {"success": False, "error": f"Alarm rule not found by rule_id={rule_id}"}
 

@@ -7,6 +7,8 @@ description: Use this skill to query and analyze metrics for CCE clusters and cl
 
 Query and analyze metrics for CCE clusters (Pod/Node) and cloud resources (ECS, ELB, EIP, NAT). Supports threshold-based anomaly detection and status classification.
 
+Runtime note: the user-facing entry remains `python3 scripts/huawei-cloud.py`. CCE/ECS/ELB/VPC/EIP/NAT/CES/IAM cloud service queries are executed through hcloud (KooCLI). AOM Prometheus range queries use signed HTTPS requests with AK/SK because the hcloud AOM Prometheus query path is not compatible with the required query_range API. Configure credentials with `hcloud configure` or supported AK/SK environment variables.
+
 ## Scope
 
 Use this skill when the user asks to:
@@ -29,8 +31,8 @@ This skill is read-only. It does not modify resources or configurations.
 
 | Tool | Purpose | Required parameters |
 |------|---------|---------------------|
-| `huawei_get_cce_pod_metrics_topN` | Get Pod CPU/memory TopN | `region`, `cluster_id` |
-| `huawei_get_cce_pod_metrics` | Get single Pod time-series | `region`, `cluster_id`, `pod_name` |
+| `huawei_get_cce_pod_metrics_topN` | Get Pod CPU/memory/disk TopN | `region`, `cluster_id` |
+| `huawei_get_cce_pod_metrics` | Get single Pod CPU/memory/disk time-series | `region`, `cluster_id`, `pod_name` |
 | `huawei_get_cce_node_metrics_topN` | Get Node CPU/memory/disk TopN | `region`, `cluster_id` |
 | `huawei_get_cce_node_metrics` | Get single Node time-series | `region`, `cluster_id`, `node_ip` |
 

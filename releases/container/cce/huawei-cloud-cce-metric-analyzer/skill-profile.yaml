@@ -16,5 +16,11 @@ references:
   - references/workflow.md
   - references/risk-rules.md
   - references/output-schema.md
+dependencies:
+  - type: cli
+    name: hcloud
+    version: ">= 7.2.2"
+    required: true
+    configuration: local hcloud profile configured with `hcloud configure`
 guardrails:
   max_auto_risk: R2

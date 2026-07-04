@@ -21,12 +21,6 @@ def get_credentials(ak: Optional[str] = None, sk: Optional[str] = None, project_
     return access_key, secret_key, proj_id
 
 
-def get_credentials_with_region(region: str, ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None) -> tuple:
-    """Compatibility wrapper for existing dispatcher signatures."""
-    del region
-    return get_credentials(ak, sk, project_id)
-
-
 def redact_command(command: Iterable[str]) -> List[str]:
     """Return a command with secret-bearing hcloud options redacted."""
     redacted: List[str] = []
