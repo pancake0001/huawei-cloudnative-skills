@@ -17,7 +17,6 @@ from typing import Dict, Any, Optional, List
 
 try:
     from . import cce_metrics, cce_k8s, elb, network
-    from .common import get_credentials
     _AVAILABLE = True
 except ImportError:
     _AVAILABLE = False
@@ -61,6 +60,13 @@ def _check_anomaly(value: float, threshold: float = ANOMALY_THRESHOLD) -> bool:
     return value > threshold
 
 
+def _is_usage_metric(metric_name: str, metric_data: Dict[str, Any]) -> bool:
+    """Only percentage/ratio metrics should be compared with the 80% threshold."""
+    unit = str(metric_data.get("unit") or "")
+    name = str(metric_data.get("name_cn") or metric_name)
+    return unit == "%" or "usage" in metric_name or "ratio" in metric_name or "使用率" in name
+
+
 def _get_pod_metrics(region: str, cluster_id: str, hours: int, namespace: str, top_n: int, ak: str, sk: str, project_id: str) -> Dict[str, Any]:
     """Get Pod metrics with anomaly detection."""
     result = cce_metrics.get_cce_pod_metrics_topN(
@@ -73,85 +79,128 @@ def _get_pod_metrics(region: str, cluster_id: str, hours: int, namespace: str, t
         top_n=top_n,
         hours=hours
     )
-    
+
     if not result.get("success"):
         return {"error": result.get("error", "Failed to get pod metrics"), "items": []}
-    
+
     items = []
     anomalies = []
-    
+
     cpu_top = result.get("metrics", {}).get("cpu_top_n", [])
     memory_top = result.get("metrics", {}).get("memory_top_n", [])
-    
+    disk_top = result.get("metrics", {}).get("disk_top_n", [])
+
     cpu_dict = {item.get("pod"): item.get("cpu_usage_percent") for item in cpu_top}
     memory_dict = {item.get("pod"): item.get("memory_usage_percent") for item in memory_top}
-    
+    disk_dict = {item.get("pod"): item.get("disk_usage_percent") for item in disk_top}
+
     all_pods = result.get("metrics", {}).get("all_pods", [])
     seen_pods = set()
-    
+
     for item in cpu_top:
         pod_name = item.get("pod")
         namespace_val = item.get("namespace", namespace or "default")
         cpu_val = _parse_percentage_value(item.get("cpu_usage_percent"))
         memory_val = _parse_percentage_value(memory_dict.get(pod_name, 0))
-        
+        disk_val = _parse_percentage_value(disk_dict.get(pod_name, 0))
+
         reasons = []
         if _check_anomaly(cpu_val):
             reasons.append(f"cpu_usage_percent > {ANOMALY_THRESHOLD}%")
         if _check_anomaly(memory_val):
             reasons.append(f"memory_usage_percent > {ANOMALY_THRESHOLD}%")
-        
+        if _check_anomaly(disk_val):
+            reasons.append(f"disk_usage_percent > {ANOMALY_THRESHOLD}%")
+
         status = "warning" if reasons else "normal"
-        
+
         items.append({
             "namespace": namespace_val,
             "pod": pod_name,
             "cpu_usage_percent": round(cpu_val, 2),
             "memory_usage_percent": round(memory_val, 2),
+            "disk_usage_percent": round(disk_val, 2),
             "status": status,
             "reason": "; ".join(reasons) if reasons else None
         })
-        
+
         if reasons:
             anomalies.append({
                 "type": "pod",
                 "name": pod_name,
                 "namespace": namespace_val,
-                "metrics": {"cpu_usage_percent": round(cpu_val, 2), "memory_usage_percent": round(memory_val, 2)}
+                "metrics": {"cpu_usage_percent": round(cpu_val, 2), "memory_usage_percent": round(memory_val, 2), "disk_usage_percent": round(disk_val, 2)}
             })
-        
+
         seen_pods.add(f"{namespace_val}/{pod_name}")
-    
+
     for item in memory_top:
         pod_name = item.get("pod")
         namespace_val = item.get("namespace", namespace or "default")
         key = f"{namespace_val}/{pod_name}"
-        
+
         if key not in seen_pods:
             memory_val = _parse_percentage_value(item.get("memory_usage_percent"))
+            disk_val = _parse_percentage_value(disk_dict.get(pod_name, 0))
             reasons = []
             if _check_anomaly(memory_val):
                 reasons.append(f"memory_usage_percent > {ANOMALY_THRESHOLD}%")
-            
+            if _check_anomaly(disk_val):
+                reasons.append(f"disk_usage_percent > {ANOMALY_THRESHOLD}%")
+
             status = "warning" if reasons else "normal"
-            
+
             items.append({
                 "namespace": namespace_val,
                 "pod": pod_name,
                 "cpu_usage_percent": round(_parse_percentage_value(cpu_dict.get(pod_name, 0)), 2),
                 "memory_usage_percent": round(memory_val, 2),
+                "disk_usage_percent": round(disk_val, 2),
                 "status": status,
                 "reason": "; ".join(reasons) if reasons else None
             })
-            
+
             if reasons:
                 anomalies.append({
                     "type": "pod",
                     "name": pod_name,
                     "namespace": namespace_val,
-                    "metrics": {"memory_usage_percent": round(memory_val, 2)}
+                    "metrics": {"memory_usage_percent": round(memory_val, 2), "disk_usage_percent": round(disk_val, 2)}
                 })
-    
+
+            seen_pods.add(key)
+
+    for item in disk_top:
+        pod_name = item.get("pod")
+        namespace_val = item.get("namespace", namespace or "default")
+        key = f"{namespace_val}/{pod_name}"
+
+        if key not in seen_pods:
+            disk_val = _parse_percentage_value(item.get("disk_usage_percent"))
+            reasons = []
+            if _check_anomaly(disk_val):
+                reasons.append(f"disk_usage_percent > {ANOMALY_THRESHOLD}%")
+
+            status = "warning" if reasons else "normal"
+
+            items.append({
+                "namespace": namespace_val,
+                "pod": pod_name,
+                "cpu_usage_percent": round(_parse_percentage_value(cpu_dict.get(pod_name, 0)), 2),
+                "memory_usage_percent": round(_parse_percentage_value(memory_dict.get(pod_name, 0)), 2),
+                "disk_usage_percent": round(disk_val, 2),
+                "status": status,
+                "reason": "; ".join(reasons) if reasons else None
+            })
+
+            if reasons:
+                anomalies.append({
+                    "type": "pod",
+                    "name": pod_name,
+                    "namespace": namespace_val,
+                    "metrics": {"disk_usage_percent": round(disk_val, 2)}
+                })
+
     return {"items": items, "anomalies": anomalies}
 
 
@@ -166,30 +215,30 @@ def _get_node_metrics(region: str, cluster_id: str, hours: int, top_n: int, ak: 
         top_n=top_n,
         hours=hours
     )
-    
+
     if not result.get("success"):
         return {"error": result.get("error", "Failed to get node metrics"), "items": []}
-    
+
     items = []
     anomalies = []
-    
+
     cpu_top = result.get("metrics", {}).get("cpu_top_n", [])
     memory_top = result.get("metrics", {}).get("memory_top_n", [])
     disk_top = result.get("metrics", {}).get("disk_top_n", [])
-    
+
     cpu_dict = {item.get("node_ip"): item.get("cpu_usage_percent") for item in cpu_top}
     memory_dict = {item.get("node_ip"): item.get("memory_usage_percent") for item in memory_top}
     disk_dict = {item.get("node_ip"): item.get("disk_usage_percent") for item in disk_top}
-    
+
     all_nodes = result.get("metrics", {}).get("all_nodes", [])
     seen_nodes = set()
-    
+
     for item in cpu_top:
         node_ip = item.get("node_ip")
         cpu_val = _parse_percentage_value(item.get("cpu_usage_percent"))
         memory_val = _parse_percentage_value(memory_dict.get(node_ip, 0))
         disk_val = _parse_percentage_value(disk_dict.get(node_ip, 0))
-        
+
         reasons = []
         if _check_anomaly(cpu_val):
             reasons.append(f"cpu_usage_percent > {ANOMALY_THRESHOLD}%")
@@ -197,9 +246,9 @@ def _get_node_metrics(region: str, cluster_id: str, hours: int, top_n: int, ak: 
             reasons.append(f"memory_usage_percent > {ANOMALY_THRESHOLD}%")
         if _check_anomaly(disk_val):
             reasons.append(f"disk_usage_percent > {ANOMALY_THRESHOLD}%")
-        
+
         status = "warning" if reasons else "normal"
-        
+
         items.append({
             "node_ip": node_ip,
             "node_name": item.get("node_name", node_ip),
@@ -209,7 +258,7 @@ def _get_node_metrics(region: str, cluster_id: str, hours: int, top_n: int, ak: 
             "status": status,
             "reason": "; ".join(reasons) if reasons else None
         })
-        
+
         if reasons:
             anomalies.append({
                 "type": "node",
@@ -220,16 +269,16 @@ def _get_node_metrics(region: str, cluster_id: str, hours: int, top_n: int, ak: 
                     "disk_usage_percent": round(disk_val, 2)
                 }
             })
-        
+
         seen_nodes.add(node_ip)
-    
+
     for item in memory_top:
         node_ip = item.get("node_ip")
         if node_ip not in seen_nodes:
             memory_val = _parse_percentage_value(item.get("memory_usage_percent"))
             cpu_val = _parse_percentage_value(cpu_dict.get(node_ip, 0))
             disk_val = _parse_percentage_value(disk_dict.get(node_ip, 0))
-            
+
             reasons = []
             if _check_anomaly(cpu_val):
                 reasons.append(f"cpu_usage_percent > {ANOMALY_THRESHOLD}%")
@@ -237,9 +286,9 @@ def _get_node_metrics(region: str, cluster_id: str, hours: int, top_n: int, ak: 
                 reasons.append(f"memory_usage_percent > {ANOMALY_THRESHOLD}%")
             if _check_anomaly(disk_val):
                 reasons.append(f"disk_usage_percent > {ANOMALY_THRESHOLD}%")
-            
+
             status = "warning" if reasons else "normal"
-            
+
             items.append({
                 "node_ip": node_ip,
                 "node_name": item.get("node_name", node_ip),
@@ -249,31 +298,31 @@ def _get_node_metrics(region: str, cluster_id: str, hours: int, top_n: int, ak: 
                 "status": status,
                 "reason": "; ".join(reasons) if reasons else None
             })
-            
+
             if reasons:
                 anomalies.append({
                     "type": "node",
                     "name": node_ip,
                     "metrics": {"memory_usage_percent": round(memory_val, 2)}
                 })
-    
+
     return {"items": items, "anomalies": anomalies}
 
 
 def _get_elb_metrics(region: str, hours: int, ak: str, sk: str, project_id: str) -> List[Dict[str, Any]]:
     """Get ELB metrics for all loadbalancers."""
     lb_result = elb.list_elb_loadbalancers(region=region, ak=ak, sk=sk, project_id=project_id)
-    
+
     if not lb_result.get("success"):
         return []
-    
+
     items = []
     for lb in lb_result.get("loadbalancers", []):
         elb_id = lb.get("id")
         elb_name = lb.get("name", elb_id)
         vip = lb.get("vip_address", "")
         eip = lb.get("eip_address", "")
-        
+
         metrics_result = elb.get_elb_metrics(
             region=region,
             elb_id=elb_id,
@@ -282,7 +331,7 @@ def _get_elb_metrics(region: str, hours: int, ak: str, sk: str, project_id: str)
             sk=sk,
             project_id=project_id
         )
-        
+
         if not metrics_result.get("success"):
             items.append({
                 "elb_id": elb_id,
@@ -294,25 +343,25 @@ def _get_elb_metrics(region: str, hours: int, ak: str, sk: str, project_id: str)
                 "metrics": {}
             })
             continue
-        
+
         metrics = metrics_result.get("metrics", {})
         anomalies = []
-        
+
         for metric_name, metric_data in metrics.items():
             latest = metric_data.get("latest_value")
-            if latest is not None:
+            if latest is not None and _is_usage_metric(metric_name, metric_data):
                 val = _parse_percentage_value(latest)
                 if _check_anomaly(val):
                     anomalies.append(f"{metric_data.get('name_cn', metric_name)} = {val}%")
-        
+
         status = "warning" if anomalies else "normal"
-        
+
         parsed_metrics = {}
         for metric_name, metric_data in metrics.items():
             latest = metric_data.get("latest_value")
             if latest is not None:
                 parsed_metrics[metric_name] = round(_parse_percentage_value(latest), 2)
-        
+
         items.append({
             "elb_id": elb_id,
             "elb_name": elb_name,
@@ -322,22 +371,22 @@ def _get_elb_metrics(region: str, hours: int, ak: str, sk: str, project_id: str)
             "reason": "; ".join(anomalies) if anomalies else None,
             "metrics": parsed_metrics
         })
-    
+
     return items
 
 
 def _get_nat_gateway_metrics(region: str, hours: int, ak: str, sk: str, project_id: str) -> List[Dict[str, Any]]:
     """Get NAT Gateway metrics."""
     nat_result = network.list_nat_gateways(region=region, ak=ak, sk=sk, project_id=project_id)
-    
+
     if not nat_result.get("success"):
         return []
-    
+
     items = []
     for nat in nat_result.get("nat_gateways", []):
         nat_id = nat.get("id")
         nat_name = nat.get("name", nat_id)
-        
+
         metrics_result = network.get_nat_gateway_metrics(
             region=region,
             nat_gateway_id=nat_id,
@@ -346,7 +395,7 @@ def _get_nat_gateway_metrics(region: str, hours: int, ak: str, sk: str, project_
             sk=sk,
             project_id=project_id
         )
-        
+
         if not metrics_result.get("success"):
             items.append({
                 "nat_id": nat_id,
@@ -356,25 +405,25 @@ def _get_nat_gateway_metrics(region: str, hours: int, ak: str, sk: str, project_
                 "metrics": {}
             })
             continue
-        
+
         metrics = metrics_result.get("metrics", {})
         anomalies = []
-        
+
         for metric_name, metric_data in metrics.items():
             latest = metric_data.get("latest_value")
-            if latest is not None:
+            if latest is not None and _is_usage_metric(metric_name, metric_data):
                 val = _parse_percentage_value(latest)
                 if _check_anomaly(val):
                     anomalies.append(f"{metric_data.get('name_cn', metric_name)} = {val}%")
-        
+
         status = "warning" if anomalies else "normal"
-        
+
         parsed_metrics = {}
         for metric_name, metric_data in metrics.items():
             latest = metric_data.get("latest_value")
             if latest is not None:
                 parsed_metrics[metric_name] = round(_parse_percentage_value(latest), 2)
-        
+
         items.append({
             "nat_id": nat_id,
             "nat_name": nat_name,
@@ -382,17 +431,17 @@ def _get_nat_gateway_metrics(region: str, hours: int, ak: str, sk: str, project_
             "reason": "; ".join(anomalies) if anomalies else None,
             "metrics": parsed_metrics
         })
-    
+
     return items
 
 
 def _get_eip_metrics(region: str, hours: int, ak: str, sk: str, project_id: str) -> List[Dict[str, Any]]:
     """Get EIP metrics."""
     eip_result = network.list_eip_addresses(region=region, ak=ak, sk=sk, project_id=project_id)
-    
+
     if not eip_result.get("success"):
         return []
-    
+
     items = []
     for eip in eip_result.get("eips", []):
         eip_id = eip.get("id")
@@ -400,7 +449,7 @@ def _get_eip_metrics(region: str, hours: int, ak: str, sk: str, project_id: str)
         instance_type = eip.get("instance_type", "")
         instance_id = eip.get("instance_id", "")
         bandwidth_size = eip.get("bandwidth_size", 0)
-        
+
         metrics_result = network.get_eip_metrics(
             region=region,
             eip_id=eip_id,
@@ -409,7 +458,7 @@ def _get_eip_metrics(region: str, hours: int, ak: str, sk: str, project_id: str)
             sk=sk,
             project_id=project_id
         )
-        
+
         if not metrics_result.get("success"):
             items.append({
                 "eip_id": eip_id,
@@ -419,31 +468,31 @@ def _get_eip_metrics(region: str, hours: int, ak: str, sk: str, project_id: str)
                 "metrics": {}
             })
             continue
-        
+
         metrics = metrics_result.get("metrics", {})
         anomalies = []
-        
+
         for metric_name, metric_data in metrics.items():
             latest = metric_data.get("latest_value")
-            if latest is not None:
+            if latest is not None and _is_usage_metric(metric_name, metric_data):
                 val = _parse_percentage_value(latest)
                 if _check_anomaly(val):
                     anomalies.append(f"{metric_data.get('name_cn', metric_name)} = {val}%")
-        
+
         status = "warning" if anomalies else "normal"
-        
+
         parsed_metrics = {}
         for metric_name, metric_data in metrics.items():
             latest = metric_data.get("latest_value")
             if latest is not None:
                 parsed_metrics[metric_name] = round(_parse_percentage_value(latest), 2)
-        
+
         linked_to = "unknown"
         if instance_type == "NATGW":
             linked_to = "nat_gateway"
         elif instance_type == "ELB" or instance_id:
             linked_to = "elb"
-        
+
         items.append({
             "eip_id": eip_id,
             "ip_address": ip_address,
@@ -454,7 +503,7 @@ def _get_eip_metrics(region: str, hours: int, ak: str, sk: str, project_id: str)
             "linked_resource_id": instance_id,
             "metrics": parsed_metrics
         })
-    
+
     return items
 
 
@@ -467,10 +516,10 @@ def _get_loadbalancer_services(region: str, cluster_id: str, ak: str, sk: str, p
         sk=sk,
         project_id=project_id
     )
-    
+
     if not result.get("success"):
         return []
-    
+
     services = []
     for svc in result.get("services", []):
         if svc.get("type") == "LoadBalancer":
@@ -478,26 +527,26 @@ def _get_loadbalancer_services(region: str, cluster_id: str, ak: str, sk: str, p
             lb_ingress = svc.get("load_balancer_ingress", [])
             if not lb_ip and lb_ingress:
                 lb_ip = lb_ingress[0].get("ip", "") if lb_ingress else ""
-            
+
             services.append({
                 "name": svc.get("name"),
                 "namespace": svc.get("namespace"),
                 "load_balancer_ip": lb_ip
             })
-    
+
     return services
 
 
 def _correlate_elb_with_services(elb_metrics: List[Dict], lb_services: List[Dict]) -> List[Dict]:
     """Correlate ELB metrics with LoadBalancer services via EIP."""
     eip_to_service = {svc.get("load_balancer_ip"): svc for svc in lb_services}
-    
+
     for elb_item in elb_metrics:
         eip = elb_item.get("eip", "")
         service = eip_to_service.get(eip, {})
         elb_item["associated_service"] = service.get("name", "")
         elb_item["service_namespace"] = service.get("namespace", "")
-    
+
     return elb_metrics
 
 
@@ -529,35 +578,28 @@ def analyze_cce_cluster_monitoring(
     Returns:
         Aggregated monitoring data with anomalies
     """
-    access_key, secret_key, proj_id = get_credentials(ak, sk, project_id)
-    
-    if not access_key or not secret_key:
-        return {
-            "success": False,
-            "error": "Credentials not provided. Set HUAWEI_AK and HUAWEI_SK environment variables or pass as parameters."
-        }
-    
     if not _AVAILABLE:
         return {
             "success": False,
             "error": "Required modules not available"
         }
-    
+
     hours = _time_str_to_hours(start_time, end_time)
-    
+    access_key, secret_key, proj_id = ak, sk, project_id
+
     pod_data = _get_pod_metrics(region, cluster_id, hours, namespace, top_n, access_key, secret_key, proj_id)
     node_data = _get_node_metrics(region, cluster_id, hours, top_n, access_key, secret_key, proj_id)
     elb_data = _get_elb_metrics(region, hours, access_key, secret_key, proj_id)
     nat_data = _get_nat_gateway_metrics(region, hours, access_key, secret_key, proj_id)
     eip_data = _get_eip_metrics(region, hours, access_key, secret_key, proj_id)
     lb_services = _get_loadbalancer_services(region, cluster_id, access_key, secret_key, proj_id)
-    
+
     elb_data = _correlate_elb_with_services(elb_data, lb_services)
-    
+
     all_anomalies = []
     all_anomalies.extend(pod_data.get("anomalies", []))
     all_anomalies.extend(node_data.get("anomalies", []))
-    
+
     for elb_item in elb_data:
         if elb_item.get("status") == "warning":
             all_anomalies.append({
@@ -565,7 +607,7 @@ def analyze_cce_cluster_monitoring(
                 "name": elb_item.get("elb_name", elb_item.get("elb_id")),
                 "metrics": elb_item.get("metrics", {})
             })
-    
+
     for nat_item in nat_data:
         if nat_item.get("status") == "warning":
             all_anomalies.append({
@@ -573,7 +615,7 @@ def analyze_cce_cluster_monitoring(
                 "name": nat_item.get("nat_name", nat_item.get("nat_id")),
                 "metrics": nat_item.get("metrics", {})
             })
-    
+
     for eip_item in eip_data:
         if eip_item.get("status") == "warning":
             all_anomalies.append({
@@ -581,13 +623,13 @@ def analyze_cce_cluster_monitoring(
                 "name": eip_item.get("ip_address"),
                 "metrics": eip_item.get("metrics", {})
             })
-    
+
     pod_anomaly_count = sum(1 for a in pod_data.get("anomalies", []))
     node_anomaly_count = sum(1 for a in node_data.get("anomalies", []))
     elb_anomaly_count = sum(1 for e in elb_data if e.get("status") == "warning")
     nat_anomaly_count = sum(1 for n in nat_data if n.get("status") == "warning")
     eip_anomaly_count = sum(1 for e in eip_data if e.get("status") == "warning")
-    
+
     return {
         "success": True,
         "cluster_id": cluster_id,
@@ -644,12 +686,12 @@ def cce_cluster_monitoring_aggregation_action(params: Dict[str, str]) -> Dict[st
     start_time = params.get("start_time")
     end_time = params.get("end_time")
     namespace = params.get("namespace")
-    
+
     try:
         top_n = int(params.get("top_n", 10))
     except (ValueError, TypeError):
         top_n = 10
-    
+
     if not region:
         return {"success": False, "error": "region is required"}
     if not cluster_id:
@@ -658,7 +700,7 @@ def cce_cluster_monitoring_aggregation_action(params: Dict[str, str]) -> Dict[st
         return {"success": False, "error": "start_time is required"}
     if not end_time:
         return {"success": False, "error": "end_time is required"}
-    
+
     return analyze_cce_cluster_monitoring(
         region=region,
         cluster_id=cluster_id,

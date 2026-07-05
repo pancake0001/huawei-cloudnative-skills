@@ -2,7 +2,7 @@
 id: huawei-cloud-cce-metric-analyzer
 name: huawei-cloud-cce-metric-analyzer
 description: |
-  Huawei Cloud CCE Metric analysis skill using Python SDK dispatcher.
+  Huawei Cloud CCE Metric analysis skill using the Python dispatcher with hcloud-backed cloud service queries.
   Use this skill when the user wants to: (1) query Pod/Node CPU/memory/disk metrics, (2) get resource usage TopN rankings, (3) query ECS/ELB/EIP/NAT cloud resource metrics, (4) aggregate cluster monitoring data with anomaly detection, (5) detect threshold-based resource anomalies.
   Trigger: user mentions "metric analysis", "指标分析", "CCE metrics", "CCE 指标", "AOM metrics", "AOM 指标", "resource metrics", "资源指标", "CPU usage", "CPU 使用率", "memory usage", "内存使用率", "performance monitoring", "性能监控", "TopN", "resource ranking", "资源排名"
 tags: [cce, metrics, aom, observability, analysis]
@@ -14,7 +14,9 @@ tags: [cce, metrics, aom, observability, analysis]
 
 Query and analyze metrics for CCE clusters (Pod/Node CPU/memory/disk) and cloud resources (ECS, ELB, EIP, NAT). Supports threshold-based anomaly detection, status classification (critical/warning/normal), and full-cluster monitoring aggregation.
 
-**Architecture**: `python3 scripts/huawei-cloud.py` dispatcher → Huawei Cloud Python SDK + AOM Prometheus → Pod/Node metrics, ECS/ELB/EIP/NAT metrics → Threshold classification → Anomaly detection
+**Architecture**: `python3 scripts/huawei-cloud.py` dispatcher → hcloud (KooCLI) cloud service queries + signed AOM Prometheus HTTP queries + Kubernetes client → Pod/Node metrics, ECS/ELB/EIP/NAT metrics → Threshold classification → Anomaly detection
+
+> **Execution method**: Cloud service queries are executed through the local `hcloud` CLI. AOM Prometheus `query_range` calls are the only exception and use signed HTTPS requests because the required Prometheus range-query path is not compatible with hcloud. Do not call Huawei Cloud SDKs, curl IAM flows, openstack, or hand-written cloud APIs outside the bundled dispatcher.
 
 **Related Skills**:
 - `huawei-cloud-cce-pod-failure-diagnoser` - Pod CrashLoopBackOff, OOMKilled, restart storms
@@ -47,24 +49,30 @@ Query and analyze metrics for CCE clusters (Pod/Node CPU/memory/disk) and cloud 
 
 ## Prerequisites
 
-### 1. Python Dependencies
+### 1. Runtime Dependencies
 
-- Python 3.8+ with `huaweicloudsdkcce`, `huaweicloudsdkcore`, `huaweicloudsdkaom`, `huaweicloudsdkces` packages
+- Python 3.8+ for the dispatcher and result processing
+- hcloud (KooCLI) 7.2.2+ for CCE/ECS/ELB/VPC/EIP/NAT/CES/IAM cloud service queries
+- Kubernetes Python client for reading in-cluster Pod/Node/Service details after hcloud creates short-lived CCE cluster credentials
+- AOM Prometheus range queries use signed HTTPS requests with AK/SK because the hcloud AOM Prometheus query path is not compatible with the required query_range API
 - Run environment check before first use (see Verification section)
 
 ### 2. Credential Configuration
 
-- Valid Huawei Cloud credentials (AK/SK mode)
+- Valid Huawei Cloud credentials via hcloud profile or AK/SK mode
 - **Security Rules**:
   - 🚫 Never expose AK/SK values in code, conversation, or commands
   - 🚫 Never use `echo $HUAWEI_AK` or `echo $HUAWEI_SK` to check credentials
-  - ✅ Use environment variables: `HUAWEI_AK`, `HUAWEI_SK`, `HUAWEI_REGION`
+  - ✅ Prefer `hcloud configure` profiles; environment variables `HUAWEI_AK`, `HUAWEI_SK`, `HUAWEI_REGION` are also supported
   - ✅ Prefer IAM users over root account for cloud operations
   - ✅ Enable MFA for sensitive operations
 
-**Configuration Method** (Environment Variables Only):
+**Configuration Method**:
 
 ```bash
+hcloud configure list
+
+# Optional environment variable override
 export HUAWEI_AK=<your-ak>
 export HUAWEI_SK=<your-sk>
 export HUAWEI_REGION=cn-north-4
@@ -165,6 +173,29 @@ python3 scripts/huawei-cloud.py huawei_cce_cluster_monitoring_aggregation \
 
 This tool aggregates: Pod TopN CPU/memory, Node TopN CPU/memory/disk, ELB metrics (with LoadBalancer service association), NAT Gateway metrics, EIP metrics (bandwidth, packet loss), and anomaly detection using 80% threshold.
 
+## Risk Levels
+
+This skill is read-only. It does not create, update, delete, restart, scale, or modify Huawei Cloud or Kubernetes resources.
+
+| Level | Meaning | Execution Guidance |
+| ----- | ------- | ------------------ |
+| R3 | No-risk read-only query or local analysis | May run automatically |
+| R2 | Low-risk change, such as creating monitoring configuration without deleting resources or increasing service capacity/cost | Not used by current tools |
+| R1 | Risky operation, such as restart-like impact, disabling protection, or changes that may increase cost or reduce observability | Not used by current tools |
+| R0 | Critical operation, such as deleting clusters, applications, or broad-impact monitoring protections | Not used by current tools |
+
+| Tool | Operation Type | Risk Level | Description |
+| ---- | -------------- | ---------- | ----------- |
+| `huawei_get_cce_pod_metrics_topN` | Query | R3 | Read Pod CPU/memory/disk TopN metrics from AOM Prometheus |
+| `huawei_get_cce_pod_metrics` | Query | R3 | Read single Pod CPU/memory/disk time-series metrics |
+| `huawei_get_cce_node_metrics_topN` | Query | R3 | Read Node CPU/memory/disk TopN metrics from AOM Prometheus |
+| `huawei_get_cce_node_metrics` | Query | R3 | Read single Node CPU/memory/disk time-series metrics |
+| `huawei_get_ecs_metrics` | Query | R3 | Read ECS monitoring data through hcloud/CES |
+| `huawei_get_elb_metrics` | Query | R3 | Read ELB monitoring data through hcloud/CES |
+| `huawei_get_eip_metrics` | Query | R3 | Read EIP monitoring data through hcloud/CES |
+| `huawei_get_nat_gateway_metrics` | Query | R3 | Read NAT Gateway monitoring data through hcloud/CES |
+| `huawei_cce_cluster_monitoring_aggregation` | Query + local analysis | R3 | Aggregate Pod/Node/cloud-resource metrics and classify anomalies locally |
+
 ## Parameter Reference
 
 ### Common Parameters
@@ -189,6 +220,7 @@ This tool aggregates: Pod TopN CPU/memory, Node TopN CPU/memory/disk, ELB metric
 | `node_ip`       | No       | Filter Pods on specific node    | N/A      |
 | `cpu_query`     | No       | Custom CPU PromQL               | Auto     |
 | `memory_query`  | No       | Custom memory PromQL            | Auto     |
+| `disk_query`    | No       | Custom disk PromQL              | Auto     |
 
 ### `huawei_get_cce_pod_metrics` Parameters
 
@@ -197,6 +229,9 @@ This tool aggregates: Pod TopN CPU/memory, Node TopN CPU/memory/disk, ELB metric
 | `pod_name`   | Yes      | Target Pod name            | N/A      |
 | `namespace`  | No       | Namespace                  | `default`|
 | `hours`      | No       | Metrics lookback hours     | 1        |
+| `cpu_query`  | No       | Custom CPU PromQL          | Auto     |
+| `memory_query` | No     | Custom memory PromQL       | Auto     |
+| `disk_query` | No       | Custom disk PromQL         | Auto     |
 
 ### `huawei_get_cce_node_metrics_topN` Parameters
 
@@ -296,8 +331,8 @@ See [Output Schema](references/output-schema.md) for the complete JSON response 
 
 - This skill is **strictly read-only** — it only queries and analyzes metrics; no modifications are made to resources or configurations
 - Thresholds (CPU >80%, Memory >85%, Disk >85%) are **predefined baselines** — actual thresholds may vary by workload SLO; recommend users customize thresholds based on their specific requirements
-- AK/SK must **never** be hardcoded — use environment variables only
-- The Python dispatcher script (`scripts/huawei-cloud.py`) is the **only execution method** — do not use hcloud CLI or direct API calls for metric queries
+- AK/SK must **never** be hardcoded — use hcloud profiles or environment variables
+- The Python dispatcher script (`scripts/huawei-cloud.py`) is still the **only user-facing execution method**; metric cloud service calls inside the dispatcher use hcloud rather than direct Python SDK/API calls
 - AOM Prometheus instance is **auto-discovered** — no need to manually specify `aom_instance_id`
 - Cloud resource metrics (ECS/ELB/EIP/NAT) use CES (Cloud Eye Service), not AOM
 - Do not make automatic scaling or remediation decisions based solely on metric analysis — forward to `huawei-cloud-cce-auto-remediation-runner` only if explicitly requested and validated

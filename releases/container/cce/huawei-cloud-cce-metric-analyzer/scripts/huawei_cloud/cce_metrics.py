@@ -1,10 +1,73 @@
 from .common import *
 from . import aom, cce
 
-def get_cce_pod_metrics_topN(region: str, cluster_id: str, ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None, namespace: str = None, label_selector: str = None, top_n: int = 10, hours: int = 1, cpu_query: str = None, memory_query: str = None, node_ip: Optional[str] = None) -> Dict[str, Any]:
+
+def _get_aom_instance(region: str, cluster_id: str, ak: Optional[str], sk: Optional[str], project_id: Optional[str]) -> Dict[str, Any]:
+    """Resolve the AOM Prometheus instance from the cie-collector addon via hcloud."""
+    if not cluster_id:
+        return {"success": False, "error": "cluster_id is required"}
+
+    list_resp = run_hcloud(
+        "CCE",
+        "ListAddonInstances",
+        region,
+        {"cluster_id": cluster_id, "project_id": project_id},
+        ak=ak,
+        sk=sk,
+        project_id=project_id,
+    )
+    if not list_resp.get("success"):
+        return list_resp
+
+    cie_addon_id = None
+    for addon in (list_resp.get("data") or {}).get("items", []) or []:
+        metadata = addon.get("metadata") or {}
+        if metadata.get("name") == "cie-collector":
+            cie_addon_id = metadata.get("uid")
+            break
+
+    if not cie_addon_id:
+        return {"success": False, "error": "cie-collector addon not found in cluster"}
+
+    show_resp = run_hcloud(
+        "CCE",
+        "ShowAddonInstance",
+        region,
+        {"id": cie_addon_id, "cluster_id": cluster_id, "project_id": project_id},
+        ak=ak,
+        sk=sk,
+        project_id=project_id,
+    )
+    if not show_resp.get("success"):
+        return show_resp
+
+    detail = show_resp.get("data") or {}
+    detail_root = detail.get("addon_instance", detail) if isinstance(detail, dict) else {}
+    spec = detail_root.get("spec", {}) or {}
+
+    candidates = []
+    custom = spec.get("custom")
+    if isinstance(custom, dict):
+        candidates.append(("hcloud:cie-collector.spec.custom", custom))
+
+    values = spec.get("values")
+    if isinstance(values, dict):
+        candidates.append(("hcloud:cie-collector.spec.values", values))
+        nested_custom = values.get("custom")
+        if isinstance(nested_custom, dict):
+            candidates.append(("hcloud:cie-collector.spec.values.custom", nested_custom))
+
+    for source, data in candidates:
+        aom_instance_id = data.get("aom_instance_id") or data.get("prom_instance_id") or data.get("aom_id")
+        if aom_instance_id:
+            return {"success": True, "aom_instance_id": aom_instance_id, "source": source}
+
+    return {"success": False, "error": "aom_instance_id not found in cie-collector addon config"}
+
+def get_cce_pod_metrics_topN(region: str, cluster_id: str, ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None, namespace: str = None, label_selector: str = None, top_n: int = 10, hours: int = 1, cpu_query: str = None, memory_query: str = None, disk_query: str = None, node_ip: Optional[str] = None) -> Dict[str, Any]:
     """获取 CCE 集群 Pod 监控数据
 
-    自动获取 AOM 实例并执行 Pod CPU/内存监控查询，返回 Top N 数据。
+    自动获取 AOM 实例并执行 Pod CPU/内存/磁盘监控查询，返回 Top N 数据。
 
     Args:
         region: 华为云区域 (如 cn-north-4)
@@ -18,6 +81,7 @@ def get_cce_pod_metrics_topN(region: str, cluster_id: str, ak: Optional[str] = N
         hours: 查询时间范围（小时）(默认 1)
         cpu_query: 自定义 CPU PromQL (可选)
         memory_query: 自定义内存 PromQL (可选)
+        disk_query: 自定义磁盘 PromQL (可选)
         node_ip: 节点 IP 过滤 (可选，只返回指定节点上的 Pod)
 
     Returns:
@@ -28,8 +92,6 @@ def get_cce_pod_metrics_topN(region: str, cluster_id: str, ak: Optional[str] = N
     import time as time_module
 
     access_key, secret_key, proj_id = get_credentials_with_region(region, ak, sk, project_id)
-    if not access_key or not secret_key:
-        return {"success": False, "error": "Credentials not provided"}
 
     if not cluster_id:
         return {"success": False, "error": "cluster_id is required"}
@@ -109,25 +171,27 @@ def get_cce_pod_metrics_topN(region: str, cluster_id: str, ak: Optional[str] = N
                             "matched_count": 0,
                             "matched_pods": []
                         },
-                        "promql": {"cpu": None, "memory": None},
+                        "promql": {"cpu": None, "memory": None, "disk": None},
                         "metrics": {
                             "cpu_top_n": [],
                             "memory_top_n": [],
+                            "disk_top_n": [],
                             "all_pods": []
                         },
                         "summary": {
                             "total_pods": 0,
                             "critical_cpu": 0,
                             "critical_memory": 0,
+                            "critical_disk": 0,
                             "warning_cpu": 0,
-                            "warning_memory": 0
+                            "warning_memory": 0,
+                            "warning_disk": 0
                         },
                         "message": f"没有找到匹配 label_selector '{label_selector}' 的 Pod"
                     }
 
     # ========== 3. 获取 AOM 实例 ==========
-    from .cce_diagnosis import get_aom_instance
-    aom_result = get_aom_instance(region, cluster_id, access_key, secret_key, proj_id)
+    aom_result = _get_aom_instance(region, cluster_id, access_key, secret_key, proj_id)
     if not aom_result.get("success"):
         return {
             "success": False,
@@ -165,52 +229,53 @@ def get_cce_pod_metrics_topN(region: str, cluster_id: str, ak: Optional[str] = N
         else:
             memory_query = f'topk({top_n}, sum by (pod, namespace) (container_memory_working_set_bytes{{image!=""{pod_filter_clause}{node_filter_clause}}}) / on (pod, namespace) group_left sum by (pod, namespace) (kube_pod_container_resource_limits{{resource="memory"{pod_filter_clause}{node_filter_clause}}}) * 100)'
 
+    # 默认磁盘使用率 PromQL (相对容器文件系统容量 %)
+    if disk_query is None:
+        if namespace:
+            disk_query = f'topk({top_n}, sum by (pod, namespace) (container_fs_usage_bytes{{image!="",namespace="{namespace}"{pod_filter_clause}{node_filter_clause}}}) / on (pod, namespace) group_left sum by (pod, namespace) (container_fs_limit_bytes{{image!="",namespace="{namespace}"{pod_filter_clause}{node_filter_clause}}}) * 100)'
+        else:
+            disk_query = f'topk({top_n}, sum by (pod, namespace) (container_fs_usage_bytes{{image!=""{pod_filter_clause}{node_filter_clause}}}) / on (pod, namespace) group_left sum by (pod, namespace) (container_fs_limit_bytes{{image!=""{pod_filter_clause}{node_filter_clause}}}) * 100)'
+
     # ========== 5. 执行查询 ==========
     cpu_result = aom.get_aom_prom_metrics_http(region, aom_instance_id, cpu_query, hours=hours, ak=access_key, sk=secret_key, project_id=proj_id)
     memory_result = aom.get_aom_prom_metrics_http(region, aom_instance_id, memory_query, hours=hours, ak=access_key, sk=secret_key, project_id=proj_id)
+    disk_result = aom.get_aom_prom_metrics_http(region, aom_instance_id, disk_query, hours=hours, ak=access_key, sk=secret_key, project_id=proj_id)
 
     # ========== 6. 解析结果 ==========
-    cpu_metrics = []
-    if cpu_result.get("success") and cpu_result.get("result", {}).get("data", {}).get("result"):
-        for item in cpu_result["result"]["data"]["result"]:
+    def parse_top_metrics(result, value_key):
+        metrics = []
+        if result.get("success") and result.get("result", {}).get("data", {}).get("result"):
+            result_items = result["result"]["data"]["result"]
+        else:
+            return metrics
+
+        for item in result_items:
             metric = item.get("metric", {})
             values = item.get("values", [])
             if values:
                 try:
                     latest_value = float(values[-1][1])
-                    cpu_metrics.append({
+                    metrics.append({
                         "pod": metric.get("pod", "unknown"),
                         "namespace": metric.get("namespace", "unknown"),
-                        "cpu_usage_percent": round(latest_value, 2),
+                        value_key: round(latest_value, 2),
                         "status": "critical" if latest_value > 80 else "warning" if latest_value > 50 else "normal",
                         "time_series": values  # 保存完整的时序数据
                     })
                 except (ValueError, IndexError):
                     pass
+        return metrics
 
-    memory_metrics = []
-    if memory_result.get("success") and memory_result.get("result", {}).get("data", {}).get("result"):
-        for item in memory_result["result"]["data"]["result"]:
-            metric = item.get("metric", {})
-            values = item.get("values", [])
-            if values:
-                try:
-                    latest_value = float(values[-1][1])
-                    memory_metrics.append({
-                        "pod": metric.get("pod", "unknown"),
-                        "namespace": metric.get("namespace", "unknown"),
-                        "memory_usage_percent": round(latest_value, 2),
-                        "status": "critical" if latest_value > 80 else "warning" if latest_value > 50 else "normal",
-                        "time_series": values  # 保存完整的时序数据
-                    })
-                except (ValueError, IndexError):
-                    pass
+    cpu_metrics = parse_top_metrics(cpu_result, "cpu_usage_percent")
+    memory_metrics = parse_top_metrics(memory_result, "memory_usage_percent")
+    disk_metrics = parse_top_metrics(disk_result, "disk_usage_percent")
 
-    # 按 CPU 使用率排序
+    # 按使用率排序
     cpu_metrics.sort(key=lambda x: x["cpu_usage_percent"], reverse=True)
     memory_metrics.sort(key=lambda x: x["memory_usage_percent"], reverse=True)
+    disk_metrics.sort(key=lambda x: x["disk_usage_percent"], reverse=True)
 
-    # 合并 CPU 和内存数据
+    # 合并 CPU、内存和磁盘数据
     pod_metrics_map = {}
     for m in cpu_metrics[:top_n]:
         key = f"{m['namespace']}/{m['pod']}"
@@ -219,6 +284,12 @@ def get_cce_pod_metrics_topN(region: str, cluster_id: str, ak: Optional[str] = N
         key = f"{m['namespace']}/{m['pod']}"
         if key in pod_metrics_map:
             pod_metrics_map[key]["memory_usage_percent"] = m["memory_usage_percent"]
+        else:
+            pod_metrics_map[key] = m
+    for m in disk_metrics[:top_n]:
+        key = f"{m['namespace']}/{m['pod']}"
+        if key in pod_metrics_map:
+            pod_metrics_map[key]["disk_usage_percent"] = m["disk_usage_percent"]
         else:
             pod_metrics_map[key] = m
 
@@ -237,19 +308,23 @@ def get_cce_pod_metrics_topN(region: str, cluster_id: str, ak: Optional[str] = N
         },
         "promql": {
             "cpu": cpu_query,
-            "memory": memory_query
+            "memory": memory_query,
+            "disk": disk_query
         },
         "metrics": {
             "cpu_top_n": cpu_metrics[:top_n],
             "memory_top_n": memory_metrics[:top_n],
+            "disk_top_n": disk_metrics[:top_n],
             "all_pods": list(pod_metrics_map.values())
         },
         "summary": {
             "total_pods": len(pod_metrics_map),
             "critical_cpu": len([m for m in cpu_metrics if m["status"] == "critical"]),
             "critical_memory": len([m for m in memory_metrics if m["status"] == "critical"]),
+            "critical_disk": len([m for m in disk_metrics if m["status"] == "critical"]),
             "warning_cpu": len([m for m in cpu_metrics if m["status"] == "warning"]),
-            "warning_memory": len([m for m in memory_metrics if m["status"] == "warning"])
+            "warning_memory": len([m for m in memory_metrics if m["status"] == "warning"]),
+            "warning_disk": len([m for m in disk_metrics if m["status"] == "warning"])
         }
     }
 
@@ -264,8 +339,8 @@ def get_cce_pod_metrics_topN(region: str, cluster_id: str, ak: Optional[str] = N
 
     return result
 
-def get_cce_pod_metrics(region: str, cluster_id: str, pod_name: str, ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None, namespace: str = None, hours: int = 1, cpu_query: str = None, memory_query: str = None) -> Dict[str, Any]:
-    """获取指定CCE Pod的CPU、内存使用率监控时序数据
+def get_cce_pod_metrics(region: str, cluster_id: str, pod_name: str, ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None, namespace: str = None, hours: int = 1, cpu_query: str = None, memory_query: str = None, disk_query: str = None) -> Dict[str, Any]:
+    """获取指定CCE Pod的CPU、内存、磁盘使用率监控时序数据
 
     Args:
         region: 华为云区域 (如 cn-north-4)
@@ -278,6 +353,7 @@ def get_cce_pod_metrics(region: str, cluster_id: str, pod_name: str, ak: Optiona
         hours: 查询时间范围（小时）(默认 1)
         cpu_query: 自定义 CPU PromQL (可选)
         memory_query: 自定义内存 PromQL (可选)
+        disk_query: 自定义磁盘 PromQL (可选)
 
     Returns:
         Dict with success status and specified pod metrics time series data
@@ -285,8 +361,6 @@ def get_cce_pod_metrics(region: str, cluster_id: str, pod_name: str, ak: Optiona
     import time as time_module
 
     access_key, secret_key, proj_id = get_credentials_with_region(region, ak, sk, project_id)
-    if not access_key or not secret_key:
-        return {"success": False, "error": "Credentials not provided"}
 
     if not cluster_id or not pod_name:
         return {"success": False, "error": "cluster_id and pod_name are required"}
@@ -313,8 +387,7 @@ def get_cce_pod_metrics(region: str, cluster_id: str, pod_name: str, ak: Optiona
                 break
 
     # ========== 3. 获取 AOM 实例 ==========
-    from .cce_diagnosis import get_aom_instance
-    aom_result = get_aom_instance(region, cluster_id, access_key, secret_key, proj_id)
+    aom_result = _get_aom_instance(region, cluster_id, access_key, secret_key, proj_id)
     if not aom_result.get("success"):
         return {
             "success": False,
@@ -339,9 +412,14 @@ def get_cce_pod_metrics(region: str, cluster_id: str, pod_name: str, ak: Optiona
     if memory_query is None:
         memory_query = f'sum by (pod, namespace) (container_memory_working_set_bytes{{image!=""{namespace_filter}{pod_filter}}}) / on (pod, namespace) group_left sum by (pod, namespace) (kube_pod_container_resource_limits{{resource="memory"{namespace_filter}{pod_filter}}}) * 100'
 
+    # 默认磁盘使用率 PromQL (相对容器文件系统容量 %)
+    if disk_query is None:
+        disk_query = f'sum by (pod, namespace) (container_fs_usage_bytes{{image!=""{namespace_filter}{pod_filter}}}) / on (pod, namespace) group_left sum by (pod, namespace) (container_fs_limit_bytes{{image!=""{namespace_filter}{pod_filter}}}) * 100'
+
     # ========== 5. 执行查询 ==========
     cpu_result = aom.get_aom_prom_metrics_http(region, aom_instance_id, cpu_query, hours=hours, ak=access_key, sk=secret_key, project_id=proj_id)
     memory_result = aom.get_aom_prom_metrics_http(region, aom_instance_id, memory_query, hours=hours, ak=access_key, sk=secret_key, project_id=proj_id)
+    disk_result = aom.get_aom_prom_metrics_http(region, aom_instance_id, disk_query, hours=hours, ak=access_key, sk=secret_key, project_id=proj_id)
 
     # ========== 6. 解析结果 ==========
     def parse_metric_result(result, metric_name):
@@ -371,6 +449,7 @@ def get_cce_pod_metrics(region: str, cluster_id: str, pod_name: str, ak: Optiona
 
     cpu_data = parse_metric_result(cpu_result, "cpu_usage_percent")
     memory_data = parse_metric_result(memory_result, "memory_usage_percent")
+    disk_data = parse_metric_result(disk_result, "disk_usage_percent")
 
     # ========== 7. 返回结果 ==========
     return {
@@ -388,11 +467,13 @@ def get_cce_pod_metrics(region: str, cluster_id: str, pod_name: str, ak: Optiona
         },
         "promql": {
             "cpu": cpu_query,
-            "memory": memory_query
+            "memory": memory_query,
+            "disk": disk_query
         },
         "metrics": {
             "cpu": cpu_data,
-            "memory": memory_data
+            "memory": memory_data,
+            "disk": disk_data
         }
     }
 
@@ -419,8 +500,6 @@ def get_cce_node_metrics_topN(region: str, cluster_id: str, ak: Optional[str] = 
     import time as time_module
 
     access_key, secret_key, proj_id = get_credentials_with_region(region, ak, sk, project_id)
-    if not access_key or not secret_key:
-        return {"success": False, "error": "Credentials not provided"}
 
     if not cluster_id:
         return {"success": False, "error": "cluster_id is required"}
@@ -470,8 +549,7 @@ def get_cce_node_metrics_topN(region: str, cluster_id: str, ak: Optional[str] = 
                     break
 
     # ========== 3. 获取 AOM 实例 ==========
-    from .cce_diagnosis import get_aom_instance
-    aom_result = get_aom_instance(region, cluster_id, access_key, secret_key, proj_id)
+    aom_result = _get_aom_instance(region, cluster_id, access_key, secret_key, proj_id)
     if not aom_result.get("success"):
         return {
             "success": False,
@@ -621,8 +699,6 @@ def get_cce_node_metrics(region: str, cluster_id: str, node_ip: str, ak: Optiona
     import time as time_module
 
     access_key, secret_key, proj_id = get_credentials_with_region(region, ak, sk, project_id)
-    if not access_key or not secret_key:
-        return {"success": False, "error": "Credentials not provided"}
 
     if not cluster_id or not node_ip:
         return {"success": False, "error": "cluster_id and node_ip are required"}
@@ -663,8 +739,7 @@ def get_cce_node_metrics(region: str, cluster_id: str, node_ip: str, ak: Optiona
                     break
 
     # ========== 3. 获取 AOM 实例 ==========
-    from .cce_diagnosis import get_aom_instance
-    aom_result = get_aom_instance(region, cluster_id, access_key, secret_key, proj_id)
+    aom_result = _get_aom_instance(region, cluster_id, access_key, secret_key, proj_id)
     if not aom_result.get("success"):
         return {
             "success": False,
@@ -679,7 +754,7 @@ def get_cce_node_metrics(region: str, cluster_id: str, node_ip: str, ak: Optiona
     # ========== 4. 构建 PromQL 查询（筛选指定节点IP） ==========
     # 默认 CPU 使用率 PromQL
     if cpu_query is None:
-        cpu_query = f"100 - (avg by (instance) (irate(node_cpu_seconds_total{{mode='idle',cluster_name='{cluster_name}',instance=~'{node_ip}.*'}}[5m])) * 100"
+        cpu_query = f"100 - (avg by (instance) (irate(node_cpu_seconds_total{{mode='idle',cluster_name='{cluster_name}',instance=~'{node_ip}.*'}}[5m])) * 100)"
 
     # 默认内存使用率 PromQL
     if memory_query is None:
