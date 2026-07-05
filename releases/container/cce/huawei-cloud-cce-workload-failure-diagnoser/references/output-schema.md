@@ -1,27 +1,95 @@
 # Output Schema
 
-Primary action: `huawei_workload_rollout_diagnose`.
+Produce a concise Markdown report for users, and optionally include the JSON-compatible structure below for automation.
+
+## Markdown Report
+
+```markdown
+# CCE Workload Diagnosis
+
+## Target
+- Region:
+- Project ID:
+- Cluster:
+- Namespace:
+- Kind:
+- Name:
+
+## CLI Path
+- hcloud:
+- kubeconfig:
+- kubectl:
+- Mutating commands run: No
+
+## Summary
+- Status:
+- Confidence:
+- Headline:
+
+## Rollout Funnel
+| Layer | Expected | Actual | Status | Evidence |
+| --- | --- | --- | --- | --- |
+
+## Top Causes
+1. Cause:
+   - Confidence:
+   - Evidence:
+   - Recommendation:
+
+## Events And Logs
+- Relevant events:
+- Pod logs checked:
+- Previous logs checked:
+
+## Handoffs
+- Skill:
+- Reason:
+
+## Gaps
+- Missing permissions:
+- Missing data:
+- Tooling/network issues:
+```
+
+## JSON-Compatible Structure
 
 ```json
 {
   "success": true,
-  "action": "workload_rollout_diagnose",
+  "execution_model": "hcloud_cce_cli_plus_kubectl",
   "target": {
+    "region": "cn-north-4",
+    "project_id": "project-id",
+    "cluster_id": "cluster-id",
+    "cluster_name": "cluster-name",
     "namespace": "default",
     "kind": "Deployment",
     "name": "api"
   },
+  "commands": {
+    "hcloud": [
+      "hcloud CCE ListClusters ...",
+      "hcloud CCE ShowCluster ...",
+      "hcloud CCE CreateKubernetesClusterCert ..."
+    ],
+    "kubectl": [
+      "kubectl --kubeconfig=<file> get deployment ...",
+      "kubectl --kubeconfig=<file> get pods ..."
+    ],
+    "mutating_commands_run": false
+  },
   "selector": {
     "value": "app=api",
-    "source": "matchLabels"
+    "source": "spec.selector.matchLabels"
   },
   "summary": {
-    "status": "control_plane_not_observed | new_version_not_created | rollout_blocked | replicas_unavailable | probe_failure | healthy",
-    "headline": "human-readable diagnosis; may note when old-version replicas remain available",
+    "status": "healthy | control_plane_not_observed | new_version_not_created | rollout_blocked | replicas_unavailable | probe_failure | insufficient_evidence",
+    "headline": "human-readable diagnosis",
     "expected_replicas": 3,
+    "updated_replicas": 3,
     "ready_replicas": 1,
     "available_replicas": 1,
-    "top_cause": "ProbeFailure | ContainerCommandNotFound | CrashLoopOrAppExit | ..."
+    "top_cause": "ProbeFailure"
   },
   "generation_check": {
     "generation": 5,
@@ -29,34 +97,32 @@ Primary action: `huawei_workload_rollout_diagnose`.
     "observed": true
   },
   "workload": {
-    "kind": "Deployment",
     "uid": "workload-uid",
-    "desired_replicas": 3,
-    "updated_replicas": 3,
-    "ready_replicas": 1,
-    "available_replicas": 1,
-    "conditions": []
+    "conditions": [],
+    "strategy": {}
   },
   "version": {
-    "strategy": "DeploymentReplicaSet",
-    "new_rs": {},
-    "old_rs": []
+    "strategy": "DeploymentReplicaSet | StatefulSet | DaemonSet",
+    "new_revision": "7",
+    "new_owner": {},
+    "old_owners": []
   },
   "funnel": [
-    {"layer": "workload_current", "expected": 3, "actual": 3, "status": "pass"},
-    {"layer": "new_pods_ready", "expected": 3, "actual": 1, "status": "fail"}
+    {
+      "layer": "new_pods_ready",
+      "expected": 3,
+      "actual": 1,
+      "status": "fail",
+      "evidence": "2 selected new-version pods are not Ready"
+    }
   ],
   "events": {
+    "source": "kubectl get events",
     "filtered_count": 5,
-    "timeline": [],
-    "filter": {
-      "uid_count": 6,
-      "before_count": 40,
-      "after_count": 5,
-      "events_without_involved_uid": 0
-    }
+    "filter_basis": "workload/replicaset/pod UID or selected object names",
+    "timeline": []
   },
-  "pod_diagnosis": {
+  "pod_drilldown": {
     "diagnosed_pods": 1,
     "pods": []
   },
@@ -64,58 +130,42 @@ Primary action: `huawei_workload_rollout_diagnose`.
     {
       "rank": 1,
       "type": "ProbeFailure",
-      "title": "New version Pods are Running but probe checks fail or Pods are not Ready",
+      "title": "New version Pods are Running but readiness checks fail",
       "confidence": 0.88,
       "evidence": [],
-      "recommendation": []
+      "recommendations": []
     }
   ],
   "handoff": [
     {
       "skill": "huawei-cloud-cce-pod-failure-diagnoser",
-      "reason": "Probe failure requires Pod logs and health check configuration analysis"
+      "reason": "Probe failure requires Pod log and health check analysis"
     }
   ],
+  "gaps": [],
   "warnings": []
 }
 ```
 
-Context-only action: `huawei_get_workload_rollout_context`.
+## Field Notes
 
-```json
-{
-  "success": true,
-  "action": "get_workload_rollout_context",
-  "workload": {},
-  "replicasets": [],
-  "pods": [],
-  "events": [],
-  "event_filter": {},
-  "warnings": []
-}
-```
+| Field | Description |
+| --- | --- |
+| `execution_model` | Must be `hcloud_cce_cli_plus_kubectl` |
+| `commands.mutating_commands_run` | Must remain `false` for this skill |
+| `summary.status` | Diagnosis status based on the first failing funnel layer |
+| `events.filter_basis` | Explain how namespace events were narrowed to workload-related evidence |
+| `top_causes[].confidence` | 0.0-1.0 confidence based on direct evidence strength |
+| `gaps` | Missing RBAC, missing metrics-server, missing logs, unavailable tools, or network limits |
 
-## Field Descriptions
+## Handoff Skill Reference
 
-| Field                     | Type    | Description                                                    |
-| ------------------------- | ------- | -------------------------------------------------------------- |
-| `summary.status`          | string  | One of: `healthy`, `control_plane_not_observed`, `new_version_not_created`, `rollout_blocked`, `replicas_unavailable`, `probe_failure` |
-| `summary.headline`        | string  | Human-readable diagnosis summary                               |
-| `summary.top_cause`       | string  | Primary Top Cause type (e.g., `ProbeFailure`, `CrashLoopOrAppExit`) |
-| `generation_check.observed` | boolean | `true` if `observedGeneration >= generation`                  |
-| `funnel[].layer`          | string  | Funnel layer name (e.g., `workload_current`, `new_pods_ready`) |
-| `funnel[].status`         | string  | `pass` or `fail`                                               |
-| `top_causes[].rank`       | integer | Cause ranking (1 = highest)                                   |
-| `top_causes[].confidence` | float   | Confidence score (0.0-1.0)                                    |
-| `handoff[].skill`         | string  | Target skill name using `huawei-cloud-cce-` prefix convention  |
-| `handoff[].reason`        | string  | Reason for the handoff                                         |
-
-## Handoff Skill Reference Mapping
-
-| Old Name                    | New Name (Prefixed)                          |
-| --------------------------- | -------------------------------------------- |
-| `huawei-cloud-cce-pod-failure-diagnoser`     | `huawei-cloud-cce-pod-failure-diagnoser`     |
-| `huawei-cloud-cce-node-failure-diagnoser`    | `huawei-cloud-cce-node-failure-diagnoser`    |
-| `huawei-cloud-cce-root-cause-analyzer`       | `huawei-cloud-cce-root-cause-analyzer`       |
-| `huawei-cloud-cce-auto-remediation-runner`   | `huawei-cloud-cce-auto-remediation-runner`   |
-| `huawei-cloud-cce-alarm-correlation-engine`  | `huawei-cloud-cce-alarm-correlation-engine`  |
+| Direction | Skill |
+| --- | --- |
+| Pod runtime/log/probe | `huawei-cloud-cce-pod-failure-diagnoser` |
+| Node pressure/scheduling | `huawei-cloud-cce-node-failure-diagnoser` |
+| Storage/PVC/PV | `huawei-cloud-cce-storage-failure-diagnoser` |
+| Service/Ingress/ELB/dependency | `huawei-cloud-cce-network-failure-diagnoser` |
+| Multi-domain evidence | `huawei-cloud-cce-root-cause-analyzer` |
+| Remediation execution | `huawei-cloud-cce-auto-remediation-runner` |
+| Alarm correlation | `huawei-cloud-cce-alarm-correlation-engine` |
