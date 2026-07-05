@@ -16,6 +16,8 @@ Query and analyze metrics for CCE clusters (Pod/Node CPU/memory/disk) and cloud 
 
 **Architecture**: `python3 scripts/huawei-cloud.py` dispatcher → hcloud (KooCLI) cloud service queries + signed AOM Prometheus HTTP queries + Kubernetes client → Pod/Node metrics, ECS/ELB/EIP/NAT metrics → Threshold classification → Anomaly detection
 
+> **Execution method**: Cloud service queries are executed through the local `hcloud` CLI. AOM Prometheus `query_range` calls are the only exception and use signed HTTPS requests because the required Prometheus range-query path is not compatible with hcloud. Do not call Huawei Cloud SDKs, curl IAM flows, openstack, or hand-written cloud APIs outside the bundled dispatcher.
+
 **Related Skills**:
 - `huawei-cloud-cce-pod-failure-diagnoser` - Pod CrashLoopBackOff, OOMKilled, restart storms
 - `huawei-cloud-cce-node-failure-diagnoser` - Node health, resource pressure diagnosis
@@ -170,6 +172,29 @@ python3 scripts/huawei-cloud.py huawei_cce_cluster_monitoring_aggregation \
 ```
 
 This tool aggregates: Pod TopN CPU/memory, Node TopN CPU/memory/disk, ELB metrics (with LoadBalancer service association), NAT Gateway metrics, EIP metrics (bandwidth, packet loss), and anomaly detection using 80% threshold.
+
+## Risk Levels
+
+This skill is read-only. It does not create, update, delete, restart, scale, or modify Huawei Cloud or Kubernetes resources.
+
+| Level | Meaning | Execution Guidance |
+| ----- | ------- | ------------------ |
+| R3 | No-risk read-only query or local analysis | May run automatically |
+| R2 | Low-risk change, such as creating monitoring configuration without deleting resources or increasing service capacity/cost | Not used by current tools |
+| R1 | Risky operation, such as restart-like impact, disabling protection, or changes that may increase cost or reduce observability | Not used by current tools |
+| R0 | Critical operation, such as deleting clusters, applications, or broad-impact monitoring protections | Not used by current tools |
+
+| Tool | Operation Type | Risk Level | Description |
+| ---- | -------------- | ---------- | ----------- |
+| `huawei_get_cce_pod_metrics_topN` | Query | R3 | Read Pod CPU/memory/disk TopN metrics from AOM Prometheus |
+| `huawei_get_cce_pod_metrics` | Query | R3 | Read single Pod CPU/memory/disk time-series metrics |
+| `huawei_get_cce_node_metrics_topN` | Query | R3 | Read Node CPU/memory/disk TopN metrics from AOM Prometheus |
+| `huawei_get_cce_node_metrics` | Query | R3 | Read single Node CPU/memory/disk time-series metrics |
+| `huawei_get_ecs_metrics` | Query | R3 | Read ECS monitoring data through hcloud/CES |
+| `huawei_get_elb_metrics` | Query | R3 | Read ELB monitoring data through hcloud/CES |
+| `huawei_get_eip_metrics` | Query | R3 | Read EIP monitoring data through hcloud/CES |
+| `huawei_get_nat_gateway_metrics` | Query | R3 | Read NAT Gateway monitoring data through hcloud/CES |
+| `huawei_cce_cluster_monitoring_aggregation` | Query + local analysis | R3 | Aggregate Pod/Node/cloud-resource metrics and classify anomalies locally |
 
 ## Parameter Reference
 
