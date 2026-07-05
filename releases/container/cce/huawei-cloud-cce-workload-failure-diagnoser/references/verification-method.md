@@ -1,81 +1,126 @@
 # Verification Method
 
-## Step 1: Environment Check
+Verification must prove that this skill uses CCE `hcloud` CLI plus `kubectl`, and no SDK dispatcher path remains.
 
-Run the environment check script before any diagnosis action:
+## Step 1: Tooling Check
 
-- Linux / macOS: `skill action=exec: bash skill://scripts/check_env.sh`
-- Windows: `skill action=exec: powershell -ExecutionPolicy Bypass -File skill://scripts/check_env.ps1`
-
-Verify that the script completes without errors:
-- Python >= 3.6 installed
-- Dependencies installed (huaweicloudsdkcore, huaweicloudsdkcce, kubernetes, etc.)
-- SDK validation passed
-- Credentials validated (HW_ACCESS_KEY, HW_SECRET_KEY)
-- Service availability confirmed
-
-## Step 2: Healthy Workload Baseline
-
-Use a known healthy Deployment to verify that `huawei_workload_rollout_diagnose` returns `status: healthy`:
+Run:
 
 ```bash
-skill action=exec: python3 scripts/huawei-cloud.py --action huawei_workload_rollout_diagnose --params '{"region":"cn-north-4","cluster_id":"<cluster-id>","namespace":"default","kind":"Deployment","name":"<healthy-deployment>"}'
+hcloud version
+hcloud configure list
+kubectl version --client
 ```
 
-Expected output:
-- `summary.status` = `"healthy"`
-- `generation_check.observed` = `true`
-- All funnel layers = `"pass"`
-- `top_causes` list is empty or low-confidence
+Expected:
 
-## Step 3: Failing Workload Diagnosis
+- `hcloud` exists and reports KooCLI version. Linux sandboxes should use the Linux KooCLI binary; Windows workstations may use `hcloud.exe`, but the skill workflow should stay platform-neutral.
+- Credential profiles are present, with secret values masked.
+- `kubectl` client exists and matches the runtime platform. Linux sandboxes should use a Linux `kubectl` binary; Windows workstations should use `kubectl.exe`.
 
-Use a known failing workload to verify Top causes are accurately identified:
+Do not print AK, SK, token, kubeconfig certificate data, or Authorization headers.
+
+## Step 2: CCE Cluster Discovery
+
+Run:
 
 ```bash
-skill action=exec: python3 scripts/huawei-cloud.py --action huawei_workload_rollout_diagnose --params '{"region":"cn-north-4","cluster_id":"<cluster-id>","namespace":"default","kind":"Deployment","name":"<failing-deployment>"}'
+hcloud CCE ListClusters --project_id=<project-id> --cli-region=<region> --cli-output=json
+hcloud CCE ShowCluster --cluster_id=<cluster-id> --project_id=<project-id> --detail=true --cli-region=<region> --cli-output=json
+hcloud CCE ShowClusterEndpoints --cluster_id=<cluster-id> --project_id=<project-id> --cli-region=<region> --cli-output=json
 ```
 
-Expected output:
-- `summary.status` = one of the failure statuses (`rollout_blocked`, `replicas_unavailable`, `probe_failure`, etc.)
-- `top_causes` contains at least one ranked cause with evidence
-- `funnel` identifies the first failing layer
-- `events.filtered_count` > 0
+Expected:
 
-## Step 4: Context Collection Consistency
+- Target cluster appears in the list.
+- `ShowCluster` returns the same cluster ID and expected status.
+- `ShowClusterEndpoints` shows whether the API server has a public endpoint. If `publicEndpoint` is empty and the kubeconfig points to a private IP, run `kubectl` from a VPC/VPN/Direct Connect/Cloud Desktop/sandbox network that can reach the private endpoint.
+- No Python SDK process or local dispatcher script is used.
 
-Compare `huawei_get_workload_rollout_context` raw data with `huawei_workload_rollout_diagnose` output for consistency:
+## Step 3: Kubeconfig Acquisition
+
+Run:
 
 ```bash
-skill action=exec: python3 scripts/huawei-cloud.py --action huawei_get_workload_rollout_context --params '{"region":"cn-north-4","cluster_id":"<cluster-id>","namespace":"default","kind":"Deployment","name":"api"}'
+hcloud CCE CreateKubernetesClusterCert --cluster_id=<cluster-id> --project_id=<project-id> --duration=1 --cli-region=<region> --cli-output=json > <kubeconfig-file>
 ```
 
-Verify:
-- `workload` object matches the workload status in diagnosis output
-- `replicasets` list is present for Deployment kind
-- `pods` list contains Pods matching the workload selector
-- `events` list matches the UID-filtered events in diagnosis output
+Expected:
 
-## Step 5: UID-Filtered Event Verification
+- Command returns Kubernetes kubeconfig content. KooCLI may emit JSON-formatted kubeconfig; `kubectl` accepts JSON or YAML kubeconfig.
+- If KooCLI times out on a recently awakened cluster, retry with explicit values such as `--cli-connect-timeout=20 --cli-read-timeout=90 --cli-retry-count=2`.
+- If the kubeconfig server is private while `ShowClusterEndpoints.publicEndpoint` is available and the agent is outside the VPC, use a temporary kubeconfig copy with only the `clusters[].cluster.server` field replaced by the public endpoint.
+- File is stored outside the repository or in a temporary ignored location.
+- File permissions are restricted where the OS supports it.
+- File is deleted after validation if it is not needed.
 
-Verify that UID-filtered Events match only workload-related objects (not all namespace Warning events):
+## Step 4: Kubernetes Read Access
 
-1. Check that `events.filter.after_count` is significantly less than `events.filter.before_count`
-2. Verify that all events in `events.timeline` have `involvedObject.uid` belonging to the Workload, ReplicaSet, or Pod UIDs
-3. Verify `events.filter.events_without_involved_uid` = 0
+Run:
 
-## Step 6: Cross-Domain Handoff Verification
+```bash
+kubectl --kubeconfig=<kubeconfig-file> cluster-info
+kubectl --kubeconfig=<kubeconfig-file> auth can-i get deployments -n <namespace>
+kubectl --kubeconfig=<kubeconfig-file> auth can-i list pods -n <namespace>
+kubectl --kubeconfig=<kubeconfig-file> auth can-i get events -n <namespace>
+kubectl --kubeconfig=<kubeconfig-file> auth can-i get pods/log -n <namespace>
+```
 
-When diagnosis output contains `handoff` entries, verify that:
+Expected:
 
-1. Each `handoff[].skill` uses the `huawei-cloud-cce-` prefix convention
-2. The handoff reason is specific and actionable (not generic)
-3. The handoff direction is consistent with the Top Cause type
+- Cluster API is reachable.
+- Required read permissions return `yes`, or missing permissions are reported as gaps.
 
-## Step 7: Credential Security Verification
+## Step 5: Healthy Or Known Workload Baseline
 
-Verify that no credential values appear in any output:
+For a known workload, run only read commands:
 
-1. Check that `HW_ACCESS_KEY`, `HW_SECRET_KEY`, `HW_SECURITY_TOKEN` values are never present in output JSON
-2. Check that no temporary certificate files remain after execution
-3. Verify that `warnings` does not contain credential-related information
+```bash
+kubectl --kubeconfig=<kubeconfig-file> get deployment <name> -n <namespace> -o yaml
+kubectl --kubeconfig=<kubeconfig-file> describe deployment <name> -n <namespace>
+kubectl --kubeconfig=<kubeconfig-file> rollout status deployment/<name> -n <namespace> --timeout=30s
+kubectl --kubeconfig=<kubeconfig-file> get rs -n <namespace> --selector='<selector>' -o yaml
+kubectl --kubeconfig=<kubeconfig-file> get pods -n <namespace> --selector='<selector>' -o wide
+kubectl --kubeconfig=<kubeconfig-file> get events -n <namespace> --sort-by=.lastTimestamp
+```
+
+Adjust resource names for StatefulSet or DaemonSet.
+
+Expected:
+
+- The diagnosis can explain whether the workload is healthy, stuck, or blocked.
+- Events are filtered to workload/ReplicaSet/Pod evidence before citing them.
+- No mutating kubectl command is run.
+
+## Step 6: Repository Residual Check
+
+From the skill package directory, run:
+
+```bash
+rg -n "scripts/huawei-cloud.py|skill action=exec|huawei_workload|Python SDK dispatcher|huaweicloudsdk|CreateKubernetesClusterCertRequest" . --glob "!*.md"
+```
+
+Expected:
+
+- No matches for SDK dispatcher entrypoints, old tool mappings, scripts, or Huawei SDK imports in executable/non-document files.
+- Markdown files may mention old SDK terms only as explicit prohibitions or residual-check instructions.
+- Matches for plain `hcloud CCE CreateKubernetesClusterCert` are allowed.
+
+## Step 7: Log Review
+
+Review terminal output or saved verification logs:
+
+- Commands used `hcloud CCE ...` and `kubectl --kubeconfig=...`.
+- No command begins with `python`, `python3`, `skill action=exec`, or `scripts/huawei-cloud.py`.
+- Secrets are absent or redacted.
+- Kubeconfig file path is known, secured, and cleaned up if temporary.
+
+## Pass Criteria
+
+The skill passes verification when:
+
+1. `hcloud` can list/show the target CCE cluster.
+2. `CreateKubernetesClusterCert` can produce kubeconfig.
+3. `kubectl` can read the target namespace or reports explicit RBAC gaps.
+4. The package contains no SDK dispatcher scripts, skill profile tool mapping, or `huawei_workload_*` actions.
+5. The diagnosis workflow remains read-only.
