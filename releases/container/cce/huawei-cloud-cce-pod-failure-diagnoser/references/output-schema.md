@@ -1,64 +1,119 @@
 # Output Schema
 
+The final user-facing report may be Markdown, but it should be easy to map to this JSON shape. Include command evidence without secrets.
+
 ```json
 {
   "success": true,
-  "action": "pod_failure_diagnose",
+  "action": "pod_failure_diagnose_cli",
+  "execution_model": "hcloud CCE + kubectl",
+  "target": {
+    "region": "cn-north-4",
+    "project_id": "optional",
+    "cluster_id": "cluster uuid",
+    "cluster_name": "optional",
+    "namespace": "default",
+    "pod_name": "optional",
+    "workload_name": "optional",
+    "selector": "optional"
+  },
+  "cli_path": {
+    "hcloud_commands": [
+      "hcloud CCE ShowCluster ...",
+      "hcloud CCE CreateKubernetesClusterCert ..."
+    ],
+    "kubectl_commands": [
+      "kubectl --kubeconfig=<file> describe pod ...",
+      "kubectl --kubeconfig=<file> get events ..."
+    ],
+    "mutating_commands_run": false
+  },
   "summary": {
-    "diagnosis_status": "abnormal | no_known_failure_detected | no_matching_abnormal_pods",
+    "diagnosis_status": "abnormal | no_known_failure_detected | no_matching_pods | partial_evidence",
+    "confidence": 0.85,
     "diagnosed_pods": 1,
-    "total_pods_seen": 12,
+    "total_pods_seen": 3,
     "status_counts": {
-      "Running": 8,
+      "Running": 2,
       "Pending": 1
     },
     "issue_counts": {
       "CrashLoopBackOff": 1
     }
   },
-  "target": {
-    "namespace": "default",
-    "workload_name": "optional",
-    "pod_name": "optional",
-    "labels": "optional",
-    "include_logs": true,
-    "include_metrics": false
-  },
   "pods": [
     {
       "pod": {
         "name": "demo-xxx",
         "namespace": "default",
-        "status": "Running",
+        "phase": "Running",
         "reason": null,
         "node": "192.168.0.10",
-        "qos_class": "Burstable"
+        "qos_class": "Burstable",
+        "owner": "ReplicaSet/demo-abc"
       },
+      "containers": [
+        {
+          "name": "app",
+          "ready": false,
+          "restart_count": 5,
+          "state": "waiting",
+          "state_reason": "CrashLoopBackOff",
+          "last_state_reason": "Error",
+          "last_exit_code": 1
+        }
+      ],
       "issues": [
         {
-          "type": "CrashLoopBackOff | ImagePullBackOff | OOMKilled | PendingScheduling | PendingStorage | Evicted | FrequentRestart | PodNotReady",
+          "type": "CrashLoopBackOff | ImagePullBackOff | OOMKilled | PendingScheduling | PendingStorage | Evicted | FrequentRestart | ProbeFailure | SandboxOrCNIBlocked | PodNotReady",
           "title": "human-readable diagnosis",
           "confidence": 0.92,
           "container": "app",
-          "evidence": [],
-          "recommendation": []
+          "scenario": "CrashLoopBackOff",
+          "subtype": "app_startup_error",
+          "root_cause_interpretation": "Explain what the failing signal means and why it is the most likely root cause.",
+          "ruled_out": [
+            "Scheduling is unlikely because PodScheduled=True and nodeName is set.",
+            "OOM is unlikely because the container never started and restartCount is 0."
+          ],
+          "evidence": [
+            "Previous logs show startup exception",
+            "Event BackOff restarting failed container"
+          ],
+          "follow_up_checks": [
+            {
+              "check": "Verify the referenced image repository and tag exist.",
+              "expected_signal": "Repository/tag is present and accessible from the intended registry.",
+              "command_or_location": "Registry console, release manifest, or image build pipeline"
+            }
+          ],
+          "recommendation": [
+            "Fix application startup config and redeploy through the appropriate deployment workflow"
+          ]
         }
       ],
-      "events": [],
-      "containers": [],
+      "events": [
+        {
+          "reason": "BackOff",
+          "message": "Back-off restarting failed container",
+          "last_timestamp": "2026-07-06T10:00:00Z",
+          "count": 12
+        }
+      ],
       "logs": {
-        "container": "app",
         "current": {
-          "success": true,
+          "available": true,
           "excerpt": "sanitized tail logs"
         },
         "previous": {
-          "success": true,
+          "available": true,
           "excerpt": "sanitized previous logs"
         }
       },
       "metrics": {
-        "success": true
+        "available": true,
+        "source": "kubectl top",
+        "notes": []
       }
     }
   ],
@@ -70,18 +125,60 @@
       "confidence": 0.92,
       "affected_count": 1,
       "affected_pods": ["default/demo-xxx"],
+      "scenario": "CrashLoopBackOff",
+      "subtype": "app_startup_error",
+      "interpretation": "Explain the matched scenario in plain language using the relevant scenario guide.",
+      "ruled_out": [],
       "evidence": [],
+      "follow_up_checks": [],
       "recommendation": []
+    }
+  ],
+  "verification_gaps": [
+    {
+      "area": "metrics",
+      "detail": "metrics-server unavailable; kubectl top failed"
     }
   ],
   "recommended_actions": [
     {
       "action": "Read previous logs and combine with exit code to locate application startup failure point.",
       "source_cause": "CrashLoopBackOff",
-      "requires_confirmation": false
+      "requires_confirmation": false,
+      "why": "Explains how this action validates or fixes the current hypothesis.",
+      "handoff_skill": null
     }
   ],
-  "warnings": [],
-  "next_skill": "huawei-cloud-cce-auto-remediation-runner | null"
+  "next_skill": "huawei-cloud-cce-auto-remediation-runner | huawei-cloud-cce-node-failure-diagnoser | huawei-cloud-cce-storage-failure-diagnoser | null"
 }
 ```
+
+## Markdown Report Sections
+
+When writing a human-readable report, use:
+
+1. Target and scope.
+2. CLI path used.
+3. Summary and confidence.
+4. Pod lifecycle status.
+5. Top causes with evidence.
+6. Root-cause interpretation and negative evidence.
+7. Logs, Events, metrics, node/storage findings.
+8. Verification gaps.
+9. Detailed follow-up checks and candidate fix paths.
+10. Recommended next steps and handoff skills.
+11. Explicit statement that no mutating command was run.
+
+## Scenario-Specific Recommendation Requirements
+
+After identifying `top_causes[].type`, load `references/scenario-guides.md` and apply the matching scenario section. Do not reserve detailed recommendations for one special case; every concrete failure type should include scenario-specific interpretation, ruled-out causes, next checks, and candidate fix paths.
+
+Each top cause should include:
+
+- `scenario`: the matched scenario guide section, such as `ImagePullBackOff`, `CrashLoopBackOff`, `OOMKilled`, `Pending`, `StorageMountFailure`, `Evicted`, `ProbeFailure`, `SandboxOrCNIBlocked`, or `QuotaOrAdmissionRejected`.
+- `subtype`: a more precise class derived from Events/logs/status, such as `repository_or_tag_missing`, `app_startup_error`, `memory_limit_too_low`, `failed_scheduling_taint`, or `pvc_pending`.
+- `interpretation`: plain-language explanation of what the evidence means.
+- `ruled_out`: adjacent causes that are less likely and why.
+- `follow_up_checks`: concrete checks with expected confirming/refuting signals.
+- `candidate_fix`: safe remediation options, without executing them.
+- `handoff`: relevant skill or owner when remediation is outside this read-only diagnoser.

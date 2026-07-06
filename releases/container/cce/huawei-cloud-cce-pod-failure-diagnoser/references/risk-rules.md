@@ -1,8 +1,11 @@
 # Risk Rules
 
-- Read-only diagnostic actions are allowed to execute automatically.
-- This skill must NOT call scaling, workload deletion, node deletion, drain, or reboot operations.
-- If `huawei_scale_cce_workload` or `huawei_resize_cce_workload` is recommended, it must be handed off to `huawei-cloud-cce-auto-remediation-runner`.
-- Log output must contain only sanitized tail excerpts; never copy raw passwords, tokens, AK/SK, or Authorization headers from application logs into the output.
-- For ImagePullBackOff, prioritize Events — do not repeatedly request container logs that do not exist.
-- Scaling, isolation, delete-and-rebuild suggestions for OOMKilled, PendingScheduling, and Evicted are recovery proposals only; they are NOT executed within this skill.
+- Read-only diagnostic commands are allowed: `hcloud CCE ListClusters`, `ShowCluster`, `ShowClusterEndpoints`, `CreateKubernetesClusterCert`, and `kubectl get`, `describe`, `logs`, `top`, `auth can-i`, `cluster-info`.
+- `CreateKubernetesClusterCert` is allowed only to obtain short-lived kubeconfig for read-only diagnosis. Store kubeconfig outside the repository or in a temporary ignored path, restrict permissions where possible, and clean it up when no longer needed.
+- This skill must not run `kubectl apply`, `create`, `patch`, `edit`, `delete`, `scale`, `rollout undo`, `cordon`, `drain`, `taint`, or any equivalent mutating operation.
+- This skill must not call hcloud create/update/delete operations except `CCE CreateKubernetesClusterCert`.
+- This skill must not use Python SDK dispatcher commands, `scripts/huawei-cloud.py`, `skill action=exec`, old `huawei_pod_*` actions, or Huawei Cloud SDK imports.
+- If scaling, restarting, deleting, rebuilding, node isolation, or quota changes are recommended, hand them off to `huawei-cloud-cce-auto-remediation-runner` or the relevant domain skill as recommendations only.
+- Log output must contain only sanitized excerpts. Never copy raw passwords, tokens, AK/SK, kubeconfig certificate data, Authorization headers, or image registry secrets into the output.
+- For ImagePullBackOff, prioritize Events and image/pull-secret evidence. Do not repeatedly request logs for a container that was never created.
+- For OOMKilled, PendingScheduling, Evicted, and storage/network failures, separate diagnosis from remediation. Explain the evidence and proposed next action, but do not mutate cluster state.
