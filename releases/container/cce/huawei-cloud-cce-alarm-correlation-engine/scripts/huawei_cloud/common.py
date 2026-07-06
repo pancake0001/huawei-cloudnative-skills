@@ -10,15 +10,36 @@ import tempfile
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 
-def get_credentials(ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None) -> tuple:
-    """Return optional credentials from params or environment variables.
+def _has_hcloud_profile() -> bool:
+    """Return whether local hcloud profile configuration appears to exist."""
+    config_dir = os.environ.get("HCLOUD_CONFIG_DIR")
+    candidates = []
+    if config_dir:
+        candidates.append(os.path.join(config_dir, "config.json"))
+    candidates.extend([
+        os.path.expanduser("~/.hcloud/config.json"),
+        os.path.expanduser("~/.hcloud/config.yaml"),
+        os.path.expanduser("~/.hcloud/config.yml"),
+    ])
+    return any(os.path.isfile(path) and os.path.getsize(path) > 0 for path in candidates)
 
-    hcloud can also use its configured profile, so missing AK/SK is not an error here.
+
+def get_credentials(ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None) -> tuple:
+    """Return optional hcloud CLI credentials.
+
+    Priority: explicit tool parameters > local hcloud profile > environment variables.
+    When a local hcloud profile exists and AK/SK are not explicitly provided, do not
+    pass environment credentials so the profile remains authoritative.
     """
-    access_key = ak or os.environ.get("HUAWEI_AK") or os.environ.get("HUAWEICLOUD_SDK_AK") or os.environ.get("HW_ACCESS_KEY")
-    secret_key = sk or os.environ.get("HUAWEI_SK") or os.environ.get("HUAWEICLOUD_SDK_SK") or os.environ.get("HW_SECRET_KEY")
-    proj_id = project_id or os.environ.get("HUAWEI_PROJECT_ID") or os.environ.get("HUAWEICLOUD_SDK_PROJECT_ID")
-    return access_key, secret_key, proj_id
+    if ak or sk or project_id:
+        return ak, sk, project_id
+    if _has_hcloud_profile():
+        return None, None, None
+    return (
+        os.environ.get("HUAWEI_AK") or os.environ.get("HUAWEICLOUD_SDK_AK") or os.environ.get("HW_ACCESS_KEY"),
+        os.environ.get("HUAWEI_SK") or os.environ.get("HUAWEICLOUD_SDK_SK") or os.environ.get("HW_SECRET_KEY"),
+        os.environ.get("HUAWEI_PROJECT_ID") or os.environ.get("HUAWEICLOUD_SDK_PROJECT_ID"),
+    )
 
 
 def redact_command(command: Iterable[str]) -> List[str]:
@@ -59,7 +80,9 @@ def _base_hcloud_command(
     command = ["hcloud", service, operation, f"--cli-region={region}", "--cli-output=json"]
     if access_key and secret_key:
         command.extend([f"--cli-access-key={access_key}", f"--cli-secret-key={secret_key}"])
-    token = os.environ.get("HUAWEI_SECURITY_TOKEN") or os.environ.get("HUAWEICLOUD_SDK_SECURITY_TOKEN")
+    token = None
+    if access_key and secret_key:
+        token = os.environ.get("HUAWEI_SECURITY_TOKEN") or os.environ.get("HUAWEICLOUD_SDK_SECURITY_TOKEN")
     if token:
         command.append(f"--cli-security-token={token}")
     if proj_id:

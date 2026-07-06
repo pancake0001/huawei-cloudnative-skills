@@ -95,10 +95,10 @@ python3 huawei-cloud.py huawei_create_aom_alarm_rule \
 4. **禁止日志泄露** - 不在任何日志、响应输出或错误信息中包含 AK/SK 等敏感信息
 5. **输出脱敏** - 对外输出只展示告警、资源和规则信息，不展示认证凭证
 
-AK/SK 支持以下三种方式使用：
+AK/SK 支持以下三种方式使用，优先级顺序为：
+- 通过每次调用参数 `ak` / `sk` 传入（最高优先级，仅本次调用有效）
 - 已配置的 hcloud profile（推荐）
-- 通过环境变量 `HUAWEI_AK` / `HUAWEI_SK` 传入
-- 通过每次调用参数传入（仅本次调用有效）
+- 通过环境变量 `HUAWEI_AK` / `HUAWEI_SK` 传入（仅在没有 hcloud profile 时作为兜底）
 
 ---
 
@@ -155,9 +155,9 @@ export HUAWEI_SK="your-secret-access-key"
 **参数说明：**
 - `region` (required): 华为云区域，例如 `cn-north-4`
 - `cluster_id` (optional): CCE 集群 ID；传入后只返回该集群相关告警
-- `ak` (optional): Access Key ID，优先使用 `HUAWEI_AK`
-- `sk` (optional): Secret Access Key，优先使用 `HUAWEI_SK`
-- `project_id` (optional): 华为云项目 ID；不传时使用当前 hcloud profile/project 配置
+- `ak` (optional): Access Key ID，显式工具入参优先级最高
+- `sk` (optional): Secret Access Key，显式工具入参优先级最高
+- `project_id` (optional): 华为云项目 ID；显式入参优先，其次使用当前 hcloud profile/project 配置，最后才使用环境变量兜底
 
 **使用示例：**
 ```bash
@@ -224,9 +224,9 @@ python3 huawei-cloud.py huawei_analyze_aom_alarms \
 - `fields` (optional): 创建规则时的额外 JSON 字段，例如 `{"unit":"%","is_turn_on":true}`
 - `updates` (optional): JSON 格式的批量更新字段，例如 `{"threshold":"80","is_turn_on":true}`
 - `confirm` (optional): 创建、修改或删除时必须显式设置为 `true` 才会执行
-- `ak` (optional): Access Key ID
-- `sk` (optional): Secret Access Key
-- `project_id` (optional): 华为云项目 ID；不传时使用当前 hcloud profile/project 配置
+- `ak` (optional): Access Key ID，显式工具入参优先级最高
+- `sk` (optional): Secret Access Key，显式工具入参优先级最高
+- `project_id` (optional): 华为云项目 ID；显式入参优先，其次使用当前 hcloud profile/project 配置，最后才使用环境变量兜底
 
 **使用示例：**
 ```bash
@@ -337,9 +337,9 @@ python3 huawei-cloud.py huawei_list_aom_mute_rules \
 **参数说明：**
 - `region` (required): 华为云区域
 - `cluster_id` (required): CCE 集群 ID
-- `ak` (optional): Access Key ID
-- `sk` (optional): Secret Access Key
-- `project_id` (optional): 华为云项目 ID；不传时使用当前 hcloud profile/project 配置
+- `ak` (optional): Access Key ID，显式工具入参优先级最高
+- `sk` (optional): Secret Access Key，显式工具入参优先级最高
+- `project_id` (optional): 华为云项目 ID；显式入参优先，其次使用当前 hcloud profile/project 配置，最后才使用环境变量兜底
 
 **使用示例：**
 ```bash

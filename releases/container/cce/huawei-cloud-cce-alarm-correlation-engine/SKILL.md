@@ -70,14 +70,14 @@ The dispatcher script requires:
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| HUAWEI_AK | No | Huawei Cloud Access Key; used as `--cli-access-key` when present |
-| HUAWEI_SK | No | Huawei Cloud Secret Key; used as `--cli-secret-key` when present |
-| HUAWEI_PROJECT_ID | No | Project ID; passed as `--project_id` when present |
-| HUAWEI_SECURITY_TOKEN | No | Temporary security token; passed as `--cli-security-token` when present |
+| HUAWEI_AK | No | Fallback Huawei Cloud Access Key; used only when no explicit AK/SK parameters are provided and no local hcloud profile is configured |
+| HUAWEI_SK | No | Fallback Huawei Cloud Secret Key; used only when no explicit AK/SK parameters are provided and no local hcloud profile is configured |
+| HUAWEI_PROJECT_ID | No | Fallback Project ID; used only when no explicit `project_id` is provided and no local hcloud profile is configured |
+| HUAWEI_SECURITY_TOKEN | No | Fallback temporary security token; used only with fallback environment AK/SK credentials |
 
 🚫 **Never expose or log AK/SK values.** Credentials exist only in the current request call stack and are released after each invocation. Do not write credentials to files, logs, or responses.
 
-✅ **This skill depends on the local hcloud configuration.** Use an hcloud profile (`hcloud configure`) for normal use. Environment variables `HUAWEI_AK` / `HUAWEI_SK` are also supported for one-off, non-persistent execution, but the dispatcher still invokes the local `hcloud` CLI.
+✅ **This skill depends on the local hcloud configuration.** Use an hcloud profile (`hcloud configure`) for normal use. Credential priority is: explicit tool parameters > local hcloud profile > environment variables. Environment variables `HUAWEI_AK` / `HUAWEI_SK` are only a fallback when no hcloud profile is configured, but the dispatcher still invokes the local `hcloud` CLI.
 
 **Security rules for credentials:**
 
@@ -87,10 +87,10 @@ The dispatcher script requires:
 4. **No log leakage** — never include AK/SK in logs, response output, or error messages
 5. **Output desensitization** — output only alarm, resource, and rule information; never expose authentication credentials
 
-AK/SK may be provided in three ways:
+AK/SK may be provided in three ways, in this priority order:
+- Via per-call parameters `ak` and `sk` (highest priority, not recommended for production)
 - Existing hcloud profile (recommended)
-- Via environment variables `HUAWEI_AK` / `HUAWEI_SK`
-- Via per-call parameters `ak` and `sk` (not recommended for production)
+- Via environment variables `HUAWEI_AK` / `HUAWEI_SK` (fallback only when no profile is configured)
 
 ### IAM Permissions
 
@@ -302,9 +302,9 @@ python3 scripts/huawei-cloud.py huawei_aom_alarm_inspection \
 |-----------|----------|-------------|
 | `region` | Yes | Huawei Cloud region (e.g., `cn-north-4`) |
 | `cluster_id` | No | CCE cluster ID; when provided, only alarms related to this cluster are returned |
-| `ak` | No | Access Key ID; `HUAWEI_AK` environment variable preferred |
-| `sk` | No | Secret Access Key; `HUAWEI_SK` environment variable preferred |
-| `project_id` | No | Huawei Cloud project ID; when omitted, hcloud uses the active profile/project configuration |
+| `ak` | No | Access Key ID; explicit tool parameter has highest priority |
+| `sk` | No | Secret Access Key; explicit tool parameter has highest priority |
+| `project_id` | No | Huawei Cloud project ID; explicit value has highest priority, otherwise hcloud profile is used before environment fallback |
 
 ### Alarm Rule Mutation Parameters
 
@@ -326,9 +326,9 @@ python3 scripts/huawei-cloud.py huawei_aom_alarm_inspection \
 | `updates` | No (update) | JSON batch update fields, e.g., `{"threshold":"80","is_turn_on":true}` |
 | `enterprise_project_id` | No (list action rules) | Enterprise project scope; default `all_granted_eps` |
 | `confirm` | No | Must be explicitly set to `true` for mutation operations to execute |
-| `ak` | No | Access Key ID |
-| `sk` | No | Secret Access Key |
-| `project_id` | No | Huawei Cloud project ID |
+| `ak` | No | Access Key ID; explicit tool parameter has highest priority |
+| `sk` | No | Secret Access Key; explicit tool parameter has highest priority |
+| `project_id` | No | Huawei Cloud project ID; explicit value has highest priority, otherwise hcloud profile is used before environment fallback |
 
 ---
 
