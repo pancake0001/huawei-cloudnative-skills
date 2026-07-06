@@ -63,7 +63,8 @@ Query and analyze metrics for CCE clusters (Pod/Node CPU/memory/disk) and cloud 
 - **Security Rules**:
   - 🚫 Never expose AK/SK values in code, conversation, or commands
   - 🚫 Never use `echo $HUAWEI_AK` or `echo $HUAWEI_SK` to check credentials
-  - ✅ Prefer `hcloud configure` profiles; environment variables `HUAWEI_AK`, `HUAWEI_SK`, `HUAWEI_REGION` are also supported
+  - ✅ Credential priority for hcloud calls is: explicit tool parameters > local hcloud profile > environment variables
+  - ✅ AOM Prometheus signed HTTP and Kubernetes certificate setup cannot use encrypted hcloud profile material, so they use explicit tool parameters first and environment variables as the signing fallback
   - ✅ Prefer IAM users over root account for cloud operations
   - ✅ Enable MFA for sensitive operations
 
@@ -72,7 +73,7 @@ Query and analyze metrics for CCE clusters (Pod/Node CPU/memory/disk) and cloud 
 ```bash
 hcloud configure list
 
-# Optional environment variable override
+# Optional environment variable fallback
 export HUAWEI_AK=<your-ak>
 export HUAWEI_SK=<your-sk>
 export HUAWEI_REGION=cn-north-4
@@ -205,9 +206,9 @@ This skill is read-only. It does not create, update, delete, restart, scale, or 
 | `region`     | Required          | Huawei Cloud region  | `HUAWEI_REGION` |
 | `cluster_id` | Required          | CCE cluster ID       | N/A             |
 | `namespace`  | Recommended       | Kubernetes namespace | `default`       |
-| `ak`         | Optional          | Override AK          | `HUAWEI_AK`     |
-| `sk`         | Optional          | Override SK          | `HUAWEI_SK`     |
-| `project_id` | Optional          | Project ID           | Auto from IAM   |
+| `ak`         | Optional          | Explicit AK; highest priority for all calls | profile/env fallback |
+| `sk`         | Optional          | Explicit SK; highest priority for all calls | profile/env fallback |
+| `project_id` | Optional          | Explicit Project ID; hcloud uses profile before env fallback | Auto from IAM/profile |
 
 ### `huawei_get_cce_pod_metrics_topN` Parameters
 
@@ -331,7 +332,7 @@ See [Output Schema](references/output-schema.md) for the complete JSON response 
 
 - This skill is **strictly read-only** — it only queries and analyzes metrics; no modifications are made to resources or configurations
 - Thresholds (CPU >80%, Memory >85%, Disk >85%) are **predefined baselines** — actual thresholds may vary by workload SLO; recommend users customize thresholds based on their specific requirements
-- AK/SK must **never** be hardcoded — use hcloud profiles or environment variables
+- AK/SK must **never** be hardcoded — use explicit parameters only for one-off debugging, hcloud profiles for normal hcloud calls, or environment variables as fallback for signed AOM Prometheus/Kubernetes certificate calls
 - The Python dispatcher script (`scripts/huawei-cloud.py`) is still the **only user-facing execution method**; metric cloud service calls inside the dispatcher use hcloud rather than direct Python SDK/API calls
 - AOM Prometheus instance is **auto-discovered** — no need to manually specify `aom_instance_id`
 - Cloud resource metrics (ECS/ELB/EIP/NAT) use CES (Cloud Eye Service), not AOM

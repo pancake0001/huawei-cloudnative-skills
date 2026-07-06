@@ -11,6 +11,8 @@ Runtime note: the user-facing entry remains `python3 scripts/huawei-cloud.py`. C
 
 > **执行方式**：云服务查询统一通过本机 `hcloud` CLI 执行。AOM Prometheus `query_range` 是唯一例外，因为所需的 Prometheus range-query 路径当前不兼容 hcloud，所以使用 AK/SK 签名 HTTPS 请求。禁止在 dispatcher 外绕过工具直接调用 SDK、curl IAM、openstack 或手写云服务 API。
 
+> **认证优先级**：hcloud 调用使用 `工具入参 > 本机 hcloud profile > 环境变量`。AOM Prometheus signed HTTP 和 Kubernetes 证书创建无法直接使用加密的 hcloud profile 凭证材料，因此签名类调用使用 `工具入参 > 环境变量`。
+
 ## Scope
 
 Use this skill when the user asks to:

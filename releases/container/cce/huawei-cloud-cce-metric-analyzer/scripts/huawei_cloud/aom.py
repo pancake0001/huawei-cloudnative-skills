@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-from .common import get_credentials_with_region
+from .common import get_credentials_with_region, get_security_token
 
 
 def get_aom_prom_metrics_http(
@@ -18,6 +18,7 @@ def get_aom_prom_metrics_http(
     ak: Optional[str] = None,
     sk: Optional[str] = None,
     project_id: Optional[str] = None,
+    security_token: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Get Prometheus range-query metrics from AOM using signed HTTP requests."""
     import hashlib
@@ -29,6 +30,7 @@ def get_aom_prom_metrics_http(
     import requests
 
     access_key, secret_key, proj_id = get_credentials_with_region(region, ak, sk, project_id)
+    token = get_security_token(security_token)
     if not access_key or not secret_key:
         return {"success": False, "error": "Credentials not provided"}
     if not proj_id:
@@ -66,8 +68,15 @@ def get_aom_prom_metrics_http(
 
     timestamp = time_module.strftime("%Y%m%dT%H%M%SZ", time_module.gmtime(now))
     host_header = f"aom.{region}.myhuaweicloud.com"
-    signed_headers = "host;x-project-id;x-sdk-date"
-    canonical_headers = f"host:{host_header}\nx-project-id:{proj_id}\nx-sdk-date:{timestamp}\n"
+    canonical_header_items = [
+        ("host", host_header),
+        ("x-project-id", proj_id),
+        ("x-sdk-date", timestamp),
+    ]
+    if token:
+        canonical_header_items.append(("x-security-token", token))
+    signed_headers = ";".join(key for key, _ in canonical_header_items)
+    canonical_headers = "".join(f"{key}:{value}\n" for key, value in canonical_header_items)
     hashed_body = hashlib.sha256(b"").hexdigest()
     canonical_request = "\n".join([
         "GET",
@@ -100,6 +109,8 @@ def get_aom_prom_metrics_http(
         "X-Sdk-Date": timestamp,
         "Authorization": authorization,
     }
+    if token:
+        headers["X-Security-Token"] = token
 
     try:
         response = requests.get(url, headers=headers, verify=True, timeout=30)
@@ -108,7 +119,11 @@ def get_aom_prom_metrics_http(
                 "success": False,
                 "error": f"HTTP {response.status_code}: {response.text[:500]}",
                 "url": url,
-                "request_headers": {key: value for key, value in headers.items() if key != "Authorization"},
+                "request_headers": {
+                    key: value
+                    for key, value in headers.items()
+                    if key not in {"Authorization", "X-Security-Token"}
+                },
                 "request_context": {
                     "canonical_uri": canonical_uri,
                     "signed_headers": signed_headers,

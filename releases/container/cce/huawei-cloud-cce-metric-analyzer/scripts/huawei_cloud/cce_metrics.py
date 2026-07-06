@@ -64,7 +64,7 @@ def _get_aom_instance(region: str, cluster_id: str, ak: Optional[str], sk: Optio
 
     return {"success": False, "error": "aom_instance_id not found in cie-collector addon config"}
 
-def get_cce_pod_metrics_topN(region: str, cluster_id: str, ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None, namespace: str = None, label_selector: str = None, top_n: int = 10, hours: int = 1, cpu_query: str = None, memory_query: str = None, disk_query: str = None, node_ip: Optional[str] = None) -> Dict[str, Any]:
+def get_cce_pod_metrics_topN(region: str, cluster_id: str, ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None, namespace: str = None, label_selector: str = None, top_n: int = 10, hours: int = 1, cpu_query: str = None, memory_query: str = None, disk_query: str = None, node_ip: Optional[str] = None, security_token: Optional[str] = None) -> Dict[str, Any]:
     """获取 CCE 集群 Pod 监控数据
 
     自动获取 AOM 实例并执行 Pod CPU/内存/磁盘监控查询，返回 Top N 数据。
@@ -99,7 +99,7 @@ def get_cce_pod_metrics_topN(region: str, cluster_id: str, ak: Optional[str] = N
     # ========== 1. 获取集群名称 ==========
     cluster_name = cluster_id
     try:
-        clusters_result = cce.list_cce_clusters(region, access_key, secret_key, proj_id)
+        clusters_result = cce.list_cce_clusters(region, ak, sk, project_id)
         if clusters_result.get("success"):
             for c in clusters_result.get("clusters", []):
                 if c.get("id") == cluster_id:
@@ -191,7 +191,7 @@ def get_cce_pod_metrics_topN(region: str, cluster_id: str, ak: Optional[str] = N
                     }
 
     # ========== 3. 获取 AOM 实例 ==========
-    aom_result = _get_aom_instance(region, cluster_id, access_key, secret_key, proj_id)
+    aom_result = _get_aom_instance(region, cluster_id, ak, sk, project_id)
     if not aom_result.get("success"):
         return {
             "success": False,
@@ -237,9 +237,9 @@ def get_cce_pod_metrics_topN(region: str, cluster_id: str, ak: Optional[str] = N
             disk_query = f'topk({top_n}, sum by (pod, namespace) (container_fs_usage_bytes{{image!=""{pod_filter_clause}{node_filter_clause}}}) / on (pod, namespace) group_left sum by (pod, namespace) (container_fs_limit_bytes{{image!=""{pod_filter_clause}{node_filter_clause}}}) * 100)'
 
     # ========== 5. 执行查询 ==========
-    cpu_result = aom.get_aom_prom_metrics_http(region, aom_instance_id, cpu_query, hours=hours, ak=access_key, sk=secret_key, project_id=proj_id)
-    memory_result = aom.get_aom_prom_metrics_http(region, aom_instance_id, memory_query, hours=hours, ak=access_key, sk=secret_key, project_id=proj_id)
-    disk_result = aom.get_aom_prom_metrics_http(region, aom_instance_id, disk_query, hours=hours, ak=access_key, sk=secret_key, project_id=proj_id)
+    cpu_result = aom.get_aom_prom_metrics_http(region, aom_instance_id, cpu_query, hours=hours, ak=access_key, sk=secret_key, project_id=proj_id, security_token=security_token)
+    memory_result = aom.get_aom_prom_metrics_http(region, aom_instance_id, memory_query, hours=hours, ak=access_key, sk=secret_key, project_id=proj_id, security_token=security_token)
+    disk_result = aom.get_aom_prom_metrics_http(region, aom_instance_id, disk_query, hours=hours, ak=access_key, sk=secret_key, project_id=proj_id, security_token=security_token)
 
     # ========== 6. 解析结果 ==========
     def parse_top_metrics(result, value_key):
@@ -339,7 +339,7 @@ def get_cce_pod_metrics_topN(region: str, cluster_id: str, ak: Optional[str] = N
 
     return result
 
-def get_cce_pod_metrics(region: str, cluster_id: str, pod_name: str, ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None, namespace: str = None, hours: int = 1, cpu_query: str = None, memory_query: str = None, disk_query: str = None) -> Dict[str, Any]:
+def get_cce_pod_metrics(region: str, cluster_id: str, pod_name: str, ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None, namespace: str = None, hours: int = 1, cpu_query: str = None, memory_query: str = None, disk_query: str = None, security_token: Optional[str] = None) -> Dict[str, Any]:
     """获取指定CCE Pod的CPU、内存、磁盘使用率监控时序数据
 
     Args:
@@ -368,7 +368,7 @@ def get_cce_pod_metrics(region: str, cluster_id: str, pod_name: str, ak: Optiona
     # ========== 1. 获取集群名称 ==========
     cluster_name = cluster_id
     try:
-        clusters_result = cce.list_cce_clusters(region, access_key, secret_key, proj_id)
+        clusters_result = cce.list_cce_clusters(region, ak, sk, project_id)
         if clusters_result.get("success"):
             for c in clusters_result.get("clusters", []):
                 if c.get("id") == cluster_id:
@@ -387,7 +387,7 @@ def get_cce_pod_metrics(region: str, cluster_id: str, pod_name: str, ak: Optiona
                 break
 
     # ========== 3. 获取 AOM 实例 ==========
-    aom_result = _get_aom_instance(region, cluster_id, access_key, secret_key, proj_id)
+    aom_result = _get_aom_instance(region, cluster_id, ak, sk, project_id)
     if not aom_result.get("success"):
         return {
             "success": False,
@@ -417,9 +417,9 @@ def get_cce_pod_metrics(region: str, cluster_id: str, pod_name: str, ak: Optiona
         disk_query = f'sum by (pod, namespace) (container_fs_usage_bytes{{image!=""{namespace_filter}{pod_filter}}}) / on (pod, namespace) group_left sum by (pod, namespace) (container_fs_limit_bytes{{image!=""{namespace_filter}{pod_filter}}}) * 100'
 
     # ========== 5. 执行查询 ==========
-    cpu_result = aom.get_aom_prom_metrics_http(region, aom_instance_id, cpu_query, hours=hours, ak=access_key, sk=secret_key, project_id=proj_id)
-    memory_result = aom.get_aom_prom_metrics_http(region, aom_instance_id, memory_query, hours=hours, ak=access_key, sk=secret_key, project_id=proj_id)
-    disk_result = aom.get_aom_prom_metrics_http(region, aom_instance_id, disk_query, hours=hours, ak=access_key, sk=secret_key, project_id=proj_id)
+    cpu_result = aom.get_aom_prom_metrics_http(region, aom_instance_id, cpu_query, hours=hours, ak=access_key, sk=secret_key, project_id=proj_id, security_token=security_token)
+    memory_result = aom.get_aom_prom_metrics_http(region, aom_instance_id, memory_query, hours=hours, ak=access_key, sk=secret_key, project_id=proj_id, security_token=security_token)
+    disk_result = aom.get_aom_prom_metrics_http(region, aom_instance_id, disk_query, hours=hours, ak=access_key, sk=secret_key, project_id=proj_id, security_token=security_token)
 
     # ========== 6. 解析结果 ==========
     def parse_metric_result(result, metric_name):
@@ -477,7 +477,7 @@ def get_cce_pod_metrics(region: str, cluster_id: str, pod_name: str, ak: Optiona
         }
     }
 
-def get_cce_node_metrics_topN(region: str, cluster_id: str, ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None, top_n: int = 10, hours: int = 1, cpu_query: str = None, memory_query: str = None, disk_query: str = None) -> Dict[str, Any]:
+def get_cce_node_metrics_topN(region: str, cluster_id: str, ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None, top_n: int = 10, hours: int = 1, cpu_query: str = None, memory_query: str = None, disk_query: str = None, security_token: Optional[str] = None) -> Dict[str, Any]:
     """获取 CCE 集群节点监控数据
 
     自动获取 AOM 实例并执行节点 CPU/内存/磁盘监控查询，返回 Top N 数据。
@@ -507,7 +507,7 @@ def get_cce_node_metrics_topN(region: str, cluster_id: str, ak: Optional[str] = 
     # ========== 1. 获取集群名称 ==========
     cluster_name = cluster_id
     try:
-        clusters_result = cce.list_cce_clusters(region, access_key, secret_key, proj_id)
+        clusters_result = cce.list_cce_clusters(region, ak, sk, project_id)
         if clusters_result.get("success"):
             for c in clusters_result.get("clusters", []):
                 if c.get("id") == cluster_id:
@@ -535,7 +535,7 @@ def get_cce_node_metrics_topN(region: str, cluster_id: str, ak: Optional[str] = 
                 }
 
     # 从 CCE API 获取节点规格等信息（按名称匹配）
-    cce_nodes_result = cce.list_cce_cluster_nodes(region, cluster_id, access_key, secret_key, proj_id)
+    cce_nodes_result = cce.list_cce_cluster_nodes(region, cluster_id, ak, sk, project_id)
     if cce_nodes_result.get("success"):
         for cce_node in cce_nodes_result.get("nodes", []):
             cce_node_name = cce_node.get("name", "")
@@ -549,7 +549,7 @@ def get_cce_node_metrics_topN(region: str, cluster_id: str, ak: Optional[str] = 
                     break
 
     # ========== 3. 获取 AOM 实例 ==========
-    aom_result = _get_aom_instance(region, cluster_id, access_key, secret_key, proj_id)
+    aom_result = _get_aom_instance(region, cluster_id, ak, sk, project_id)
     if not aom_result.get("success"):
         return {
             "success": False,
@@ -574,9 +574,29 @@ def get_cce_node_metrics_topN(region: str, cluster_id: str, ak: Optional[str] = 
         disk_query = f"topk({top_n}, avg by (instance) ((1 - node_filesystem_avail_bytes{{mountpoint='/',fstype!~'tmpfs|fuse.lxcfs',cluster_name='{cluster_name}'}} / node_filesystem_size_bytes{{mountpoint='/',fstype!~'tmpfs|fuse.lxcfs',cluster_name='{cluster_name}'}})) * 100)"
 
     # ========== 5. 执行查询 ==========
-    cpu_result = aom.get_aom_prom_metrics_http(region, aom_instance_id, cpu_query, hours=hours, ak=access_key, sk=secret_key, project_id=proj_id)
-    memory_result = aom.get_aom_prom_metrics_http(region, aom_instance_id, memory_query, hours=hours, ak=access_key, sk=secret_key, project_id=proj_id)
-    disk_result = aom.get_aom_prom_metrics_http(region, aom_instance_id, disk_query, hours=hours, ak=access_key, sk=secret_key, project_id=proj_id)
+    cpu_result = aom.get_aom_prom_metrics_http(region, aom_instance_id, cpu_query, hours=hours, ak=access_key, sk=secret_key, project_id=proj_id, security_token=security_token)
+    memory_result = aom.get_aom_prom_metrics_http(region, aom_instance_id, memory_query, hours=hours, ak=access_key, sk=secret_key, project_id=proj_id, security_token=security_token)
+    disk_result = aom.get_aom_prom_metrics_http(region, aom_instance_id, disk_query, hours=hours, ak=access_key, sk=secret_key, project_id=proj_id, security_token=security_token)
+    failed_queries = {
+        name: result.get("error", "AOM query failed")
+        for name, result in {"cpu": cpu_result, "memory": memory_result, "disk": disk_result}.items()
+        if not result.get("success")
+    }
+    if failed_queries:
+        return {
+            "success": False,
+            "error": "AOM Prometheus query failed",
+            "failed_queries": failed_queries,
+            "region": region,
+            "cluster_id": cluster_id,
+            "cluster_name": cluster_name,
+            "aom_instance_id": aom_instance_id,
+            "promql": {
+                "cpu": cpu_query,
+                "memory": memory_query,
+                "disk": disk_query,
+            },
+        }
 
     # ========== 6. 解析结果 ==========
     def parse_node_result(result, metric_name):
@@ -678,7 +698,7 @@ def get_cce_node_metrics_topN(region: str, cluster_id: str, ak: Optional[str] = 
         }
     }
 
-def get_cce_node_metrics(region: str, cluster_id: str, node_ip: str, ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None, hours: int = 1, cpu_query: str = None, memory_query: str = None, disk_query: str = None) -> Dict[str, Any]:
+def get_cce_node_metrics(region: str, cluster_id: str, node_ip: str, ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None, hours: int = 1, cpu_query: str = None, memory_query: str = None, disk_query: str = None, security_token: Optional[str] = None) -> Dict[str, Any]:
     """获取指定CCE节点的CPU、内存、磁盘使用率监控时序数据
 
     Args:
@@ -706,7 +726,7 @@ def get_cce_node_metrics(region: str, cluster_id: str, node_ip: str, ak: Optiona
     # ========== 1. 获取集群名称 ==========
     cluster_name = cluster_id
     try:
-        clusters_result = cce.list_cce_clusters(region, access_key, secret_key, proj_id)
+        clusters_result = cce.list_cce_clusters(region, ak, sk, project_id)
         if clusters_result.get("success"):
             for c in clusters_result.get("clusters", []):
                 if c.get("id") == cluster_id:
@@ -727,7 +747,7 @@ def get_cce_node_metrics(region: str, cluster_id: str, node_ip: str, ak: Optiona
 
     # 从 CCE API 获取节点规格等信息
     if not node_info:
-        cce_nodes_result = cce.list_cce_cluster_nodes(region, cluster_id, access_key, secret_key, proj_id)
+        cce_nodes_result = cce.list_cce_cluster_nodes(region, cluster_id, ak, sk, project_id)
         if cce_nodes_result.get("success"):
             for cce_node in cce_nodes_result.get("nodes", []):
                 cce_node_name = cce_node.get("name", "")
@@ -739,7 +759,7 @@ def get_cce_node_metrics(region: str, cluster_id: str, node_ip: str, ak: Optiona
                     break
 
     # ========== 3. 获取 AOM 实例 ==========
-    aom_result = _get_aom_instance(region, cluster_id, access_key, secret_key, proj_id)
+    aom_result = _get_aom_instance(region, cluster_id, ak, sk, project_id)
     if not aom_result.get("success"):
         return {
             "success": False,
@@ -765,9 +785,30 @@ def get_cce_node_metrics(region: str, cluster_id: str, node_ip: str, ak: Optiona
         disk_query = f"avg by (instance) ((1 - node_filesystem_avail_bytes{{mountpoint='/',fstype!~'tmpfs|fuse.lxcfs',cluster_name='{cluster_name}',instance=~'{node_ip}.*'}} / node_filesystem_size_bytes{{mountpoint='/',fstype!~'tmpfs|fuse.lxcfs',cluster_name='{cluster_name}',instance=~'{node_ip}.*'}})) * 100"
 
     # ========== 5. 执行查询 ==========
-    cpu_result = aom.get_aom_prom_metrics_http(region, aom_instance_id, cpu_query, hours=hours, ak=access_key, sk=secret_key, project_id=proj_id)
-    memory_result = aom.get_aom_prom_metrics_http(region, aom_instance_id, memory_query, hours=hours, ak=access_key, sk=secret_key, project_id=proj_id)
-    disk_result = aom.get_aom_prom_metrics_http(region, aom_instance_id, disk_query, hours=hours, ak=access_key, sk=secret_key, project_id=proj_id)
+    cpu_result = aom.get_aom_prom_metrics_http(region, aom_instance_id, cpu_query, hours=hours, ak=access_key, sk=secret_key, project_id=proj_id, security_token=security_token)
+    memory_result = aom.get_aom_prom_metrics_http(region, aom_instance_id, memory_query, hours=hours, ak=access_key, sk=secret_key, project_id=proj_id, security_token=security_token)
+    disk_result = aom.get_aom_prom_metrics_http(region, aom_instance_id, disk_query, hours=hours, ak=access_key, sk=secret_key, project_id=proj_id, security_token=security_token)
+    failed_queries = {
+        name: result.get("error", "AOM query failed")
+        for name, result in {"cpu": cpu_result, "memory": memory_result, "disk": disk_result}.items()
+        if not result.get("success")
+    }
+    if failed_queries:
+        return {
+            "success": False,
+            "error": "AOM Prometheus query failed",
+            "failed_queries": failed_queries,
+            "region": region,
+            "cluster_id": cluster_id,
+            "cluster_name": cluster_name,
+            "node_ip": node_ip,
+            "aom_instance_id": aom_instance_id,
+            "promql": {
+                "cpu": cpu_query,
+                "memory": memory_query,
+                "disk": disk_query,
+            },
+        }
 
     # ========== 6. 解析结果 ==========
     def parse_metric_result(result, metric_name):

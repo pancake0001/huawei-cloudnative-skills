@@ -38,18 +38,50 @@ def _safe_delete_file(filepath: Optional[str]) -> None:
     finally:
         _TEMP_CERT_FILES.discard(filepath)
 
-def get_credentials(ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None) -> tuple:
-    """Get credentials from params or environment variables
+def _has_hcloud_profile() -> bool:
+    """Return whether local hcloud profile configuration appears to exist."""
+    config_dir = os.environ.get("HCLOUD_CONFIG_DIR")
+    candidates = []
+    if config_dir:
+        candidates.append(os.path.join(config_dir, "config.json"))
+    candidates.extend([
+        os.path.expanduser("~/.hcloud/config.json"),
+        os.path.expanduser("~/.hcloud/config.yaml"),
+        os.path.expanduser("~/.hcloud/config.yml"),
+    ])
+    return any(os.path.isfile(path) and os.path.getsize(path) > 0 for path in candidates)
 
-    Supports multiple env var naming conventions:
-    - HUAWEI_AK / HUAWEI_SK / HUAWEI_PROJECT_ID (project custom)
-    - HUAWEICLOUD_SDK_AK / HUAWEICLOUD_SDK_SK / HUAWEICLOUD_SDK_PROJECT_ID (SDK official)
-    - HW_ACCESS_KEY / HW_SECRET_KEY / HW_REGION_NAME (Terraform/CLI style)
+
+def _env_credentials() -> tuple:
+    return (
+        os.environ.get("HUAWEI_AK") or os.environ.get("HUAWEICLOUD_SDK_AK") or os.environ.get("HW_ACCESS_KEY"),
+        os.environ.get("HUAWEI_SK") or os.environ.get("HUAWEICLOUD_SDK_SK") or os.environ.get("HW_SECRET_KEY"),
+        os.environ.get("HUAWEI_PROJECT_ID") or os.environ.get("HUAWEICLOUD_SDK_PROJECT_ID"),
+    )
+
+
+def get_security_token(security_token: Optional[str] = None) -> Optional[str]:
+    """Return an optional temporary security token for signed HTTP requests."""
+    return (
+        security_token
+        or os.environ.get("HUAWEI_SECURITY_TOKEN")
+        or os.environ.get("HUAWEICLOUD_SDK_SECURITY_TOKEN")
+        or os.environ.get("HW_SECURITY_TOKEN")
+    )
+
+
+def get_credentials(ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None) -> tuple:
+    """Return optional hcloud CLI credentials.
+
+    Priority: explicit tool parameters > local hcloud profile > environment variables.
+    When a local hcloud profile exists and AK/SK are not explicitly provided, do not
+    pass environment credentials so the profile remains authoritative.
     """
-    access_key = ak or os.environ.get("HUAWEI_AK") or os.environ.get("HUAWEICLOUD_SDK_AK") or os.environ.get("HW_ACCESS_KEY")
-    secret_key = sk or os.environ.get("HUAWEI_SK") or os.environ.get("HUAWEICLOUD_SDK_SK") or os.environ.get("HW_SECRET_KEY")
-    proj_id = project_id or os.environ.get("HUAWEI_PROJECT_ID") or os.environ.get("HUAWEICLOUD_SDK_PROJECT_ID")
-    return access_key, secret_key, proj_id
+    if ak or sk or project_id:
+        return ak, sk, project_id
+    if _has_hcloud_profile():
+        return None, None, None
+    return _env_credentials()
 
 
 def _mask_secret(value: Optional[str]) -> Optional[str]:
@@ -204,7 +236,12 @@ def get_project_id_for_region(region: str, ak: Optional[str] = None, sk: Optiona
     return None
 
 def get_credentials_with_region(region: str, ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None) -> tuple:
-    """Get credentials with automatic project_id lookup for region
+    """Get signing credentials with automatic project_id lookup for region.
+
+    AOM Prometheus range-query and Kubernetes certificate setup require AK/SK
+    material and cannot sign requests with an encrypted local hcloud profile.
+    Therefore this helper intentionally uses explicit params first, then
+    environment variables. hcloud CLI calls should use get_credentials().
 
     Args:
         region: Huawei Cloud region (e.g., cn-north-4)
@@ -215,7 +252,10 @@ def get_credentials_with_region(region: str, ak: Optional[str] = None, sk: Optio
     Returns:
         Tuple of (access_key, secret_key, project_id)
     """
-    access_key, secret_key, proj_id = get_credentials(ak, sk, project_id)
+    env_ak, env_sk, env_project_id = _env_credentials()
+    access_key = ak or env_ak
+    secret_key = sk or env_sk
+    proj_id = project_id or env_project_id
 
     # If no project_id provided, try to get it for the region
     if not proj_id and region and access_key and secret_key:

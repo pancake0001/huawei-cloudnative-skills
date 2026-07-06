@@ -99,6 +99,7 @@ ACTION_SPECS: Dict[str, tuple[tuple[str, ...], Handler]] = {
             params.get("memory_query"),
             params.get("disk_query"),
             params.get("node_ip"),
+            params.get("security_token"),
         ),
     ),
     "huawei_get_cce_pod_metrics": (
@@ -116,6 +117,7 @@ ACTION_SPECS: Dict[str, tuple[tuple[str, ...], Handler]] = {
             params.get("cpu_query"),
             params.get("memory_query"),
             params.get("disk_query"),
+            params.get("security_token"),
         ),
     ),
     "huawei_get_cce_node_metrics_topN": (
@@ -132,6 +134,7 @@ ACTION_SPECS: Dict[str, tuple[tuple[str, ...], Handler]] = {
             params.get("cpu_query"),
             params.get("memory_query"),
             params.get("disk_query"),
+            params.get("security_token"),
         ),
     ),
     "huawei_get_cce_node_metrics": (
@@ -148,6 +151,7 @@ ACTION_SPECS: Dict[str, tuple[tuple[str, ...], Handler]] = {
             params.get("cpu_query"),
             params.get("memory_query"),
             params.get("disk_query"),
+            params.get("security_token"),
         ),
     ),
     "huawei_get_ecs_metrics": (("region", "instance_id"), _get_ecs_metrics),

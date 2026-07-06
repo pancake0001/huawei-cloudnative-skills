@@ -9,16 +9,39 @@ import subprocess
 import tempfile
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
+_PROJECT_ID_CACHE: Dict[str, str] = {}
+
+
+def _has_hcloud_profile() -> bool:
+    """Return whether local hcloud profile configuration appears to exist."""
+    config_dir = os.environ.get("HCLOUD_CONFIG_DIR")
+    candidates = []
+    if config_dir:
+        candidates.append(os.path.join(config_dir, "config.json"))
+    candidates.extend([
+        os.path.expanduser("~/.hcloud/config.json"),
+        os.path.expanduser("~/.hcloud/config.yaml"),
+        os.path.expanduser("~/.hcloud/config.yml"),
+    ])
+    return any(os.path.isfile(path) and os.path.getsize(path) > 0 for path in candidates)
+
 
 def get_credentials(ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None) -> tuple:
-    """Return optional credentials from params or environment variables.
+    """Return optional hcloud CLI credentials.
 
-    hcloud can also use its configured profile, so missing AK/SK is not an error here.
+    Priority: explicit tool parameters > local hcloud profile > environment variables.
+    When a local hcloud profile exists and AK/SK are not explicitly provided, do not
+    pass environment credentials so the profile remains authoritative.
     """
-    access_key = ak or os.environ.get("HUAWEI_AK") or os.environ.get("HUAWEICLOUD_SDK_AK") or os.environ.get("HW_ACCESS_KEY")
-    secret_key = sk or os.environ.get("HUAWEI_SK") or os.environ.get("HUAWEICLOUD_SDK_SK") or os.environ.get("HW_SECRET_KEY")
-    proj_id = project_id or os.environ.get("HUAWEI_PROJECT_ID") or os.environ.get("HUAWEICLOUD_SDK_PROJECT_ID")
-    return access_key, secret_key, proj_id
+    if ak or sk or project_id:
+        return ak, sk, project_id
+    if _has_hcloud_profile():
+        return None, None, None
+    return (
+        os.environ.get("HUAWEI_AK") or os.environ.get("HUAWEICLOUD_SDK_AK") or os.environ.get("HW_ACCESS_KEY"),
+        os.environ.get("HUAWEI_SK") or os.environ.get("HUAWEICLOUD_SDK_SK") or os.environ.get("HW_SECRET_KEY"),
+        os.environ.get("HUAWEI_PROJECT_ID") or os.environ.get("HUAWEICLOUD_SDK_PROJECT_ID"),
+    )
 
 
 def redact_command(command: Iterable[str]) -> List[str]:
@@ -59,7 +82,9 @@ def _base_hcloud_command(
     command = ["hcloud", service, operation, f"--cli-region={region}", "--cli-output=json"]
     if access_key and secret_key:
         command.extend([f"--cli-access-key={access_key}", f"--cli-secret-key={secret_key}"])
-    token = os.environ.get("HUAWEI_SECURITY_TOKEN") or os.environ.get("HUAWEICLOUD_SDK_SECURITY_TOKEN")
+    token = None
+    if access_key and secret_key:
+        token = os.environ.get("HUAWEI_SECURITY_TOKEN") or os.environ.get("HUAWEICLOUD_SDK_SECURITY_TOKEN")
     if token:
         command.append(f"--cli-security-token={token}")
     if proj_id:
@@ -73,6 +98,39 @@ def _append_param(command: List[str], key: str, value: Any) -> None:
     if isinstance(value, bool):
         value = "true" if value else "false"
     command.append(f"--{key}={value}")
+
+
+def _parse_hcloud_stdout(stdout: str) -> Any:
+    if not stdout:
+        return None
+    try:
+        return json.loads(stdout)
+    except json.JSONDecodeError:
+        pass
+    for line in reversed(stdout.splitlines()):
+        line = line.strip()
+        if not line or not line.startswith(("{", "[")):
+            continue
+        try:
+            return json.loads(line)
+        except json.JSONDecodeError:
+            continue
+    start = stdout.find("{")
+    end = stdout.rfind("}")
+    if 0 <= start < end:
+        try:
+            return json.loads(stdout[start:end + 1])
+        except json.JSONDecodeError:
+            pass
+    return None
+
+
+def _hcloud_success(returncode: int, stdout: str, parsed: Any) -> bool:
+    if returncode != 0 or "[USE_ERROR]" in stdout:
+        return False
+    if isinstance(parsed, dict) and parsed.get("error_code") and str(parsed.get("error_code")) != "200":
+        return False
+    return True
 
 
 def run_hcloud(
@@ -97,14 +155,8 @@ def run_hcloud(
     stdout = completed.stdout.strip()
     stderr = completed.stderr.strip()
 
-    parsed: Any = None
-    if stdout:
-        try:
-            parsed = json.loads(stdout)
-        except json.JSONDecodeError:
-            parsed = None
-
-    success = completed.returncode == 0 and not stdout.startswith("[USE_ERROR]")
+    parsed = _parse_hcloud_stdout(stdout)
+    success = _hcloud_success(completed.returncode, stdout, parsed)
     return {
         "success": success,
         "command": redact_command(command),
@@ -146,14 +198,8 @@ def run_hcloud_json_input(
 
     stdout = completed.stdout.strip()
     stderr = completed.stderr.strip()
-    parsed: Any = None
-    if stdout:
-        try:
-            parsed = json.loads(stdout)
-        except json.JSONDecodeError:
-            parsed = None
-
-    success = completed.returncode == 0 and not stdout.startswith("[USE_ERROR]")
+    parsed = _parse_hcloud_stdout(stdout)
+    success = _hcloud_success(completed.returncode, stdout, parsed)
     return {
         "success": success,
         "command": redact_command(command),
@@ -163,6 +209,24 @@ def run_hcloud_json_input(
         "data": parsed,
         "error": None if success else (stderr or stdout or f"hcloud exited with code {completed.returncode}"),
     }
+
+
+def get_project_id_for_region(region: str, ak: Optional[str] = None, sk: Optional[str] = None) -> Optional[str]:
+    """Resolve a Huawei Cloud project ID for a region through hcloud."""
+    if region in _PROJECT_ID_CACHE:
+        return _PROJECT_ID_CACHE[region]
+
+    result = run_hcloud("IAM", "KeystoneListProjects", region, [("name", region)], ak=ak, sk=sk)
+    if not result.get("success"):
+        result = run_hcloud("IAM", "KeystoneListProjects", region, [], ak=ak, sk=sk)
+    projects = extract_items(result.get("data"), "projects")
+    for project in projects:
+        name = project.get("name")
+        project_id = project.get("id")
+        if name == region and project_id:
+            _PROJECT_ID_CACHE[region] = project_id
+            return project_id
+    return None
 
 
 def extract_items(data: Any, *keys: str) -> List[Dict[str, Any]]:

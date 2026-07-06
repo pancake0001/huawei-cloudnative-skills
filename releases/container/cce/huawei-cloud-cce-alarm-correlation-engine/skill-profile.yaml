@@ -15,6 +15,7 @@ tools:
   - huawei_list_aom_alarm_rules
   - huawei_create_aom_alarm_rule
   - huawei_create_aom_event_alarm_rule
+  - huawei_configure_cce_aom_alarm_rules
   - huawei_update_aom_alarm_rule
   - huawei_delete_aom_alarm_rule
   - huawei_disable_aom_alarm_rule
@@ -28,5 +29,6 @@ references:
   - references/risk-rules.md
   - references/output-schema.md
   - references/cce-event-list.md
+  - references/cce-prometheus-metric-alarms.md
 guardrails:
   max_auto_risk: R1
