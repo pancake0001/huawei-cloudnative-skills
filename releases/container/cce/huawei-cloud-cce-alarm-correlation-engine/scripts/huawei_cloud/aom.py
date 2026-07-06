@@ -144,6 +144,54 @@ def _load_event_alarm_templates() -> List[Dict[str, Any]]:
     return templates
 
 
+def _load_aom_rule_body_templates() -> List[Dict[str, Any]]:
+    path = _reference_dir() / "cce-aom-alarm-rule-templates.json"
+    if not path.exists():
+        return []
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return []
+    templates = data.get("templates") if isinstance(data, dict) else data
+    if not isinstance(templates, list):
+        return []
+    return [{"raw": item} for item in templates if isinstance(item, dict)]
+
+
+def _cluster_id_in_rule(rule: Dict[str, Any]) -> Optional[str]:
+    match = re.search(
+        r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
+        json.dumps(rule, ensure_ascii=False),
+    )
+    return match.group(0) if match else None
+
+
+def _candidate_from_rule_template(
+    template_rule: Dict[str, Any],
+    cluster_id: str,
+    prefix: str,
+    explicit_prefix: bool,
+) -> Dict[str, Any]:
+    alias = template_rule.get("alias") or template_rule.get("alarm_rule_name") or "CCE alarm rule"
+    old_cluster_id = _cluster_id_in_rule(template_rule)
+    if explicit_prefix:
+        rule_name = f"{prefix}-{_slug(str(alias), str(alias))}"
+    else:
+        rule_name = _replace_cluster_id(
+            template_rule.get("alarm_rule_name") or f"CCE_{alias}_{cluster_id}",
+            old_cluster_id,
+            cluster_id,
+        )
+    return {
+        "kind": template_rule.get("alarm_rule_type"),
+        "name": str(alias),
+        "description": template_rule.get("alarm_rule_description") or str(alias),
+        "rule_name": rule_name,
+        "display_name": str(alias),
+        "_template_rule": template_rule,
+    }
+
+
 def _split_csv(value: Optional[str]) -> set[str]:
     if not value:
         return set()
@@ -536,15 +584,17 @@ def _build_rule_from_template(
     if match:
         old_cluster_id = match.group(0)
 
-    body: Dict[str, Any] = {
-        "alarm_notifications": copy.deepcopy(template_rule.get("alarm_notifications")),
+    body: Dict[str, Any] = copy.deepcopy(template_rule)
+    body.pop("alarm_rule_id", None)
+    body.pop("id", None)
+    body.update({
         "alarm_rule_description": template_rule.get("alarm_rule_description") or candidate.get("description") or "Created by Codex hcloud skill.",
         "alarm_rule_enable": True,
         "alarm_rule_name": _normalize_alarm_rule_name(rule_name),
         "alarm_rule_type": template_rule.get("alarm_rule_type"),
         "prom_instance_id": prom_instance_id or template_rule.get("prom_instance_id"),
         "alias": template_rule.get("alias") or candidate.get("display_name") or _normalize_alarm_rule_name(rule_name),
-    }
+    })
 
     if bind_notification_rule_id:
         notifications = body.setdefault("alarm_notifications", {})
@@ -554,11 +604,6 @@ def _build_rule_from_template(
             "route_group_enable": False,
             "bind_notification_rule_id": bind_notification_rule_id,
         })
-
-    if template_rule.get("alarm_rule_type") == "metric":
-        body["metric_alarm_spec"] = copy.deepcopy(template_rule.get("metric_alarm_spec"))
-    else:
-        body["event_alarm_spec"] = copy.deepcopy(template_rule.get("event_alarm_spec"))
 
     body = _replace_cluster_id(body, old_cluster_id, cluster_id)
     header_ep = enterprise_project_id or template_rule.get("enterprise_project_id")
@@ -784,8 +829,22 @@ def configure_cce_aom_alarm_rules(
     prefix = rule_name_prefix or cluster_id
     wanted_items = _split_csv(alarm_items)
     candidates: List[Dict[str, Any]] = []
+    embedded_template_rules = _load_aom_rule_body_templates()
 
-    if include_metric_alarms:
+    if embedded_template_rules:
+        for item in embedded_template_rules:
+            template_rule = item.get("raw") or {}
+            kind = template_rule.get("alarm_rule_type")
+            if kind == "metric" and not include_metric_alarms:
+                continue
+            if kind == "event" and not include_event_alarms:
+                continue
+            candidate = _candidate_from_rule_template(template_rule, cluster_id, prefix, explicit_rule_name_prefix)
+            if wanted_items and not _matches_any(candidate["name"], wanted_items):
+                continue
+            candidates.append(candidate)
+
+    if not embedded_template_rules and include_metric_alarms:
         for template in _load_metric_alarm_templates():
             if wanted_items and not (_matches_any(template["name"], wanted_items) or template["metric_name"] in wanted_items):
                 continue
@@ -796,7 +855,7 @@ def configure_cce_aom_alarm_rules(
                 "promql": _scope_promql_to_cluster(template["promql"], cluster_id),
             })
 
-    if include_event_alarms:
+    if not embedded_template_rules and include_event_alarms:
         for template in _load_event_alarm_templates():
             if wanted_items and not (_matches_any(template["name"], wanted_items) or _matches_any(template["event_name"], wanted_items)):
                 continue
@@ -814,7 +873,16 @@ def configure_cce_aom_alarm_rules(
     if not confirm:
         preview_commands = []
         for candidate in candidates[:10]:
-            if candidate["kind"] == "metric":
+            if candidate.get("_template_rule"):
+                preview_commands.append([
+                    "hcloud",
+                    "AOM",
+                    "AddOrUpdateMetricOrEventAlarmRule",
+                    f"--cli-region={region}",
+                    "--cli-output=json",
+                    "--cli-jsonInput=<generated-cce-aom-template-payload>",
+                ])
+            elif candidate["kind"] == "metric":
                 fields = {
                     "promql": candidate["promql"],
                     "cluster_id": cluster_id,
@@ -911,6 +979,8 @@ def configure_cce_aom_alarm_rules(
                 "reason": "existing cluster templates present but no matching source template was found",
             })
             continue
+        if not template_rule:
+            template_rule = candidate.get("_template_rule") or _find_template_rule(candidate, embedded_template_rules)
         if template_rule:
             effective_rule_name = candidate["rule_name"]
             resolved_project_id = project_id or get_project_id_for_region(region, ak, sk)
@@ -980,6 +1050,8 @@ def configure_cce_aom_alarm_rules(
         }
         if result.get("success"):
             created.append(entry)
+        elif (result.get("data") or {}).get("error_code") == "AOM.02021062":
+            skipped.append({"rule_name": candidate["rule_name"], "reason": "already exists"})
         else:
             failed.append(entry)
 
