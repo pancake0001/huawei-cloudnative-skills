@@ -242,10 +242,10 @@ def get_credentials_with_region(region: str, ak: Optional[str] = None, sk: Optio
     Returns:
         Tuple of (access_key, secret_key, project_id)
     """
-    if ak or sk or project_id:
-        access_key, secret_key, proj_id = ak, sk, project_id
-    else:
-        access_key, secret_key, proj_id = _env_credentials()
+    env_ak, env_sk, env_project_id = _env_credentials()
+    access_key = ak or env_ak
+    secret_key = sk or env_sk
+    proj_id = project_id or env_project_id
 
     # If no project_id provided, try to get it for the region
     if not proj_id and region and access_key and secret_key:

@@ -577,6 +577,26 @@ def get_cce_node_metrics_topN(region: str, cluster_id: str, ak: Optional[str] = 
     cpu_result = aom.get_aom_prom_metrics_http(region, aom_instance_id, cpu_query, hours=hours, ak=access_key, sk=secret_key, project_id=proj_id)
     memory_result = aom.get_aom_prom_metrics_http(region, aom_instance_id, memory_query, hours=hours, ak=access_key, sk=secret_key, project_id=proj_id)
     disk_result = aom.get_aom_prom_metrics_http(region, aom_instance_id, disk_query, hours=hours, ak=access_key, sk=secret_key, project_id=proj_id)
+    failed_queries = {
+        name: result.get("error", "AOM query failed")
+        for name, result in {"cpu": cpu_result, "memory": memory_result, "disk": disk_result}.items()
+        if not result.get("success")
+    }
+    if failed_queries:
+        return {
+            "success": False,
+            "error": "AOM Prometheus query failed",
+            "failed_queries": failed_queries,
+            "region": region,
+            "cluster_id": cluster_id,
+            "cluster_name": cluster_name,
+            "aom_instance_id": aom_instance_id,
+            "promql": {
+                "cpu": cpu_query,
+                "memory": memory_query,
+                "disk": disk_query,
+            },
+        }
 
     # ========== 6. 解析结果 ==========
     def parse_node_result(result, metric_name):
@@ -768,6 +788,27 @@ def get_cce_node_metrics(region: str, cluster_id: str, node_ip: str, ak: Optiona
     cpu_result = aom.get_aom_prom_metrics_http(region, aom_instance_id, cpu_query, hours=hours, ak=access_key, sk=secret_key, project_id=proj_id)
     memory_result = aom.get_aom_prom_metrics_http(region, aom_instance_id, memory_query, hours=hours, ak=access_key, sk=secret_key, project_id=proj_id)
     disk_result = aom.get_aom_prom_metrics_http(region, aom_instance_id, disk_query, hours=hours, ak=access_key, sk=secret_key, project_id=proj_id)
+    failed_queries = {
+        name: result.get("error", "AOM query failed")
+        for name, result in {"cpu": cpu_result, "memory": memory_result, "disk": disk_result}.items()
+        if not result.get("success")
+    }
+    if failed_queries:
+        return {
+            "success": False,
+            "error": "AOM Prometheus query failed",
+            "failed_queries": failed_queries,
+            "region": region,
+            "cluster_id": cluster_id,
+            "cluster_name": cluster_name,
+            "node_ip": node_ip,
+            "aom_instance_id": aom_instance_id,
+            "promql": {
+                "cpu": cpu_query,
+                "memory": memory_query,
+                "disk": disk_query,
+            },
+        }
 
     # ========== 6. 解析结果 ==========
     def parse_metric_result(result, metric_name):
