@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from .common import extract_items, redact_command, run_hcloud, run_hcloud_json_input
@@ -24,6 +25,138 @@ EVENT_NAME_ALIASES = {
     "Pulling": "拉取镜像##Pulling",
     "Pulled": "镜像拉取完成##Pulled",
 }
+
+DEFAULT_EVENT_ALARM_NAMES = {
+    "PodOOMKilling",
+    "FailedStart",
+    "FailedPullImage",
+    "BackOffStart",
+    "FailedScheduling",
+    "BackOffPullImage",
+    "FailedCreate",
+    "Rebooted",
+    "NodeNotSchedulable",
+    "NodeNotReady",
+    "NodeCreateFailed",
+    "FailedToAttachDetach",
+    "ScaleUpTimedOut",
+    "NotTriggerScaleUp",
+    "ScaleDownFailed",
+    "FailedToScaleUpGroup",
+    "ScaleUpFailed",
+    "NodePoolSoldOut",
+}
+
+
+def _reference_dir() -> Path:
+    return Path(__file__).resolve().parents[2] / "references"
+
+
+def _parse_markdown_table(path: Path, expected_columns: int) -> List[List[str]]:
+    if not path.exists():
+        return []
+
+    rows: List[List[str]] = []
+    for raw_line in path.read_text(encoding="utf-8-sig").splitlines():
+        line = raw_line.strip()
+        if not line.startswith("|") or "---" in line:
+            continue
+        cells = [cell.strip().strip("`").replace("\\|", "|") for cell in re.split(r"(?<!\\)\|", line.strip("|"))]
+        if len(cells) < expected_columns:
+            continue
+        if cells[0].lower() in {"告警项", "alarm item (cn)", "category", "event description (cn)"}:
+            continue
+        rows.append(cells)
+    return rows
+
+
+def _slug(value: str, fallback: str) -> str:
+    slug = re.sub(r"[^a-zA-Z0-9_]+", "_", value).strip("_").lower()
+    return slug or fallback
+
+
+def _display_name(value: str) -> str:
+    match = re.search(r"\(([^)]+)\)\s*$", value)
+    return match.group(1) if match else value
+
+
+def _parse_promql_threshold(promql: str) -> tuple[str, str]:
+    match = re.search(r"\s(>=|<=|>|<|==)\s*([0-9.]+)\s*$", promql)
+    if match:
+        return match.group(1), match.group(2)
+    return ">", "0"
+
+
+def _scope_promql_to_cluster(promql: str, cluster_id: str) -> str:
+    def add_cluster(match: re.Match[str]) -> str:
+        labels = match.group(1).strip()
+        if re.search(r'(^|,)\s*cluster\s*=~?\s*"', labels):
+            return "{" + labels + "}"
+        return "{" + (labels + "," if labels else "") + f'cluster="{cluster_id}"' + "}"
+
+    scoped = re.sub(r"\{([^{}]*)\}", add_cluster, promql)
+    if scoped == promql:
+        return f"{promql} and on() kube_node_info{{cluster=\"{cluster_id}\"}} >= 0"
+    return scoped
+
+
+def _load_metric_alarm_templates() -> List[Dict[str, Any]]:
+    rows = _parse_markdown_table(_reference_dir() / "cce-prometheus-metric-alarms.md", 3)
+    templates: List[Dict[str, Any]] = []
+    for index, cells in enumerate(rows, start=1):
+        name, description, promql = cells[:3]
+        operator, threshold = _parse_promql_threshold(promql)
+        templates.append({
+            "kind": "metric",
+            "name": name,
+            "description": description,
+            "promql": promql,
+            "metric_name": f"cce_promql_rule_{index}_{_slug(name, str(index))}",
+            "namespace": "CCE.PROMETHEUS",
+            "comparison_operator": operator,
+            "threshold": threshold,
+            "period": 60,
+            "evaluation_periods": 3,
+            "statistic": "average",
+            "alarm_level": 2,
+        })
+    return templates
+
+
+def _load_event_alarm_templates() -> List[Dict[str, Any]]:
+    rows = _parse_markdown_table(_reference_dir() / "cce-event-list.md", 4)
+    templates: List[Dict[str, Any]] = []
+    for cells in rows:
+        category, description, event_name, event_level = cells[:4]
+        if event_name not in DEFAULT_EVENT_ALARM_NAMES:
+            continue
+        zh_match = re.search(r"\(([^)]+)\)", description)
+        cn_description = zh_match.group(1) if zh_match else description
+        templates.append({
+            "kind": "event",
+            "name": event_name,
+            "category": category,
+            "description": description,
+            "event_name": f"{cn_description}##{event_name}",
+            "alarm_level": "Major" if event_level.lower() == "important" else "Minor",
+        })
+    return templates
+
+
+def _split_csv(value: Optional[str]) -> set[str]:
+    if not value:
+        return set()
+    return {item.strip() for item in value.split(",") if item.strip()}
+
+
+def _matches_any(value: str, candidates: set[str]) -> bool:
+    return any(item == value or item in value or value in item for item in candidates)
+
+
+def _to_bool(value: Optional[str], default: bool) -> bool:
+    if value is None:
+        return default
+    return str(value).strip().lower() in {"1", "true", "yes", "y"}
 
 
 def _normalize_alarm_rule_name(rule_name: str) -> str:
@@ -134,6 +267,17 @@ def _filter_events_by_cluster(events: list, cluster_id: Optional[str] = None, cl
     return filtered
 
 
+def _rule_matches_scope(rule: Dict[str, Any], cluster_id: Optional[str] = None, cluster_name: Optional[str] = None) -> bool:
+    if not cluster_id and not cluster_name:
+        return True
+    raw_text = json.dumps(rule, ensure_ascii=False)
+    if cluster_id and cluster_id in raw_text:
+        return True
+    if cluster_name and cluster_name in raw_text:
+        return True
+    return False
+
+
 def _build_metric_alarm_params(
     rule_name: str,
     metric_name: str,
@@ -173,6 +317,16 @@ def _build_metric_alarm_params(
             ("metric_alarm_spec.monitor_type", "promql"),
             ("metric_alarm_spec.trigger_conditions.1.promql", fields["promql"]),
         ])
+    if fields.get("bind_notification_rule_id"):
+        params.extend([
+            ("alarm_notifications.notification_type", "direct"),
+            ("alarm_notifications.notification_enable", True),
+            ("alarm_notifications.route_group_enable", False),
+            ("alarm_notifications.bind_notification_rule_id", fields["bind_notification_rule_id"]),
+            ("alarm_notifications.notify_frequency", 0),
+            ("alarm_notifications.notify_resolved", False),
+            ("alarm_notifications.notify_triggered", True),
+        ])
     return params
 
 
@@ -204,17 +358,40 @@ def list_aom_alarm_rules(
     limit: int = 100,
     offset: int = 0,
     enterprise_project_id: Optional[str] = None,
+    cluster_id: Optional[str] = None,
+    cluster_name: Optional[str] = None,
 ) -> Dict[str, Any]:
-    params: List[tuple[str, Any]] = [
-        ("limit", str(limit)),
-        ("offset", str(offset)),
-        ("Enterprise-Project-Id", enterprise_project_id or "all_granted_eps"),
-    ]
-    result = run_hcloud("AOM", "ListMetricOrEventAlarmRule", region, params, ak, sk, project_id)
-    if not result["success"]:
-        return result
+    filtered = bool(cluster_id or cluster_name)
+    page_limit = max(1, min(limit, 200))
+    scan_offset = offset
+    all_rules: List[Dict[str, Any]] = []
+    hcloud_commands = []
+    raw_pages = []
 
-    rules = extract_items(result.get("data"), "alarm_rules", "rules")
+    while True:
+        params: List[tuple[str, Any]] = [
+            ("limit", str(page_limit)),
+            ("offset", str(scan_offset)),
+            ("Enterprise-Project-Id", enterprise_project_id or "all_granted_eps"),
+        ]
+        result = run_hcloud("AOM", "ListMetricOrEventAlarmRule", region, params, ak, sk, project_id)
+        if not result["success"]:
+            return result
+
+        hcloud_commands.append(result["command"])
+        raw_pages.append(result.get("data"))
+        page_rules = extract_items(result.get("data"), "alarm_rules", "rules")
+        all_rules.extend(page_rules)
+        if not filtered or len(page_rules) < page_limit:
+            break
+        scan_offset += page_limit
+
+    total_count = len(all_rules)
+    rules = [
+        rule for rule in all_rules
+        if _rule_matches_scope(rule, cluster_id, cluster_name)
+    ] if filtered else all_rules
+
     formatted = []
     for rule in rules:
         metric_spec = rule.get("metric_alarm_spec") or {}
@@ -235,10 +412,14 @@ def list_aom_alarm_rules(
         "success": True,
         "region": region,
         "action": "list_aom_alarm_rules",
+        "filtered": filtered,
+        "cluster_id": cluster_id,
+        "cluster_name": cluster_name,
+        "total_count": total_count,
         "count": len(formatted),
         "rules": formatted,
-        "raw": result.get("data"),
-        "hcloud_command": result["command"],
+        "raw": raw_pages[-1] if len(raw_pages) == 1 else raw_pages,
+        "hcloud_command": hcloud_commands[-1] if len(hcloud_commands) == 1 else hcloud_commands,
     }
 
 
@@ -342,6 +523,198 @@ def create_aom_event_alarm_rule(
     result = run_hcloud("AOM", "AddOrUpdateMetricOrEventAlarmRule", region, params, ak, sk, project_id)
     result.update({"action": "create_aom_event_alarm_rule", "executed": result["success"]})
     return result
+
+
+def configure_cce_aom_alarm_rules(
+    region: str,
+    cluster_id: str,
+    bind_notification_rule_id: Optional[str] = None,
+    rule_name_prefix: Optional[str] = None,
+    include_metric_alarms: bool = True,
+    include_event_alarms: bool = True,
+    alarm_items: Optional[str] = None,
+    skip_existing: bool = True,
+    prom_instance_id: Optional[str] = None,
+    enterprise_project_id: Optional[str] = None,
+    confirm: bool = False,
+    ak: Optional[str] = None,
+    sk: Optional[str] = None,
+    project_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    prefix = rule_name_prefix or cluster_id
+    wanted_items = _split_csv(alarm_items)
+    candidates: List[Dict[str, Any]] = []
+
+    if include_metric_alarms:
+        for template in _load_metric_alarm_templates():
+            if wanted_items and not (_matches_any(template["name"], wanted_items) or template["metric_name"] in wanted_items):
+                continue
+            candidates.append({
+                **template,
+                "rule_name": f"{prefix}-{_display_name(template['name'])}",
+                "promql": _scope_promql_to_cluster(template["promql"], cluster_id),
+            })
+
+    if include_event_alarms:
+        for template in _load_event_alarm_templates():
+            if wanted_items and not (_matches_any(template["name"], wanted_items) or _matches_any(template["event_name"], wanted_items)):
+                continue
+            candidates.append({**template, "rule_name": f"{prefix}-{template['name']}"})
+
+    if not candidates:
+        return {
+            "success": False,
+            "action": "configure_cce_aom_alarm_rules",
+            "region": region,
+            "cluster_id": cluster_id,
+            "error": "No alarm templates matched the requested filters.",
+        }
+
+    if not confirm:
+        preview_commands = []
+        for candidate in candidates[:10]:
+            if candidate["kind"] == "metric":
+                fields = {
+                    "promql": candidate["promql"],
+                    "prom_instance_id": prom_instance_id,
+                    "bind_notification_rule_id": bind_notification_rule_id,
+                    "alarm_rule_description": candidate["description"],
+                }
+                params = _build_metric_alarm_params(
+                    candidate["rule_name"],
+                    candidate["metric_name"],
+                    candidate["namespace"],
+                    candidate["comparison_operator"],
+                    candidate["threshold"],
+                    candidate["period"],
+                    candidate["evaluation_periods"],
+                    candidate["statistic"],
+                    candidate["alarm_level"],
+                    fields,
+                )
+                preview_commands.append(_preview("AddOrUpdateMetricOrEventAlarmRule", region, params, "R2", "Preview only.")["hcloud_command"])
+            else:
+                preview_commands.append(
+                    create_aom_event_alarm_rule(
+                        region=region,
+                        cluster_id=cluster_id,
+                        rule_name=candidate["rule_name"],
+                        event_name=candidate["event_name"],
+                        bind_notification_rule_id=bind_notification_rule_id,
+                        alarm_level=candidate["alarm_level"],
+                        description=candidate["description"],
+                        prom_instance_id=prom_instance_id,
+                        enterprise_project_id=enterprise_project_id,
+                        confirm=False,
+                    )["hcloud_command"]
+                )
+        return {
+            "success": True,
+            "action": "configure_cce_aom_alarm_rules",
+            "region": region,
+            "cluster_id": cluster_id,
+            "risk": "R2",
+            "confirm_required": True,
+            "will_execute": False,
+            "executed": False,
+            "template_count": len(candidates),
+            "metric_template_count": sum(1 for item in candidates if item["kind"] == "metric"),
+            "event_template_count": sum(1 for item in candidates if item["kind"] == "event"),
+            "rules": [{"kind": item["kind"], "rule_name": item["rule_name"], "source_name": item["name"]} for item in candidates],
+            "hcloud_command_samples": preview_commands,
+            "notes": [
+                "Add confirm=true to create these AOM alarm rules through hcloud.",
+                "Notification action rules are not created automatically; pass bind_notification_rule_id to bind an existing notification rule.",
+                "skip_existing is evaluated only during confirmed execution.",
+            ],
+        }
+
+    existing_names: set[str] = set()
+    if skip_existing:
+        existing = list_aom_alarm_rules(region, ak, sk, project_id, limit=200, offset=0, cluster_id=cluster_id)
+        if not existing.get("success"):
+            return existing
+        existing_names = {
+            _normalize_alarm_rule_name(str(rule.get("rule_name")))
+            for rule in existing.get("rules", [])
+            if rule.get("rule_name")
+        }
+
+    created = []
+    skipped = []
+    failed = []
+    for candidate in candidates:
+        normalized_name = _normalize_alarm_rule_name(candidate["rule_name"])
+        if skip_existing and normalized_name in existing_names:
+            skipped.append({"rule_name": candidate["rule_name"], "reason": "already exists"})
+            continue
+
+        if candidate["kind"] == "metric":
+            fields = {
+                "promql": candidate["promql"],
+                "prom_instance_id": prom_instance_id,
+                "bind_notification_rule_id": bind_notification_rule_id,
+                "alarm_rule_description": candidate["description"],
+            }
+            result = create_aom_alarm_rule(
+                region=region,
+                rule_name=candidate["rule_name"],
+                metric_name=candidate["metric_name"],
+                namespace=candidate["namespace"],
+                comparison_operator=candidate["comparison_operator"],
+                threshold=candidate["threshold"],
+                period=candidate["period"],
+                evaluation_periods=candidate["evaluation_periods"],
+                statistic=candidate["statistic"],
+                alarm_level=candidate["alarm_level"],
+                create_fields=fields,
+                confirm=True,
+                ak=ak,
+                sk=sk,
+                project_id=project_id,
+            )
+        else:
+            result = create_aom_event_alarm_rule(
+                region=region,
+                cluster_id=cluster_id,
+                rule_name=candidate["rule_name"],
+                event_name=candidate["event_name"],
+                bind_notification_rule_id=bind_notification_rule_id,
+                alarm_level=candidate["alarm_level"],
+                description=candidate["description"],
+                prom_instance_id=prom_instance_id,
+                enterprise_project_id=enterprise_project_id,
+                confirm=True,
+                ak=ak,
+                sk=sk,
+                project_id=project_id,
+            )
+
+        entry = {
+            "kind": candidate["kind"],
+            "rule_name": candidate["rule_name"],
+            "source_name": candidate["name"],
+            "result": result,
+        }
+        if result.get("success"):
+            created.append(entry)
+        else:
+            failed.append(entry)
+
+    return {
+        "success": not failed,
+        "action": "configure_cce_aom_alarm_rules",
+        "region": region,
+        "cluster_id": cluster_id,
+        "executed": True,
+        "template_count": len(candidates),
+        "created_count": len(created),
+        "skipped_count": len(skipped),
+        "failed_count": len(failed),
+        "created": created,
+        "skipped": skipped,
+        "failed": failed,
+    }
 
 
 def update_aom_alarm_rule(

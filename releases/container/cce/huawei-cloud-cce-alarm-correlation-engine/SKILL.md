@@ -41,9 +41,10 @@ This skill has **both read-only tools** (alarm query, analysis, inspection, rule
 3. Analyze alarms: deduplication, severity grouping, burst/steady identification (`huawei_analyze_aom_alarms`)
 4. Query, create, update, delete, enable, disable AOM alarm rules (mutation requires `confirm=true`)
 5. Create AOM event alarm rules referencing CCE event list (`huawei_create_aom_event_alarm_rule`)
-6. Query and delete AOM action/notification rules (delete requires `confirm=true`)
-7. Query AOM mute rules (`huawei_list_aom_mute_rules`)
-8. CCE cluster alarm inspection with risk summary (`huawei_aom_alarm_inspection`)
+6. Batch configure recommended CCE AOM alarm rules from bundled Prometheus/event templates (`huawei_configure_cce_aom_alarm_rules`)
+7. Query and delete AOM action/notification rules (delete requires `confirm=true`)
+8. Query AOM mute rules (`huawei_list_aom_mute_rules`)
+9. CCE cluster alarm inspection with risk summary (`huawei_aom_alarm_inspection`)
 
 ### Typical Use Cases
 
@@ -152,6 +153,7 @@ python3 scripts/huawei-cloud.py huawei_create_aom_alarm_rule \
 |------|-----------|-----------|-------------|
 | `huawei_create_aom_alarm_rule` | Create | R2 | Create new AOM alarm rule, may introduce new alarm notifications |
 | `huawei_create_aom_event_alarm_rule` | Create | R2 | Create AOM event alarm rule, may introduce new event notifications |
+| `huawei_configure_cce_aom_alarm_rules` | Batch create | R2 | Create recommended CCE AOM alarm rules for a cluster from bundled templates |
 | `huawei_update_aom_alarm_rule` | Update | R1 | Update AOM alarm rule threshold, toggle, notification action, description, etc. |
 | `huawei_delete_aom_alarm_rule` | Delete | R0 | Delete AOM alarm rule, may prevent future alarms from triggering |
 | `huawei_disable_aom_alarm_rule` | Disable | R1 | Disable AOM alarm rule, may stop related alarms from triggering |
@@ -205,9 +207,10 @@ python3 scripts/huawei-cloud.py huawei_analyze_aom_alarms \
 
 | Action | Description | Risk Level | Requires `confirm` | Required Params |
 |--------|-------------|------------|--------------------|-----------------|
-| `huawei_list_aom_alarm_rules` | Query AOM alarm rules | R3 | No | `region` |
+| `huawei_list_aom_alarm_rules` | Query AOM alarm rules | R3 | No | `region`; optional `cluster_id`, `cluster_name` |
 | `huawei_create_aom_alarm_rule` | Create AOM metric alarm rule | R2 | **Yes** | `region`, `rule_name`, `metric_name`, `namespace`, `comparison_operator`, `threshold`, `period`, `evaluation_periods`, `statistic`, `alarm_level` |
 | `huawei_create_aom_event_alarm_rule` | Create AOM event alarm rule | R2 | **Yes** | `region`, `cluster_id`, `rule_name`, `event_name` |
+| `huawei_configure_cce_aom_alarm_rules` | Batch create recommended CCE AOM alarm rules | R2 | **Yes** | `region`, `cluster_id` |
 | `huawei_update_aom_alarm_rule` | Update AOM alarm rule | R1 | **Yes** | `region`, `rule_name` |
 | `huawei_delete_aom_alarm_rule` | Delete AOM alarm rule | R0 | **Yes** | `region`, `rule_name` |
 | `huawei_disable_aom_alarm_rule` | Disable AOM alarm rule | R1 | **Yes** | `region`, `rule_id` |
@@ -219,6 +222,10 @@ python3 scripts/huawei-cloud.py huawei_analyze_aom_alarms \
 ```bash
 # Query alarm rules
 python3 scripts/huawei-cloud.py huawei_list_aom_alarm_rules region=cn-north-4
+
+# Query alarm rules related to a CCE cluster
+python3 scripts/huawei-cloud.py huawei_list_aom_alarm_rules \
+  region=cn-north-4 cluster_id=<cluster-id>
 
 # Preview create alarm rule (no execution)
 python3 scripts/huawei-cloud.py huawei_create_aom_alarm_rule \
@@ -232,6 +239,15 @@ python3 scripts/huawei-cloud.py huawei_create_aom_alarm_rule \
   namespace=PAAS.NODE comparison_operator='>' threshold=80 \
   period=60 evaluation_periods=3 statistic=average alarm_level=2 \
   confirm=true
+
+# Preview batch create recommended CCE alarm rules for a cluster
+python3 scripts/huawei-cloud.py huawei_configure_cce_aom_alarm_rules \
+  region=cn-north-4 cluster_id=<cluster-id>
+
+# Confirm batch create and bind an existing notification rule
+python3 scripts/huawei-cloud.py huawei_configure_cce_aom_alarm_rules \
+  region=cn-north-4 cluster_id=<cluster-id> \
+  bind_notification_rule_id=auto-cluster-xxx confirm=true
 
 # Preview update alarm rule
 python3 scripts/huawei-cloud.py huawei_update_aom_alarm_rule \
@@ -316,6 +332,13 @@ python3 scripts/huawei-cloud.py huawei_aom_alarm_inspection \
 | `metric_name` | Yes (create metric rule) | Metric name (e.g., `cpuUsage`) |
 | `namespace` | Yes (create) | Metric namespace (e.g., `PAAS.NODE`) |
 | `event_name` | Yes (create event rule) | Event name; reference `references/cce-event-list.md` for naming format |
+| `bind_notification_rule_id` | No (create/configure) | Existing AOM notification rule ID/name to bind; this skill does not create notification rules |
+| `rule_name_prefix` | No (configure) | Prefix for batch-created rule names; defaults to `cluster_id` |
+| `include_metric_alarms` | No (configure) | Whether to include Prometheus metric alarm templates; default `true` |
+| `include_event_alarms` | No (configure) | Whether to include recommended CCE event alarm templates; default `true` |
+| `alarm_items` | No (configure) | Comma-separated allowlist of template names or event names to create |
+| `skip_existing` | No (configure) | Skip rules that already exist for the cluster during confirmed execution; default `true` |
+| `prom_instance_id` | No (configure) | AOM Prometheus instance ID for PromQL alarm rules |
 | `comparison_operator` | Yes (create metric rule) | Threshold comparison operator (e.g., `>`, `<`, `>=`, `<=`) |
 | `threshold` | Yes (create metric rule) | Alarm threshold value |
 | `period` | Yes (create metric rule) | Statistics period in seconds (recommended: 60) |

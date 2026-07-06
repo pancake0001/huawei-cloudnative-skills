@@ -30,6 +30,12 @@ def _parse_json_param(value: str | None) -> Any:
     return json.loads(value)
 
 
+def _to_bool(value: str | None, default: bool) -> bool:
+    if value is None:
+        return default
+    return value.lower() in {"1", "true", "yes", "y"}
+
+
 def _alarm_rule_fields(params: Dict[str, str], json_key: str) -> Dict[str, Any]:
     fields = _parse_json_param(params.get(json_key)) or {}
     for key in (
@@ -74,6 +80,8 @@ def _list_aom_alarm_rules(params: Dict[str, str]) -> Dict[str, Any]:
         _to_int(params.get("limit"), 100),
         _to_int(params.get("offset"), 0),
         params.get("enterprise_project_id"),
+        params.get("cluster_id"),
+        params.get("cluster_name"),
     )
 
 
@@ -111,6 +119,26 @@ def _create_aom_event_alarm_rule(params: Dict[str, str]) -> Dict[str, Any]:
         alias=params.get("alias"),
         trigger_type=params.get("trigger_type", "immediately"),
         frequency=params.get("frequency", "-1"),
+        prom_instance_id=params.get("prom_instance_id"),
+        enterprise_project_id=params.get("enterprise_project_id"),
+        confirm=params.get("confirm", "").lower() == "true",
+        ak=params.get("ak"),
+        sk=params.get("sk"),
+        project_id=params.get("project_id"),
+    )
+
+
+def _configure_cce_aom_alarm_rules(params: Dict[str, str]) -> Dict[str, Any]:
+    bind_notification_rule_id = params.get("bind_notification_rule_id") or params.get("notification_rule_name")
+    return aom.configure_cce_aom_alarm_rules(
+        region=params["region"],
+        cluster_id=params["cluster_id"],
+        bind_notification_rule_id=bind_notification_rule_id,
+        rule_name_prefix=params.get("rule_name_prefix"),
+        include_metric_alarms=_to_bool(params.get("include_metric_alarms"), True),
+        include_event_alarms=_to_bool(params.get("include_event_alarms"), True),
+        alarm_items=params.get("alarm_items"),
+        skip_existing=_to_bool(params.get("skip_existing"), True),
         prom_instance_id=params.get("prom_instance_id"),
         enterprise_project_id=params.get("enterprise_project_id"),
         confirm=params.get("confirm", "").lower() == "true",
@@ -283,6 +311,7 @@ ACTION_SPECS: Dict[str, tuple[tuple[str, ...], Handler]] = {
         _create_aom_alarm_rule,
     ),
     "huawei_create_aom_event_alarm_rule": (("region", "cluster_id", "rule_name", "event_name"), _create_aom_event_alarm_rule),
+    "huawei_configure_cce_aom_alarm_rules": (("region", "cluster_id"), _configure_cce_aom_alarm_rules),
     "huawei_update_aom_alarm_rule": (("region", "rule_name"), _update_aom_alarm_rule),
     "huawei_delete_aom_alarm_rule": (("region", "rule_name"), _delete_aom_alarm_rule),
     "huawei_disable_aom_alarm_rule": (("region", "rule_id"), _disable_aom_alarm_rule),

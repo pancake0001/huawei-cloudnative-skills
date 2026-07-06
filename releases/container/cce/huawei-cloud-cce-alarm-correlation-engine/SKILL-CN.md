@@ -30,6 +30,7 @@ description: 华为云 AOM 告警关联分析技能，支持查询 active/histor
 |------|---------|---------|------|
 | `huawei_create_aom_alarm_rule` | 创建 | R2 | 创建新的 AOM 告警规则，可能引入新的告警通知 |
 | `huawei_create_aom_event_alarm_rule` | 创建 | R2 | 创建新的 AOM 事件告警规则，可能引入新的事件告警通知 |
+| `huawei_configure_cce_aom_alarm_rules` | 批量创建 | R2 | 按 CCE 默认模板为指定集群批量创建 AOM 告警规则 |
 | `huawei_update_aom_alarm_rule` | 修改 | R1 | 修改 AOM 告警规则阈值、开关、通知动作、描述等配置 |
 | `huawei_delete_aom_alarm_rule` | 删除 | R0 | 删除 AOM 告警规则，可能导致后续告警无法触发 |
 | `huawei_disable_aom_alarm_rule` | 停用 | R1 | 停用 AOM 告警规则，可能导致相关告警不再触发 |
@@ -194,9 +195,10 @@ python3 huawei-cloud.py huawei_analyze_aom_alarms \
 
 | 工具 | 功能 | 风险等级 | 需确认 | 参数 |
 |------|------|---------|-------|------|
-| `huawei_list_aom_alarm_rules` | 查询 AOM 告警规则 | R3 | 否 | `region` |
+| `huawei_list_aom_alarm_rules` | 查询 AOM 告警规则 | R3 | 否 | `region`；可选 `cluster_id`, `cluster_name` |
 | `huawei_create_aom_alarm_rule` | 创建 AOM 告警规则 | R2 | **是** | `region`, `rule_name`, `metric_name`, `namespace`, `comparison_operator`, `threshold`, `period`, `evaluation_periods`, `statistic`, `alarm_level` |
 | `huawei_create_aom_event_alarm_rule` | 创建 AOM 事件告警规则 | R2 | **是** | `region`, `cluster_id`, `rule_name`, `event_name` |
+| `huawei_configure_cce_aom_alarm_rules` | 一键批量创建 CCE 推荐告警规则 | R2 | **是** | `region`, `cluster_id` |
 | `huawei_update_aom_alarm_rule` | 修改 AOM 告警规则 | R1 | **是** | `region`, `rule_name` |
 | `huawei_delete_aom_alarm_rule` | 删除 AOM 告警规则 | R0 | **是** | `region`, `rule_name` |
 | `huawei_disable_aom_alarm_rule` | 停用 AOM 告警规则 | R1 | **是** | `region`, `rule_id` |
@@ -207,6 +209,8 @@ python3 huawei-cloud.py huawei_analyze_aom_alarms \
 
 **参数说明：**
 - `region` (required): 华为云区域
+- `cluster_id` (optional for list alarm rules): CCE 集群 ID；传入后只返回规则内容中关联该集群 ID 的告警规则
+- `cluster_name` (optional for list alarm rules): CCE 集群名称；传入后只返回规则内容中关联该集群名称的告警规则
 - `metric_name` (required for create): 指标名称
 - `namespace` (required for create): 指标命名空间
 - `comparison_operator` (required for create): 阈值比较符，例如 `>`、`<`、`>=`、`<=`
@@ -221,6 +225,13 @@ python3 huawei-cloud.py huawei_analyze_aom_alarms \
 - `rule_id` (required for enable): 需要启用的告警规则 ID
 - `rule_name` (required for delete action rule): AOM 通知动作规则名称
 - `enterprise_project_id` (optional for list action rules): 企业项目范围，默认 `all_granted_eps`
+- `bind_notification_rule_id` (optional for create/configure): 绑定已有 AOM 通知规则 ID/名称；本技能不会自动创建通知规则
+- `rule_name_prefix` (optional for configure): 批量创建规则名前缀，默认使用 `cluster_id`
+- `include_metric_alarms` (optional for configure): 是否创建 Prometheus 指标类模板，默认 `true`
+- `include_event_alarms` (optional for configure): 是否创建 CCE 事件类模板，默认 `true`
+- `alarm_items` (optional for configure): 逗号分隔的告警项白名单，仅创建指定模板或事件名
+- `skip_existing` (optional for configure): 确认执行时跳过集群下已有同名规则，默认 `true`
+- `prom_instance_id` (optional for configure): 指定 AOM Prometheus 实例 ID
 - `fields` (optional): 创建规则时的额外 JSON 字段，例如 `{"unit":"%","is_turn_on":true}`
 - `updates` (optional): JSON 格式的批量更新字段，例如 `{"threshold":"80","is_turn_on":true}`
 - `confirm` (optional): 创建、修改或删除时必须显式设置为 `true` 才会执行
@@ -233,6 +244,11 @@ python3 huawei-cloud.py huawei_analyze_aom_alarms \
 # 查询告警规则
 python3 huawei-cloud.py huawei_list_aom_alarm_rules \
   region=cn-north-4
+
+# 查询指定集群相关的告警规则
+python3 huawei-cloud.py huawei_list_aom_alarm_rules \
+  region=cn-north-4 \
+  cluster_id=<cluster-id>
 
 # 预览创建告警规则，不执行
 python3 huawei-cloud.py huawei_create_aom_alarm_rule \
@@ -259,6 +275,18 @@ python3 huawei-cloud.py huawei_create_aom_alarm_rule \
   evaluation_periods=3 \
   statistic=average \
   alarm_level=2 \
+  confirm=true
+
+# 预览一键批量创建 CCE 推荐告警规则，不执行
+python3 huawei-cloud.py huawei_configure_cce_aom_alarm_rules \
+  region=cn-north-4 \
+  cluster_id=<cluster-id>
+
+# 确认批量创建，并绑定已有通知规则
+python3 huawei-cloud.py huawei_configure_cce_aom_alarm_rules \
+  region=cn-north-4 \
+  cluster_id=<cluster-id> \
+  bind_notification_rule_id=auto-cluster-xxx \
   confirm=true
 
 # 预览修改告警规则，不执行
