@@ -1,135 +1,148 @@
-# Verification Method - CCE Pod Failure Diagnoser Skill
+# Verification Method
 
-## Overview
+Verification must prove that this skill uses CCE `hcloud` CLI plus `kubectl`, and no SDK dispatcher path remains.
 
-This document defines the verification steps for the CCE Pod Failure Diagnoser skill. Verification is divided into four levels: installation verification, configuration verification, read-only operation verification, and diagnosis workflow verification.
+## Step 1: Tooling Check
 
-## Level 1: Installation Verification
-
-### 1.1 Python Installation
-
-| Item              | Command               | Success Criteria                          |
-| ----------------- | --------------------- | ----------------------------------------- |
-| Python 3 installed| `python3 --version`   | Returns Python version >= 3.8             |
-
-### 1.2 Script Availability
-
-| Item                  | Command                                        | Success Criteria                          |
-| --------------------- | ----------------------------------------------- | ----------------------------------------- |
-| huawei-cloud.py exists| `ls scripts/huawei-cloud.py`                    | File found in scripts directory           |
-
-## Level 2: Configuration Verification
-
-### 2.1 Credential Configuration
-
-| Item                    | Command                | Success Criteria                        |
-| ----------------------- | ---------------------- | --------------------------------------- |
-| Credentials configured  | Environment variables  | `HUAWEI_AK`/`HUAWEI_SK` or `HW_ACCESS_KEY`/`HW_SECRET_KEY` set; pass `region=...` or `--region=...` explicitly |
-
-Never use `echo $HUAWEI_AK`, `echo $HUAWEI_SK`, `echo $HW_ACCESS_KEY`, or `echo $HW_SECRET_KEY` to check credentials.
-
-### 2.2 API Connectivity Test
+Run:
 
 ```bash
-python3 scripts/huawei-cloud.py huawei_get_cce_pods --region=cn-north-4 --cluster_id=<cluster-id> --namespace=default
+hcloud version
+hcloud configure list
+kubectl version --client
 ```
 
-Expected: Returns Pod list (HTTP 200).
+Expected:
 
-## Level 3: Read-Only Operation Verification
+- `hcloud` exists and reports KooCLI version. Linux sandboxes should use the Linux KooCLI binary; Windows workstations may use `hcloud.exe`, but the skill workflow should stay platform-neutral.
+- Credential profiles are present, with secret values masked.
+- `kubectl` client exists and matches the runtime platform. Linux sandboxes should use a Linux `kubectl` binary; Windows workstations should use `kubectl.exe`.
+- If tools are not in `PATH`, validate the explicit local binary path with the same version commands before using it. A file that exists but fails with a platform error is not usable.
 
-### 3.1 List Pods
+Do not print AK, SK, token, kubeconfig certificate data, or Authorization headers.
+
+## Step 2: CCE Cluster Discovery
+
+Run:
 
 ```bash
-python3 scripts/huawei-cloud.py huawei_get_cce_pods --region=cn-north-4 --cluster_id=<cluster-id> --namespace=default
+hcloud CCE ListClusters --project_id=<project-id> --cli-region=<region> --cli-output=json
+hcloud CCE ShowCluster --cluster_id=<cluster-id> --project_id=<project-id> --detail=true --cli-region=<region> --cli-output=json
+hcloud CCE ShowClusterEndpoints --cluster_id=<cluster-id> --project_id=<project-id> --cli-region=<region> --cli-output=json
 ```
 
-Expected: Returns Pod status list with phase, reason, container states, restart counts.
+Expected:
 
-### 3.2 Get Pod Events
+- Target cluster appears in the list.
+- `ShowCluster` returns the same cluster ID and expected status.
+- `ShowClusterEndpoints` shows whether the API server has a public endpoint. If `publicEndpoint` is empty and the kubeconfig points to a private IP, run `kubectl` from a VPC/VPN/Direct Connect/Cloud Desktop/sandbox network that can reach the private endpoint.
+- No Python SDK process or local dispatcher script is used.
+
+## Step 3: Kubeconfig Acquisition
+
+Run:
 
 ```bash
-python3 scripts/huawei-cloud.py huawei_get_cce_events --region=cn-north-4 --cluster_id=<cluster-id> --namespace=default
+hcloud CCE CreateKubernetesClusterCert --cluster_id=<cluster-id> --project_id=<project-id> --duration=1 --cli-region=<region> --cli-output=json > <kubeconfig-file>
 ```
 
-Expected: Returns Events list with reason, message, timestamps.
+Expected:
 
-### 3.3 Get Pod Logs
+- Command returns Kubernetes kubeconfig content. KooCLI may emit JSON-formatted kubeconfig; `kubectl` accepts JSON or YAML kubeconfig.
+- If KooCLI times out on a recently awakened cluster, retry with explicit values such as `--cli-connect-timeout=20 --cli-read-timeout=90 --cli-retry-count=2`.
+- If the kubeconfig server is private while `ShowClusterEndpoints.publicEndpoint` is available and the agent is outside the VPC, use a temporary kubeconfig copy with only the `clusters[].cluster.server` field replaced by the public endpoint.
+- File is stored outside the repository or in a temporary ignored location.
+- File permissions are restricted where the OS supports it.
+- File is deleted after validation if it is not needed.
+
+## Step 4: Kubernetes Read Access
+
+Run:
 
 ```bash
-python3 scripts/huawei-cloud.py huawei_get_pod_logs --region=cn-north-4 --cluster_id=<cluster-id> --namespace=default --pod_name=<pod-name> --container=<container-name>
+kubectl --kubeconfig=<kubeconfig-file> cluster-info
+kubectl --kubeconfig=<kubeconfig-file> auth can-i get pods -n <namespace>
+kubectl --kubeconfig=<kubeconfig-file> auth can-i list pods -n <namespace>
+kubectl --kubeconfig=<kubeconfig-file> auth can-i list events -n <namespace>
+kubectl --kubeconfig=<kubeconfig-file> auth can-i get pods/log -n <namespace>
+kubectl --kubeconfig=<kubeconfig-file> auth can-i get nodes
 ```
 
-Expected: Returns sanitized log excerpt.
+Expected:
 
-### 3.4 Get Pod Previous Logs
+- Cluster API is reachable.
+- Required read permissions return `yes`, or missing permissions are reported as verification gaps.
+
+## Step 5: Pod Evidence Baseline
+
+For a known Pod, run only read commands:
 
 ```bash
-python3 scripts/huawei-cloud.py huawei_get_pod_logs --region=cn-north-4 --cluster_id=<cluster-id> --namespace=default --pod_name=<pod-name> --container=<container-name> --previous=true
+kubectl --kubeconfig=<kubeconfig-file> get pods -A -o wide
+kubectl --kubeconfig=<kubeconfig-file> get pods -A --field-selector=status.phase!=Running -o wide
+kubectl --kubeconfig=<kubeconfig-file> get pods -A -o custom-columns="NAMESPACE:.metadata.namespace,NAME:.metadata.name,READY:.status.containerStatuses[*].ready,RESTARTS:.status.containerStatuses[*].restartCount,PHASE:.status.phase,NODE:.spec.nodeName"
+kubectl --kubeconfig=<kubeconfig-file> get pod <pod-name> -n <namespace> -o wide
+kubectl --kubeconfig=<kubeconfig-file> get pod <pod-name> -n <namespace> -o yaml
+kubectl --kubeconfig=<kubeconfig-file> describe pod <pod-name> -n <namespace>
+kubectl --kubeconfig=<kubeconfig-file> get events -n <namespace> --field-selector involvedObject.name=<pod-name> --sort-by=.lastTimestamp
+kubectl --kubeconfig=<kubeconfig-file> logs <pod-name> -n <namespace> --all-containers --tail=50
+kubectl --kubeconfig=<kubeconfig-file> logs <pod-name> -n <namespace> --all-containers --previous --tail=50
+kubectl --kubeconfig=<kubeconfig-file> top pod <pod-name> -n <namespace>
 ```
 
-Expected: Returns sanitized previous container log excerpt (may be empty if Pod has not restarted).
+Expected:
 
-### 3.5 Get Pod Metrics
+- Pod status, Events, and logs can be inspected or produce explicit read/RBAC gaps.
+- Previous logs may be empty for Pods that have not restarted; that is not a failure.
+- `kubectl top` may fail if metrics-server is missing; record it as a metric gap.
+- No mutating kubectl command is run.
+
+## Step 6: Selector Or Workload Baseline
+
+If Pod name is unknown, derive the selector from a workload and inspect selected Pods:
 
 ```bash
-python3 scripts/huawei-cloud.py huawei_get_cce_pod_metrics --region=cn-north-4 --cluster_id=<cluster-id> --namespace=default --pod_name=<pod-name>
+kubectl --kubeconfig=<kubeconfig-file> get deployment <workload-name> -n <namespace> -o yaml
+kubectl --kubeconfig=<kubeconfig-file> get pods -n <namespace> --selector='<selector>' -o wide
+kubectl --kubeconfig=<kubeconfig-file> get pods -n <namespace> --selector='<selector>' -o yaml
 ```
 
-Expected: Returns Pod CPU/memory usage metrics.
+Adjust `deployment` to `statefulset` or `daemonset` when needed.
 
-## Level 4: Diagnosis Workflow Verification
+Expected:
 
-### 4.1 One-Call Diagnosis (Pod Name)
+- The diagnosis can explain whether matching Pods are healthy, abnormal, missing, or blocked.
+- Events are filtered to relevant Pods/owners before being cited.
+
+## Step 7: Repository Residual Check
+
+From the skill package directory, run:
 
 ```bash
-python3 scripts/huawei-cloud.py huawei_pod_failure_diagnose --region=cn-north-4 --cluster_id=<cluster-id> --namespace=default --pod_name=<pod-name> --include_logs=true --include_metrics=false
+rg -n "scripts/huawei-cloud.py|skill action=exec|huawei_pod_|Python SDK dispatcher|Huawei Cloud Python SDK|huaweicloudsdk|CreateKubernetesClusterCertRequest|BasicCredentials|Signer\\(" . --glob "!*.md"
 ```
 
-Expected: Returns diagnosis JSON with `summary.diagnosis_status`, `pods[].issues`, `top_causes`, and `recommended_actions`.
+Expected:
 
-### 4.2 One-Call Diagnosis (Workload Name)
+- No matches for SDK dispatcher entrypoints, old tool mappings, scripts, or Huawei SDK imports in executable/non-document files.
+- Markdown files may mention old SDK terms only as explicit prohibitions or residual-check instructions.
+- Matches for plain `hcloud CCE CreateKubernetesClusterCert` are allowed.
 
-```bash
-python3 scripts/huawei-cloud.py huawei_pod_failure_diagnose --region=cn-north-4 --cluster_id=<cluster-id> --namespace=default --workload_name=<deployment-name> --include_logs=true --include_metrics=false
-```
+## Step 8: Log Review
 
-Expected: Returns diagnosis for all Pods of the specified workload.
+Review terminal output or saved verification logs:
 
-### 4.3 Verify Output Schema
+- Commands used `hcloud CCE ...` and `kubectl --kubeconfig=...`.
+- No command begins with `python`, `python3`, `skill action=exec`, or `scripts/huawei-cloud.py`.
+- Secrets are absent or redacted.
+- Kubeconfig file path is known, secured, and cleaned up if temporary.
 
-Check that the diagnosis output conforms to the schema defined in [Output Schema](output-schema.md):
+## Pass Criteria
 
-- `success` field present (boolean)
-- `summary.diagnosis_status` present (string)
-- `top_causes` array present (at least one entry for abnormal status)
-- `recommended_actions` array present
-- `next_skill` field present (string or null)
+The skill passes verification when:
 
-### 4.4 Verify No Mutation
-
-After running diagnosis commands, verify that no cluster state changes occurred:
-
-```bash
-python3 scripts/huawei-cloud.py huawei_get_cce_pods --region=cn-north-4 --cluster_id=<cluster-id> --namespace=default
-```
-
-Expected: Pod count and status unchanged from before diagnosis.
-
-## Verification Checklist
-
-| #  | Check Item                | Command                                             | Status |
-| -- | ------------------------- | --------------------------------------------------- | ------ |
-| 1  | Python 3 >= 3.8           | `python3 --version`                                 | ☐      |
-| 2  | Script available          | `ls scripts/huawei-cloud.py`                        | ☐      |
-| 3  | Credentials configured    | Environment variables set                           | ☐      |
-| 4  | API connectivity          | `python3 scripts/huawei-cloud.py huawei_get_cce_pods ...` | ☐ |
-| 5  | List Pods                 | `python3 scripts/huawei-cloud.py huawei_get_cce_pods ...` | ☐ |
-| 6  | Get Events                | `python3 scripts/huawei-cloud.py huawei_get_cce_events ...` | ☐ |
-| 7  | Get current logs          | `python3 scripts/huawei-cloud.py huawei_get_pod_logs ...` | ☐ |
-| 8  | Get previous logs         | `python3 scripts/huawei-cloud.py huawei_get_pod_logs ... --previous=true` | ☐ |
-| 9  | Get Pod metrics           | `python3 scripts/huawei-cloud.py huawei_get_cce_pod_metrics ...` | ☐ |
-| 10 | One-call diagnosis (Pod)  | `python3 scripts/huawei-cloud.py huawei_pod_failure_diagnose ... --pod_name=<name>` | ☐ |
-| 11 | One-call diagnosis (Workload) | `python3 scripts/huawei-cloud.py huawei_pod_failure_diagnose ... --workload_name=<name>` | ☐ |
-| 12 | Output schema valid       | Check JSON fields match output-schema.md            | ☐      |
-| 13 | No mutation occurred      | Pod count/status unchanged                          | ☐      |
+1. `hcloud` can list/show the target CCE cluster.
+2. `CreateKubernetesClusterCert` can produce kubeconfig.
+3. `kubectl` can read the target Pod/namespace or reports explicit RBAC gaps.
+4. The package contains no SDK dispatcher scripts, skill profile tool mapping, or `huawei_pod_*` actions.
+5. The diagnosis workflow remains read-only.

@@ -1,166 +1,238 @@
-# Common Pitfalls & Solutions
+# Common Pitfalls And Solutions
 
-This document contains detailed troubleshooting guides for common issues encountered when using the CCE Pod Failure Diagnoser skill.
+This document lists common traps when diagnosing CCE Pod failures with `hcloud CCE` and `kubectl`.
 
 ## Pitfall 1: Missing Targeting Parameter
 
-**Symptom**: Diagnosis returns `no_matching_abnormal_pods` or empty Pod list
+**Symptom**: The diagnosis cannot identify a target Pod or returns an overly broad namespace scan.
 
-**Root Cause**: No targeting parameter (`pod_name`, `workload_name`, or `labels`) was provided, or the parameters do not match any Pods in the namespace
+**Root Cause**: No `pod_name`, `workload_name`, or `selector` was provided.
 
-**Solution**: Always provide at least one targeting parameter:
+**Solution**: Always narrow the target:
 
 ```bash
 # With pod_name
-python3 scripts/huawei-cloud.py huawei_pod_failure_diagnose --region=cn-north-4 --cluster_id=<cluster-id> --namespace=default --pod_name=my-app-xxx
+kubectl --kubeconfig=<kubeconfig-file> get pod <pod-name> -n <namespace> -o wide
 
-# With workload_name
-python3 scripts/huawei-cloud.py huawei_pod_failure_diagnose --region=cn-north-4 --cluster_id=<cluster-id> --namespace=default --workload_name=my-app
+# With workload_name, first derive the selector
+kubectl --kubeconfig=<kubeconfig-file> get deployment <workload-name> -n <namespace> -o yaml
+kubectl --kubeconfig=<kubeconfig-file> get pods -n <namespace> --selector='<selector>' -o wide
 
-# With labels
-python3 scripts/huawei-cloud.py huawei_pod_failure_diagnose --region=cn-north-4 --cluster_id=<cluster-id> --namespace=default --labels="app=my-app"
+# With a known label selector
+kubectl --kubeconfig=<kubeconfig-file> get pods -n <namespace> --selector='app=my-app' -o wide
 ```
 
 ## Pitfall 2: Wrong Namespace
 
-**Symptom**: No Pods found or diagnosis shows `no_matching_abnormal_pods`
+**Symptom**: No Pods found, or the user-provided Pod name cannot be found.
 
-**Root Cause**: The specified namespace does not contain the target Pods, or the namespace name is incorrect
+**Root Cause**: The target Pod is in a different namespace.
 
-**Solution**: Verify namespace with Pod list first:
-
-```bash
-python3 scripts/huawei-cloud.py huawei_get_cce_pods --region=cn-north-4 --cluster_id=<cluster-id> --namespace=default
-```
-
-Check all namespaces if unsure:
+**Solution**: Verify namespaces and scan by name carefully:
 
 ```bash
-python3 scripts/huawei-cloud.py huawei_get_cce_pods --region=cn-north-4 --cluster_id=<cluster-id> --namespace=<correct-namespace>
+kubectl --kubeconfig=<kubeconfig-file> get ns
+kubectl --kubeconfig=<kubeconfig-file> get pods -n <namespace> -o wide
+kubectl --kubeconfig=<kubeconfig-file> get pods -A | grep <pod-name-fragment>
 ```
 
-## Pitfall 3: ImagePullBackOff — Requesting Container Logs
+On Windows PowerShell, use:
 
-**Symptom**: Container logs return empty, error, or "container not found"
+```powershell
+kubectl --kubeconfig=<kubeconfig-file> get pods -A | Select-String <pod-name-fragment>
+```
 
-**Root Cause**: ImagePullBackOff means the container image has not been pulled; no container exists to produce logs
+## Pitfall 3: ImagePullBackOff With Log Requests
 
-**Solution**: Use Events instead of logs for ImagePullBackOff:
+**Symptom**: Logs are empty, `kubectl logs` reports that the container is waiting, or previous logs report that no previous terminated container exists.
+
+**Root Cause**: `ImagePullBackOff` means the image was not pulled, so no container exists to produce logs.
+
+**Solution**: Use Events as primary evidence:
 
 ```bash
-python3 scripts/huawei-cloud.py huawei_get_cce_events --region=cn-north-4 --cluster_id=<cluster-id> --namespace=default
+kubectl --kubeconfig=<kubeconfig-file> describe pod <pod-name> -n <namespace>
+kubectl --kubeconfig=<kubeconfig-file> get events -n <namespace> --field-selector involvedObject.name=<pod-name> --sort-by=.lastTimestamp
 ```
 
-Focus on events with reason `Failed`, `BackOff`, or `Pulling` related to the image.
+Focus on image name, tag, pull secret, registry, DNS, timeout, unauthorized, or repository-not-found messages.
 
-## Pitfall 4: OOMKilled — Not Checking Previous Logs
+Expected log errors for this case include:
 
-**Symptom**: Current logs show only application startup output, no crash evidence
+- `container "<name>" in pod "<pod>" is waiting to start: trying and failing to pull image`
+- `previous terminated container "<name>" in pod "<pod>" not found`
 
-**Root Cause**: After OOMKilled, the container restarts and current logs show the new startup attempt; the crash evidence is in the previous container logs
+Treat these as confirmation that the container never started; do not spend time retrying logs.
 
-**Solution**: Always request `previous=true` logs for OOMKilled:
+The final report should include a recommendation block, not only the Event text. At minimum, state:
+
+- Whether the image is a short name or a fully qualified registry path.
+- How the short name resolves. Example: `azxsdc:latest` resolves as `docker.io/library/azxsdc:latest`.
+- Whether the Event points more strongly to a missing repo/tag, auth/pull-secret problem, DNS/network problem, mirror/proxy error, or rate limit.
+- Which concrete field should be fixed first, usually the Deployment image string or imagePullSecret.
+- A safe target format, such as `swr.<region>.myhuaweicloud.com/<namespace>/<repo>:<tag>`.
+
+## Pitfall 4: OOMKilled Without Previous Logs
+
+**Symptom**: Current logs only show a fresh startup and miss the crash evidence.
+
+**Root Cause**: After OOMKilled or a crash, the restarted container's current logs may not contain the failure.
+
+**Solution**: Read previous logs first, then correlate memory limits:
 
 ```bash
-python3 scripts/huawei-cloud.py huawei_get_pod_logs --region=cn-north-4 --cluster_id=<cluster-id> --namespace=default --pod_name=<pod-name> --container=<container> --previous=true
+kubectl --kubeconfig=<kubeconfig-file> logs <pod-name> -n <namespace> --all-containers --previous --tail=200
+kubectl --kubeconfig=<kubeconfig-file> describe pod <pod-name> -n <namespace>
+kubectl --kubeconfig=<kubeconfig-file> top pod <pod-name> -n <namespace> --containers
 ```
 
-## Pitfall 5: Pending — Ignoring FailedScheduling Events
+If metrics are unavailable, report the gap instead of inferring a memory trend.
 
-**Symptom**: Diagnosis misses the scheduling root cause; Pod shown as Pending without clear reason
+## Pitfall 5: Pending Without FailedScheduling Events
 
-**Root Cause**: FailedScheduling events contain the critical scheduler message explaining why no node was selected
+**Symptom**: Pod is Pending but the diagnosis does not explain why.
 
-**Solution**: Focus on Events with FailedScheduling, FailedMount, FailedAttachVolume reasons:
+**Root Cause**: The scheduler Event is the main source of truth for Pending Pods.
+
+**Solution**:
 
 ```bash
-python3 scripts/huawei-cloud.py huawei_get_cce_events --region=cn-north-4 --cluster_id=<cluster-id> --namespace=default
+kubectl --kubeconfig=<kubeconfig-file> describe pod <pod-name> -n <namespace>
+kubectl --kubeconfig=<kubeconfig-file> get events -n <namespace> --field-selector involvedObject.name=<pod-name> --sort-by=.lastTimestamp
+kubectl --kubeconfig=<kubeconfig-file> get nodes -o wide
 ```
 
-If FailedMount/FailedAttachVolume is found, escalate to storage diagnosis. If node resource/affinity issues are found, consider `huawei-cloud-cce-node-failure-diagnoser`.
-
-## Pitfall 6: Evicted — Missing Node Pressure Evidence
-
-**Symptom**: Eviction cause unclear; diagnosis lacks node-level context
-
-**Root Cause**: Eviction is triggered by node pressure conditions (MemoryPressure, DiskPressure); Pod-level data alone is insufficient
-
-**Solution**: Check node conditions and Pod metrics:
+For `FailedMount` or `FailedAttachVolume`, inspect PVC/PV and consider handing off to storage diagnosis:
 
 ```bash
-python3 scripts/huawei-cloud.py huawei_get_cce_pod_metrics --region=cn-north-4 --cluster_id=<cluster-id> --namespace=default --pod_name=<pod-name>
-
-python3 scripts/huawei-cloud.py huawei_get_cce_pod_metrics_topN --region=cn-north-4 --cluster_id=<cluster-id> --namespace=default --metric_type=memory --top_n=10
+kubectl --kubeconfig=<kubeconfig-file> get pvc -n <namespace>
+kubectl --kubeconfig=<kubeconfig-file> describe pvc <pvc-name> -n <namespace>
 ```
 
-If node-level pressure is confirmed, escalate to `huawei-cloud-cce-node-failure-diagnoser`.
+## Pitfall 6: Evicted Without Node Pressure Evidence
 
-## Pitfall 7: Cluster ID Incorrect
+**Symptom**: The Pod says `Evicted`, but the cause remains unclear.
 
-**Symptom**: API returns 404, empty results, or cluster not found
+**Root Cause**: Eviction is normally explained by node pressure or kubelet resource thresholds.
 
-**Root Cause**: The `cluster_id` parameter does not match an existing CCE cluster
-
-**Solution**: Verify cluster ID from the cluster list:
+**Solution**:
 
 ```bash
-python3 scripts/huawei-cloud.py huawei_get_cce_pods --region=cn-north-4 --cluster_id=<cluster-id> --namespace=default
+kubectl --kubeconfig=<kubeconfig-file> describe pod <pod-name> -n <namespace>
+kubectl --kubeconfig=<kubeconfig-file> describe node <node-name>
+kubectl --kubeconfig=<kubeconfig-file> top node
 ```
 
-If the cluster_id is wrong, find the correct ID from the CCE cluster management console or API.
+If node-level pressure is confirmed, hand off to `huawei-cloud-cce-node-failure-diagnoser`.
 
-## Pitfall 8: Credential Permission Denied
+## Pitfall 7: Cluster Endpoint Not Reachable
 
-**Symptom**: API returns 403 Forbidden
+**Symptom**: `hcloud` can create kubeconfig, but `kubectl` times out or cannot connect to the API server.
 
-**Root Cause**: The IAM user lacks required CCE Pod/Event/Log permissions
+**Root Cause**: The kubeconfig may point to a private API endpoint while the current machine is outside the VPC.
 
-**Solution**: Verify IAM permissions for the required actions (see IAM Permission Requirements in SKILL.md). Create custom IAM policies with:
+**Solution**:
 
-- `cce:pod:get`, `cce:pod:list`
-- `cce:event:list`
-- `cce:pod:log`
-- `cce:pod:metrics`
+```bash
+hcloud CCE ShowClusterEndpoints --cluster_id=<cluster-id> --project_id=<project-id> --cli-region=<region> --cli-output=json
+```
 
-Guide the user to create policies in the IAM console and grant authorization.
+If only a private endpoint is available, run `kubectl` from a network with VPC reachability. If a public endpoint exists but kubeconfig still points to a private address, use a temporary kubeconfig copy and replace only `clusters[].cluster.server`.
+
+## Pitfall 8: hcloud Timeout On Recently Awakened Cluster
+
+**Symptom**: `CreateKubernetesClusterCert` times out after a cluster wakeup or EIP change.
+
+**Root Cause**: The cluster API or CCE control plane is still becoming reachable, or default KooCLI timeouts are too short.
+
+**Solution**:
+
+```bash
+hcloud CCE CreateKubernetesClusterCert \
+  --cluster_id=<cluster-id> \
+  --project_id=<project-id> \
+  --duration=1 \
+  --cli-region=<region> \
+  --cli-output=json \
+  --cli-connect-timeout=20 \
+  --cli-read-timeout=90 \
+  --cli-retry-count=2 > <kubeconfig-file>
+```
 
 ## Pitfall 9: Metrics API Unavailable
 
-**Symptom**: Pod metrics query fails or returns empty
+**Symptom**: `kubectl top` fails or returns no metrics.
 
-**Root Cause**: The metrics-server addon is not installed in the CCE cluster
+**Root Cause**: metrics-server is not installed, not ready, or RBAC denies metrics access.
 
-**Solution**: Ensure metrics-server addon is installed:
+**Solution**:
 
 ```bash
-# Check addon availability
-hcloud CCE ShowAddonInstance --cluster_id=<cluster-id> --addon_id=metrics-server
+kubectl --kubeconfig=<kubeconfig-file> top pod -n <namespace>
+kubectl --kubeconfig=<kubeconfig-file> get apiservices | grep metrics
+kubectl --kubeconfig=<kubeconfig-file> get pods -n kube-system | grep metrics
 ```
 
-If not installed, install via CCE console or hcloud CLI.
+On PowerShell:
+
+```powershell
+kubectl --kubeconfig=<kubeconfig-file> get apiservices | Select-String metrics
+kubectl --kubeconfig=<kubeconfig-file> get pods -n kube-system | Select-String metrics
+```
+
+If metrics remain unavailable, mark metrics as a gap and continue with Events/logs/status.
+
+Do not switch to Huawei Cloud SDK, AOM SDK, curl IAM, or hand-written signed API calls inside this skill just to fetch metrics. This skill's cloud access path is `hcloud CCE` plus `kubectl`.
 
 ## Pitfall 10: Frequent Restart False Positive
 
-**Symptom**: Diagnosis reports FrequentRestart for a Pod with normal restart behavior
+**Symptom**: A Pod is reported as a restart storm even though restarts are old or expected.
 
-**Root Cause**: The restart threshold is too low for the application context; some applications naturally restart occasionally
+**Root Cause**: `restartCount` is cumulative for the container lifetime and does not show time distribution by itself.
 
-**Solution**: Consider context-specific thresholds:
-- Normal: 0-2 restarts in 10 minutes
-- Suspicious: 3-5 restarts in 10 minutes
-- Concerning: >5 restarts in 10 minutes
+**Solution**:
 
-Verify with `restart_count` and last termination reason before flagging as FrequentRestart.
+- Compare restart count with `lastState.terminated.finishedAt` and recent Events.
+- Treat 0-2 historical restarts as low signal unless there are recent BackOff Events.
+- Use previous logs only when the container actually has a previous terminated instance.
 
-## Error Code Reference
+## Pitfall 11: Tool Exists But Is Not Executable On This OS
 
-| Error Code          | HTTP Status | Description                  | Recommended Action                    |
-| ------------------- | ----------- | ---------------------------- | ------------------------------------- |
-| `CCE.001`           | 400         | Invalid parameter            | Check parameter format and rules      |
-| `CCE.002`           | 404         | Cluster not found            | Verify cluster_id                     |
-| `CCE.003`           | 400         | Cluster status unavailable   | Check cluster status                  |
-| `CCE.004`           | 403         | Permission denied            | Check IAM policies                    |
-| `CCE.006`           | 401         | Authentication failed        | Check AK/SK credentials               |
-| `CCE.007`           | 429         | Too many requests            | Add delay, reduce request rate        |
-| `MetricsNotAvailable` | N/A       | Metrics API not installed    | Install metrics-server addon          |
-| `NoMatchingPods`    | 200         | No Pods match criteria       | Adjust targeting parameters           |
+**Symptom**: A local `kubectl.exe` or `hcloud.exe` path exists, but running it fails with a platform error.
+
+**Root Cause**: The binary does not match the current OS or architecture.
+
+**Solution**: Validate the exact binary before using it:
+
+```bash
+hcloud version
+kubectl version --client
+```
+
+If using explicit local paths, run the version command through that exact path. If it fails, locate or download the platform-native binary. Do not continue with an unvalidated binary.
+
+## Pitfall 12: KooCLI Help Syntax
+
+**Symptom**: `hcloud CCE ListClusters help` returns a parameter format error.
+
+**Root Cause**: KooCLI expects help as an option.
+
+**Solution**:
+
+```bash
+hcloud CCE ListClusters --help
+```
+
+## Error And Gap Reference
+
+| Signal | Likely Meaning | Recommended Action |
+| --- | --- | --- |
+| `Forbidden` | Kubernetes RBAC denies read | Report missing verb/resource and continue with partial evidence |
+| `NotFound` | Wrong namespace/name or deleted Pod | Re-check namespace and owner workload |
+| `Unable to connect to the server` | Endpoint/network issue | Check `ShowClusterEndpoints` and current network reachability |
+| `ImagePullBackOff` | Image pull/auth/DNS/tag issue | Use Events; do not rely on logs |
+| `CrashLoopBackOff` | Container exits repeatedly | Use previous logs, exit code, probe Events |
+| `OOMKilled` | Container exceeded memory limit or node pressure | Check limits, previous logs, metrics if available |
+| `FailedScheduling` | Scheduler could not place Pod | Check Event message, nodes, taints, affinity, quota |
+| `FailedMount` | Storage attach/mount issue | Check PVC/PV and storage skill handoff |
+| `Metrics API not available` | metrics-server absent or blocked | Record metric gap and avoid trend claims |

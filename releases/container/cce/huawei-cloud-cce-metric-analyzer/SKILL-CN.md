@@ -29,6 +29,29 @@ Use this skill when the user asks to:
 
 This skill is read-only. It does not modify resources or configurations.
 
+## 风险等级
+
+当前技能全部工具都是只读查询或本地分析，不创建、修改、删除、重启、扩缩容任何华为云或 Kubernetes 资源。
+
+| 等级 | 含义 | 执行建议 |
+|------|------|---------|
+| R3 | 无风险只读查询或本地分析 | 可自动执行 |
+| R2 | 低风险变更，例如创建监控配置，不删除资源、不扩容、不直接增加费用 | 当前工具未使用 |
+| R1 | 有风险操作，例如类似重启影响、停用保护、可能增加费用或降低可观测性的变更 | 当前工具未使用 |
+| R0 | 致命级别操作，例如删除集群、应用，或删除影响面较大的监控保护 | 当前工具未使用 |
+
+| 工具 | 操作类型 | 风险等级 | 说明 |
+|------|---------|---------|------|
+| `huawei_get_cce_pod_metrics_topN` | 查询 | R3 | 从 AOM Prometheus 读取 Pod CPU/内存/磁盘 TopN 指标 |
+| `huawei_get_cce_pod_metrics` | 查询 | R3 | 读取单个 Pod CPU/内存/磁盘时序指标 |
+| `huawei_get_cce_node_metrics_topN` | 查询 | R3 | 从 AOM Prometheus 读取 Node CPU/内存/磁盘 TopN 指标 |
+| `huawei_get_cce_node_metrics` | 查询 | R3 | 读取单个 Node CPU/内存/磁盘时序指标 |
+| `huawei_get_ecs_metrics` | 查询 | R3 | 通过 hcloud/CES 读取 ECS 监控指标 |
+| `huawei_get_elb_metrics` | 查询 | R3 | 通过 hcloud/CES 读取 ELB 监控指标 |
+| `huawei_get_eip_metrics` | 查询 | R3 | 通过 hcloud/CES 读取 EIP 监控指标 |
+| `huawei_get_nat_gateway_metrics` | 查询 | R3 | 通过 hcloud/CES 读取 NAT Gateway 监控指标 |
+| `huawei_cce_cluster_monitoring_aggregation` | 查询 + 本地分析 | R3 | 汇总 Pod/Node/云资源监控并在本地做异常分类 |
+
 ## Tools
 
 ### CCE Metrics
