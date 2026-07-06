@@ -60,6 +60,16 @@ def _env_credentials() -> tuple:
     )
 
 
+def get_security_token(security_token: Optional[str] = None) -> Optional[str]:
+    """Return an optional temporary security token for signed HTTP requests."""
+    return (
+        security_token
+        or os.environ.get("HUAWEI_SECURITY_TOKEN")
+        or os.environ.get("HUAWEICLOUD_SDK_SECURITY_TOKEN")
+        or os.environ.get("HW_SECURITY_TOKEN")
+    )
+
+
 def get_credentials(ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None) -> tuple:
     """Return optional hcloud CLI credentials.
 
