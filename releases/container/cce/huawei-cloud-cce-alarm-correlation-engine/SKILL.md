@@ -23,39 +23,12 @@ This skill correlates Huawei Cloud AOM active and historical alarms for CCE, tra
 
 This skill has **both read-only tools** (alarm query, analysis, inspection, rule query) and **mutation tools** (alarm rule create/update/delete, action rule delete). All mutation operations require a two-step confirmation workflow with `confirm=true`.
 
-### Related Skills
-
-| Skill | Purpose |
-|-------|---------|
-| `huawei-cloud-cce-pod-failure-diagnoser` | Pod-level failure diagnosis (CrashLoopBackOff, ImagePullBackOff, etc.) |
-| `huawei-cloud-cce-node-failure-diagnoser` | Node failure diagnosis (NotReady, resource pressure, NPD events) |
-| `huawei-cloud-cce-network-failure-diagnoser` | Network failure diagnosis (Ingress 502/504, ELB anomalies) |
-| `huawei-cloud-cce-auto-remediation-runner` | Execute remediation actions (scale, reboot, drain) |
-| `huawei-cloud-cce-root-cause-analyzer` | Multi-category alarm root cause analysis |
-| `huawei-cloud-cce-observability-context-builder` | Observability context enrichment |
-
 ### Capabilities
 
-1. Query active + history alarms merged and deduplicated (`huawei_list_aom_alarms`)
-2. Query current active alarms only (`huawei_list_aom_current_alarms`)
-3. Analyze alarms: deduplication, severity grouping, burst/steady identification (`huawei_analyze_aom_alarms`)
-4. Query, create, update, delete, enable, disable AOM alarm rules (mutation requires `confirm=true`)
-5. Create AOM event alarm rules referencing CCE event list (`huawei_create_aom_event_alarm_rule`)
-6. Resolve the target cluster AOM Prometheus instance from CCE addon config (`huawei_resolve_cce_aom_prom_instance`)
-7. Batch configure recommended CCE AOM alarm rules from the cloud-side AOM CCE alarm template (`huawei_configure_cce_aom_alarm_rules`)
-8. Batch clean up CCE AOM alarm rules that match the same cloud-side CCE alarm template (`huawei_cleanup_cce_aom_alarm_rules`)
-9. Query, create, and delete AOM action/notification rules (mutation requires `confirm=true`)
-10. Query AOM mute rules (`huawei_list_aom_mute_rules`)
-11. CCE cluster alarm inspection with risk summary (`huawei_aom_alarm_inspection`)
-
-### Typical Use Cases
-
-- Query all alarms (active + history) for a CCE cluster and group by severity
-- Reduce alarm storm noise by deduplicating and classifying burst vs. steady alarms
-- Inspect a CCE cluster for alarm health risks
-- Create, update, or delete AOM alarm rules with preview + confirmation workflow
-- Check whether alarms are suppressed by action rules or mute rules causing notification gaps
-- Create event alarm rules for CCE workload, node, network, storage, or autoscaling events
+- Query active/current/history AOM alarms and analyze alarm storms.
+- Inspect CCE alarm health and hand off diagnosis to related CCE skills.
+- Query and manage AOM alarm rules, notification action rules, and mute-rule visibility.
+- Batch create or clean CCE recommended alarm rules from the cloud-side AOM `CCE模板`.
 
 ---
 
@@ -200,6 +173,27 @@ python3 scripts/huawei-cloud.py huawei_list_aom_current_alarms \
 python3 scripts/huawei-cloud.py huawei_analyze_aom_alarms \
   region=cn-north-4 cluster_id=xxx
 ```
+
+## 核心命令
+
+Use the following commands as the primary entry points for this skill. Run mutation commands in preview mode first, then add `confirm=true` only after the user explicitly confirms the operation.
+
+| Command | Main Operation | Risk | Required Params |
+|---------|----------------|------|-----------------|
+| `huawei_list_aom_alarms` | Query active + history alarms and merge/deduplicate results | R3 | `region` |
+| `huawei_list_aom_current_alarms` | Query current active alarms only | R3 | `region` |
+| `huawei_analyze_aom_alarms` | Analyze alarm grouping, burst alarms, attention alarms, and chronic alarms | R3 | `region` |
+| `huawei_aom_alarm_inspection` | Inspect CCE alarm health and output risk summary | R3 | `region`, `cluster_id` |
+| `huawei_list_aom_alarm_rules` | Query AOM alarm rules; supports filtering by `cluster_id` only, not `cluster_name` | R3 | `region` |
+| `huawei_list_aom_action_rules` | Query AOM notification/action rules before choosing `bind_notification_rule_id` | R3 | `region` |
+| `huawei_create_aom_notification_action_rule` | Create an AOM notification action rule from a user-provided SMN topic | R2 | `region`, `rule_name`, `notification_topic_urn`, `notification_topic_name` |
+| `huawei_configure_cce_aom_alarm_rules` | Batch create CCE recommended alarm rules from AOM `CCE模板`; requires explicit `bind_notification_rule_id` | R2 | `region`, `cluster_id`, `bind_notification_rule_id` |
+| `huawei_cleanup_cce_aom_alarm_rules` | Batch delete CCE alarm rules matching AOM `CCE模板` | R0 | `region`, `cluster_id` |
+
+Key requirements:
+- Do not choose `bind_notification_rule_id` automatically. If the user has not provided it, call `huawei_list_aom_action_rules`, show the candidates, and wait for explicit user confirmation.
+- `huawei_list_aom_alarm_rules` only supports `cluster_id` for cluster filtering. Do not use `cluster_name`.
+- R2/R1/R0 mutation commands must be previewed first and require `confirm=true` for execution.
 
 ### Alarm Rule Management (Mutation Requires `confirm=true`)
 
@@ -475,17 +469,6 @@ See `references/output-schema.md` for the full JSON response schema.
 | `references/cce-prometheus-metric-alarms.md` | Prometheus metric alarm reference for creating metric alarm rules |
 | [Huawei Cloud KooCLI Documentation](https://support.huaweicloud.com/intl/en-us/productdesc-hcli/hcli_01.html) | hcloud/KooCLI reference |
 | [Huawei Cloud API Explorer](https://support.huaweicloud.com/apiexplorer/index.html) | API interactive explorer |
-
----
-
-## Notes
-
-1. This skill has **both read-only and mutation tools** — mutation operations (create, update, delete, enable, disable alarm rules; delete action rules) require `confirm=true` two-step confirmation
-2. Never create, update, or delete action rules or mute rules — only query and delete action rules with confirmation
-3. If remediation actions are needed (scale, reboot, drain), output recommendations only and hand off to `huawei-cloud-cce-auto-remediation-runner`
-4. Never expose or log AK/SK or environment variable values
-5. All actions are executed via `python3 scripts/huawei-cloud.py <action>`; do not invoke hcloud or direct APIs outside the dispatcher
-6. Do not interpret absence of active alarms as "no problem" — always verify with history alarms
 
 ---
 
