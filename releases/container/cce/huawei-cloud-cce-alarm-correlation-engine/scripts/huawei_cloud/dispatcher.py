@@ -24,10 +24,13 @@ def _to_int(value: str | None, default: int) -> int:
         return default
 
 
-def _parse_json_param(value: str | None) -> Any:
+def _parse_json_param(value: str | None, key: str = "json") -> Any:
     if not value:
         return None
-    return json.loads(value)
+    try:
+        return json.loads(value)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"{key} must be valid JSON: {exc.msg}") from exc
 
 
 def _to_bool(value: str | None, default: bool) -> bool:
@@ -37,7 +40,7 @@ def _to_bool(value: str | None, default: bool) -> bool:
 
 
 def _alarm_rule_fields(params: Dict[str, str], json_key: str) -> Dict[str, Any]:
-    fields = _parse_json_param(params.get(json_key)) or {}
+    fields = _parse_json_param(params.get(json_key), json_key) or {}
     for key in (
         "action_enabled",
         "alarm_actions",
@@ -62,7 +65,7 @@ def _alarm_rule_fields(params: Dict[str, str], json_key: str) -> Dict[str, Any]:
 
         value: Any = params[key]
         if key in {"alarm_actions", "dimensions", "insufficient_data_actions", "ok_actions"}:
-            value = _parse_json_param(value)
+            value = _parse_json_param(value, key)
         elif key in {"action_enabled", "is_turn_on"}:
             value = value.lower() == "true"
         elif key in {"alarm_level", "evaluation_periods", "period"}:
@@ -141,10 +144,24 @@ def _configure_cce_aom_alarm_rules(params: Dict[str, str]) -> Dict[str, Any]:
         skip_existing=_to_bool(params.get("skip_existing"), True),
         prom_instance_id=params.get("prom_instance_id"),
         enterprise_project_id=params.get("enterprise_project_id"),
+        notification_topic_urn=params.get("notification_topic_urn"),
+        notification_topic_name=params.get("notification_topic_name"),
+        notification_topic_display_name=params.get("notification_topic_display_name"),
+        notification_user_name=params.get("notification_user_name"),
         confirm=params.get("confirm", "").lower() == "true",
         ak=params.get("ak"),
         sk=params.get("sk"),
         project_id=params.get("project_id"),
+    )
+
+
+def _resolve_cce_aom_prom_instance(params: Dict[str, str]) -> Dict[str, Any]:
+    return aom.resolve_cce_aom_prom_instance(
+        params["region"],
+        params["cluster_id"],
+        params.get("ak"),
+        params.get("sk"),
+        params.get("project_id"),
     )
 
 
@@ -312,6 +329,7 @@ ACTION_SPECS: Dict[str, tuple[tuple[str, ...], Handler]] = {
     ),
     "huawei_create_aom_event_alarm_rule": (("region", "cluster_id", "rule_name", "event_name"), _create_aom_event_alarm_rule),
     "huawei_configure_cce_aom_alarm_rules": (("region", "cluster_id"), _configure_cce_aom_alarm_rules),
+    "huawei_resolve_cce_aom_prom_instance": (("region", "cluster_id"), _resolve_cce_aom_prom_instance),
     "huawei_update_aom_alarm_rule": (("region", "rule_name"), _update_aom_alarm_rule),
     "huawei_delete_aom_alarm_rule": (("region", "rule_name"), _delete_aom_alarm_rule),
     "huawei_disable_aom_alarm_rule": (("region", "rule_id"), _disable_aom_alarm_rule),
@@ -335,4 +353,7 @@ def dispatch_action(action: str, params: Dict[str, str]) -> Dict[str, Any]:
     error = _require(params, *required)
     if error:
         return {"success": False, "error": error}
-    return handler(params)
+    try:
+        return handler(params)
+    except ValueError as exc:
+        return {"success": False, "error": str(exc), "error_type": type(exc).__name__}

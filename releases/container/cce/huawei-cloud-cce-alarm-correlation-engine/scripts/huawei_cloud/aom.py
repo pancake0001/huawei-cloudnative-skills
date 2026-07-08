@@ -12,6 +12,9 @@ from typing import Any, Dict, List, Optional
 from .common import extract_items, get_project_id_for_region, redact_command, run_hcloud, run_hcloud_json_input
 
 
+CLUSTER_ID_PLACEHOLDER = "__CCE_CLUSTER_ID__"
+
+
 EVENT_NAME_ALIASES = {
     "FailedScheduling": "调度失败##FailedScheduling",
     "FailedCreate": "创建失败##FailedCreate",
@@ -531,12 +534,203 @@ def _metric_alarm_payload(params: List[tuple[str, Any]], project_id: Optional[st
 
 def _replace_cluster_id(value: Any, old_cluster_id: Optional[str], new_cluster_id: str) -> Any:
     if isinstance(value, str):
+        value = value.replace(CLUSTER_ID_PLACEHOLDER, new_cluster_id)
         return value.replace(old_cluster_id, new_cluster_id) if old_cluster_id else value
     if isinstance(value, list):
         return [_replace_cluster_id(item, old_cluster_id, new_cluster_id) for item in value]
     if isinstance(value, dict):
         return {key: _replace_cluster_id(item, old_cluster_id, new_cluster_id) for key, item in value.items()}
     return value
+
+
+def _first_cluster_id(value: Any) -> Optional[str]:
+    if isinstance(value, str):
+        match = re.search(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", value)
+        return match.group(0) if match else None
+    if isinstance(value, list):
+        for item in value:
+            found = _first_cluster_id(item)
+            if found:
+                return found
+    if isinstance(value, dict):
+        for item in value.values():
+            found = _first_cluster_id(item)
+            if found:
+                return found
+    return None
+
+
+def resolve_cce_aom_prom_instance(
+    region: str,
+    cluster_id: str,
+    ak: Optional[str] = None,
+    sk: Optional[str] = None,
+    project_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Resolve the AOM Prometheus instance ID from the target cluster addon config."""
+    list_result = run_hcloud("CCE", "ListAddonInstances", region, [("cluster_id", cluster_id)], ak, sk, project_id)
+    if not list_result.get("success"):
+        return list_result
+
+    addon_id = None
+    for addon in extract_items(list_result.get("data"), "items"):
+        metadata = addon.get("metadata") or {}
+        if metadata.get("name") == "cie-collector":
+            addon_id = metadata.get("uid")
+            break
+    if not addon_id:
+        return {
+            "success": False,
+            "action": "resolve_cce_aom_prom_instance",
+            "cluster_id": cluster_id,
+            "error": "cie-collector addon not found in target cluster",
+        }
+
+    show_result = run_hcloud(
+        "CCE",
+        "ShowAddonInstance",
+        region,
+        [("id", addon_id), ("cluster_id", cluster_id)],
+        ak,
+        sk,
+        project_id,
+    )
+    if not show_result.get("success"):
+        return show_result
+
+    detail = show_result.get("data") or {}
+    detail_root = detail.get("addon_instance", detail) if isinstance(detail, dict) else {}
+    spec = detail_root.get("spec") or {}
+    candidates = []
+    custom = spec.get("custom")
+    if isinstance(custom, dict):
+        candidates.append(("hcloud:cie-collector.spec.custom", custom))
+    values = spec.get("values")
+    if isinstance(values, dict):
+        candidates.append(("hcloud:cie-collector.spec.values", values))
+        nested_custom = values.get("custom")
+        if isinstance(nested_custom, dict):
+            candidates.append(("hcloud:cie-collector.spec.values.custom", nested_custom))
+
+    for source, data in candidates:
+        prom_instance_id = data.get("aom_instance_id") or data.get("prom_instance_id") or data.get("aom_id")
+        if prom_instance_id:
+            return {
+                "success": True,
+                "action": "resolve_cce_aom_prom_instance",
+                "cluster_id": cluster_id,
+                "prom_instance_id": prom_instance_id,
+                "source": source,
+                "hcloud_command": [list_result.get("command"), show_result.get("command")],
+            }
+
+    return {
+        "success": False,
+        "action": "resolve_cce_aom_prom_instance",
+        "cluster_id": cluster_id,
+        "error": "AOM Prometheus instance ID not found in cie-collector addon config",
+        "hcloud_command": [list_result.get("command"), show_result.get("command")],
+    }
+
+
+def _resolve_auto_notification_rule_id(
+    region: str,
+    cluster_id: str,
+    ak: Optional[str],
+    sk: Optional[str],
+    project_id: Optional[str],
+) -> Optional[str]:
+    expected = f"auto-cluster-{cluster_id}"
+    result = list_aom_action_rules(region, ak, sk, project_id)
+    if not result.get("success"):
+        return None
+    for rule in result.get("rules", []):
+        if rule.get("rule_name") == expected:
+            return expected
+    return None
+
+
+def _create_auto_notification_action_rule(
+    region: str,
+    cluster_id: str,
+    notification_topic_urn: Optional[str],
+    notification_topic_name: Optional[str],
+    notification_topic_display_name: Optional[str],
+    notification_user_name: Optional[str],
+    ak: Optional[str],
+    sk: Optional[str],
+    project_id: Optional[str],
+) -> Dict[str, Any]:
+    expected = f"auto-cluster-{cluster_id}"
+    existing = list_aom_action_rules(region, ak, sk, project_id)
+    if not existing.get("success"):
+        return existing
+
+    for rule in existing.get("rules", []):
+        if rule.get("rule_name") == expected:
+            return {
+                "success": True,
+                "action": "create_auto_notification_action_rule",
+                "created": False,
+                "rule_name": expected,
+                "message": "Notification action rule already exists.",
+            }
+
+    if not notification_topic_urn or not notification_topic_name:
+        return {
+            "success": False,
+            "action": "create_auto_notification_action_rule",
+            "created": False,
+            "rule_name": expected,
+            "error": "notification_topic_urn and notification_topic_name are required to auto-create an AOM notification action rule.",
+        }
+
+    resolved_project_id = project_id or get_project_id_for_region(region, ak, sk)
+    if not resolved_project_id:
+        return {
+            "success": False,
+            "action": "create_auto_notification_action_rule",
+            "created": False,
+            "rule_name": expected,
+            "error": "Project ID not found. Please provide project_id parameter.",
+        }
+
+    topic = {
+        "name": notification_topic_name,
+        "push_policy": 0,
+        "topic_urn": notification_topic_urn,
+    }
+    if notification_topic_display_name:
+        topic["display_name"] = notification_topic_display_name
+
+    payload = {
+        "path": {"project_id": resolved_project_id},
+        "body": {
+            "desc": "Automatically generated by the container service",
+            "notification_template": "aom.built-in.template.zh",
+            "project_id": resolved_project_id,
+            "rule_name": expected,
+            "smn_topics": [topic],
+            "time_zone": "Asia/Shanghai",
+            "type": "1",
+            "user_name": notification_user_name or "hcloud",
+        },
+    }
+    result = run_hcloud_json_input("AOM", "AddActionRule", region, payload, ak, sk, resolved_project_id)
+    if not result.get("success"):
+        refreshed = list_aom_action_rules(region, ak, sk, resolved_project_id)
+        for rule in refreshed.get("rules", []):
+            if rule.get("rule_name") == expected:
+                result["success"] = True
+                result["verified_after_create"] = True
+                result["message"] = "AddActionRule did not return JSON, but the notification action rule exists after creation."
+                break
+    result.update({
+        "action": "create_auto_notification_action_rule",
+        "created": result.get("success", False),
+        "rule_name": expected,
+    })
+    return result
 
 
 def _find_template_rule(candidate: Dict[str, Any], template_rules: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
@@ -577,25 +771,25 @@ def _build_rule_from_template(
     prom_instance_id: Optional[str],
     enterprise_project_id: Optional[str],
     project_id: Optional[str],
+    action_id: str = "add-alarm-action",
 ) -> Dict[str, Any]:
-    old_cluster_id = None
-    raw_text = json.dumps(template_rule, ensure_ascii=False)
-    match = re.search(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", raw_text)
-    if match:
-        old_cluster_id = match.group(0)
-
-    body: Dict[str, Any] = copy.deepcopy(template_rule)
-    body.pop("alarm_rule_id", None)
-    body.pop("id", None)
+    old_cluster_id = _first_cluster_id(template_rule)
+    body: Dict[str, Any] = {}
+    for key in ("metric_alarm_spec", "event_alarm_spec"):
+        if key in template_rule:
+            body[key] = copy.deepcopy(template_rule[key])
     body.update({
         "alarm_rule_description": template_rule.get("alarm_rule_description") or candidate.get("description") or "Created by Codex hcloud skill.",
         "alarm_rule_enable": True,
         "alarm_rule_name": _normalize_alarm_rule_name(rule_name),
         "alarm_rule_type": template_rule.get("alarm_rule_type"),
-        "prom_instance_id": prom_instance_id or template_rule.get("prom_instance_id"),
         "alias": template_rule.get("alias") or candidate.get("display_name") or _normalize_alarm_rule_name(rule_name),
     })
+    effective_prom_instance_id = prom_instance_id
+    if effective_prom_instance_id:
+        body["prom_instance_id"] = effective_prom_instance_id
 
+    is_event_rule = body.get("alarm_rule_type") == "event"
     if bind_notification_rule_id:
         notifications = body.setdefault("alarm_notifications", {})
         notifications.update({
@@ -603,12 +797,24 @@ def _build_rule_from_template(
             "notification_enable": True,
             "route_group_enable": False,
             "bind_notification_rule_id": bind_notification_rule_id,
+            "notify_frequency": -1,
+            "notify_resolved": True,
+            "notify_triggered": True,
         })
+    elif not is_event_rule and "alarm_notifications" not in body:
+        body["alarm_notifications"] = {
+            "notification_type": "alarm_policy",
+            "notification_enable": False,
+            "route_group_enable": False,
+            "notify_frequency": -1,
+            "notify_resolved": False,
+            "notify_triggered": False,
+        }
 
     body = _replace_cluster_id(body, old_cluster_id, cluster_id)
-    header_ep = enterprise_project_id or template_rule.get("enterprise_project_id")
+    header_ep = enterprise_project_id
     payload: Dict[str, Any] = {
-        "query": {"action_id": "add-alarm-action"},
+        "query": {"action_id": action_id},
         "body": body,
     }
     if project_id:
@@ -750,6 +956,10 @@ def create_aom_event_alarm_rule(
     frequency: str = "-1",
     prom_instance_id: Optional[str] = None,
     enterprise_project_id: Optional[str] = None,
+    notification_topic_urn: Optional[str] = None,
+    notification_topic_name: Optional[str] = None,
+    notification_topic_display_name: Optional[str] = None,
+    notification_user_name: Optional[str] = None,
     confirm: bool = False,
     ak: Optional[str] = None,
     sk: Optional[str] = None,
@@ -820,6 +1030,10 @@ def configure_cce_aom_alarm_rules(
     skip_existing: bool = True,
     prom_instance_id: Optional[str] = None,
     enterprise_project_id: Optional[str] = None,
+    notification_topic_urn: Optional[str] = None,
+    notification_topic_name: Optional[str] = None,
+    notification_topic_display_name: Optional[str] = None,
+    notification_user_name: Optional[str] = None,
     confirm: bool = False,
     ak: Optional[str] = None,
     sk: Optional[str] = None,
@@ -935,7 +1149,7 @@ def configure_cce_aom_alarm_rules(
             "hcloud_command_samples": preview_commands,
             "notes": [
                 "Add confirm=true to create these AOM alarm rules through hcloud.",
-                "Notification action rules are not created automatically; pass bind_notification_rule_id to bind an existing notification rule.",
+                "If bind_notification_rule_id is not provided, the tool auto-creates auto-cluster-{cluster_id}; notification_topic_urn and notification_topic_name are required when that action rule does not already exist.",
                 "skip_existing is evaluated only during confirmed execution.",
             ],
         }
@@ -957,6 +1171,55 @@ def configure_cce_aom_alarm_rules(
         if existing.get("success"):
             template_rules = existing.get("rules", [])
 
+    resolved_prom_instance_id = prom_instance_id
+    if not resolved_prom_instance_id and any(candidate.get("_template_rule") for candidate in candidates):
+        prom_resolution = resolve_cce_aom_prom_instance(region, cluster_id, ak, sk, project_id)
+        if not prom_resolution.get("success"):
+            return {
+                "success": False,
+                "action": "configure_cce_aom_alarm_rules",
+                "region": region,
+                "cluster_id": cluster_id,
+                "executed": False,
+                "error": "Unable to resolve AOM Prometheus instance ID for target cluster.",
+                "resolution": prom_resolution,
+            }
+        resolved_prom_instance_id = prom_resolution.get("prom_instance_id")
+
+    resolved_notification_rule_id = bind_notification_rule_id
+    notification_action_rule = None
+    if not resolved_notification_rule_id and any(candidate.get("kind") in {"event", "metric"} for candidate in candidates):
+        resolved_notification_rule_id = _resolve_auto_notification_rule_id(region, cluster_id, ak, sk, project_id)
+        if not resolved_notification_rule_id:
+            notification_action_rule = _create_auto_notification_action_rule(
+                region,
+                cluster_id,
+                notification_topic_urn,
+                notification_topic_name,
+                notification_topic_display_name,
+                notification_user_name,
+                ak,
+                sk,
+                project_id,
+            )
+            if notification_action_rule.get("success"):
+                resolved_notification_rule_id = notification_action_rule.get("rule_name")
+            else:
+                return {
+                    "success": False,
+                    "action": "configure_cce_aom_alarm_rules",
+                    "region": region,
+                    "cluster_id": cluster_id,
+                    "executed": False,
+                    "template_count": len(candidates),
+                    "created_count": 0,
+                    "skipped_count": 0,
+                    "failed_count": len(candidates),
+                    "error": "Notification action rule is required before creating CCE AOM alarm rules.",
+                    "notification_action_rule": notification_action_rule,
+                    "bind_notification_rule_id": None,
+                }
+
     created = []
     skipped = []
     failed = []
@@ -966,22 +1229,37 @@ def configure_cce_aom_alarm_rules(
             skipped.append({"rule_name": candidate["rule_name"], "reason": "already exists"})
             continue
 
-        template_rule = _find_template_rule(candidate, template_rules)
-        if template_rule and skip_existing and not explicit_rule_name_prefix:
+        existing_template_rule = _find_template_rule(candidate, template_rules)
+        if existing_template_rule and skip_existing and not explicit_rule_name_prefix:
             skipped.append({
-                "rule_name": template_rule.get("alarm_rule_name") or candidate["rule_name"],
+                "rule_name": existing_template_rule.get("alarm_rule_name") or candidate["rule_name"],
                 "reason": "matching template rule already exists",
             })
             continue
-        if not template_rule and skip_existing and not explicit_rule_name_prefix and template_rules:
-            skipped.append({
-                "rule_name": candidate["rule_name"],
-                "reason": "existing cluster templates present but no matching source template was found",
-            })
-            continue
+        is_update = bool(existing_template_rule) and not skip_existing
+        template_rule = existing_template_rule
         if not template_rule:
             template_rule = candidate.get("_template_rule") or _find_template_rule(candidate, embedded_template_rules)
         if template_rule:
+            if candidate.get("kind") == "event" and not resolved_notification_rule_id:
+                result = {
+                    "success": False,
+                    "action": "configure_cce_aom_alarm_rules.template_create",
+                    "executed": False,
+                    "error": (
+                        "AOM event alarm rule creation requires a notification action rule, "
+                        "but automatic creation failed."
+                    ),
+                    "notification_action_rule": notification_action_rule,
+                }
+                entry = {
+                    "kind": candidate["kind"],
+                    "rule_name": candidate["rule_name"],
+                    "source_name": candidate["name"],
+                    "result": result,
+                }
+                failed.append(entry)
+                continue
             effective_rule_name = candidate["rule_name"]
             resolved_project_id = project_id or get_project_id_for_region(region, ak, sk)
             if not resolved_project_id:
@@ -992,18 +1270,22 @@ def configure_cce_aom_alarm_rules(
                     candidate,
                     cluster_id,
                     effective_rule_name,
-                    bind_notification_rule_id,
-                    prom_instance_id,
+                    resolved_notification_rule_id,
+                    resolved_prom_instance_id,
                     enterprise_project_id,
                     resolved_project_id,
+                    "update-alarm-action" if is_update else "add-alarm-action",
                 )
                 result = run_hcloud_json_input("AOM", "AddOrUpdateMetricOrEventAlarmRule", region, payload, ak, sk, resolved_project_id)
-                result.update({"action": "configure_cce_aom_alarm_rules.template_create", "executed": result["success"]})
+                result.update({
+                    "action": "configure_cce_aom_alarm_rules.template_update" if is_update else "configure_cce_aom_alarm_rules.template_create",
+                    "executed": result["success"],
+                })
         elif candidate["kind"] == "metric":
             fields = {
                 "promql": candidate["promql"],
                 "cluster_id": cluster_id,
-                "prom_instance_id": prom_instance_id,
+                "prom_instance_id": resolved_prom_instance_id,
                 "bind_notification_rule_id": bind_notification_rule_id,
                 "alarm_rule_description": candidate["description"],
                 "severity": "Major",
@@ -1031,10 +1313,10 @@ def configure_cce_aom_alarm_rules(
                 cluster_id=cluster_id,
                 rule_name=candidate["rule_name"],
                 event_name=candidate["event_name"],
-                bind_notification_rule_id=bind_notification_rule_id,
+                bind_notification_rule_id=resolved_notification_rule_id,
                 alarm_level=candidate["alarm_level"],
                 description=candidate["description"],
-                prom_instance_id=prom_instance_id,
+                prom_instance_id=resolved_prom_instance_id,
                 enterprise_project_id=enterprise_project_id,
                 confirm=True,
                 ak=ak,
@@ -1068,6 +1350,8 @@ def configure_cce_aom_alarm_rules(
         "created": created,
         "skipped": skipped,
         "failed": failed,
+        "notification_action_rule": notification_action_rule,
+        "bind_notification_rule_id": resolved_notification_rule_id,
     }
 
 

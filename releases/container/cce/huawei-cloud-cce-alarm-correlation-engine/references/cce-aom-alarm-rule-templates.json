@@ -1,27 +1,12 @@
 {
-  "source": "CCE AOM default alarm rule templates captured from Huawei Cloud AOM API response; alarm_rule_id is removed before reuse.",
+  "source": "CCE AOM default alarm rule templates with environment-specific IDs replaced by runtime values.",
   "templates": [
     {
-      "alarm_create_time": 1783330121891,
-      "alarm_notifications": {
-        "bind_notification_rule_id": "auto-cluster-57b3b8c0-74fe-11f1-a396-0255ac10024b",
-        "notification_enable": true,
-        "notification_type": "direct",
-        "notify_frequency": -1,
-        "notify_resolved": true,
-        "notify_triggered": true,
-        "route_group_enable": false
-      },
       "alarm_rule_description": "检查Pod是否OOM。",
       "alarm_rule_enable": true,
-      "alarm_rule_id_str": "1523742500521705487",
-      "alarm_rule_name": "CCE_Pod内存不足OOM_57b3b8c0-74fe-11f1-a396-0255ac10024b",
-      "alarm_rule_status": "Effective",
+      "alarm_rule_name": "CCE_Pod内存不足OOM___CCE_CLUSTER_ID__",
       "alarm_rule_type": "event",
-      "alarm_update_time": 1783330121891,
       "alias": "Pod内存不足OOM",
-      "disassociateTemplate": false,
-      "enterprise_project_id": "0",
       "event_alarm_spec": {
         "alarm_rule_template_bind_enable": false,
         "alarm_rule_template_id": "at0000000000000000cce001",
@@ -32,7 +17,7 @@
           "alarm_rule_template_rule_desc": "检查Pod是否OOM。",
           "alarm_rule_template_rule_name": "Pod内存不足OOM",
           "monitor_object": {
-            "clusterId": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "clusterId": "__CCE_CLUSTER_ID__"
           },
           "related_cloud_service": "CCEFromProm"
         },
@@ -40,7 +25,7 @@
         "monitor_objects": [
           {
             "event_name": "Pod内存不足OOM##PodOOMKilling",
-            "clusterId": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "clusterId": "__CCE_CLUSTER_ID__"
           }
         ],
         "trigger_conditions": [
@@ -56,31 +41,14 @@
           }
         ],
         "update_alarm_rule": true
-      },
-      "prom_instance_id": "323c7078-d05c-44d2-bbe5-661e8c0079a4",
-      "user_id": "085a4aa6ec000f692f03c00a9ccf7fba"
+      }
     },
     {
-      "alarm_create_time": 1783330121891,
-      "alarm_notifications": {
-        "bind_notification_rule_id": "auto-cluster-57b3b8c0-74fe-11f1-a396-0255ac10024b",
-        "notification_enable": true,
-        "notification_type": "direct",
-        "notify_frequency": -1,
-        "notify_resolved": true,
-        "notify_triggered": true,
-        "route_group_enable": false
-      },
       "alarm_rule_description": "检查节点池扩容节点是否超时。",
       "alarm_rule_enable": true,
-      "alarm_rule_id_str": "1523742500521705484",
-      "alarm_rule_name": "CCE_扩容节点超时_57b3b8c0-74fe-11f1-a396-0255ac10024b",
-      "alarm_rule_status": "Effective",
+      "alarm_rule_name": "CCE_扩容节点超时___CCE_CLUSTER_ID__",
       "alarm_rule_type": "event",
-      "alarm_update_time": 1783330121891,
       "alias": "扩容节点超时",
-      "disassociateTemplate": false,
-      "enterprise_project_id": "0",
       "event_alarm_spec": {
         "alarm_rule_template_bind_enable": false,
         "alarm_rule_template_id": "at0000000000000000cce001",
@@ -91,7 +59,7 @@
           "alarm_rule_template_rule_desc": "检查节点池扩容节点是否超时。",
           "alarm_rule_template_rule_name": "扩容节点超时",
           "monitor_object": {
-            "clusterId": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "clusterId": "__CCE_CLUSTER_ID__"
           },
           "related_cloud_service": "CCEFromProm"
         },
@@ -99,7 +67,7 @@
         "monitor_objects": [
           {
             "event_name": "扩容节点超时##ScaleUpTimedOut",
-            "clusterId": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "clusterId": "__CCE_CLUSTER_ID__"
           }
         ],
         "trigger_conditions": [
@@ -115,31 +83,14 @@
           }
         ],
         "update_alarm_rule": true
-      },
-      "prom_instance_id": "323c7078-d05c-44d2-bbe5-661e8c0079a4",
-      "user_id": "085a4aa6ec000f692f03c00a9ccf7fba"
+      }
     },
     {
-      "alarm_create_time": 1783330121891,
-      "alarm_notifications": {
-        "bind_notification_rule_id": "auto-cluster-57b3b8c0-74fe-11f1-a396-0255ac10024b",
-        "notification_enable": true,
-        "notification_type": "direct",
-        "notify_frequency": -1,
-        "notify_resolved": true,
-        "notify_triggered": true,
-        "route_group_enable": false
-      },
       "alarm_rule_description": "检查更新负载均衡是否成功。",
       "alarm_rule_enable": true,
-      "alarm_rule_id_str": "1523742500521705485",
-      "alarm_rule_name": "CCE_更新负载均衡失败_57b3b8c0-74fe-11f1-a396-0255ac10024b",
-      "alarm_rule_status": "Effective",
+      "alarm_rule_name": "CCE_更新负载均衡失败___CCE_CLUSTER_ID__",
       "alarm_rule_type": "event",
-      "alarm_update_time": 1783330121891,
       "alias": "更新负载均衡失败",
-      "disassociateTemplate": false,
-      "enterprise_project_id": "0",
       "event_alarm_spec": {
         "alarm_rule_template_bind_enable": false,
         "alarm_rule_template_id": "at0000000000000000cce001",
@@ -150,7 +101,7 @@
           "alarm_rule_template_rule_desc": "检查更新负载均衡是否成功。",
           "alarm_rule_template_rule_name": "更新负载均衡失败",
           "monitor_object": {
-            "clusterId": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "clusterId": "__CCE_CLUSTER_ID__"
           },
           "related_cloud_service": "CCEFromProm"
         },
@@ -158,7 +109,7 @@
         "monitor_objects": [
           {
             "event_name": "更新负载均衡失败##UpdateLoadBalancerFailed",
-            "clusterId": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "clusterId": "__CCE_CLUSTER_ID__"
           }
         ],
         "trigger_conditions": [
@@ -174,31 +125,14 @@
           }
         ],
         "update_alarm_rule": true
-      },
-      "prom_instance_id": "323c7078-d05c-44d2-bbe5-661e8c0079a4",
-      "user_id": "085a4aa6ec000f692f03c00a9ccf7fba"
+      }
     },
     {
-      "alarm_create_time": 1783330121891,
-      "alarm_notifications": {
-        "bind_notification_rule_id": "auto-cluster-57b3b8c0-74fe-11f1-a396-0255ac10024b",
-        "notification_enable": true,
-        "notification_type": "direct",
-        "notify_frequency": -1,
-        "notify_resolved": true,
-        "notify_triggered": true,
-        "route_group_enable": false
-      },
       "alarm_rule_description": "检查节点是否存在任务夯住。",
       "alarm_rule_enable": true,
-      "alarm_rule_id_str": "1523742500521705479",
-      "alarm_rule_name": "CCE_节点任务夯住_57b3b8c0-74fe-11f1-a396-0255ac10024b",
-      "alarm_rule_status": "Effective",
+      "alarm_rule_name": "CCE_节点任务夯住___CCE_CLUSTER_ID__",
       "alarm_rule_type": "event",
-      "alarm_update_time": 1783330121891,
       "alias": "节点任务夯住",
-      "disassociateTemplate": false,
-      "enterprise_project_id": "0",
       "event_alarm_spec": {
         "alarm_rule_template_bind_enable": false,
         "alarm_rule_template_id": "at0000000000000000cce001",
@@ -209,7 +143,7 @@
           "alarm_rule_template_rule_desc": "检查节点是否存在任务夯住。",
           "alarm_rule_template_rule_name": "节点任务夯住",
           "monitor_object": {
-            "clusterId": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "clusterId": "__CCE_CLUSTER_ID__"
           },
           "related_cloud_service": "CCEFromProm"
         },
@@ -217,7 +151,7 @@
         "monitor_objects": [
           {
             "event_name": "节点任务夯住##TaskHung",
-            "clusterId": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "clusterId": "__CCE_CLUSTER_ID__"
           }
         ],
         "trigger_conditions": [
@@ -233,31 +167,14 @@
           }
         ],
         "update_alarm_rule": true
-      },
-      "prom_instance_id": "323c7078-d05c-44d2-bbe5-661e8c0079a4",
-      "user_id": "085a4aa6ec000f692f03c00a9ccf7fba"
+      }
     },
     {
-      "alarm_create_time": 1783330121891,
-      "alarm_notifications": {
-        "bind_notification_rule_id": "auto-cluster-57b3b8c0-74fe-11f1-a396-0255ac10024b",
-        "notification_enable": true,
-        "notification_type": "direct",
-        "notify_frequency": -1,
-        "notify_resolved": true,
-        "notify_triggered": true,
-        "route_group_enable": false
-      },
       "alarm_rule_description": "检查节点是否存在OOM事件。",
       "alarm_rule_enable": true,
-      "alarm_rule_id_str": "1523742500521705477",
-      "alarm_rule_name": "CCE_节点内存不足或工作负载内存超出限制强杀进程_57b3b8c0-74fe-11f1-a396-0255ac10024b",
-      "alarm_rule_status": "Effective",
+      "alarm_rule_name": "CCE_节点内存不足或工作负载内存超出限制强杀进程___CCE_CLUSTER_ID__",
       "alarm_rule_type": "event",
-      "alarm_update_time": 1783330121891,
       "alias": "节点内存不足或工作负载内存超出限制强杀进程",
-      "disassociateTemplate": false,
-      "enterprise_project_id": "0",
       "event_alarm_spec": {
         "alarm_rule_template_bind_enable": false,
         "alarm_rule_template_id": "at0000000000000000cce001",
@@ -268,7 +185,7 @@
           "alarm_rule_template_rule_desc": "检查节点是否存在OOM事件。",
           "alarm_rule_template_rule_name": "节点内存不足或工作负载内存超出限制强杀进程",
           "monitor_object": {
-            "clusterId": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "clusterId": "__CCE_CLUSTER_ID__"
           },
           "related_cloud_service": "CCEFromProm"
         },
@@ -276,7 +193,7 @@
         "monitor_objects": [
           {
             "event_name": "节点内存不足强杀进程##OOMKilling",
-            "clusterId": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "clusterId": "__CCE_CLUSTER_ID__"
           }
         ],
         "trigger_conditions": [
@@ -292,31 +209,14 @@
           }
         ],
         "update_alarm_rule": true
-      },
-      "prom_instance_id": "323c7078-d05c-44d2-bbe5-661e8c0079a4",
-      "user_id": "085a4aa6ec000f692f03c00a9ccf7fba"
+      }
     },
     {
-      "alarm_create_time": 1783330121891,
-      "alarm_notifications": {
-        "bind_notification_rule_id": "auto-cluster-57b3b8c0-74fe-11f1-a396-0255ac10024b",
-        "notification_enable": true,
-        "notification_type": "direct",
-        "notify_frequency": -1,
-        "notify_resolved": true,
-        "notify_triggered": true,
-        "route_group_enable": false
-      },
       "alarm_rule_description": "检查节点临时卷及持久卷存储池配置是否异常。",
       "alarm_rule_enable": true,
-      "alarm_rule_id_str": "1523742500517511175",
-      "alarm_rule_name": "CCE_节点存储池配置有误_57b3b8c0-74fe-11f1-a396-0255ac10024b",
-      "alarm_rule_status": "Effective",
+      "alarm_rule_name": "CCE_节点存储池配置有误___CCE_CLUSTER_ID__",
       "alarm_rule_type": "event",
-      "alarm_update_time": 1783330121891,
       "alias": "节点存储池配置有误",
-      "disassociateTemplate": false,
-      "enterprise_project_id": "0",
       "event_alarm_spec": {
         "alarm_rule_template_bind_enable": false,
         "alarm_rule_template_id": "at0000000000000000cce001",
@@ -327,7 +227,7 @@
           "alarm_rule_template_rule_desc": "检查节点临时卷及持久卷存储池配置是否异常。",
           "alarm_rule_template_rule_name": "节点存储池配置有误",
           "monitor_object": {
-            "clusterId": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "clusterId": "__CCE_CLUSTER_ID__"
           },
           "related_cloud_service": "CCEFromProm"
         },
@@ -335,7 +235,7 @@
         "monitor_objects": [
           {
             "event_name": "节点存储池配置有误##InvalidStoragePool",
-            "clusterId": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "clusterId": "__CCE_CLUSTER_ID__"
           }
         ],
         "trigger_conditions": [
@@ -351,31 +251,14 @@
           }
         ],
         "update_alarm_rule": true
-      },
-      "prom_instance_id": "323c7078-d05c-44d2-bbe5-661e8c0079a4",
-      "user_id": "085a4aa6ec000f692f03c00a9ccf7fba"
+      }
     },
     {
-      "alarm_create_time": 1783330121891,
-      "alarm_notifications": {
-        "bind_notification_rule_id": "auto-cluster-57b3b8c0-74fe-11f1-a396-0255ac10024b",
-        "notification_enable": true,
-        "notification_type": "direct",
-        "notify_frequency": -1,
-        "notify_resolved": true,
-        "notify_triggered": true,
-        "route_group_enable": false
-      },
       "alarm_rule_description": "检查节点池扩容节点是否异常。",
       "alarm_rule_enable": true,
-      "alarm_rule_id_str": "1523742500521705482",
-      "alarm_rule_name": "CCE_节点池扩容节点失败_57b3b8c0-74fe-11f1-a396-0255ac10024b",
-      "alarm_rule_status": "Effective",
+      "alarm_rule_name": "CCE_节点池扩容节点失败___CCE_CLUSTER_ID__",
       "alarm_rule_type": "event",
-      "alarm_update_time": 1783330121891,
       "alias": "节点池扩容节点失败",
-      "disassociateTemplate": false,
-      "enterprise_project_id": "0",
       "event_alarm_spec": {
         "alarm_rule_template_bind_enable": false,
         "alarm_rule_template_id": "at0000000000000000cce001",
@@ -386,7 +269,7 @@
           "alarm_rule_template_rule_desc": "检查节点池扩容节点是否异常。",
           "alarm_rule_template_rule_name": "节点池扩容节点失败",
           "monitor_object": {
-            "clusterId": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "clusterId": "__CCE_CLUSTER_ID__"
           },
           "related_cloud_service": "CCEFromProm"
         },
@@ -394,7 +277,7 @@
         "monitor_objects": [
           {
             "event_name": "节点池扩容节点失败##FailedToScaleUpGroup",
-            "clusterId": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "clusterId": "__CCE_CLUSTER_ID__"
           }
         ],
         "trigger_conditions": [
@@ -410,31 +293,14 @@
           }
         ],
         "update_alarm_rule": true
-      },
-      "prom_instance_id": "323c7078-d05c-44d2-bbe5-661e8c0079a4",
-      "user_id": "085a4aa6ec000f692f03c00a9ccf7fba"
+      }
     },
     {
-      "alarm_create_time": 1783330121891,
-      "alarm_notifications": {
-        "bind_notification_rule_id": "auto-cluster-57b3b8c0-74fe-11f1-a396-0255ac10024b",
-        "notification_enable": true,
-        "notification_type": "direct",
-        "notify_frequency": -1,
-        "notify_resolved": true,
-        "notify_triggered": true,
-        "route_group_enable": false
-      },
       "alarm_rule_description": "检查节点池缩容节点是否异常。",
       "alarm_rule_enable": true,
-      "alarm_rule_id_str": "1523742500521705481",
-      "alarm_rule_name": "CCE_节点池缩容节点失败_57b3b8c0-74fe-11f1-a396-0255ac10024b",
-      "alarm_rule_status": "Effective",
+      "alarm_rule_name": "CCE_节点池缩容节点失败___CCE_CLUSTER_ID__",
       "alarm_rule_type": "event",
-      "alarm_update_time": 1783330121891,
       "alias": "节点池缩容节点失败",
-      "disassociateTemplate": false,
-      "enterprise_project_id": "0",
       "event_alarm_spec": {
         "alarm_rule_template_bind_enable": false,
         "alarm_rule_template_id": "at0000000000000000cce001",
@@ -445,7 +311,7 @@
           "alarm_rule_template_rule_desc": "检查节点池缩容节点是否异常。",
           "alarm_rule_template_rule_name": "节点池缩容节点失败",
           "monitor_object": {
-            "clusterId": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "clusterId": "__CCE_CLUSTER_ID__"
           },
           "related_cloud_service": "CCEFromProm"
         },
@@ -453,7 +319,7 @@
         "monitor_objects": [
           {
             "event_name": "节点池缩容节点失败##ScaleDownFailed",
-            "clusterId": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "clusterId": "__CCE_CLUSTER_ID__"
           }
         ],
         "trigger_conditions": [
@@ -469,31 +335,14 @@
           }
         ],
         "update_alarm_rule": true
-      },
-      "prom_instance_id": "323c7078-d05c-44d2-bbe5-661e8c0079a4",
-      "user_id": "085a4aa6ec000f692f03c00a9ccf7fba"
+      }
     },
     {
-      "alarm_create_time": 1783330121891,
-      "alarm_notifications": {
-        "bind_notification_rule_id": "auto-cluster-57b3b8c0-74fe-11f1-a396-0255ac10024b",
-        "notification_enable": true,
-        "notification_type": "direct",
-        "notify_frequency": -1,
-        "notify_resolved": true,
-        "notify_triggered": true,
-        "route_group_enable": false
-      },
       "alarm_rule_description": "检查节点池资源是否充足。",
       "alarm_rule_enable": true,
-      "alarm_rule_id_str": "1523742500521705483",
-      "alarm_rule_name": "CCE_节点池资源售罄_57b3b8c0-74fe-11f1-a396-0255ac10024b",
-      "alarm_rule_status": "Effective",
+      "alarm_rule_name": "CCE_节点池资源售罄___CCE_CLUSTER_ID__",
       "alarm_rule_type": "event",
-      "alarm_update_time": 1783330121891,
       "alias": "节点池资源售罄",
-      "disassociateTemplate": false,
-      "enterprise_project_id": "0",
       "event_alarm_spec": {
         "alarm_rule_template_bind_enable": false,
         "alarm_rule_template_id": "at0000000000000000cce001",
@@ -504,7 +353,7 @@
           "alarm_rule_template_rule_desc": "检查节点池资源是否充足。",
           "alarm_rule_template_rule_name": "节点池资源售罄",
           "monitor_object": {
-            "clusterId": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "clusterId": "__CCE_CLUSTER_ID__"
           },
           "related_cloud_service": "CCEFromProm"
         },
@@ -512,7 +361,7 @@
         "monitor_objects": [
           {
             "event_name": "节点池资源售罄##NodePoolSoldOut",
-            "clusterId": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "clusterId": "__CCE_CLUSTER_ID__"
           }
         ],
         "trigger_conditions": [
@@ -528,31 +377,14 @@
           }
         ],
         "update_alarm_rule": true
-      },
-      "prom_instance_id": "323c7078-d05c-44d2-bbe5-661e8c0079a4",
-      "user_id": "085a4aa6ec000f692f03c00a9ccf7fba"
+      }
     },
     {
-      "alarm_create_time": 1783330121891,
-      "alarm_notifications": {
-        "bind_notification_rule_id": "auto-cluster-57b3b8c0-74fe-11f1-a396-0255ac10024b",
-        "notification_enable": true,
-        "notification_type": "direct",
-        "notify_frequency": -1,
-        "notify_resolved": true,
-        "notify_triggered": true,
-        "route_group_enable": false
-      },
       "alarm_rule_description": "检查节点状态是否异常。",
       "alarm_rule_enable": true,
-      "alarm_rule_id_str": "1523742500521705486",
-      "alarm_rule_name": "CCE_节点状态异常_57b3b8c0-74fe-11f1-a396-0255ac10024b",
-      "alarm_rule_status": "Effective",
+      "alarm_rule_name": "CCE_节点状态异常___CCE_CLUSTER_ID__",
       "alarm_rule_type": "event",
-      "alarm_update_time": 1783330121891,
       "alias": "节点状态异常",
-      "disassociateTemplate": false,
-      "enterprise_project_id": "0",
       "event_alarm_spec": {
         "alarm_rule_template_bind_enable": false,
         "alarm_rule_template_id": "at0000000000000000cce001",
@@ -563,7 +395,7 @@
           "alarm_rule_template_rule_desc": "检查节点状态是否异常。",
           "alarm_rule_template_rule_name": "节点状态异常",
           "monitor_object": {
-            "clusterId": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "clusterId": "__CCE_CLUSTER_ID__"
           },
           "related_cloud_service": "CCEFromProm"
         },
@@ -571,7 +403,7 @@
         "monitor_objects": [
           {
             "event_name": "节点状态异常##NodeNotReady",
-            "clusterId": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "clusterId": "__CCE_CLUSTER_ID__"
           }
         ],
         "trigger_conditions": [
@@ -587,31 +419,14 @@
           }
         ],
         "update_alarm_rule": true
-      },
-      "prom_instance_id": "323c7078-d05c-44d2-bbe5-661e8c0079a4",
-      "user_id": "085a4aa6ec000f692f03c00a9ccf7fba"
+      }
     },
     {
-      "alarm_create_time": 1783330121891,
-      "alarm_notifications": {
-        "bind_notification_rule_id": "auto-cluster-57b3b8c0-74fe-11f1-a396-0255ac10024b",
-        "notification_enable": true,
-        "notification_type": "direct",
-        "notify_frequency": -1,
-        "notify_resolved": true,
-        "notify_triggered": true,
-        "route_group_enable": false
-      },
       "alarm_rule_description": "检查节点磁盘空间是否充足。",
       "alarm_rule_enable": true,
-      "alarm_rule_id_str": "1523742500521705480",
-      "alarm_rule_name": "CCE_节点磁盘空间不足_57b3b8c0-74fe-11f1-a396-0255ac10024b",
-      "alarm_rule_status": "Effective",
+      "alarm_rule_name": "CCE_节点磁盘空间不足___CCE_CLUSTER_ID__",
       "alarm_rule_type": "event",
-      "alarm_update_time": 1783330121891,
       "alias": "节点磁盘空间不足",
-      "disassociateTemplate": false,
-      "enterprise_project_id": "0",
       "event_alarm_spec": {
         "alarm_rule_template_bind_enable": false,
         "alarm_rule_template_id": "at0000000000000000cce001",
@@ -622,7 +437,7 @@
           "alarm_rule_template_rule_desc": "检查节点磁盘空间是否充足。",
           "alarm_rule_template_rule_name": "节点磁盘空间不足",
           "monitor_object": {
-            "clusterId": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "clusterId": "__CCE_CLUSTER_ID__"
           },
           "related_cloud_service": "CCEFromProm"
         },
@@ -630,7 +445,7 @@
         "monitor_objects": [
           {
             "event_name": "节点磁盘空间不足##NodeHasDiskPressure",
-            "clusterId": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "clusterId": "__CCE_CLUSTER_ID__"
           }
         ],
         "trigger_conditions": [
@@ -646,31 +461,14 @@
           }
         ],
         "update_alarm_rule": true
-      },
-      "prom_instance_id": "323c7078-d05c-44d2-bbe5-661e8c0079a4",
-      "user_id": "085a4aa6ec000f692f03c00a9ccf7fba"
+      }
     },
     {
-      "alarm_create_time": 1783330121891,
-      "alarm_notifications": {
-        "bind_notification_rule_id": "auto-cluster-57b3b8c0-74fe-11f1-a396-0255ac10024b",
-        "notification_enable": true,
-        "notification_type": "direct",
-        "notify_frequency": -1,
-        "notify_resolved": true,
-        "notify_triggered": true,
-        "route_group_enable": false
-      },
       "alarm_rule_description": "检查集群状态是否可用。",
       "alarm_rule_enable": true,
-      "alarm_rule_id_str": "1523742500521705478",
-      "alarm_rule_name": "CCE_集群状态不可用_57b3b8c0-74fe-11f1-a396-0255ac10024b",
-      "alarm_rule_status": "Effective",
+      "alarm_rule_name": "CCE_集群状态不可用___CCE_CLUSTER_ID__",
       "alarm_rule_type": "event",
-      "alarm_update_time": 1783330121891,
       "alias": "集群状态不可用",
-      "disassociateTemplate": false,
-      "enterprise_project_id": "0",
       "event_alarm_spec": {
         "alarm_rule_template_bind_enable": false,
         "alarm_rule_template_id": "at0000000000000000cce001",
@@ -681,7 +479,7 @@
           "alarm_rule_template_rule_desc": "检查集群状态是否可用。",
           "alarm_rule_template_rule_name": "集群状态不可用",
           "monitor_object": {
-            "clusterId": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "clusterId": "__CCE_CLUSTER_ID__"
           },
           "related_cloud_service": "CCEFromProm"
         },
@@ -689,7 +487,7 @@
         "monitor_objects": [
           {
             "event_name": "集群状态不可用##Cluster status is Unavailable",
-            "clusterId": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "clusterId": "__CCE_CLUSTER_ID__"
           }
         ],
         "trigger_conditions": [
@@ -705,31 +503,14 @@
           }
         ],
         "update_alarm_rule": true
-      },
-      "prom_instance_id": "323c7078-d05c-44d2-bbe5-661e8c0079a4",
-      "user_id": "085a4aa6ec000f692f03c00a9ccf7fba"
+      }
     },
     {
-      "alarm_create_time": 1783330122396,
-      "alarm_notifications": {
-        "bind_notification_rule_id": "auto-cluster-57b3b8c0-74fe-11f1-a396-0255ac10024b",
-        "notification_enable": true,
-        "notification_type": "direct",
-        "notify_frequency": 0,
-        "notify_resolved": true,
-        "notify_triggered": true,
-        "route_group_enable": false
-      },
       "alarm_rule_description": "检查无状态负载的副本数是否匹配。",
       "alarm_rule_enable": true,
-      "alarm_rule_id_str": "1523742502635634692",
-      "alarm_rule_name": "CCE_Deployment副本数不匹配_57b3b8c0-74fe-11f1-a396-0255ac10024b",
-      "alarm_rule_status": "OK",
+      "alarm_rule_name": "CCE_Deployment副本数不匹配___CCE_CLUSTER_ID__",
       "alarm_rule_type": "metric",
-      "alarm_update_time": 1783330122396,
       "alias": "Deployment副本数不匹配",
-      "disassociateTemplate": false,
-      "enterprise_project_id": "0",
       "metric_alarm_spec": {
         "alarm_rule_template_bind_enable": false,
         "alarm_rule_template_id": "at0000000000000000cce001",
@@ -749,13 +530,13 @@
           "alarm_rule_template_rule_desc": "检查无状态负载的副本数是否匹配。",
           "alarm_rule_template_rule_name": "Deployment副本数不匹配",
           "monitor_object": {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           },
           "related_cloud_service": "CCEFromProm"
         },
         "monitor_objects": [
           {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           }
         ],
         "monitor_type": "promql",
@@ -777,7 +558,7 @@
             ],
             "metric_name": "kube_deployment_status_replicas_available",
             "metric_query_mode": "NATIVE_PROM",
-            "promql": "(kube_deployment_spec_replicas{cluster=\"57b3b8c0-74fe-11f1-a396-0255ac10024b\"} != kube_deployment_status_replicas_available{cluster=\"57b3b8c0-74fe-11f1-a396-0255ac10024b\"}) and (changes(kube_deployment_status_replicas_updated{cluster=\"57b3b8c0-74fe-11f1-a396-0255ac10024b\"}[5m])== 0)",
+            "promql": "(kube_deployment_spec_replicas{cluster=\"__CCE_CLUSTER_ID__\"} != kube_deployment_status_replicas_available{cluster=\"__CCE_CLUSTER_ID__\"}) and (changes(kube_deployment_status_replicas_updated{cluster=\"__CCE_CLUSTER_ID__\"}[5m])== 0)",
             "promql_for": "15m",
             "promql_monitor_templates": [
               "cluster"
@@ -791,31 +572,14 @@
           }
         ],
         "update_alarm_rule": true
-      },
-      "prom_instance_id": "323c7078-d05c-44d2-bbe5-661e8c0079a4",
-      "user_id": "085a4aa6ec000f692f03c00a9ccf7fba"
+      }
     },
     {
-      "alarm_create_time": 1783330121947,
-      "alarm_notifications": {
-        "bind_notification_rule_id": "auto-cluster-57b3b8c0-74fe-11f1-a396-0255ac10024b",
-        "notification_enable": true,
-        "notification_type": "direct",
-        "notify_frequency": 0,
-        "notify_resolved": true,
-        "notify_triggered": true,
-        "route_group_enable": false
-      },
       "alarm_rule_description": "检查节点上持久卷使用率是否过高。",
       "alarm_rule_enable": true,
-      "alarm_rule_id_str": "1523742500756586503",
-      "alarm_rule_name": "CCE_Kube持久卷使用率高_57b3b8c0-74fe-11f1-a396-0255ac10024b",
-      "alarm_rule_status": "OK",
+      "alarm_rule_name": "CCE_Kube持久卷使用率高___CCE_CLUSTER_ID__",
       "alarm_rule_type": "metric",
-      "alarm_update_time": 1783330121947,
       "alias": "Kube持久卷使用率高",
-      "disassociateTemplate": false,
-      "enterprise_project_id": "0",
       "metric_alarm_spec": {
         "alarm_rule_template_bind_enable": false,
         "alarm_rule_template_id": "at0000000000000000cce001",
@@ -835,13 +599,13 @@
           "alarm_rule_template_rule_desc": "检查节点上持久卷使用率是否过高。",
           "alarm_rule_template_rule_name": "Kube持久卷使用率高",
           "monitor_object": {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           },
           "related_cloud_service": "CCEFromProm"
         },
         "monitor_objects": [
           {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           }
         ],
         "monitor_type": "promql",
@@ -864,7 +628,7 @@
             ],
             "metric_name": "kubelet_volume_stats_capacity_bytes",
             "metric_query_mode": "NATIVE_PROM",
-            "promql": "((kubelet_volume_stats_available_bytes{cluster=\"57b3b8c0-74fe-11f1-a396-0255ac10024b\",job=\"kubelet\"} / kubelet_volume_stats_capacity_bytes{cluster=\"57b3b8c0-74fe-11f1-a396-0255ac10024b\",job=\"kubelet\"}) * 100) < 3 and kubelet_volume_stats_used_bytes{cluster=\"57b3b8c0-74fe-11f1-a396-0255ac10024b\",job=\"kubelet\"} > 0",
+            "promql": "((kubelet_volume_stats_available_bytes{cluster=\"__CCE_CLUSTER_ID__\",job=\"kubelet\"} / kubelet_volume_stats_capacity_bytes{cluster=\"__CCE_CLUSTER_ID__\",job=\"kubelet\"}) * 100) < 3 and kubelet_volume_stats_used_bytes{cluster=\"__CCE_CLUSTER_ID__\",job=\"kubelet\"} > 0",
             "promql_for": "1m",
             "promql_monitor_templates": [
               "cluster"
@@ -878,31 +642,14 @@
           }
         ],
         "update_alarm_rule": true
-      },
-      "prom_instance_id": "323c7078-d05c-44d2-bbe5-661e8c0079a4",
-      "user_id": "085a4aa6ec000f692f03c00a9ccf7fba"
+      }
     },
     {
-      "alarm_create_time": 1783330122054,
-      "alarm_notifications": {
-        "bind_notification_rule_id": "auto-cluster-57b3b8c0-74fe-11f1-a396-0255ac10024b",
-        "notification_enable": true,
-        "notification_type": "direct",
-        "notify_frequency": 0,
-        "notify_resolved": true,
-        "notify_triggered": true,
-        "route_group_enable": false
-      },
       "alarm_rule_description": "检查持久卷声明状态是否异常。",
       "alarm_rule_enable": true,
-      "alarm_rule_id_str": "1523742501201182729",
-      "alarm_rule_name": "CCE_Kube持久卷声明状态异常_57b3b8c0-74fe-11f1-a396-0255ac10024b",
-      "alarm_rule_status": "OK",
+      "alarm_rule_name": "CCE_Kube持久卷声明状态异常___CCE_CLUSTER_ID__",
       "alarm_rule_type": "metric",
-      "alarm_update_time": 1783330122054,
       "alias": "Kube持久卷声明状态异常",
-      "disassociateTemplate": false,
-      "enterprise_project_id": "0",
       "metric_alarm_spec": {
         "alarm_rule_template_bind_enable": false,
         "alarm_rule_template_id": "at0000000000000000cce001",
@@ -922,13 +669,13 @@
           "alarm_rule_template_rule_desc": "检查持久卷声明状态是否异常。",
           "alarm_rule_template_rule_name": "Kube持久卷声明状态异常",
           "monitor_object": {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           },
           "related_cloud_service": "CCEFromProm"
         },
         "monitor_objects": [
           {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           }
         ],
         "monitor_type": "promql",
@@ -951,7 +698,7 @@
             ],
             "metric_name": "kube_persistentvolumeclaim_status_phase",
             "metric_query_mode": "NATIVE_PROM",
-            "promql": "kube_persistentvolumeclaim_status_phase{cluster=\"57b3b8c0-74fe-11f1-a396-0255ac10024b\",phase=~\"Failed|Pending|Lost\"} > 0",
+            "promql": "kube_persistentvolumeclaim_status_phase{cluster=\"__CCE_CLUSTER_ID__\",phase=~\"Failed|Pending|Lost\"} > 0",
             "promql_for": "5m",
             "promql_monitor_templates": [
               "cluster"
@@ -965,31 +712,14 @@
           }
         ],
         "update_alarm_rule": true
-      },
-      "prom_instance_id": "323c7078-d05c-44d2-bbe5-661e8c0079a4",
-      "user_id": "085a4aa6ec000f692f03c00a9ccf7fba"
+      }
     },
     {
-      "alarm_create_time": 1783330121951,
-      "alarm_notifications": {
-        "bind_notification_rule_id": "auto-cluster-57b3b8c0-74fe-11f1-a396-0255ac10024b",
-        "notification_enable": true,
-        "notification_type": "direct",
-        "notify_frequency": 0,
-        "notify_resolved": true,
-        "notify_triggered": true,
-        "route_group_enable": false
-      },
       "alarm_rule_description": "检查持久卷状态是否异常。",
       "alarm_rule_enable": true,
-      "alarm_rule_id_str": "1523742500764975105",
-      "alarm_rule_name": "CCE_Kube持久卷状态异常_57b3b8c0-74fe-11f1-a396-0255ac10024b",
-      "alarm_rule_status": "OK",
+      "alarm_rule_name": "CCE_Kube持久卷状态异常___CCE_CLUSTER_ID__",
       "alarm_rule_type": "metric",
-      "alarm_update_time": 1783330121951,
       "alias": "Kube持久卷状态异常",
-      "disassociateTemplate": false,
-      "enterprise_project_id": "0",
       "metric_alarm_spec": {
         "alarm_rule_template_bind_enable": false,
         "alarm_rule_template_id": "at0000000000000000cce001",
@@ -1009,13 +739,13 @@
           "alarm_rule_template_rule_desc": "检查持久卷状态是否异常。",
           "alarm_rule_template_rule_name": "Kube持久卷状态异常",
           "monitor_object": {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           },
           "related_cloud_service": "CCEFromProm"
         },
         "monitor_objects": [
           {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           }
         ],
         "monitor_type": "promql",
@@ -1037,7 +767,7 @@
             ],
             "metric_name": "kube_persistentvolume_status_phase",
             "metric_query_mode": "NATIVE_PROM",
-            "promql": "kube_persistentvolume_status_phase{cluster=\"57b3b8c0-74fe-11f1-a396-0255ac10024b\",phase=~\"Failed|Pending\"} > 0",
+            "promql": "kube_persistentvolume_status_phase{cluster=\"__CCE_CLUSTER_ID__\",phase=~\"Failed|Pending\"} > 0",
             "promql_for": "5m",
             "promql_monitor_templates": [
               "cluster"
@@ -1051,31 +781,14 @@
           }
         ],
         "update_alarm_rule": true
-      },
-      "prom_instance_id": "323c7078-d05c-44d2-bbe5-661e8c0079a4",
-      "user_id": "085a4aa6ec000f692f03c00a9ccf7fba"
+      }
     },
     {
-      "alarm_create_time": 1783330121892,
-      "alarm_notifications": {
-        "bind_notification_rule_id": "auto-cluster-57b3b8c0-74fe-11f1-a396-0255ac10024b",
-        "notification_enable": true,
-        "notification_type": "direct",
-        "notify_frequency": 0,
-        "notify_resolved": true,
-        "notify_triggered": true,
-        "route_group_enable": false
-      },
       "alarm_rule_description": "检查节点状态是否在正常和异常之间抖动。",
       "alarm_rule_enable": true,
-      "alarm_rule_id_str": "1523742500521705490",
-      "alarm_rule_name": "CCE_Node状态抖动_57b3b8c0-74fe-11f1-a396-0255ac10024b",
-      "alarm_rule_status": "OK",
+      "alarm_rule_name": "CCE_Node状态抖动___CCE_CLUSTER_ID__",
       "alarm_rule_type": "metric",
-      "alarm_update_time": 1783330121892,
       "alias": "Node状态抖动",
-      "disassociateTemplate": false,
-      "enterprise_project_id": "0",
       "metric_alarm_spec": {
         "alarm_rule_template_bind_enable": false,
         "alarm_rule_template_id": "at0000000000000000cce001",
@@ -1095,13 +808,13 @@
           "alarm_rule_template_rule_desc": "检查节点状态是否在正常和异常之间抖动。",
           "alarm_rule_template_rule_name": "Node状态抖动",
           "monitor_object": {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           },
           "related_cloud_service": "CCEFromProm"
         },
         "monitor_objects": [
           {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           }
         ],
         "monitor_type": "promql",
@@ -1122,7 +835,7 @@
             ],
             "metric_name": "kube_node_status_condition",
             "metric_query_mode": "NATIVE_PROM",
-            "promql": "sum(changes(kube_node_status_condition{cluster=\"57b3b8c0-74fe-11f1-a396-0255ac10024b\",status=\"true\",condition=\"Ready\"}[15m])) by (cluster_name, node, cluster) > 2",
+            "promql": "sum(changes(kube_node_status_condition{cluster=\"__CCE_CLUSTER_ID__\",status=\"true\",condition=\"Ready\"}[15m])) by (cluster_name, node, cluster) > 2",
             "promql_for": "1m",
             "promql_monitor_templates": [
               "cluster"
@@ -1136,31 +849,14 @@
           }
         ],
         "update_alarm_rule": true
-      },
-      "prom_instance_id": "323c7078-d05c-44d2-bbe5-661e8c0079a4",
-      "user_id": "085a4aa6ec000f692f03c00a9ccf7fba"
+      }
     },
     {
-      "alarm_create_time": 1783330122199,
-      "alarm_notifications": {
-        "bind_notification_rule_id": "auto-cluster-57b3b8c0-74fe-11f1-a396-0255ac10024b",
-        "notification_enable": true,
-        "notification_type": "direct",
-        "notify_frequency": 0,
-        "notify_resolved": true,
-        "notify_triggered": true,
-        "route_group_enable": false
-      },
       "alarm_rule_description": "检查pod状态是否异常。",
       "alarm_rule_enable": true,
-      "alarm_rule_id_str": "1523742501809356808",
-      "alarm_rule_name": "CCE_Pod状态异常_57b3b8c0-74fe-11f1-a396-0255ac10024b",
-      "alarm_rule_status": "OK",
+      "alarm_rule_name": "CCE_Pod状态异常___CCE_CLUSTER_ID__",
       "alarm_rule_type": "metric",
-      "alarm_update_time": 1783330122199,
       "alias": "Pod状态异常",
-      "disassociateTemplate": false,
-      "enterprise_project_id": "0",
       "metric_alarm_spec": {
         "alarm_rule_template_bind_enable": false,
         "alarm_rule_template_id": "at0000000000000000cce001",
@@ -1180,13 +876,13 @@
           "alarm_rule_template_rule_desc": "检查pod状态是否异常。",
           "alarm_rule_template_rule_name": "Pod状态异常",
           "monitor_object": {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           },
           "related_cloud_service": "CCEFromProm"
         },
         "monitor_objects": [
           {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           }
         ],
         "monitor_type": "promql",
@@ -1209,7 +905,7 @@
             ],
             "metric_name": "kube_pod_status_phase",
             "metric_query_mode": "NATIVE_PROM",
-            "promql": "sum(min_over_time(kube_pod_status_phase{cluster=\"57b3b8c0-74fe-11f1-a396-0255ac10024b\",phase=~\"Pending|Unknown|Failed\"}[1m]))by (namespace,pod, phase, cluster_name, cluster)  > 0",
+            "promql": "sum(min_over_time(kube_pod_status_phase{cluster=\"__CCE_CLUSTER_ID__\",phase=~\"Pending|Unknown|Failed\"}[1m]))by (namespace,pod, phase, cluster_name, cluster)  > 0",
             "promql_for": "10m",
             "promql_monitor_templates": [
               "cluster"
@@ -1223,31 +919,14 @@
           }
         ],
         "update_alarm_rule": true
-      },
-      "prom_instance_id": "323c7078-d05c-44d2-bbe5-661e8c0079a4",
-      "user_id": "085a4aa6ec000f692f03c00a9ccf7fba"
+      }
     },
     {
-      "alarm_create_time": 1783330122200,
-      "alarm_notifications": {
-        "bind_notification_rule_id": "auto-cluster-57b3b8c0-74fe-11f1-a396-0255ac10024b",
-        "notification_enable": true,
-        "notification_type": "direct",
-        "notify_frequency": 0,
-        "notify_resolved": true,
-        "notify_triggered": true,
-        "route_group_enable": false
-      },
       "alarm_rule_description": "检查pod是否频繁重启。",
       "alarm_rule_enable": true,
-      "alarm_rule_id_str": "1523742501813551104",
-      "alarm_rule_name": "CCE_Pod频繁重启_57b3b8c0-74fe-11f1-a396-0255ac10024b",
-      "alarm_rule_status": "OK",
+      "alarm_rule_name": "CCE_Pod频繁重启___CCE_CLUSTER_ID__",
       "alarm_rule_type": "metric",
-      "alarm_update_time": 1783330122200,
       "alias": "Pod频繁重启",
-      "disassociateTemplate": false,
-      "enterprise_project_id": "0",
       "metric_alarm_spec": {
         "alarm_rule_template_bind_enable": false,
         "alarm_rule_template_id": "at0000000000000000cce001",
@@ -1267,13 +946,13 @@
           "alarm_rule_template_rule_desc": "检查pod是否频繁重启。",
           "alarm_rule_template_rule_name": "Pod频繁重启",
           "monitor_object": {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           },
           "related_cloud_service": "CCEFromProm"
         },
         "monitor_objects": [
           {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           }
         ],
         "monitor_type": "promql",
@@ -1295,7 +974,7 @@
             ],
             "metric_name": "kube_pod_container_status_restarts_total",
             "metric_query_mode": "NATIVE_PROM",
-            "promql": "increase(kube_pod_container_status_restarts_total{cluster=\"57b3b8c0-74fe-11f1-a396-0255ac10024b\"}[5m]) > 3",
+            "promql": "increase(kube_pod_container_status_restarts_total{cluster=\"__CCE_CLUSTER_ID__\"}[5m]) > 3",
             "promql_for": "1m",
             "promql_monitor_templates": [
               "cluster"
@@ -1309,31 +988,14 @@
           }
         ],
         "update_alarm_rule": true
-      },
-      "prom_instance_id": "323c7078-d05c-44d2-bbe5-661e8c0079a4",
-      "user_id": "085a4aa6ec000f692f03c00a9ccf7fba"
+      }
     },
     {
-      "alarm_create_time": 1783330121943,
-      "alarm_notifications": {
-        "bind_notification_rule_id": "auto-cluster-57b3b8c0-74fe-11f1-a396-0255ac10024b",
-        "notification_enable": true,
-        "notification_type": "direct",
-        "notify_frequency": 0,
-        "notify_resolved": true,
-        "notify_triggered": true,
-        "route_group_enable": false
-      },
       "alarm_rule_description": "检查ResolvConf配置文件是否异常。",
       "alarm_rule_enable": true,
-      "alarm_rule_id_str": "1523742500735614976",
-      "alarm_rule_name": "CCE_ResolvConf配置文件异常_57b3b8c0-74fe-11f1-a396-0255ac10024b",
-      "alarm_rule_status": "OK",
+      "alarm_rule_name": "CCE_ResolvConf配置文件异常___CCE_CLUSTER_ID__",
       "alarm_rule_type": "metric",
-      "alarm_update_time": 1783330121943,
       "alias": "ResolvConf配置文件异常",
-      "disassociateTemplate": false,
-      "enterprise_project_id": "0",
       "metric_alarm_spec": {
         "alarm_rule_template_bind_enable": false,
         "alarm_rule_template_id": "at0000000000000000cce001",
@@ -1353,13 +1015,13 @@
           "alarm_rule_template_rule_desc": "检查ResolvConf配置文件是否异常。",
           "alarm_rule_template_rule_name": "ResolvConf配置文件异常",
           "monitor_object": {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           },
           "related_cloud_service": "CCEFromProm"
         },
         "monitor_objects": [
           {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           }
         ],
         "monitor_type": "promql",
@@ -1381,7 +1043,7 @@
             ],
             "metric_name": "problem_gauge",
             "metric_query_mode": "NATIVE_PROM",
-            "promql": "problem_gauge{cluster=\"57b3b8c0-74fe-11f1-a396-0255ac10024b\",type=\"ResolvConfFileProblem\"} >= 1",
+            "promql": "problem_gauge{cluster=\"__CCE_CLUSTER_ID__\",type=\"ResolvConfFileProblem\"} >= 1",
             "promql_for": "1m",
             "promql_monitor_templates": [
               "cluster"
@@ -1395,31 +1057,14 @@
           }
         ],
         "update_alarm_rule": true
-      },
-      "prom_instance_id": "323c7078-d05c-44d2-bbe5-661e8c0079a4",
-      "user_id": "085a4aa6ec000f692f03c00a9ccf7fba"
+      }
     },
     {
-      "alarm_create_time": 1783330122398,
-      "alarm_notifications": {
-        "bind_notification_rule_id": "auto-cluster-57b3b8c0-74fe-11f1-a396-0255ac10024b",
-        "notification_enable": true,
-        "notification_type": "direct",
-        "notify_frequency": 0,
-        "notify_resolved": true,
-        "notify_triggered": true,
-        "route_group_enable": false
-      },
       "alarm_rule_description": "检查有状态负载的副本数是否匹配。",
       "alarm_rule_enable": true,
-      "alarm_rule_id_str": "1523742502644023305",
-      "alarm_rule_name": "CCE_Statefulset副本数不匹配_57b3b8c0-74fe-11f1-a396-0255ac10024b",
-      "alarm_rule_status": "OK",
+      "alarm_rule_name": "CCE_Statefulset副本数不匹配___CCE_CLUSTER_ID__",
       "alarm_rule_type": "metric",
-      "alarm_update_time": 1783330122398,
       "alias": "Statefulset副本数不匹配",
-      "disassociateTemplate": false,
-      "enterprise_project_id": "0",
       "metric_alarm_spec": {
         "alarm_rule_template_bind_enable": false,
         "alarm_rule_template_id": "at0000000000000000cce001",
@@ -1439,13 +1084,13 @@
           "alarm_rule_template_rule_desc": "检查有状态负载的副本数是否匹配。",
           "alarm_rule_template_rule_name": "Statefulset副本数不匹配",
           "monitor_object": {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           },
           "related_cloud_service": "CCEFromProm"
         },
         "monitor_objects": [
           {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           }
         ],
         "monitor_type": "promql",
@@ -1467,7 +1112,7 @@
             ],
             "metric_name": "kube_statefulset_status_replicas_ready",
             "metric_query_mode": "NATIVE_PROM",
-            "promql": "(kube_statefulset_status_replicas_ready{cluster=\"57b3b8c0-74fe-11f1-a396-0255ac10024b\"} != kube_statefulset_status_replicas{cluster=\"57b3b8c0-74fe-11f1-a396-0255ac10024b\"}) and (changes(kube_statefulset_status_replicas_updated{cluster=\"57b3b8c0-74fe-11f1-a396-0255ac10024b\"}[5m]) == 0)",
+            "promql": "(kube_statefulset_status_replicas_ready{cluster=\"__CCE_CLUSTER_ID__\"} != kube_statefulset_status_replicas{cluster=\"__CCE_CLUSTER_ID__\"}) and (changes(kube_statefulset_status_replicas_updated{cluster=\"__CCE_CLUSTER_ID__\"}[5m]) == 0)",
             "promql_for": "15m",
             "promql_monitor_templates": [
               "cluster"
@@ -1481,31 +1126,14 @@
           }
         ],
         "update_alarm_rule": true
-      },
-      "prom_instance_id": "323c7078-d05c-44d2-bbe5-661e8c0079a4",
-      "user_id": "085a4aa6ec000f692f03c00a9ccf7fba"
+      }
     },
     {
-      "alarm_create_time": 1783330122258,
-      "alarm_notifications": {
-        "bind_notification_rule_id": "auto-cluster-57b3b8c0-74fe-11f1-a396-0255ac10024b",
-        "notification_enable": true,
-        "notification_type": "direct",
-        "notify_frequency": 0,
-        "notify_resolved": true,
-        "notify_triggered": true,
-        "route_group_enable": false
-      },
       "alarm_rule_description": "检查容器CPU使用率是否大于80%。",
       "alarm_rule_enable": true,
-      "alarm_rule_id_str": "1523742502056820737",
-      "alarm_rule_name": "CCE_容器CPU使用率大于百分之八十_57b3b8c0-74fe-11f1-a396-0255ac10024b",
-      "alarm_rule_status": "OK",
+      "alarm_rule_name": "CCE_容器CPU使用率大于百分之八十___CCE_CLUSTER_ID__",
       "alarm_rule_type": "metric",
-      "alarm_update_time": 1783330122258,
       "alias": "容器CPU使用率大于百分之八十",
-      "disassociateTemplate": false,
-      "enterprise_project_id": "0",
       "metric_alarm_spec": {
         "alarm_rule_template_bind_enable": false,
         "alarm_rule_template_id": "at0000000000000000cce001",
@@ -1525,13 +1153,13 @@
           "alarm_rule_template_rule_desc": "检查容器CPU使用率是否大于80%。",
           "alarm_rule_template_rule_name": "容器CPU使用率大于百分之八十",
           "monitor_object": {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           },
           "related_cloud_service": "CCEFromProm"
         },
         "monitor_objects": [
           {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           }
         ],
         "monitor_type": "promql",
@@ -1554,7 +1182,7 @@
             ],
             "metric_name": "container_cpu_usage_seconds_total",
             "metric_query_mode": "NATIVE_PROM",
-            "promql": "100 * (sum(rate(container_cpu_usage_seconds_total{cluster=\"57b3b8c0-74fe-11f1-a396-0255ac10024b\",image!=\"\", container!=\"POD\"}[1m])) by (cluster_name,pod,node,namespace,container, cluster) / sum(kube_pod_container_resource_limits{cluster=\"57b3b8c0-74fe-11f1-a396-0255ac10024b\",resource=\"cpu\"}) by (cluster_name,pod,node,namespace,container, cluster)) > 80",
+            "promql": "100 * (sum(rate(container_cpu_usage_seconds_total{cluster=\"__CCE_CLUSTER_ID__\",image!=\"\", container!=\"POD\"}[1m])) by (cluster_name,pod,node,namespace,container, cluster) / sum(kube_pod_container_resource_limits{cluster=\"__CCE_CLUSTER_ID__\",resource=\"cpu\"}) by (cluster_name,pod,node,namespace,container, cluster)) > 80",
             "promql_for": "1m",
             "promql_monitor_templates": [
               "cluster"
@@ -1568,31 +1196,14 @@
           }
         ],
         "update_alarm_rule": true
-      },
-      "prom_instance_id": "323c7078-d05c-44d2-bbe5-661e8c0079a4",
-      "user_id": "085a4aa6ec000f692f03c00a9ccf7fba"
+      }
     },
     {
-      "alarm_create_time": 1783330122264,
-      "alarm_notifications": {
-        "bind_notification_rule_id": "auto-cluster-57b3b8c0-74fe-11f1-a396-0255ac10024b",
-        "notification_enable": true,
-        "notification_type": "direct",
-        "notify_frequency": 0,
-        "notify_resolved": true,
-        "notify_triggered": true,
-        "route_group_enable": false
-      },
       "alarm_rule_description": "检查容器内存WorkingSet使用率是否大于80%。",
       "alarm_rule_enable": true,
-      "alarm_rule_id_str": "1523742502077792257",
-      "alarm_rule_name": "CCE_容器内存使用率大于百分之八十_57b3b8c0-74fe-11f1-a396-0255ac10024b",
-      "alarm_rule_status": "OK",
+      "alarm_rule_name": "CCE_容器内存使用率大于百分之八十___CCE_CLUSTER_ID__",
       "alarm_rule_type": "metric",
-      "alarm_update_time": 1783330122264,
       "alias": "容器内存使用率大于百分之八十",
-      "disassociateTemplate": false,
-      "enterprise_project_id": "0",
       "metric_alarm_spec": {
         "alarm_rule_template_bind_enable": false,
         "alarm_rule_template_id": "at0000000000000000cce001",
@@ -1612,13 +1223,13 @@
           "alarm_rule_template_rule_desc": "检查容器内存WorkingSet使用率是否大于80%。",
           "alarm_rule_template_rule_name": "容器内存使用率大于百分之八十",
           "monitor_object": {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           },
           "related_cloud_service": "CCEFromProm"
         },
         "monitor_objects": [
           {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           }
         ],
         "monitor_type": "promql",
@@ -1641,7 +1252,7 @@
             ],
             "metric_name": "container_spec_memory_limit_bytes",
             "metric_query_mode": "NATIVE_PROM",
-            "promql": "(sum(container_memory_working_set_bytes{cluster=\"57b3b8c0-74fe-11f1-a396-0255ac10024b\",image!=\"\", container!=\"POD\"}) BY (cluster_name, node,container, pod , namespace, cluster) / sum(container_spec_memory_limit_bytes{cluster=\"57b3b8c0-74fe-11f1-a396-0255ac10024b\"} > 0) BY (cluster_name, node, container, pod , namespace, cluster) * 100) > 80",
+            "promql": "(sum(container_memory_working_set_bytes{cluster=\"__CCE_CLUSTER_ID__\",image!=\"\", container!=\"POD\"}) BY (cluster_name, node,container, pod , namespace, cluster) / sum(container_spec_memory_limit_bytes{cluster=\"__CCE_CLUSTER_ID__\"} > 0) BY (cluster_name, node, container, pod , namespace, cluster) * 100) > 80",
             "promql_for": "1m",
             "promql_monitor_templates": [
               "cluster"
@@ -1655,31 +1266,14 @@
           }
         ],
         "update_alarm_rule": true
-      },
-      "prom_instance_id": "323c7078-d05c-44d2-bbe5-661e8c0079a4",
-      "user_id": "085a4aa6ec000f692f03c00a9ccf7fba"
+      }
     },
     {
-      "alarm_create_time": 1783330122461,
-      "alarm_notifications": {
-        "bind_notification_rule_id": "auto-cluster-57b3b8c0-74fe-11f1-a396-0255ac10024b",
-        "notification_enable": true,
-        "notification_type": "direct",
-        "notify_frequency": 0,
-        "notify_resolved": true,
-        "notify_triggered": true,
-        "route_group_enable": false
-      },
       "alarm_rule_description": "检查容器状态是否异常。",
       "alarm_rule_enable": true,
-      "alarm_rule_id_str": "1523742502908264457",
-      "alarm_rule_name": "CCE_容器状态异常_57b3b8c0-74fe-11f1-a396-0255ac10024b",
-      "alarm_rule_status": "OK",
+      "alarm_rule_name": "CCE_容器状态异常___CCE_CLUSTER_ID__",
       "alarm_rule_type": "metric",
-      "alarm_update_time": 1783330122461,
       "alias": "容器状态异常",
-      "disassociateTemplate": false,
-      "enterprise_project_id": "0",
       "metric_alarm_spec": {
         "alarm_rule_template_bind_enable": false,
         "alarm_rule_template_id": "at0000000000000000cce001",
@@ -1699,13 +1293,13 @@
           "alarm_rule_template_rule_desc": "检查容器状态是否异常。",
           "alarm_rule_template_rule_name": "容器状态异常",
           "monitor_object": {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           },
           "related_cloud_service": "CCEFromProm"
         },
         "monitor_objects": [
           {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           }
         ],
         "monitor_type": "promql",
@@ -1728,7 +1322,7 @@
             ],
             "metric_name": "kube_pod_container_status_waiting_reason",
             "metric_query_mode": "NATIVE_PROM",
-            "promql": "sum by (namespace, pod, container, cluster_name, cluster) (kube_pod_container_status_waiting_reason{cluster=\"57b3b8c0-74fe-11f1-a396-0255ac10024b\"}) > 0",
+            "promql": "sum by (namespace, pod, container, cluster_name, cluster) (kube_pod_container_status_waiting_reason{cluster=\"__CCE_CLUSTER_ID__\"}) > 0",
             "promql_for": "1h",
             "promql_monitor_templates": [
               "cluster"
@@ -1742,31 +1336,14 @@
           }
         ],
         "update_alarm_rule": true
-      },
-      "prom_instance_id": "323c7078-d05c-44d2-bbe5-661e8c0079a4",
-      "user_id": "085a4aa6ec000f692f03c00a9ccf7fba"
+      }
     },
     {
-      "alarm_create_time": 1783330121892,
-      "alarm_notifications": {
-        "bind_notification_rule_id": "auto-cluster-57b3b8c0-74fe-11f1-a396-0255ac10024b",
-        "notification_enable": true,
-        "notification_type": "direct",
-        "notify_frequency": 0,
-        "notify_resolved": true,
-        "notify_triggered": true,
-        "route_group_enable": false
-      },
       "alarm_rule_description": "检查节点CNI（容器网络）组件是否正常运行。",
       "alarm_rule_enable": true,
-      "alarm_rule_id_str": "1523742500521705488",
-      "alarm_rule_name": "CCE_节点CNI组件异常_57b3b8c0-74fe-11f1-a396-0255ac10024b",
-      "alarm_rule_status": "OK",
+      "alarm_rule_name": "CCE_节点CNI组件异常___CCE_CLUSTER_ID__",
       "alarm_rule_type": "metric",
-      "alarm_update_time": 1783330121892,
       "alias": "节点CNI组件异常",
-      "disassociateTemplate": false,
-      "enterprise_project_id": "0",
       "metric_alarm_spec": {
         "alarm_rule_template_bind_enable": false,
         "alarm_rule_template_id": "at0000000000000000cce001",
@@ -1786,13 +1363,13 @@
           "alarm_rule_template_rule_desc": "检查节点CNI（容器网络）组件是否正常运行。",
           "alarm_rule_template_rule_name": "节点CNI组件异常",
           "monitor_object": {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           },
           "related_cloud_service": "CCEFromProm"
         },
         "monitor_objects": [
           {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           }
         ],
         "monitor_type": "promql",
@@ -1814,7 +1391,7 @@
             ],
             "metric_name": "problem_gauge",
             "metric_query_mode": "NATIVE_PROM",
-            "promql": "problem_gauge{cluster=\"57b3b8c0-74fe-11f1-a396-0255ac10024b\",type=\"CNIProblem\"} >= 1",
+            "promql": "problem_gauge{cluster=\"__CCE_CLUSTER_ID__\",type=\"CNIProblem\"} >= 1",
             "promql_for": "1m",
             "promql_monitor_templates": [
               "cluster"
@@ -1828,31 +1405,14 @@
           }
         ],
         "update_alarm_rule": true
-      },
-      "prom_instance_id": "323c7078-d05c-44d2-bbe5-661e8c0079a4",
-      "user_id": "085a4aa6ec000f692f03c00a9ccf7fba"
+      }
     },
     {
-      "alarm_create_time": 1783330122054,
-      "alarm_notifications": {
-        "bind_notification_rule_id": "auto-cluster-57b3b8c0-74fe-11f1-a396-0255ac10024b",
-        "notification_enable": true,
-        "notification_type": "direct",
-        "notify_frequency": 0,
-        "notify_resolved": true,
-        "notify_triggered": true,
-        "route_group_enable": false
-      },
       "alarm_rule_description": "检查节点CPU使用率是否大于80%。",
       "alarm_rule_enable": true,
-      "alarm_rule_id_str": "1523742501201182730",
-      "alarm_rule_name": "CCE_节点CPU使用率超过百分之八十_57b3b8c0-74fe-11f1-a396-0255ac10024b",
-      "alarm_rule_status": "OK",
+      "alarm_rule_name": "CCE_节点CPU使用率超过百分之八十___CCE_CLUSTER_ID__",
       "alarm_rule_type": "metric",
-      "alarm_update_time": 1783330122054,
       "alias": "节点CPU使用率超过百分之八十",
-      "disassociateTemplate": false,
-      "enterprise_project_id": "0",
       "metric_alarm_spec": {
         "alarm_rule_template_bind_enable": false,
         "alarm_rule_template_id": "at0000000000000000cce001",
@@ -1872,13 +1432,13 @@
           "alarm_rule_template_rule_desc": "检查节点CPU使用率是否大于80%。",
           "alarm_rule_template_rule_name": "节点CPU使用率超过百分之八十",
           "monitor_object": {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           },
           "related_cloud_service": "CCEFromProm"
         },
         "monitor_objects": [
           {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           }
         ],
         "monitor_type": "promql",
@@ -1899,7 +1459,7 @@
             ],
             "metric_name": "node_cpu_seconds_total",
             "metric_query_mode": "NATIVE_PROM",
-            "promql": "100 - (avg by(node, cluster_name, cluster) (rate(node_cpu_seconds_total{cluster=\"57b3b8c0-74fe-11f1-a396-0255ac10024b\",mode=\"idle\"}[2m])) * 100) > 80",
+            "promql": "100 - (avg by(node, cluster_name, cluster) (rate(node_cpu_seconds_total{cluster=\"__CCE_CLUSTER_ID__\",mode=\"idle\"}[2m])) * 100) > 80",
             "promql_for": "1m",
             "promql_monitor_templates": [
               "cluster"
@@ -1913,31 +1473,14 @@
           }
         ],
         "update_alarm_rule": true
-      },
-      "prom_instance_id": "323c7078-d05c-44d2-bbe5-661e8c0079a4",
-      "user_id": "085a4aa6ec000f692f03c00a9ccf7fba"
+      }
     },
     {
-      "alarm_create_time": 1783330121892,
-      "alarm_notifications": {
-        "bind_notification_rule_id": "auto-cluster-57b3b8c0-74fe-11f1-a396-0255ac10024b",
-        "notification_enable": true,
-        "notification_type": "direct",
-        "notify_frequency": 0,
-        "notify_resolved": true,
-        "notify_triggered": true,
-        "route_group_enable": false
-      },
       "alarm_rule_description": "检查关键组件CRI（容器运行时组件）Docker或Containerd的运行状态。",
       "alarm_rule_enable": true,
-      "alarm_rule_id_str": "1523742500521705489",
-      "alarm_rule_name": "CCE_节点CRI组件异常_57b3b8c0-74fe-11f1-a396-0255ac10024b",
-      "alarm_rule_status": "OK",
+      "alarm_rule_name": "CCE_节点CRI组件异常___CCE_CLUSTER_ID__",
       "alarm_rule_type": "metric",
-      "alarm_update_time": 1783330121892,
       "alias": "节点CRI组件异常",
-      "disassociateTemplate": false,
-      "enterprise_project_id": "0",
       "metric_alarm_spec": {
         "alarm_rule_template_bind_enable": false,
         "alarm_rule_template_id": "at0000000000000000cce001",
@@ -1957,13 +1500,13 @@
           "alarm_rule_template_rule_desc": "检查关键组件CRI（容器运行时组件）Docker或Containerd的运行状态。",
           "alarm_rule_template_rule_name": "节点CRI组件异常",
           "monitor_object": {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           },
           "related_cloud_service": "CCEFromProm"
         },
         "monitor_objects": [
           {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           }
         ],
         "monitor_type": "promql",
@@ -1985,7 +1528,7 @@
             ],
             "metric_name": "problem_gauge",
             "metric_query_mode": "NATIVE_PROM",
-            "promql": "problem_gauge{cluster=\"57b3b8c0-74fe-11f1-a396-0255ac10024b\",type=\"CRIProblem\"} >= 1",
+            "promql": "problem_gauge{cluster=\"__CCE_CLUSTER_ID__\",type=\"CRIProblem\"} >= 1",
             "promql_for": "1m",
             "promql_monitor_templates": [
               "cluster"
@@ -1999,31 +1542,14 @@
           }
         ],
         "update_alarm_rule": true
-      },
-      "prom_instance_id": "323c7078-d05c-44d2-bbe5-661e8c0079a4",
-      "user_id": "085a4aa6ec000f692f03c00a9ccf7fba"
+      }
     },
     {
-      "alarm_create_time": 1783330121939,
-      "alarm_notifications": {
-        "bind_notification_rule_id": "auto-cluster-57b3b8c0-74fe-11f1-a396-0255ac10024b",
-        "notification_enable": true,
-        "notification_type": "direct",
-        "notify_frequency": 0,
-        "notify_resolved": true,
-        "notify_triggered": true,
-        "route_group_enable": false
-      },
       "alarm_rule_description": "检查Containerd是否频繁重启。",
       "alarm_rule_enable": true,
-      "alarm_rule_id_str": "1523742500718837763",
-      "alarm_rule_name": "CCE_节点Containerd频繁重启_57b3b8c0-74fe-11f1-a396-0255ac10024b",
-      "alarm_rule_status": "OK",
+      "alarm_rule_name": "CCE_节点Containerd频繁重启___CCE_CLUSTER_ID__",
       "alarm_rule_type": "metric",
-      "alarm_update_time": 1783330121939,
       "alias": "节点Containerd频繁重启",
-      "disassociateTemplate": false,
-      "enterprise_project_id": "0",
       "metric_alarm_spec": {
         "alarm_rule_template_bind_enable": false,
         "alarm_rule_template_id": "at0000000000000000cce001",
@@ -2043,13 +1569,13 @@
           "alarm_rule_template_rule_desc": "检查Containerd是否频繁重启。",
           "alarm_rule_template_rule_name": "节点Containerd频繁重启",
           "monitor_object": {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           },
           "related_cloud_service": "CCEFromProm"
         },
         "monitor_objects": [
           {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           }
         ],
         "monitor_type": "promql",
@@ -2071,7 +1597,7 @@
             ],
             "metric_name": "problem_gauge",
             "metric_query_mode": "NATIVE_PROM",
-            "promql": "problem_gauge{cluster=\"57b3b8c0-74fe-11f1-a396-0255ac10024b\",type=\"FrequentContainerdRestart\"} >= 1",
+            "promql": "problem_gauge{cluster=\"__CCE_CLUSTER_ID__\",type=\"FrequentContainerdRestart\"} >= 1",
             "promql_for": "1m",
             "promql_monitor_templates": [
               "cluster"
@@ -2085,31 +1611,14 @@
           }
         ],
         "update_alarm_rule": true
-      },
-      "prom_instance_id": "323c7078-d05c-44d2-bbe5-661e8c0079a4",
-      "user_id": "085a4aa6ec000f692f03c00a9ccf7fba"
+      }
     },
     {
-      "alarm_create_time": 1783330121940,
-      "alarm_notifications": {
-        "bind_notification_rule_id": "auto-cluster-57b3b8c0-74fe-11f1-a396-0255ac10024b",
-        "notification_enable": true,
-        "notification_type": "direct",
-        "notify_frequency": 0,
-        "notify_resolved": true,
-        "notify_triggered": true,
-        "route_group_enable": false
-      },
       "alarm_rule_description": "检查Docker是否频繁重启。",
       "alarm_rule_enable": true,
-      "alarm_rule_id_str": "1523742500723032069",
-      "alarm_rule_name": "CCE_节点Docker频繁重启_57b3b8c0-74fe-11f1-a396-0255ac10024b",
-      "alarm_rule_status": "OK",
+      "alarm_rule_name": "CCE_节点Docker频繁重启___CCE_CLUSTER_ID__",
       "alarm_rule_type": "metric",
-      "alarm_update_time": 1783330121940,
       "alias": "节点Docker频繁重启",
-      "disassociateTemplate": false,
-      "enterprise_project_id": "0",
       "metric_alarm_spec": {
         "alarm_rule_template_bind_enable": false,
         "alarm_rule_template_id": "at0000000000000000cce001",
@@ -2129,13 +1638,13 @@
           "alarm_rule_template_rule_desc": "检查Docker是否频繁重启。",
           "alarm_rule_template_rule_name": "节点Docker频繁重启",
           "monitor_object": {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           },
           "related_cloud_service": "CCEFromProm"
         },
         "monitor_objects": [
           {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           }
         ],
         "monitor_type": "promql",
@@ -2157,7 +1666,7 @@
             ],
             "metric_name": "problem_gauge",
             "metric_query_mode": "NATIVE_PROM",
-            "promql": "problem_gauge{cluster=\"57b3b8c0-74fe-11f1-a396-0255ac10024b\",type=\"FrequentDockerRestart\"} >= 1",
+            "promql": "problem_gauge{cluster=\"__CCE_CLUSTER_ID__\",type=\"FrequentDockerRestart\"} >= 1",
             "promql_for": "1m",
             "promql_monitor_templates": [
               "cluster"
@@ -2171,31 +1680,14 @@
           }
         ],
         "update_alarm_rule": true
-      },
-      "prom_instance_id": "323c7078-d05c-44d2-bbe5-661e8c0079a4",
-      "user_id": "085a4aa6ec000f692f03c00a9ccf7fba"
+      }
     },
     {
-      "alarm_create_time": 1783330121934,
-      "alarm_notifications": {
-        "bind_notification_rule_id": "auto-cluster-57b3b8c0-74fe-11f1-a396-0255ac10024b",
-        "notification_enable": true,
-        "notification_type": "direct",
-        "notify_frequency": 0,
-        "notify_resolved": true,
-        "notify_triggered": true,
-        "route_group_enable": false
-      },
       "alarm_rule_description": "检查Kube-proxy是否正常运行。",
       "alarm_rule_enable": true,
-      "alarm_rule_id_str": "1523742500697866242",
-      "alarm_rule_name": "CCE_节点Kube-proxy故障_57b3b8c0-74fe-11f1-a396-0255ac10024b",
-      "alarm_rule_status": "OK",
+      "alarm_rule_name": "CCE_节点Kube-proxy故障___CCE_CLUSTER_ID__",
       "alarm_rule_type": "metric",
-      "alarm_update_time": 1783330121934,
       "alias": "节点Kube-proxy故障",
-      "disassociateTemplate": false,
-      "enterprise_project_id": "0",
       "metric_alarm_spec": {
         "alarm_rule_template_bind_enable": false,
         "alarm_rule_template_id": "at0000000000000000cce001",
@@ -2215,13 +1707,13 @@
           "alarm_rule_template_rule_desc": "检查Kube-proxy是否正常运行。",
           "alarm_rule_template_rule_name": "节点Kube-proxy故障",
           "monitor_object": {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           },
           "related_cloud_service": "CCEFromProm"
         },
         "monitor_objects": [
           {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           }
         ],
         "monitor_type": "promql",
@@ -2243,7 +1735,7 @@
             ],
             "metric_name": "problem_gauge",
             "metric_query_mode": "NATIVE_PROM",
-            "promql": "problem_gauge{cluster=\"57b3b8c0-74fe-11f1-a396-0255ac10024b\",type=\"KUBEPROXYProblem\"} >= 1",
+            "promql": "problem_gauge{cluster=\"__CCE_CLUSTER_ID__\",type=\"KUBEPROXYProblem\"} >= 1",
             "promql_for": "1m",
             "promql_monitor_templates": [
               "cluster"
@@ -2257,31 +1749,14 @@
           }
         ],
         "update_alarm_rule": true
-      },
-      "prom_instance_id": "323c7078-d05c-44d2-bbe5-661e8c0079a4",
-      "user_id": "085a4aa6ec000f692f03c00a9ccf7fba"
+      }
     },
     {
-      "alarm_create_time": 1783330121934,
-      "alarm_notifications": {
-        "bind_notification_rule_id": "auto-cluster-57b3b8c0-74fe-11f1-a396-0255ac10024b",
-        "notification_enable": true,
-        "notification_type": "direct",
-        "notify_frequency": 0,
-        "notify_resolved": true,
-        "notify_triggered": true,
-        "route_group_enable": false
-      },
       "alarm_rule_description": "检查Kubelet状态是否异常。",
       "alarm_rule_enable": true,
-      "alarm_rule_id_str": "1523742500697866241",
-      "alarm_rule_name": "CCE_节点Kubelet异常_57b3b8c0-74fe-11f1-a396-0255ac10024b",
-      "alarm_rule_status": "OK",
+      "alarm_rule_name": "CCE_节点Kubelet异常___CCE_CLUSTER_ID__",
       "alarm_rule_type": "metric",
-      "alarm_update_time": 1783330121934,
       "alias": "节点Kubelet异常",
-      "disassociateTemplate": false,
-      "enterprise_project_id": "0",
       "metric_alarm_spec": {
         "alarm_rule_template_bind_enable": false,
         "alarm_rule_template_id": "at0000000000000000cce001",
@@ -2301,13 +1776,13 @@
           "alarm_rule_template_rule_desc": "检查Kubelet状态是否异常。",
           "alarm_rule_template_rule_name": "节点Kubelet异常",
           "monitor_object": {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           },
           "related_cloud_service": "CCEFromProm"
         },
         "monitor_objects": [
           {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           }
         ],
         "monitor_type": "promql",
@@ -2329,7 +1804,7 @@
             ],
             "metric_name": "problem_gauge",
             "metric_query_mode": "NATIVE_PROM",
-            "promql": "problem_gauge{cluster=\"57b3b8c0-74fe-11f1-a396-0255ac10024b\",type=\"KUBELETProblem\"} >= 1",
+            "promql": "problem_gauge{cluster=\"__CCE_CLUSTER_ID__\",type=\"KUBELETProblem\"} >= 1",
             "promql_for": "1m",
             "promql_monitor_templates": [
               "cluster"
@@ -2343,31 +1818,14 @@
           }
         ],
         "update_alarm_rule": true
-      },
-      "prom_instance_id": "323c7078-d05c-44d2-bbe5-661e8c0079a4",
-      "user_id": "085a4aa6ec000f692f03c00a9ccf7fba"
+      }
     },
     {
-      "alarm_create_time": 1783330121941,
-      "alarm_notifications": {
-        "bind_notification_rule_id": "auto-cluster-57b3b8c0-74fe-11f1-a396-0255ac10024b",
-        "notification_enable": true,
-        "notification_type": "direct",
-        "notify_frequency": 0,
-        "notify_resolved": true,
-        "notify_triggered": true,
-        "route_group_enable": false
-      },
       "alarm_rule_description": "检查Kubelet是否频繁重启。",
       "alarm_rule_enable": true,
-      "alarm_rule_id_str": "1523742500727226374",
-      "alarm_rule_name": "CCE_节点Kubelet频繁重启_57b3b8c0-74fe-11f1-a396-0255ac10024b",
-      "alarm_rule_status": "OK",
+      "alarm_rule_name": "CCE_节点Kubelet频繁重启___CCE_CLUSTER_ID__",
       "alarm_rule_type": "metric",
-      "alarm_update_time": 1783330121941,
       "alias": "节点Kubelet频繁重启",
-      "disassociateTemplate": false,
-      "enterprise_project_id": "0",
       "metric_alarm_spec": {
         "alarm_rule_template_bind_enable": false,
         "alarm_rule_template_id": "at0000000000000000cce001",
@@ -2387,13 +1845,13 @@
           "alarm_rule_template_rule_desc": "检查Kubelet是否频繁重启。",
           "alarm_rule_template_rule_name": "节点Kubelet频繁重启",
           "monitor_object": {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           },
           "related_cloud_service": "CCEFromProm"
         },
         "monitor_objects": [
           {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           }
         ],
         "monitor_type": "promql",
@@ -2415,7 +1873,7 @@
             ],
             "metric_name": "problem_gauge",
             "metric_query_mode": "NATIVE_PROM",
-            "promql": "problem_gauge{cluster=\"57b3b8c0-74fe-11f1-a396-0255ac10024b\",type=\"FrequentKubeletRestart\"} >= 1",
+            "promql": "problem_gauge{cluster=\"__CCE_CLUSTER_ID__\",type=\"FrequentKubeletRestart\"} >= 1",
             "promql_for": "1m",
             "promql_monitor_templates": [
               "cluster"
@@ -2429,31 +1887,14 @@
           }
         ],
         "update_alarm_rule": true
-      },
-      "prom_instance_id": "323c7078-d05c-44d2-bbe5-661e8c0079a4",
-      "user_id": "085a4aa6ec000f692f03c00a9ccf7fba"
+      }
     },
     {
-      "alarm_create_time": 1783330121941,
-      "alarm_notifications": {
-        "bind_notification_rule_id": "auto-cluster-57b3b8c0-74fe-11f1-a396-0255ac10024b",
-        "notification_enable": true,
-        "notification_type": "direct",
-        "notify_frequency": 0,
-        "notify_resolved": true,
-        "notify_triggered": true,
-        "route_group_enable": false
-      },
       "alarm_rule_description": "检查关键系统服务节点时钟同步服务ntpd或chronyd是否正常运行。",
       "alarm_rule_enable": true,
-      "alarm_rule_id_str": "1523742500731420675",
-      "alarm_rule_name": "CCE_节点NTP服务故障_57b3b8c0-74fe-11f1-a396-0255ac10024b",
-      "alarm_rule_status": "OK",
+      "alarm_rule_name": "CCE_节点NTP服务故障___CCE_CLUSTER_ID__",
       "alarm_rule_type": "metric",
-      "alarm_update_time": 1783330121941,
       "alias": "节点NTP服务故障",
-      "disassociateTemplate": false,
-      "enterprise_project_id": "0",
       "metric_alarm_spec": {
         "alarm_rule_template_bind_enable": false,
         "alarm_rule_template_id": "at0000000000000000cce001",
@@ -2473,13 +1914,13 @@
           "alarm_rule_template_rule_desc": "检查关键系统服务节点时钟同步服务ntpd或chronyd是否正常运行。",
           "alarm_rule_template_rule_name": "节点NTP服务故障",
           "monitor_object": {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           },
           "related_cloud_service": "CCEFromProm"
         },
         "monitor_objects": [
           {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           }
         ],
         "monitor_type": "promql",
@@ -2501,7 +1942,7 @@
             ],
             "metric_name": "problem_gauge",
             "metric_query_mode": "NATIVE_PROM",
-            "promql": "problem_gauge{cluster=\"57b3b8c0-74fe-11f1-a396-0255ac10024b\",type=\"NTPProblem\"} >= 1",
+            "promql": "problem_gauge{cluster=\"__CCE_CLUSTER_ID__\",type=\"NTPProblem\"} >= 1",
             "promql_for": "1m",
             "promql_monitor_templates": [
               "cluster"
@@ -2515,31 +1956,14 @@
           }
         ],
         "update_alarm_rule": true
-      },
-      "prom_instance_id": "323c7078-d05c-44d2-bbe5-661e8c0079a4",
-      "user_id": "085a4aa6ec000f692f03c00a9ccf7fba"
+      }
     },
     {
-      "alarm_create_time": 1783330122187,
-      "alarm_notifications": {
-        "bind_notification_rule_id": "auto-cluster-57b3b8c0-74fe-11f1-a396-0255ac10024b",
-        "notification_enable": true,
-        "notification_type": "direct",
-        "notify_frequency": 0,
-        "notify_resolved": true,
-        "notify_triggered": true,
-        "route_group_enable": false
-      },
       "alarm_rule_description": "检查节点临时卷存储池是否异常。",
       "alarm_rule_enable": true,
-      "alarm_rule_id_str": "1523742501759025159",
-      "alarm_rule_name": "CCE_节点emptydir存储池异常_57b3b8c0-74fe-11f1-a396-0255ac10024b",
-      "alarm_rule_status": "OK",
+      "alarm_rule_name": "CCE_节点emptydir存储池异常___CCE_CLUSTER_ID__",
       "alarm_rule_type": "metric",
-      "alarm_update_time": 1783330122187,
       "alias": "节点emptydir存储池异常",
-      "disassociateTemplate": false,
-      "enterprise_project_id": "0",
       "metric_alarm_spec": {
         "alarm_rule_template_bind_enable": false,
         "alarm_rule_template_id": "at0000000000000000cce001",
@@ -2559,13 +1983,13 @@
           "alarm_rule_template_rule_desc": "检查节点临时卷存储池是否异常。",
           "alarm_rule_template_rule_name": "节点emptydir存储池异常",
           "monitor_object": {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           },
           "related_cloud_service": "CCEFromProm"
         },
         "monitor_objects": [
           {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           }
         ],
         "monitor_type": "promql",
@@ -2587,7 +2011,7 @@
             ],
             "metric_name": "problem_gauge",
             "metric_query_mode": "NATIVE_PROM",
-            "promql": "problem_gauge{cluster=\"57b3b8c0-74fe-11f1-a396-0255ac10024b\",type=\"EmptyDirVolumeGroupStatusError\"} >= 1",
+            "promql": "problem_gauge{cluster=\"__CCE_CLUSTER_ID__\",type=\"EmptyDirVolumeGroupStatusError\"} >= 1",
             "promql_for": "1m",
             "promql_monitor_templates": [
               "cluster"
@@ -2601,31 +2025,14 @@
           }
         ],
         "update_alarm_rule": true
-      },
-      "prom_instance_id": "323c7078-d05c-44d2-bbe5-661e8c0079a4",
-      "user_id": "085a4aa6ec000f692f03c00a9ccf7fba"
+      }
     },
     {
-      "alarm_create_time": 1783330122055,
-      "alarm_notifications": {
-        "bind_notification_rule_id": "auto-cluster-57b3b8c0-74fe-11f1-a396-0255ac10024b",
-        "notification_enable": true,
-        "notification_type": "direct",
-        "notify_frequency": 0,
-        "notify_resolved": true,
-        "notify_triggered": true,
-        "route_group_enable": false
-      },
       "alarm_rule_description": "检查节点可用内存是否不足10%。",
       "alarm_rule_enable": true,
-      "alarm_rule_id_str": "1523742501205377030",
-      "alarm_rule_name": "CCE_节点内存可用率不足百分之十_57b3b8c0-74fe-11f1-a396-0255ac10024b",
-      "alarm_rule_status": "OK",
+      "alarm_rule_name": "CCE_节点内存可用率不足百分之十___CCE_CLUSTER_ID__",
       "alarm_rule_type": "metric",
-      "alarm_update_time": 1783330122055,
       "alias": "节点内存可用率不足百分之十",
-      "disassociateTemplate": false,
-      "enterprise_project_id": "0",
       "metric_alarm_spec": {
         "alarm_rule_template_bind_enable": false,
         "alarm_rule_template_id": "at0000000000000000cce001",
@@ -2645,13 +2052,13 @@
           "alarm_rule_template_rule_desc": "检查节点可用内存是否不足10%。",
           "alarm_rule_template_rule_name": "节点内存可用率不足百分之十",
           "monitor_object": {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           },
           "related_cloud_service": "CCEFromProm"
         },
         "monitor_objects": [
           {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           }
         ],
         "monitor_type": "promql",
@@ -2672,7 +2079,7 @@
             ],
             "metric_name": "node_memory_MemAvailable_bytes",
             "metric_query_mode": "NATIVE_PROM",
-            "promql": "node_memory_MemAvailable_bytes{cluster=\"57b3b8c0-74fe-11f1-a396-0255ac10024b\"} / node_memory_MemTotal_bytes{cluster=\"57b3b8c0-74fe-11f1-a396-0255ac10024b\"} * 100 < 10",
+            "promql": "node_memory_MemAvailable_bytes{cluster=\"__CCE_CLUSTER_ID__\"} / node_memory_MemTotal_bytes{cluster=\"__CCE_CLUSTER_ID__\"} * 100 < 10",
             "promql_for": "1m",
             "promql_monitor_templates": [
               "cluster"
@@ -2686,31 +2093,14 @@
           }
         ],
         "update_alarm_rule": true
-      },
-      "prom_instance_id": "323c7078-d05c-44d2-bbe5-661e8c0079a4",
-      "user_id": "085a4aa6ec000f692f03c00a9ccf7fba"
+      }
     },
     {
-      "alarm_create_time": 1783330122060,
-      "alarm_notifications": {
-        "bind_notification_rule_id": "auto-cluster-57b3b8c0-74fe-11f1-a396-0255ac10024b",
-        "notification_enable": true,
-        "notification_type": "direct",
-        "notify_frequency": 0,
-        "notify_resolved": true,
-        "notify_triggered": true,
-        "route_group_enable": false
-      },
       "alarm_rule_description": "检查节点整体内存是否充足。",
       "alarm_rule_enable": true,
-      "alarm_rule_id_str": "1523742501226348551",
-      "alarm_rule_name": "CCE_节点内存资源不足_57b3b8c0-74fe-11f1-a396-0255ac10024b",
-      "alarm_rule_status": "OK",
+      "alarm_rule_name": "CCE_节点内存资源不足___CCE_CLUSTER_ID__",
       "alarm_rule_type": "metric",
-      "alarm_update_time": 1783330122060,
       "alias": "节点内存资源不足",
-      "disassociateTemplate": false,
-      "enterprise_project_id": "0",
       "metric_alarm_spec": {
         "alarm_rule_template_bind_enable": false,
         "alarm_rule_template_id": "at0000000000000000cce001",
@@ -2730,13 +2120,13 @@
           "alarm_rule_template_rule_desc": "检查节点整体内存是否充足。",
           "alarm_rule_template_rule_name": "节点内存资源不足",
           "monitor_object": {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           },
           "related_cloud_service": "CCEFromProm"
         },
         "monitor_objects": [
           {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           }
         ],
         "monitor_type": "promql",
@@ -2758,7 +2148,7 @@
             ],
             "metric_name": "problem_gauge",
             "metric_query_mode": "NATIVE_PROM",
-            "promql": "problem_gauge{cluster=\"57b3b8c0-74fe-11f1-a396-0255ac10024b\",type=\"MemoryProblem\"} >= 1",
+            "promql": "problem_gauge{cluster=\"__CCE_CLUSTER_ID__\",type=\"MemoryProblem\"} >= 1",
             "promql_for": "1m",
             "promql_monitor_templates": [
               "cluster"
@@ -2772,31 +2162,14 @@
           }
         ],
         "update_alarm_rule": true
-      },
-      "prom_instance_id": "323c7078-d05c-44d2-bbe5-661e8c0079a4",
-      "user_id": "085a4aa6ec000f692f03c00a9ccf7fba"
+      }
     },
     {
-      "alarm_create_time": 1783330121946,
-      "alarm_notifications": {
-        "bind_notification_rule_id": "auto-cluster-57b3b8c0-74fe-11f1-a396-0255ac10024b",
-        "notification_enable": true,
-        "notification_type": "direct",
-        "notify_frequency": 0,
-        "notify_resolved": true,
-        "notify_triggered": true,
-        "route_group_enable": false
-      },
       "alarm_rule_description": "检查节点是否存在主机计划事件。",
       "alarm_rule_enable": true,
-      "alarm_rule_id_str": "1523742500752392200",
-      "alarm_rule_name": "CCE_节点存在计划事件_57b3b8c0-74fe-11f1-a396-0255ac10024b",
-      "alarm_rule_status": "OK",
+      "alarm_rule_name": "CCE_节点存在计划事件___CCE_CLUSTER_ID__",
       "alarm_rule_type": "metric",
-      "alarm_update_time": 1783330121946,
       "alias": "节点存在计划事件",
-      "disassociateTemplate": false,
-      "enterprise_project_id": "0",
       "metric_alarm_spec": {
         "alarm_rule_template_bind_enable": false,
         "alarm_rule_template_id": "at0000000000000000cce001",
@@ -2816,13 +2189,13 @@
           "alarm_rule_template_rule_desc": "检查节点是否存在主机计划事件。",
           "alarm_rule_template_rule_name": "节点存在计划事件",
           "monitor_object": {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           },
           "related_cloud_service": "CCEFromProm"
         },
         "monitor_objects": [
           {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           }
         ],
         "monitor_type": "promql",
@@ -2844,7 +2217,7 @@
             ],
             "metric_name": "problem_gauge",
             "metric_query_mode": "NATIVE_PROM",
-            "promql": "problem_gauge{cluster=\"57b3b8c0-74fe-11f1-a396-0255ac10024b\",type=\"ScheduledEvent\"} >= 1",
+            "promql": "problem_gauge{cluster=\"__CCE_CLUSTER_ID__\",type=\"ScheduledEvent\"} >= 1",
             "promql_for": "1m",
             "promql_monitor_templates": [
               "cluster"
@@ -2858,31 +2231,14 @@
           }
         ],
         "update_alarm_rule": true
-      },
-      "prom_instance_id": "323c7078-d05c-44d2-bbe5-661e8c0079a4",
-      "user_id": "085a4aa6ec000f692f03c00a9ccf7fba"
+      }
     },
     {
-      "alarm_create_time": 1783330122191,
-      "alarm_notifications": {
-        "bind_notification_rule_id": "auto-cluster-57b3b8c0-74fe-11f1-a396-0255ac10024b",
-        "notification_enable": true,
-        "notification_type": "direct",
-        "notify_frequency": 0,
-        "notify_resolved": true,
-        "notify_triggered": true,
-        "route_group_enable": false
-      },
       "alarm_rule_description": "检查节点上持久卷存储池是否异常。",
       "alarm_rule_enable": true,
-      "alarm_rule_id_str": "1523742501779996676",
-      "alarm_rule_name": "CCE_节点持久卷存储池异常_57b3b8c0-74fe-11f1-a396-0255ac10024b",
-      "alarm_rule_status": "OK",
+      "alarm_rule_name": "CCE_节点持久卷存储池异常___CCE_CLUSTER_ID__",
       "alarm_rule_type": "metric",
-      "alarm_update_time": 1783330122191,
       "alias": "节点持久卷存储池异常",
-      "disassociateTemplate": false,
-      "enterprise_project_id": "0",
       "metric_alarm_spec": {
         "alarm_rule_template_bind_enable": false,
         "alarm_rule_template_id": "at0000000000000000cce001",
@@ -2902,13 +2258,13 @@
           "alarm_rule_template_rule_desc": "检查节点上持久卷存储池是否异常。",
           "alarm_rule_template_rule_name": "节点持久卷存储池异常",
           "monitor_object": {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           },
           "related_cloud_service": "CCEFromProm"
         },
         "monitor_objects": [
           {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           }
         ],
         "monitor_type": "promql",
@@ -2930,7 +2286,7 @@
             ],
             "metric_name": "problem_gauge",
             "metric_query_mode": "NATIVE_PROM",
-            "promql": "problem_gauge{cluster=\"57b3b8c0-74fe-11f1-a396-0255ac10024b\",type=\"LocalPvVolumeGroupStatusError\"} >= 1",
+            "promql": "problem_gauge{cluster=\"__CCE_CLUSTER_ID__\",type=\"LocalPvVolumeGroupStatusError\"} >= 1",
             "promql_for": "1m",
             "promql_monitor_templates": [
               "cluster"
@@ -2944,31 +2300,14 @@
           }
         ],
         "update_alarm_rule": true
-      },
-      "prom_instance_id": "323c7078-d05c-44d2-bbe5-661e8c0079a4",
-      "user_id": "085a4aa6ec000f692f03c00a9ccf7fba"
+      }
     },
     {
-      "alarm_create_time": 1783330122197,
-      "alarm_notifications": {
-        "bind_notification_rule_id": "auto-cluster-57b3b8c0-74fe-11f1-a396-0255ac10024b",
-        "notification_enable": true,
-        "notification_type": "direct",
-        "notify_frequency": 0,
-        "notify_resolved": true,
-        "notify_triggered": true,
-        "route_group_enable": false
-      },
       "alarm_rule_description": "检查节点上的挂载点是否异常。",
       "alarm_rule_enable": true,
-      "alarm_rule_id_str": "1523742501800968194",
-      "alarm_rule_name": "CCE_节点挂载点异常_57b3b8c0-74fe-11f1-a396-0255ac10024b",
-      "alarm_rule_status": "OK",
+      "alarm_rule_name": "CCE_节点挂载点异常___CCE_CLUSTER_ID__",
       "alarm_rule_type": "metric",
-      "alarm_update_time": 1783330122197,
       "alias": "节点挂载点异常",
-      "disassociateTemplate": false,
-      "enterprise_project_id": "0",
       "metric_alarm_spec": {
         "alarm_rule_template_bind_enable": false,
         "alarm_rule_template_id": "at0000000000000000cce001",
@@ -2988,13 +2327,13 @@
           "alarm_rule_template_rule_desc": "检查节点上的挂载点是否异常。",
           "alarm_rule_template_rule_name": "节点挂载点异常",
           "monitor_object": {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           },
           "related_cloud_service": "CCEFromProm"
         },
         "monitor_objects": [
           {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           }
         ],
         "monitor_type": "promql",
@@ -3016,7 +2355,7 @@
             ],
             "metric_name": "problem_gauge",
             "metric_query_mode": "NATIVE_PROM",
-            "promql": "problem_gauge{cluster=\"57b3b8c0-74fe-11f1-a396-0255ac10024b\",type=\"MountPointProblem\"} >= 1",
+            "promql": "problem_gauge{cluster=\"__CCE_CLUSTER_ID__\",type=\"MountPointProblem\"} >= 1",
             "promql_for": "1m",
             "promql_monitor_templates": [
               "cluster"
@@ -3030,31 +2369,14 @@
           }
         ],
         "update_alarm_rule": true
-      },
-      "prom_instance_id": "323c7078-d05c-44d2-bbe5-661e8c0079a4",
-      "user_id": "085a4aa6ec000f692f03c00a9ccf7fba"
+      }
     },
     {
-      "alarm_create_time": 1783330122063,
-      "alarm_notifications": {
-        "bind_notification_rule_id": "auto-cluster-57b3b8c0-74fe-11f1-a396-0255ac10024b",
-        "notification_enable": true,
-        "notification_type": "direct",
-        "notify_frequency": 0,
-        "notify_resolved": true,
-        "notify_triggered": true,
-        "route_group_enable": false
-      },
       "alarm_rule_description": "检查系统关键资源FD文件句柄数是否充足。",
       "alarm_rule_enable": true,
-      "alarm_rule_id_str": "1523742501243125762",
-      "alarm_rule_name": "CCE_节点文件句柄数不足_57b3b8c0-74fe-11f1-a396-0255ac10024b",
-      "alarm_rule_status": "OK",
+      "alarm_rule_name": "CCE_节点文件句柄数不足___CCE_CLUSTER_ID__",
       "alarm_rule_type": "metric",
-      "alarm_update_time": 1783330122063,
       "alias": "节点文件句柄数不足",
-      "disassociateTemplate": false,
-      "enterprise_project_id": "0",
       "metric_alarm_spec": {
         "alarm_rule_template_bind_enable": false,
         "alarm_rule_template_id": "at0000000000000000cce001",
@@ -3074,13 +2396,13 @@
           "alarm_rule_template_rule_desc": "检查系统关键资源FD文件句柄数是否充足。",
           "alarm_rule_template_rule_name": "节点文件句柄数不足",
           "monitor_object": {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           },
           "related_cloud_service": "CCEFromProm"
         },
         "monitor_objects": [
           {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           }
         ],
         "monitor_type": "promql",
@@ -3102,7 +2424,7 @@
             ],
             "metric_name": "problem_gauge",
             "metric_query_mode": "NATIVE_PROM",
-            "promql": "problem_gauge{cluster=\"57b3b8c0-74fe-11f1-a396-0255ac10024b\",type=\"FDProblem\"} >= 1",
+            "promql": "problem_gauge{cluster=\"__CCE_CLUSTER_ID__\",type=\"FDProblem\"} >= 1",
             "promql_for": "1m",
             "promql_monitor_templates": [
               "cluster"
@@ -3116,31 +2438,14 @@
           }
         ],
         "update_alarm_rule": true
-      },
-      "prom_instance_id": "323c7078-d05c-44d2-bbe5-661e8c0079a4",
-      "user_id": "085a4aa6ec000f692f03c00a9ccf7fba"
+      }
     },
     {
-      "alarm_create_time": 1783330122332,
-      "alarm_notifications": {
-        "bind_notification_rule_id": "auto-cluster-57b3b8c0-74fe-11f1-a396-0255ac10024b",
-        "notification_enable": true,
-        "notification_type": "direct",
-        "notify_frequency": 0,
-        "notify_resolved": true,
-        "notify_triggered": true,
-        "route_group_enable": false
-      },
       "alarm_rule_description": "检查节点文件描述符利用率是否超过90%。",
       "alarm_rule_enable": true,
-      "alarm_rule_id_str": "1523742502367199236",
-      "alarm_rule_name": "CCE_节点文件描述符利用率超过百分之九十_57b3b8c0-74fe-11f1-a396-0255ac10024b",
-      "alarm_rule_status": "OK",
+      "alarm_rule_name": "CCE_节点文件描述符利用率超过百分之九十___CCE_CLUSTER_ID__",
       "alarm_rule_type": "metric",
-      "alarm_update_time": 1783330122332,
       "alias": "节点文件描述符利用率超过百分之九十",
-      "disassociateTemplate": false,
-      "enterprise_project_id": "0",
       "metric_alarm_spec": {
         "alarm_rule_template_bind_enable": false,
         "alarm_rule_template_id": "at0000000000000000cce001",
@@ -3160,13 +2465,13 @@
           "alarm_rule_template_rule_desc": "检查节点文件描述符利用率是否超过90%。",
           "alarm_rule_template_rule_name": "节点文件描述符利用率超过百分之九十",
           "monitor_object": {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           },
           "related_cloud_service": "CCEFromProm"
         },
         "monitor_objects": [
           {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           }
         ],
         "monitor_type": "promql",
@@ -3189,7 +2494,7 @@
             ],
             "metric_name": "node_filefd_maximum",
             "metric_query_mode": "NATIVE_PROM",
-            "promql": "(sum by (cluster, cluster_name, node)(node_filefd_allocated{cluster=\"57b3b8c0-74fe-11f1-a396-0255ac10024b\",job=\"node-exporter\"}) * 100) /  (sum by (cluster, cluster_name, node)(node_filefd_maximum{cluster=\"57b3b8c0-74fe-11f1-a396-0255ac10024b\",job=\"node-exporter\"})) > 90",
+            "promql": "(sum by (cluster, cluster_name, node)(node_filefd_allocated{cluster=\"__CCE_CLUSTER_ID__\",job=\"node-exporter\"}) * 100) /  (sum by (cluster, cluster_name, node)(node_filefd_maximum{cluster=\"__CCE_CLUSTER_ID__\",job=\"node-exporter\"})) > 90",
             "promql_for": "1m",
             "promql_monitor_templates": [
               "cluster"
@@ -3203,31 +2508,14 @@
           }
         ],
         "update_alarm_rule": true
-      },
-      "prom_instance_id": "323c7078-d05c-44d2-bbe5-661e8c0079a4",
-      "user_id": "085a4aa6ec000f692f03c00a9ccf7fba"
+      }
     },
     {
-      "alarm_create_time": 1783330122130,
-      "alarm_notifications": {
-        "bind_notification_rule_id": "auto-cluster-57b3b8c0-74fe-11f1-a396-0255ac10024b",
-        "notification_enable": true,
-        "notification_type": "direct",
-        "notify_frequency": 0,
-        "notify_resolved": true,
-        "notify_triggered": true,
-        "route_group_enable": false
-      },
       "alarm_rule_description": "检查节点磁盘是否存在卡IO故障。",
       "alarm_rule_enable": true,
-      "alarm_rule_id_str": "1523742501519949827",
-      "alarm_rule_name": "CCE_节点磁盘卡IO_57b3b8c0-74fe-11f1-a396-0255ac10024b",
-      "alarm_rule_status": "OK",
+      "alarm_rule_name": "CCE_节点磁盘卡IO___CCE_CLUSTER_ID__",
       "alarm_rule_type": "metric",
-      "alarm_update_time": 1783330122130,
       "alias": "节点磁盘卡IO",
-      "disassociateTemplate": false,
-      "enterprise_project_id": "0",
       "metric_alarm_spec": {
         "alarm_rule_template_bind_enable": false,
         "alarm_rule_template_id": "at0000000000000000cce001",
@@ -3247,13 +2535,13 @@
           "alarm_rule_template_rule_desc": "检查节点磁盘是否存在卡IO故障。",
           "alarm_rule_template_rule_name": "节点磁盘卡IO",
           "monitor_object": {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           },
           "related_cloud_service": "CCEFromProm"
         },
         "monitor_objects": [
           {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           }
         ],
         "monitor_type": "promql",
@@ -3275,7 +2563,7 @@
             ],
             "metric_name": "problem_gauge",
             "metric_query_mode": "NATIVE_PROM",
-            "promql": "problem_gauge{cluster=\"57b3b8c0-74fe-11f1-a396-0255ac10024b\",type=\"DiskHung\"} >= 1",
+            "promql": "problem_gauge{cluster=\"__CCE_CLUSTER_ID__\",type=\"DiskHung\"} >= 1",
             "promql_for": "1m",
             "promql_monitor_templates": [
               "cluster"
@@ -3289,31 +2577,14 @@
           }
         ],
         "update_alarm_rule": true
-      },
-      "prom_instance_id": "323c7078-d05c-44d2-bbe5-661e8c0079a4",
-      "user_id": "085a4aa6ec000f692f03c00a9ccf7fba"
+      }
     },
     {
-      "alarm_create_time": 1783330122127,
-      "alarm_notifications": {
-        "bind_notification_rule_id": "auto-cluster-57b3b8c0-74fe-11f1-a396-0255ac10024b",
-        "notification_enable": true,
-        "notification_type": "direct",
-        "notify_frequency": 0,
-        "notify_resolved": true,
-        "notify_triggered": true,
-        "route_group_enable": false
-      },
       "alarm_rule_description": "检查节点磁盘是否只读。",
       "alarm_rule_enable": true,
-      "alarm_rule_id_str": "1523742501507366918",
-      "alarm_rule_name": "CCE_节点磁盘只读_57b3b8c0-74fe-11f1-a396-0255ac10024b",
-      "alarm_rule_status": "OK",
+      "alarm_rule_name": "CCE_节点磁盘只读___CCE_CLUSTER_ID__",
       "alarm_rule_type": "metric",
-      "alarm_update_time": 1783330122127,
       "alias": "节点磁盘只读",
-      "disassociateTemplate": false,
-      "enterprise_project_id": "0",
       "metric_alarm_spec": {
         "alarm_rule_template_bind_enable": false,
         "alarm_rule_template_id": "at0000000000000000cce001",
@@ -3333,13 +2604,13 @@
           "alarm_rule_template_rule_desc": "检查节点磁盘是否只读。",
           "alarm_rule_template_rule_name": "节点磁盘只读",
           "monitor_object": {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           },
           "related_cloud_service": "CCEFromProm"
         },
         "monitor_objects": [
           {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           }
         ],
         "monitor_type": "promql",
@@ -3361,7 +2632,7 @@
             ],
             "metric_name": "problem_gauge",
             "metric_query_mode": "NATIVE_PROM",
-            "promql": "problem_gauge{cluster=\"57b3b8c0-74fe-11f1-a396-0255ac10024b\",type=\"DiskReadonly\"} >= 1",
+            "promql": "problem_gauge{cluster=\"__CCE_CLUSTER_ID__\",type=\"DiskReadonly\"} >= 1",
             "promql_for": "1m",
             "promql_monitor_templates": [
               "cluster"
@@ -3375,31 +2646,14 @@
           }
         ],
         "update_alarm_rule": true
-      },
-      "prom_instance_id": "323c7078-d05c-44d2-bbe5-661e8c0079a4",
-      "user_id": "085a4aa6ec000f692f03c00a9ccf7fba"
+      }
     },
     {
-      "alarm_create_time": 1783330122058,
-      "alarm_notifications": {
-        "bind_notification_rule_id": "auto-cluster-57b3b8c0-74fe-11f1-a396-0255ac10024b",
-        "notification_enable": true,
-        "notification_type": "direct",
-        "notify_frequency": 0,
-        "notify_resolved": true,
-        "notify_triggered": true,
-        "route_group_enable": false
-      },
       "alarm_rule_description": "检查节点可用磁盘是否不足10%。",
       "alarm_rule_enable": true,
-      "alarm_rule_id_str": "1523742501222154249",
-      "alarm_rule_name": "CCE_节点磁盘可用率不足百分之十_57b3b8c0-74fe-11f1-a396-0255ac10024b",
-      "alarm_rule_status": "OK",
+      "alarm_rule_name": "CCE_节点磁盘可用率不足百分之十___CCE_CLUSTER_ID__",
       "alarm_rule_type": "metric",
-      "alarm_update_time": 1783330122058,
       "alias": "节点磁盘可用率不足百分之十",
-      "disassociateTemplate": false,
-      "enterprise_project_id": "0",
       "metric_alarm_spec": {
         "alarm_rule_template_bind_enable": false,
         "alarm_rule_template_id": "at0000000000000000cce001",
@@ -3419,13 +2673,13 @@
           "alarm_rule_template_rule_desc": "检查节点可用磁盘是否不足10%。",
           "alarm_rule_template_rule_name": "节点磁盘可用率不足百分之十",
           "monitor_object": {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           },
           "related_cloud_service": "CCEFromProm"
         },
         "monitor_objects": [
           {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           }
         ],
         "monitor_type": "promql",
@@ -3447,7 +2701,7 @@
             ],
             "metric_name": "node_filesystem_size_bytes",
             "metric_query_mode": "NATIVE_PROM",
-            "promql": "avg((node_filesystem_avail_bytes{cluster=\"57b3b8c0-74fe-11f1-a396-0255ac10024b\"} * 100) / node_filesystem_size_bytes{cluster=\"57b3b8c0-74fe-11f1-a396-0255ac10024b\"}) by (device, node, cluster_name, cluster) < 10",
+            "promql": "avg((node_filesystem_avail_bytes{cluster=\"__CCE_CLUSTER_ID__\"} * 100) / node_filesystem_size_bytes{cluster=\"__CCE_CLUSTER_ID__\"}) by (device, node, cluster_name, cluster) < 10",
             "promql_for": "1m",
             "promql_monitor_templates": [
               "cluster"
@@ -3461,31 +2715,14 @@
           }
         ],
         "update_alarm_rule": true
-      },
-      "prom_instance_id": "323c7078-d05c-44d2-bbe5-661e8c0079a4",
-      "user_id": "085a4aa6ec000f692f03c00a9ccf7fba"
+      }
     },
     {
-      "alarm_create_time": 1783330122126,
-      "alarm_notifications": {
-        "bind_notification_rule_id": "auto-cluster-57b3b8c0-74fe-11f1-a396-0255ac10024b",
-        "notification_enable": true,
-        "notification_type": "direct",
-        "notify_frequency": 0,
-        "notify_resolved": true,
-        "notify_triggered": true,
-        "route_group_enable": false
-      },
       "alarm_rule_description": "检查节点系统盘、CCE数据盘（包含docker逻辑盘与kubelet逻辑盘）的磁盘使用情况。",
       "alarm_rule_enable": true,
-      "alarm_rule_id_str": "1523742501507366917",
-      "alarm_rule_name": "CCE_节点磁盘异常_57b3b8c0-74fe-11f1-a396-0255ac10024b",
-      "alarm_rule_status": "OK",
+      "alarm_rule_name": "CCE_节点磁盘异常___CCE_CLUSTER_ID__",
       "alarm_rule_type": "metric",
-      "alarm_update_time": 1783330122126,
       "alias": "节点磁盘异常",
-      "disassociateTemplate": false,
-      "enterprise_project_id": "0",
       "metric_alarm_spec": {
         "alarm_rule_template_bind_enable": false,
         "alarm_rule_template_id": "at0000000000000000cce001",
@@ -3505,13 +2742,13 @@
           "alarm_rule_template_rule_desc": "检查节点系统盘、CCE数据盘（包含docker逻辑盘与kubelet逻辑盘）的磁盘使用情况。",
           "alarm_rule_template_rule_name": "节点磁盘异常",
           "monitor_object": {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           },
           "related_cloud_service": "CCEFromProm"
         },
         "monitor_objects": [
           {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           }
         ],
         "monitor_type": "promql",
@@ -3533,7 +2770,7 @@
             ],
             "metric_name": "problem_gauge",
             "metric_query_mode": "NATIVE_PROM",
-            "promql": "problem_gauge{cluster=\"57b3b8c0-74fe-11f1-a396-0255ac10024b\",type=\"DiskProblem\"} >= 1",
+            "promql": "problem_gauge{cluster=\"__CCE_CLUSTER_ID__\",type=\"DiskProblem\"} >= 1",
             "promql_for": "1m",
             "promql_monitor_templates": [
               "cluster"
@@ -3547,31 +2784,14 @@
           }
         ],
         "update_alarm_rule": true
-      },
-      "prom_instance_id": "323c7078-d05c-44d2-bbe5-661e8c0079a4",
-      "user_id": "085a4aa6ec000f692f03c00a9ccf7fba"
+      }
     },
     {
-      "alarm_create_time": 1783330122133,
-      "alarm_notifications": {
-        "bind_notification_rule_id": "auto-cluster-57b3b8c0-74fe-11f1-a396-0255ac10024b",
-        "notification_enable": true,
-        "notification_type": "direct",
-        "notify_frequency": 0,
-        "notify_resolved": true,
-        "notify_triggered": true,
-        "route_group_enable": false
-      },
       "alarm_rule_description": "检测节点磁盘是否存在慢IO故障。",
       "alarm_rule_enable": true,
-      "alarm_rule_id_str": "1523742501532532742",
-      "alarm_rule_name": "CCE_节点磁盘慢IO_57b3b8c0-74fe-11f1-a396-0255ac10024b",
-      "alarm_rule_status": "OK",
+      "alarm_rule_name": "CCE_节点磁盘慢IO___CCE_CLUSTER_ID__",
       "alarm_rule_type": "metric",
-      "alarm_update_time": 1783330122133,
       "alias": "节点磁盘慢IO",
-      "disassociateTemplate": false,
-      "enterprise_project_id": "0",
       "metric_alarm_spec": {
         "alarm_rule_template_bind_enable": false,
         "alarm_rule_template_id": "at0000000000000000cce001",
@@ -3591,13 +2811,13 @@
           "alarm_rule_template_rule_desc": "检测节点磁盘是否存在慢IO故障。",
           "alarm_rule_template_rule_name": "节点磁盘慢IO",
           "monitor_object": {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           },
           "related_cloud_service": "CCEFromProm"
         },
         "monitor_objects": [
           {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           }
         ],
         "monitor_type": "promql",
@@ -3619,7 +2839,7 @@
             ],
             "metric_name": "problem_gauge",
             "metric_query_mode": "NATIVE_PROM",
-            "promql": "problem_gauge{cluster=\"57b3b8c0-74fe-11f1-a396-0255ac10024b\",type=\"DiskSlow\"} >= 1",
+            "promql": "problem_gauge{cluster=\"__CCE_CLUSTER_ID__\",type=\"DiskSlow\"} >= 1",
             "promql_for": "1m",
             "promql_monitor_templates": [
               "cluster"
@@ -3633,31 +2853,14 @@
           }
         ],
         "update_alarm_rule": true
-      },
-      "prom_instance_id": "323c7078-d05c-44d2-bbe5-661e8c0079a4",
-      "user_id": "085a4aa6ec000f692f03c00a9ccf7fba"
+      }
     },
     {
-      "alarm_create_time": 1783330121943,
-      "alarm_notifications": {
-        "bind_notification_rule_id": "auto-cluster-57b3b8c0-74fe-11f1-a396-0255ac10024b",
-        "notification_enable": true,
-        "notification_type": "direct",
-        "notify_frequency": 0,
-        "notify_resolved": true,
-        "notify_triggered": true,
-        "route_group_enable": false
-      },
       "alarm_rule_description": "检查节点是否存在D进程。",
       "alarm_rule_enable": true,
-      "alarm_rule_id_str": "1523742500735614977",
-      "alarm_rule_name": "CCE_节点进程D异常_57b3b8c0-74fe-11f1-a396-0255ac10024b",
-      "alarm_rule_status": "OK",
+      "alarm_rule_name": "CCE_节点进程D异常___CCE_CLUSTER_ID__",
       "alarm_rule_type": "metric",
-      "alarm_update_time": 1783330121943,
       "alias": "节点进程D异常",
-      "disassociateTemplate": false,
-      "enterprise_project_id": "0",
       "metric_alarm_spec": {
         "alarm_rule_template_bind_enable": false,
         "alarm_rule_template_id": "at0000000000000000cce001",
@@ -3677,13 +2880,13 @@
           "alarm_rule_template_rule_desc": "检查节点是否存在D进程。",
           "alarm_rule_template_rule_name": "节点进程D异常",
           "monitor_object": {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           },
           "related_cloud_service": "CCEFromProm"
         },
         "monitor_objects": [
           {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           }
         ],
         "monitor_type": "promql",
@@ -3705,7 +2908,7 @@
             ],
             "metric_name": "problem_gauge",
             "metric_query_mode": "NATIVE_PROM",
-            "promql": "problem_gauge{cluster=\"57b3b8c0-74fe-11f1-a396-0255ac10024b\",type=\"ProcessD\"} >= 1",
+            "promql": "problem_gauge{cluster=\"__CCE_CLUSTER_ID__\",type=\"ProcessD\"} >= 1",
             "promql_for": "1m",
             "promql_monitor_templates": [
               "cluster"
@@ -3719,31 +2922,14 @@
           }
         ],
         "update_alarm_rule": true
-      },
-      "prom_instance_id": "323c7078-d05c-44d2-bbe5-661e8c0079a4",
-      "user_id": "085a4aa6ec000f692f03c00a9ccf7fba"
+      }
     },
     {
-      "alarm_create_time": 1783330121944,
-      "alarm_notifications": {
-        "bind_notification_rule_id": "auto-cluster-57b3b8c0-74fe-11f1-a396-0255ac10024b",
-        "notification_enable": true,
-        "notification_type": "direct",
-        "notify_frequency": 0,
-        "notify_resolved": true,
-        "notify_triggered": true,
-        "route_group_enable": false
-      },
       "alarm_rule_description": "检查节点是否存在Z进程。",
       "alarm_rule_enable": true,
-      "alarm_rule_id_str": "1523742500739809289",
-      "alarm_rule_name": "CCE_节点进程Z异常_57b3b8c0-74fe-11f1-a396-0255ac10024b",
-      "alarm_rule_status": "OK",
+      "alarm_rule_name": "CCE_节点进程Z异常___CCE_CLUSTER_ID__",
       "alarm_rule_type": "metric",
-      "alarm_update_time": 1783330121944,
       "alias": "节点进程Z异常",
-      "disassociateTemplate": false,
-      "enterprise_project_id": "0",
       "metric_alarm_spec": {
         "alarm_rule_template_bind_enable": false,
         "alarm_rule_template_id": "at0000000000000000cce001",
@@ -3763,13 +2949,13 @@
           "alarm_rule_template_rule_desc": "检查节点是否存在Z进程。",
           "alarm_rule_template_rule_name": "节点进程Z异常",
           "monitor_object": {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           },
           "related_cloud_service": "CCEFromProm"
         },
         "monitor_objects": [
           {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           }
         ],
         "monitor_type": "promql",
@@ -3791,7 +2977,7 @@
             ],
             "metric_name": "problem_gauge",
             "metric_query_mode": "NATIVE_PROM",
-            "promql": "problem_gauge{cluster=\"57b3b8c0-74fe-11f1-a396-0255ac10024b\",type=\"ProcessZ\"} >= 1",
+            "promql": "problem_gauge{cluster=\"__CCE_CLUSTER_ID__\",type=\"ProcessZ\"} >= 1",
             "promql_for": "1m",
             "promql_monitor_templates": [
               "cluster"
@@ -3805,31 +2991,14 @@
           }
         ],
         "update_alarm_rule": true
-      },
-      "prom_instance_id": "323c7078-d05c-44d2-bbe5-661e8c0079a4",
-      "user_id": "085a4aa6ec000f692f03c00a9ccf7fba"
+      }
     },
     {
-      "alarm_create_time": 1783330122061,
-      "alarm_notifications": {
-        "bind_notification_rule_id": "auto-cluster-57b3b8c0-74fe-11f1-a396-0255ac10024b",
-        "notification_enable": true,
-        "notification_type": "direct",
-        "notify_frequency": 0,
-        "notify_resolved": true,
-        "notify_triggered": true,
-        "route_group_enable": false
-      },
       "alarm_rule_description": "检查系统关键资源PID进程资源是否充足。",
       "alarm_rule_enable": true,
-      "alarm_rule_id_str": "1523742501230542854",
-      "alarm_rule_name": "CCE_节点进程资源不足_57b3b8c0-74fe-11f1-a396-0255ac10024b",
-      "alarm_rule_status": "OK",
+      "alarm_rule_name": "CCE_节点进程资源不足___CCE_CLUSTER_ID__",
       "alarm_rule_type": "metric",
-      "alarm_update_time": 1783330122061,
       "alias": "节点进程资源不足",
-      "disassociateTemplate": false,
-      "enterprise_project_id": "0",
       "metric_alarm_spec": {
         "alarm_rule_template_bind_enable": false,
         "alarm_rule_template_id": "at0000000000000000cce001",
@@ -3849,13 +3018,13 @@
           "alarm_rule_template_rule_desc": "检查系统关键资源PID进程资源是否充足。",
           "alarm_rule_template_rule_name": "节点进程资源不足",
           "monitor_object": {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           },
           "related_cloud_service": "CCEFromProm"
         },
         "monitor_objects": [
           {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           }
         ],
         "monitor_type": "promql",
@@ -3877,7 +3046,7 @@
             ],
             "metric_name": "problem_gauge",
             "metric_query_mode": "NATIVE_PROM",
-            "promql": "problem_gauge{cluster=\"57b3b8c0-74fe-11f1-a396-0255ac10024b\",type=\"PIDProblem\"} >= 1",
+            "promql": "problem_gauge{cluster=\"__CCE_CLUSTER_ID__\",type=\"PIDProblem\"} >= 1",
             "promql_for": "1m",
             "promql_monitor_templates": [
               "cluster"
@@ -3891,31 +3060,14 @@
           }
         ],
         "update_alarm_rule": true
-      },
-      "prom_instance_id": "323c7078-d05c-44d2-bbe5-661e8c0079a4",
-      "user_id": "085a4aa6ec000f692f03c00a9ccf7fba"
+      }
     },
     {
-      "alarm_create_time": 1783330122387,
-      "alarm_notifications": {
-        "bind_notification_rule_id": "auto-cluster-57b3b8c0-74fe-11f1-a396-0255ac10024b",
-        "notification_enable": true,
-        "notification_type": "direct",
-        "notify_frequency": 0,
-        "notify_resolved": true,
-        "notify_triggered": true,
-        "route_group_enable": false
-      },
       "alarm_rule_description": "检查节点连接跟踪表条目利用率是否超过90%。",
       "alarm_rule_enable": true,
-      "alarm_rule_id_str": "1523742502597885960",
-      "alarm_rule_name": "CCE_节点连接跟踪表条目利用率超过百分之九十_57b3b8c0-74fe-11f1-a396-0255ac10024b",
-      "alarm_rule_status": "OK",
+      "alarm_rule_name": "CCE_节点连接跟踪表条目利用率超过百分之九十___CCE_CLUSTER_ID__",
       "alarm_rule_type": "metric",
-      "alarm_update_time": 1783330122387,
       "alias": "节点连接跟踪表条目利用率超过百分之九十",
-      "disassociateTemplate": false,
-      "enterprise_project_id": "0",
       "metric_alarm_spec": {
         "alarm_rule_template_bind_enable": false,
         "alarm_rule_template_id": "at0000000000000000cce001",
@@ -3935,13 +3087,13 @@
           "alarm_rule_template_rule_desc": "检查节点连接跟踪表条目利用率是否超过90%。",
           "alarm_rule_template_rule_name": "节点连接跟踪表条目利用率超过百分之九十",
           "monitor_object": {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           },
           "related_cloud_service": "CCEFromProm"
         },
         "monitor_objects": [
           {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           }
         ],
         "monitor_type": "promql",
@@ -3964,7 +3116,7 @@
             ],
             "metric_name": "node_nf_conntrack_entries",
             "metric_query_mode": "NATIVE_PROM",
-            "promql": "100 * node_nf_conntrack_entries{cluster=\"57b3b8c0-74fe-11f1-a396-0255ac10024b\",job=\"node-exporter\"} / node_nf_conntrack_entries_limit{cluster=\"57b3b8c0-74fe-11f1-a396-0255ac10024b\",job=\"node-exporter\"} > 90",
+            "promql": "100 * node_nf_conntrack_entries{cluster=\"__CCE_CLUSTER_ID__\",job=\"node-exporter\"} / node_nf_conntrack_entries_limit{cluster=\"__CCE_CLUSTER_ID__\",job=\"node-exporter\"} > 90",
             "promql_for": "1m",
             "promql_monitor_templates": [
               "cluster"
@@ -3978,31 +3130,14 @@
           }
         ],
         "update_alarm_rule": true
-      },
-      "prom_instance_id": "323c7078-d05c-44d2-bbe5-661e8c0079a4",
-      "user_id": "085a4aa6ec000f692f03c00a9ccf7fba"
+      }
     },
     {
-      "alarm_create_time": 1783330122117,
-      "alarm_notifications": {
-        "bind_notification_rule_id": "auto-cluster-57b3b8c0-74fe-11f1-a396-0255ac10024b",
-        "notification_enable": true,
-        "notification_type": "direct",
-        "notify_frequency": 0,
-        "notify_resolved": true,
-        "notify_triggered": true,
-        "route_group_enable": false
-      },
       "alarm_rule_description": "检查节点链接跟踪表是否充足。",
       "alarm_rule_enable": true,
-      "alarm_rule_id_str": "1523742501469618180",
-      "alarm_rule_name": "CCE_节点链接跟踪表不足_57b3b8c0-74fe-11f1-a396-0255ac10024b",
-      "alarm_rule_status": "OK",
+      "alarm_rule_name": "CCE_节点链接跟踪表不足___CCE_CLUSTER_ID__",
       "alarm_rule_type": "metric",
-      "alarm_update_time": 1783330122117,
       "alias": "节点链接跟踪表不足",
-      "disassociateTemplate": false,
-      "enterprise_project_id": "0",
       "metric_alarm_spec": {
         "alarm_rule_template_bind_enable": false,
         "alarm_rule_template_id": "at0000000000000000cce001",
@@ -4022,13 +3157,13 @@
           "alarm_rule_template_rule_desc": "检查节点链接跟踪表是否充足。",
           "alarm_rule_template_rule_name": "节点链接跟踪表不足",
           "monitor_object": {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           },
           "related_cloud_service": "CCEFromProm"
         },
         "monitor_objects": [
           {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           }
         ],
         "monitor_type": "promql",
@@ -4050,7 +3185,7 @@
             ],
             "metric_name": "problem_gauge",
             "metric_query_mode": "NATIVE_PROM",
-            "promql": "problem_gauge{cluster=\"57b3b8c0-74fe-11f1-a396-0255ac10024b\",type=\"ConntrackFullProblem\"} >= 1",
+            "promql": "problem_gauge{cluster=\"__CCE_CLUSTER_ID__\",type=\"ConntrackFullProblem\"} >= 1",
             "promql_for": "1m",
             "promql_monitor_templates": [
               "cluster"
@@ -4064,31 +3199,14 @@
           }
         ],
         "update_alarm_rule": true
-      },
-      "prom_instance_id": "323c7078-d05c-44d2-bbe5-661e8c0079a4",
-      "user_id": "085a4aa6ec000f692f03c00a9ccf7fba"
+      }
     },
     {
-      "alarm_create_time": 1783330122266,
-      "alarm_notifications": {
-        "bind_notification_rule_id": "auto-cluster-57b3b8c0-74fe-11f1-a396-0255ac10024b",
-        "notification_enable": true,
-        "notification_type": "direct",
-        "notify_frequency": 0,
-        "notify_resolved": true,
-        "notify_triggered": true,
-        "route_group_enable": false
-      },
       "alarm_rule_description": "检查集群Coredns内存使用率大于80%。",
       "alarm_rule_enable": true,
-      "alarm_rule_id_str": "1523742502090375174",
-      "alarm_rule_name": "CCE_集群Coredns内存使用率大于百分之八十_57b3b8c0-74fe-11f1-a396-0255ac10024b",
-      "alarm_rule_status": "OK",
+      "alarm_rule_name": "CCE_集群Coredns内存使用率大于百分之八十___CCE_CLUSTER_ID__",
       "alarm_rule_type": "metric",
-      "alarm_update_time": 1783330122266,
       "alias": "集群Coredns内存使用率大于百分之八十",
-      "disassociateTemplate": false,
-      "enterprise_project_id": "0",
       "metric_alarm_spec": {
         "alarm_rule_template_bind_enable": false,
         "alarm_rule_template_id": "at0000000000000000cce001",
@@ -4108,13 +3226,13 @@
           "alarm_rule_template_rule_desc": "检查集群Coredns内存使用率大于80%。",
           "alarm_rule_template_rule_name": "集群Coredns内存使用率大于百分之八十",
           "monitor_object": {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           },
           "related_cloud_service": "CCEFromProm"
         },
         "monitor_objects": [
           {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           }
         ],
         "monitor_type": "promql",
@@ -4137,7 +3255,7 @@
             ],
             "metric_name": "container_spec_memory_limit_bytes",
             "metric_query_mode": "NATIVE_PROM",
-            "promql": "(sum(container_memory_working_set_bytes{cluster=\"57b3b8c0-74fe-11f1-a396-0255ac10024b\",image!=\"\", container!=\"POD\", namespace=\"kube-system\", container=\"coredns\"}) BY (cluster_name, node,container, pod , namespace, cluster) / sum(container_spec_memory_limit_bytes{cluster=\"57b3b8c0-74fe-11f1-a396-0255ac10024b\",namespace=\"kube-system\", container=\"coredns\"} > 0) BY (cluster_name, node, container, pod , namespace, cluster) * 100) > 80",
+            "promql": "(sum(container_memory_working_set_bytes{cluster=\"__CCE_CLUSTER_ID__\",image!=\"\", container!=\"POD\", namespace=\"kube-system\", container=\"coredns\"}) BY (cluster_name, node,container, pod , namespace, cluster) / sum(container_spec_memory_limit_bytes{cluster=\"__CCE_CLUSTER_ID__\",namespace=\"kube-system\", container=\"coredns\"} > 0) BY (cluster_name, node, container, pod , namespace, cluster) * 100) > 80",
             "promql_for": "1m",
             "promql_monitor_templates": [
               "cluster"
@@ -4151,31 +3269,14 @@
           }
         ],
         "update_alarm_rule": true
-      },
-      "prom_instance_id": "323c7078-d05c-44d2-bbe5-661e8c0079a4",
-      "user_id": "085a4aa6ec000f692f03c00a9ccf7fba"
+      }
     },
     {
-      "alarm_create_time": 1783330122264,
-      "alarm_notifications": {
-        "bind_notification_rule_id": "auto-cluster-57b3b8c0-74fe-11f1-a396-0255ac10024b",
-        "notification_enable": true,
-        "notification_type": "direct",
-        "notify_frequency": 0,
-        "notify_resolved": true,
-        "notify_triggered": true,
-        "route_group_enable": false
-      },
       "alarm_rule_description": "检查集群CorednsCPU使用率大于60%。",
       "alarm_rule_enable": true,
-      "alarm_rule_id_str": "1523742502077792258",
-      "alarm_rule_name": "CCE_集群Coredns插件的CPU使用率大于百分之六十_57b3b8c0-74fe-11f1-a396-0255ac10024b",
-      "alarm_rule_status": "OK",
+      "alarm_rule_name": "CCE_集群Coredns插件的CPU使用率大于百分之六十___CCE_CLUSTER_ID__",
       "alarm_rule_type": "metric",
-      "alarm_update_time": 1783330122264,
       "alias": "集群Coredns插件的CPU使用率大于百分之六十",
-      "disassociateTemplate": false,
-      "enterprise_project_id": "0",
       "metric_alarm_spec": {
         "alarm_rule_template_bind_enable": false,
         "alarm_rule_template_id": "at0000000000000000cce001",
@@ -4195,13 +3296,13 @@
           "alarm_rule_template_rule_desc": "检查集群CorednsCPU使用率大于60%。",
           "alarm_rule_template_rule_name": "集群Coredns插件的CPU使用率大于百分之六十",
           "monitor_object": {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           },
           "related_cloud_service": "CCEFromProm"
         },
         "monitor_objects": [
           {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           }
         ],
         "monitor_type": "promql",
@@ -4224,7 +3325,7 @@
             ],
             "metric_name": "container_cpu_usage_seconds_total",
             "metric_query_mode": "NATIVE_PROM",
-            "promql": "100 * (sum(rate(container_cpu_usage_seconds_total{cluster=\"57b3b8c0-74fe-11f1-a396-0255ac10024b\",image!=\"\", container!=\"POD\", namespace=\"kube-system\", container=\"coredns\"}[1m])) by (cluster_name,pod,node,namespace,container, cluster) / sum(kube_pod_container_resource_limits{cluster=\"57b3b8c0-74fe-11f1-a396-0255ac10024b\",resource=\"cpu\", namespace=\"kube-system\", container=\"coredns\"}) by (cluster_name,pod,node,namespace,container, cluster)) > 60",
+            "promql": "100 * (sum(rate(container_cpu_usage_seconds_total{cluster=\"__CCE_CLUSTER_ID__\",image!=\"\", container!=\"POD\", namespace=\"kube-system\", container=\"coredns\"}[1m])) by (cluster_name,pod,node,namespace,container, cluster) / sum(kube_pod_container_resource_limits{cluster=\"__CCE_CLUSTER_ID__\",resource=\"cpu\", namespace=\"kube-system\", container=\"coredns\"}) by (cluster_name,pod,node,namespace,container, cluster)) > 60",
             "promql_for": "1m",
             "promql_monitor_templates": [
               "cluster"
@@ -4238,31 +3339,14 @@
           }
         ],
         "update_alarm_rule": true
-      },
-      "prom_instance_id": "323c7078-d05c-44d2-bbe5-661e8c0079a4",
-      "user_id": "085a4aa6ec000f692f03c00a9ccf7fba"
+      }
     },
     {
-      "alarm_create_time": 1783330122320,
-      "alarm_notifications": {
-        "bind_notification_rule_id": "auto-cluster-57b3b8c0-74fe-11f1-a396-0255ac10024b",
-        "notification_enable": true,
-        "notification_type": "direct",
-        "notify_frequency": 0,
-        "notify_resolved": true,
-        "notify_triggered": true,
-        "route_group_enable": false
-      },
       "alarm_rule_description": "检查集群Coredns P95时延是否超过1s。",
       "alarm_rule_enable": true,
-      "alarm_rule_id_str": "1523742502316867592",
-      "alarm_rule_name": "CCE_集群Coredns插件的P95时延超过1秒_57b3b8c0-74fe-11f1-a396-0255ac10024b",
-      "alarm_rule_status": "OK",
+      "alarm_rule_name": "CCE_集群Coredns插件的P95时延超过1秒___CCE_CLUSTER_ID__",
       "alarm_rule_type": "metric",
-      "alarm_update_time": 1783330122320,
       "alias": "集群Coredns插件的P95时延超过1秒",
-      "disassociateTemplate": false,
-      "enterprise_project_id": "0",
       "metric_alarm_spec": {
         "alarm_rule_template_bind_enable": false,
         "alarm_rule_template_id": "at0000000000000000cce001",
@@ -4282,13 +3366,13 @@
           "alarm_rule_template_rule_desc": "检查集群Coredns P95时延是否超过1s。",
           "alarm_rule_template_rule_name": "集群Coredns插件的P95时延超过1秒",
           "monitor_object": {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           },
           "related_cloud_service": "CCEFromProm"
         },
         "monitor_objects": [
           {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           }
         ],
         "monitor_type": "promql",
@@ -4311,7 +3395,7 @@
             ],
             "metric_name": "coredns_dns_request_duration_seconds_bucket",
             "metric_query_mode": "NATIVE_PROM",
-            "promql": "histogram_quantile(0.95, sum(rate(coredns_dns_request_duration_seconds_bucket{cluster=\"57b3b8c0-74fe-11f1-a396-0255ac10024b\",job=\"coredns\"}[5m])) by (le, cluster, cluster_name, pod, instance, namespace)) > 1",
+            "promql": "histogram_quantile(0.95, sum(rate(coredns_dns_request_duration_seconds_bucket{cluster=\"__CCE_CLUSTER_ID__\",job=\"coredns\"}[5m])) by (le, cluster, cluster_name, pod, instance, namespace)) > 1",
             "promql_for": "1m",
             "promql_monitor_templates": [
               "cluster"
@@ -4325,31 +3409,14 @@
           }
         ],
         "update_alarm_rule": true
-      },
-      "prom_instance_id": "323c7078-d05c-44d2-bbe5-661e8c0079a4",
-      "user_id": "085a4aa6ec000f692f03c00a9ccf7fba"
+      }
     },
     {
-      "alarm_create_time": 1783330122328,
-      "alarm_notifications": {
-        "bind_notification_rule_id": "auto-cluster-57b3b8c0-74fe-11f1-a396-0255ac10024b",
-        "notification_enable": true,
-        "notification_type": "direct",
-        "notify_frequency": 0,
-        "notify_resolved": true,
-        "notify_triggered": true,
-        "route_group_enable": false
-      },
       "alarm_rule_description": "检查集群Nginx-ingress CPU使用率是否大于70%。",
       "alarm_rule_enable": true,
-      "alarm_rule_id_str": "1523742502350422016",
-      "alarm_rule_name": "CCE_集群Nginx-ingress插件的CPU使用率大于百分之七十_57b3b8c0-74fe-11f1-a396-0255ac10024b",
-      "alarm_rule_status": "OK",
+      "alarm_rule_name": "CCE_集群Nginx-ingress插件的CPU使用率大于百分之七十___CCE_CLUSTER_ID__",
       "alarm_rule_type": "metric",
-      "alarm_update_time": 1783330122328,
       "alias": "集群Nginx-ingress插件的CPU使用率大于百分之七十",
-      "disassociateTemplate": false,
-      "enterprise_project_id": "0",
       "metric_alarm_spec": {
         "alarm_rule_template_bind_enable": false,
         "alarm_rule_template_id": "at0000000000000000cce001",
@@ -4369,13 +3436,13 @@
           "alarm_rule_template_rule_desc": "检查集群Nginx-ingress CPU使用率是否大于70%。",
           "alarm_rule_template_rule_name": "集群Nginx-ingress插件的CPU使用率大于百分之七十",
           "monitor_object": {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           },
           "related_cloud_service": "CCEFromProm"
         },
         "monitor_objects": [
           {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           }
         ],
         "monitor_type": "promql",
@@ -4398,7 +3465,7 @@
             ],
             "metric_name": "container_cpu_usage_seconds_total",
             "metric_query_mode": "NATIVE_PROM",
-            "promql": "100 * (sum(rate(container_cpu_usage_seconds_total{cluster=\"57b3b8c0-74fe-11f1-a396-0255ac10024b\",image!=\"\", container!=\"POD\", namespace=\"kube-system\", container=\"nginx-ingress-controller\"}[1m])) by (cluster_name,pod,node,namespace,container, cluster) / sum(kube_pod_container_resource_limits{cluster=\"57b3b8c0-74fe-11f1-a396-0255ac10024b\",resource=\"cpu\", namespace=\"kube-system\", container=\"nginx-ingress-controller\"}) by (cluster_name,pod,node,namespace,container, cluster)) > 70",
+            "promql": "100 * (sum(rate(container_cpu_usage_seconds_total{cluster=\"__CCE_CLUSTER_ID__\",image!=\"\", container!=\"POD\", namespace=\"kube-system\", container=\"nginx-ingress-controller\"}[1m])) by (cluster_name,pod,node,namespace,container, cluster) / sum(kube_pod_container_resource_limits{cluster=\"__CCE_CLUSTER_ID__\",resource=\"cpu\", namespace=\"kube-system\", container=\"nginx-ingress-controller\"}) by (cluster_name,pod,node,namespace,container, cluster)) > 70",
             "promql_for": "1m",
             "promql_monitor_templates": [
               "cluster"
@@ -4412,31 +3479,14 @@
           }
         ],
         "update_alarm_rule": true
-      },
-      "prom_instance_id": "323c7078-d05c-44d2-bbe5-661e8c0079a4",
-      "user_id": "085a4aa6ec000f692f03c00a9ccf7fba"
+      }
     },
     {
-      "alarm_create_time": 1783330122332,
-      "alarm_notifications": {
-        "bind_notification_rule_id": "auto-cluster-57b3b8c0-74fe-11f1-a396-0255ac10024b",
-        "notification_enable": true,
-        "notification_type": "direct",
-        "notify_frequency": 0,
-        "notify_resolved": true,
-        "notify_triggered": true,
-        "route_group_enable": false
-      },
       "alarm_rule_description": "检查集群Nginx-ingress 内存使用率是否大于70%。",
       "alarm_rule_enable": true,
-      "alarm_rule_id_str": "1523742502367199235",
-      "alarm_rule_name": "CCE_集群Nginx-ingress插件的内存使用率大于百分之七十_57b3b8c0-74fe-11f1-a396-0255ac10024b",
-      "alarm_rule_status": "OK",
+      "alarm_rule_name": "CCE_集群Nginx-ingress插件的内存使用率大于百分之七十___CCE_CLUSTER_ID__",
       "alarm_rule_type": "metric",
-      "alarm_update_time": 1783330122332,
       "alias": "集群Nginx-ingress插件的内存使用率大于百分之七十",
-      "disassociateTemplate": false,
-      "enterprise_project_id": "0",
       "metric_alarm_spec": {
         "alarm_rule_template_bind_enable": false,
         "alarm_rule_template_id": "at0000000000000000cce001",
@@ -4456,13 +3506,13 @@
           "alarm_rule_template_rule_desc": "检查集群Nginx-ingress 内存使用率是否大于70%。",
           "alarm_rule_template_rule_name": "集群Nginx-ingress插件的内存使用率大于百分之七十",
           "monitor_object": {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           },
           "related_cloud_service": "CCEFromProm"
         },
         "monitor_objects": [
           {
-            "cluster": "57b3b8c0-74fe-11f1-a396-0255ac10024b"
+            "cluster": "__CCE_CLUSTER_ID__"
           }
         ],
         "monitor_type": "promql",
@@ -4485,7 +3535,7 @@
             ],
             "metric_name": "container_spec_memory_limit_bytes",
             "metric_query_mode": "NATIVE_PROM",
-            "promql": "(sum(container_memory_working_set_bytes{cluster=\"57b3b8c0-74fe-11f1-a396-0255ac10024b\",image!=\"\", container!=\"POD\", namespace=\"kube-system\", container=\"nginx-ingress-controller\"}) BY (cluster_name, node,container, pod , namespace, cluster) / sum(container_spec_memory_limit_bytes{cluster=\"57b3b8c0-74fe-11f1-a396-0255ac10024b\",namespace=\"kube-system\", container=\"nginx-ingress-controller\"} > 0) BY (cluster_name, node, container, pod , namespace, cluster) * 100) > 70",
+            "promql": "(sum(container_memory_working_set_bytes{cluster=\"__CCE_CLUSTER_ID__\",image!=\"\", container!=\"POD\", namespace=\"kube-system\", container=\"nginx-ingress-controller\"}) BY (cluster_name, node,container, pod , namespace, cluster) / sum(container_spec_memory_limit_bytes{cluster=\"__CCE_CLUSTER_ID__\",namespace=\"kube-system\", container=\"nginx-ingress-controller\"} > 0) BY (cluster_name, node, container, pod , namespace, cluster) * 100) > 70",
             "promql_for": "1m",
             "promql_monitor_templates": [
               "cluster"
@@ -4499,9 +3549,7 @@
           }
         ],
         "update_alarm_rule": true
-      },
-      "prom_instance_id": "323c7078-d05c-44d2-bbe5-661e8c0079a4",
-      "user_id": "085a4aa6ec000f692f03c00a9ccf7fba"
+      }
     }
   ]
 }

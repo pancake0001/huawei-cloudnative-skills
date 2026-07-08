@@ -128,9 +128,21 @@ def _parse_hcloud_stdout(stdout: str) -> Any:
 def _hcloud_success(returncode: int, stdout: str, parsed: Any) -> bool:
     if returncode != 0 or "[USE_ERROR]" in stdout:
         return False
+    if stdout and parsed is None:
+        return False
     if isinstance(parsed, dict) and parsed.get("error_code") and str(parsed.get("error_code")) != "200":
         return False
     return True
+
+
+def _hcloud_error(returncode: int, stdout: str, stderr: str, parsed: Any) -> str:
+    if returncode != 0:
+        return stderr or stdout or f"hcloud exited with code {returncode}"
+    if stdout and parsed is None:
+        return "hcloud returned non-JSON output while --cli-output=json was requested"
+    if isinstance(parsed, dict) and parsed.get("error_msg"):
+        return str(parsed.get("error_msg"))
+    return stderr or stdout or f"hcloud exited with code {returncode}"
 
 
 def run_hcloud(
@@ -151,7 +163,18 @@ def run_hcloud(
     if dryrun:
         command.append("--dryrun")
 
-    completed = subprocess.run(command, text=True, capture_output=True, timeout=timeout, check=False)
+    try:
+        completed = subprocess.run(command, text=True, capture_output=True, timeout=timeout, check=False)
+    except subprocess.TimeoutExpired as exc:
+        return {
+            "success": False,
+            "command": redact_command(command),
+            "returncode": None,
+            "stdout": (exc.stdout or "").strip() if isinstance(exc.stdout, str) else "",
+            "stderr": (exc.stderr or "").strip() if isinstance(exc.stderr, str) else "",
+            "data": None,
+            "error": f"hcloud command timed out after {timeout} seconds",
+        }
     stdout = completed.stdout.strip()
     stderr = completed.stderr.strip()
 
@@ -164,7 +187,7 @@ def run_hcloud(
         "stdout": stdout,
         "stderr": stderr,
         "data": parsed,
-        "error": None if success else (stderr or stdout or f"hcloud exited with code {completed.returncode}"),
+        "error": None if success else _hcloud_error(completed.returncode, stdout, stderr, parsed),
     }
 
 
@@ -189,7 +212,18 @@ def run_hcloud_json_input(
         command.append(f"--cli-jsonInput={path}")
         if dryrun:
             command.append("--dryrun")
-        completed = subprocess.run(command, text=True, capture_output=True, timeout=timeout, check=False)
+        try:
+            completed = subprocess.run(command, text=True, capture_output=True, timeout=timeout, check=False)
+        except subprocess.TimeoutExpired as exc:
+            return {
+                "success": False,
+                "command": redact_command(command),
+                "returncode": None,
+                "stdout": (exc.stdout or "").strip() if isinstance(exc.stdout, str) else "",
+                "stderr": (exc.stderr or "").strip() if isinstance(exc.stderr, str) else "",
+                "data": None,
+                "error": f"hcloud command timed out after {timeout} seconds",
+            }
     finally:
         try:
             os.remove(path)
@@ -207,7 +241,7 @@ def run_hcloud_json_input(
         "stdout": stdout,
         "stderr": stderr,
         "data": parsed,
-        "error": None if success else (stderr or stdout or f"hcloud exited with code {completed.returncode}"),
+        "error": None if success else _hcloud_error(completed.returncode, stdout, stderr, parsed),
     }
 
 
