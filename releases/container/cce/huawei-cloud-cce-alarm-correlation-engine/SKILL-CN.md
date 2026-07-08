@@ -198,7 +198,7 @@ python3 huawei-cloud.py huawei_analyze_aom_alarms \
 
 | 工具 | 功能 | 风险等级 | 需确认 | 参数 |
 |------|------|---------|-------|------|
-| `huawei_list_aom_alarm_rules` | 查询 AOM 告警规则 | R3 | 否 | `region`；可选 `cluster_id`, `cluster_name` |
+| `huawei_list_aom_alarm_rules` | 查询 AOM 告警规则 | R3 | 否 | `region`；可选 `cluster_id` |
 | `huawei_resolve_cce_aom_prom_instance` | 解析目标集群 AOM Prometheus 实例 | R3 | 否 | `region`, `cluster_id` |
 | `huawei_create_aom_alarm_rule` | 创建 AOM 告警规则 | R2 | **是** | `region`, `rule_name`, `metric_name`, `namespace`, `comparison_operator`, `threshold`, `period`, `evaluation_periods`, `statistic`, `alarm_level` |
 | `huawei_create_aom_event_alarm_rule` | 创建 AOM 事件告警规则 | R2 | **是** | `region`, `cluster_id`, `rule_name`, `event_name` |
@@ -216,7 +216,6 @@ python3 huawei-cloud.py huawei_analyze_aom_alarms \
 **参数说明：**
 - `region` (required): 华为云区域
 - `cluster_id` (optional for list alarm rules): CCE 集群 ID；传入后只返回规则内容中关联该集群 ID 的告警规则
-- `cluster_name` (optional for list alarm rules): CCE 集群名称；传入后只返回规则内容中关联该集群名称的告警规则
 - `metric_name` (required for create): 指标名称
 - `namespace` (required for create): 指标命名空间
 - `comparison_operator` (required for create): 阈值比较符，例如 `>`、`<`、`>=`、`<=`

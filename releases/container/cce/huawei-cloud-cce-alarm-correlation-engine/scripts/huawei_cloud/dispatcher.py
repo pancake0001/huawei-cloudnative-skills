@@ -75,6 +75,11 @@ def _alarm_rule_fields(params: Dict[str, str], json_key: str) -> Dict[str, Any]:
 
 
 def _list_aom_alarm_rules(params: Dict[str, str]) -> Dict[str, Any]:
+    if params.get("cluster_name"):
+        return {
+            "success": False,
+            "error": "cluster_name is not supported by huawei_list_aom_alarm_rules. Use cluster_id instead.",
+        }
     return aom.list_aom_alarm_rules(
         params["region"],
         params.get("ak"),
@@ -84,7 +89,6 @@ def _list_aom_alarm_rules(params: Dict[str, str]) -> Dict[str, Any]:
         _to_int(params.get("offset"), 0),
         params.get("enterprise_project_id"),
         params.get("cluster_id"),
-        params.get("cluster_name"),
     )
 
 

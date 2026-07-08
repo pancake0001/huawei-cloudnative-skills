@@ -212,7 +212,7 @@ python3 scripts/huawei-cloud.py huawei_analyze_aom_alarms \
 
 | Action | Description | Risk Level | Requires `confirm` | Required Params |
 |--------|-------------|------------|--------------------|-----------------|
-| `huawei_list_aom_alarm_rules` | Query AOM alarm rules | R3 | No | `region`; optional `cluster_id`, `cluster_name` |
+| `huawei_list_aom_alarm_rules` | Query AOM alarm rules | R3 | No | `region`; optional `cluster_id` |
 | `huawei_resolve_cce_aom_prom_instance` | Resolve target cluster AOM Prometheus instance | R3 | No | `region`, `cluster_id` |
 | `huawei_create_aom_alarm_rule` | Create AOM metric alarm rule | R2 | **Yes** | `region`, `rule_name`, `metric_name`, `namespace`, `comparison_operator`, `threshold`, `period`, `evaluation_periods`, `statistic`, `alarm_level` |
 | `huawei_create_aom_event_alarm_rule` | Create AOM event alarm rule | R2 | **Yes** | `region`, `cluster_id`, `rule_name`, `event_name` |

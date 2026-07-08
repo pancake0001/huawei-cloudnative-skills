@@ -408,13 +408,11 @@ def _filter_events_by_cluster(events: list, cluster_id: Optional[str] = None, cl
     return filtered
 
 
-def _rule_matches_scope(rule: Dict[str, Any], cluster_id: Optional[str] = None, cluster_name: Optional[str] = None) -> bool:
-    if not cluster_id and not cluster_name:
+def _rule_matches_scope(rule: Dict[str, Any], cluster_id: Optional[str] = None) -> bool:
+    if not cluster_id:
         return True
     raw_text = json.dumps(rule, ensure_ascii=False)
     if cluster_id and cluster_id in raw_text:
-        return True
-    if cluster_name and cluster_name in raw_text:
         return True
     return False
 
@@ -896,9 +894,8 @@ def list_aom_alarm_rules(
     offset: int = 0,
     enterprise_project_id: Optional[str] = None,
     cluster_id: Optional[str] = None,
-    cluster_name: Optional[str] = None,
 ) -> Dict[str, Any]:
-    filtered = bool(cluster_id or cluster_name)
+    filtered = bool(cluster_id)
     page_limit = max(1, min(limit, 200))
     scan_offset = offset
     all_rules: List[Dict[str, Any]] = []
@@ -926,7 +923,7 @@ def list_aom_alarm_rules(
     total_count = len(all_rules)
     rules = [
         rule for rule in all_rules
-        if _rule_matches_scope(rule, cluster_id, cluster_name)
+        if _rule_matches_scope(rule, cluster_id)
     ] if filtered else all_rules
 
     formatted = []
@@ -951,7 +948,6 @@ def list_aom_alarm_rules(
         "action": "list_aom_alarm_rules",
         "filtered": filtered,
         "cluster_id": cluster_id,
-        "cluster_name": cluster_name,
         "total_count": total_count,
         "count": len(formatted),
         "rules": formatted,
