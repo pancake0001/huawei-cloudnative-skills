@@ -4,7 +4,7 @@ name: huawei-cloud-cce-alarm-correlation-engine
 description: |
   Huawei Cloud AOM alarm correlation analysis skill for CCE operations.
   Use this skill when the user wants to: (1) query AOM active and historical alarms, (2) analyze alarm deduplication, severity grouping, and burst/steady alarm identification, (3) inspect CCE cluster alarm health, (4) manage AOM alarm rules (query, create, update, delete, enable, disable), (5) check AOM action rules and mute rules for notification gaps, (6) create event alarm rules referencing CCE event lists or Prometheus metric alarms.
-  Trigger: user mentions "alarm correlation", "告警关联", "AOM alarm", "AOM 告警", "alarm deduplication", "告警去重", "alarm storm", "告警风暴", "alarm inspection", "告警巡检", "alarm rules", "告警规则"
+  Trigger: user mentions "alarm correlation", "AOM alarm", "alarm deduplication", "alarm storm", "alarm inspection", or "alarm rules".
 tags: [cce, alarm-correlation, aom, observability, alarm-management]
 ---
 
@@ -28,7 +28,7 @@ This skill has **both read-only tools** (alarm query, analysis, inspection, rule
 - Query active/current/history AOM alarms and analyze alarm storms.
 - Inspect CCE alarm health and hand off diagnosis to related CCE skills.
 - Query and manage AOM alarm rules, notification action rules, and mute-rule visibility.
-- Batch create or clean CCE recommended alarm rules from the cloud-side AOM `CCE模板`.
+- Batch create or clean CCE recommended alarm rules from the cloud-side AOM CCE alarm template.
 
 ---
 
@@ -174,7 +174,7 @@ python3 scripts/huawei-cloud.py huawei_analyze_aom_alarms \
   region=cn-north-4 cluster_id=xxx
 ```
 
-## 核心命令
+## Core Commands
 
 Use the following commands as the primary entry points for this skill. Run mutation commands in preview mode first, then add `confirm=true` only after the user explicitly confirms the operation.
 
@@ -187,8 +187,8 @@ Use the following commands as the primary entry points for this skill. Run mutat
 | `huawei_list_aom_alarm_rules` | Query AOM alarm rules; supports filtering by `cluster_id` only, not `cluster_name` | R3 | `region` |
 | `huawei_list_aom_action_rules` | Query AOM notification/action rules before choosing `bind_notification_rule_id` | R3 | `region` |
 | `huawei_create_aom_notification_action_rule` | Create an AOM notification action rule from a user-provided SMN topic | R2 | `region`, `rule_name`, `notification_topic_urn`, `notification_topic_name` |
-| `huawei_configure_cce_aom_alarm_rules` | Batch create CCE recommended alarm rules from AOM `CCE模板`; requires explicit `bind_notification_rule_id` | R2 | `region`, `cluster_id`, `bind_notification_rule_id` |
-| `huawei_cleanup_cce_aom_alarm_rules` | Batch delete CCE alarm rules matching AOM `CCE模板` | R0 | `region`, `cluster_id` |
+| `huawei_configure_cce_aom_alarm_rules` | Batch create CCE recommended alarm rules from the AOM CCE alarm template; requires explicit `bind_notification_rule_id` | R2 | `region`, `cluster_id`, `bind_notification_rule_id` |
+| `huawei_cleanup_cce_aom_alarm_rules` | Batch delete CCE alarm rules matching the AOM CCE alarm template | R0 | `region`, `cluster_id` |
 
 Key requirements:
 - Do not choose `bind_notification_rule_id` automatically. If the user has not provided it, call `huawei_list_aom_action_rules`, show the candidates, and wait for explicit user confirmation.
@@ -211,8 +211,8 @@ Key requirements:
 | `huawei_create_aom_alarm_rule` | Create AOM metric alarm rule | R2 | **Yes** | `region`, `rule_name`, `metric_name`, `namespace`, `comparison_operator`, `threshold`, `period`, `evaluation_periods`, `statistic`, `alarm_level` |
 | `huawei_create_aom_event_alarm_rule` | Create AOM event alarm rule | R2 | **Yes** | `region`, `cluster_id`, `rule_name`, `event_name` |
 | `huawei_create_aom_notification_action_rule` | Create AOM notification action rule from an SMN topic | R2 | **Yes** | `region`, `rule_name`, `notification_topic_urn`, `notification_topic_name` |
-| `huawei_configure_cce_aom_alarm_rules` | Batch create recommended CCE AOM alarm rules from AOM `CCE模板` | R2 | **Yes** | `region`, `cluster_id`, `bind_notification_rule_id` |
-| `huawei_cleanup_cce_aom_alarm_rules` | Batch delete CCE AOM alarm rules matching AOM `CCE模板` | R0 | **Yes** | `region`, `cluster_id` |
+| `huawei_configure_cce_aom_alarm_rules` | Batch create recommended CCE AOM alarm rules from the AOM CCE alarm template | R2 | **Yes** | `region`, `cluster_id`, `bind_notification_rule_id` |
+| `huawei_cleanup_cce_aom_alarm_rules` | Batch delete CCE AOM alarm rules matching the AOM CCE alarm template | R0 | **Yes** | `region`, `cluster_id` |
 | `huawei_update_aom_alarm_rule` | Update AOM alarm rule | R1 | **Yes** | `region`, `rule_name` |
 | `huawei_delete_aom_alarm_rule` | Delete AOM alarm rule | R0 | **Yes** | `region`, `rule_name` |
 | `huawei_disable_aom_alarm_rule` | Disable AOM alarm rule | R1 | **Yes** | `region`, `rule_id` |
@@ -338,149 +338,15 @@ python3 scripts/huawei-cloud.py huawei_aom_alarm_inspection \
 
 ---
 
-## Parameter Reference
+## References
 
-### Alarm Query Parameters
+Read these references when the task needs deeper parameter details, output expectations, verification steps, or rule templates:
 
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `region` | Yes | Huawei Cloud region (e.g., `cn-north-4`) |
-| `cluster_id` | No | CCE cluster ID; when provided, only alarms related to this cluster are returned |
-| `ak` | No | Access Key ID; explicit tool parameter has highest priority |
-| `sk` | No | Secret Access Key; explicit tool parameter has highest priority |
-| `project_id` | No | Huawei Cloud project ID; explicit value has highest priority, otherwise hcloud profile is used before environment fallback |
-
-### Alarm Rule Mutation Parameters
-
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `region` | Yes | Huawei Cloud region |
-| `rule_name` | Yes (create, update, delete) | Alarm rule name |
-| `rule_id` | Yes (enable, disable) | Alarm rule ID |
-| `metric_name` | Yes (create metric rule) | Metric name (e.g., `cpuUsage`) |
-| `namespace` | Yes (create) | Metric namespace (e.g., `PAAS.NODE`) |
-| `event_name` | Yes (create event rule) | Event name; reference `references/cce-event-list.md` for naming format |
-| `bind_notification_rule_id` | Yes (configure); No (single create) | Existing AOM notification rule ID/name to bind. If the user has not provided one, first call `huawei_list_aom_action_rules` and present the list to the user. Do not choose automatically; wait for explicit user confirmation, or create a new rule with `huawei_create_aom_notification_action_rule`, then call batch configure with this parameter. |
-| `notification_topic_urn` | Yes (create notification) | SMN topic URN required by `huawei_create_aom_notification_action_rule` |
-| `notification_topic_name` | Yes (create notification) | SMN topic name required by `huawei_create_aom_notification_action_rule` |
-| `notification_topic_display_name` | No (create notification) | Optional SMN topic display name for the notification action rule |
-| `notification_user_name` | No (create notification) | Optional user name stored on the notification action rule |
-| `alarm_template_id` | No (configure/cleanup) | AOM alarm template ID used for batch configure or cleanup; defaults to the cloud-side CCE template `at0000000000000000cce001` |
-| `rule_name_prefix` | No (configure/cleanup) | Prefix for batch-created or matched rule names; defaults to `cluster_id` |
-| `include_metric_alarms` | No (configure/cleanup) | Whether to include Prometheus metric alarm templates; default `true` |
-| `include_event_alarms` | No (configure/cleanup) | Whether to include recommended CCE event alarm templates; default `true` |
-| `alarm_items` | No (configure/cleanup) | Comma-separated allowlist of template names or event names to create or clean up |
-| `skip_existing` | No (configure) | Skip rules that already exist for the cluster during confirmed execution; default `true` |
-| `prom_instance_id` | No (configure) | Optional override; batch configure auto-resolves the target cluster AOM Prometheus instance from the `cie-collector` addon |
-| `delete_auto_notification_rule` | No (cleanup) | Also delete `auto-cluster-{cluster_id}` when cleaning up CCE template alarm rules; default `false` |
-| `comparison_operator` | Yes (create metric rule) | Threshold comparison operator (e.g., `>`, `<`, `>=`, `<=`) |
-| `threshold` | Yes (create metric rule) | Alarm threshold value |
-| `period` | Yes (create metric rule) | Statistics period in seconds (recommended: 60) |
-| `evaluation_periods` | Yes (create metric rule) | Consecutive trigger period count (recommended: 3) |
-| `statistic` | Yes (create metric rule) | Statistics method (e.g., `average`, `max`, `min`) |
-| `alarm_level` | Yes (create) | Alarm severity level (1=Critical, 2=Major, 3=Minor, 4=Info) |
-| `fields` | No (create) | Additional JSON fields for rule creation, e.g., `{"unit":"%","is_turn_on":true}` |
-| `updates` | No (update) | JSON batch update fields, e.g., `{"threshold":"80","is_turn_on":true}` |
-| `enterprise_project_id` | No (list action rules) | Enterprise project scope; default `all_granted_eps` |
-| `confirm` | No | Must be explicitly set to `true` for mutation operations to execute |
-| `ak` | No | Access Key ID; explicit tool parameter has highest priority |
-| `sk` | No | Secret Access Key; explicit tool parameter has highest priority |
-| `project_id` | No | Huawei Cloud project ID; explicit value has highest priority, otherwise hcloud profile is used before environment fallback |
-
----
-
-## Output Format
-
-### Alarm Summary
-
-Output must include:
-
-| Field | Description |
-|-------|-------------|
-| `region` | Queried region |
-| `cluster_id` | Cluster ID (if specified by user) |
-| `total_count` | Total alarm count |
-| `firing_count` | Currently firing alarm count |
-| `resolved_count` | Resolved alarm count |
-| `severity_stats` | Severity level distribution |
-| `type_stats` | Alarm type grouping statistics |
-
-### Resource Clues
-
-For CCE alarms, prioritize the following resource dimensions:
-
-| Field | Description |
-|-------|-------------|
-| `cluster_name` | Cluster name |
-| `namespace` | Kubernetes namespace |
-| `pod_name` | Pod name |
-| `resource_kind` | Resource type |
-| `event_name` | Alarm name |
-| `message` | Alarm message |
-
-### Recommended Diagnosis Skills
-
-| Alarm Characteristics | Recommended Skill |
-|----------------------|-------------------|
-| `CrashLoopBackOff`, `BackOffStart`, `FailedStart`, `ImagePullBackOff` | `huawei-cloud-cce-pod-failure-diagnoser` |
-| `FailedScheduling`, `Insufficient cpu`, `Insufficient memory` | `huawei-cloud-cce-pod-failure-diagnoser` or `huawei-cloud-cce-node-failure-diagnoser` |
-| `NodeNotReady`, node resource pressure, NPD events | `huawei-cloud-cce-node-failure-diagnoser` |
-| Ingress 502/504, Service unreachable, ELB anomalies | `huawei-cloud-cce-network-failure-diagnoser` |
-| Multiple alarm categories impacting business simultaneously | `huawei-cloud-cce-root-cause-analyzer` |
-| Scaling, reboot, drain, or other remediation actions needed | `huawei-cloud-cce-auto-remediation-runner` |
-
-See `references/output-schema.md` for the full JSON response schema.
-
----
-
-## Verification
-
-1. Run the dispatcher with a known region and cluster to confirm connectivity:
-   ```bash
-   python3 scripts/huawei-cloud.py huawei_list_aom_alarms region=cn-north-4 cluster_id=<cluster_id>
-   ```
-2. Execute `huawei_analyze_aom_alarms` and verify that burst, attention, and steady groupings are returned correctly
-3. Verify `huawei_aom_alarm_inspection` returns cluster alarm summary with risk items
-4. Test mutation preview workflow: call `huawei_create_aom_alarm_rule` without `confirm` and verify it returns a preview only (no actual creation)
-5. After a mutation operation with `confirm=true`, call `huawei_list_aom_alarm_rules` to verify the rule state change
-
----
-
-## Best Practices
-
-1. Always query both active and history alarms via `huawei_list_aom_alarms`; never assume absence of active alarms means no problems — check history alarms
-2. Use `huawei_analyze_aom_alarms` for alarm storm scenarios to deduplicate and identify burst vs. steady alarms
-3. For mutation operations, always follow the two-step workflow: preview first (without `confirm`), then confirm (with `confirm=true`) only after explicit user approval
-4. After creating event alarm rules, verify that `event_name` follows the format in `references/cce-event-list.md`
-5. When checking notification gaps, query both action rules (`huawei_list_aom_action_rules`) and mute rules (`huawei_list_aom_mute_rules`)
-6. Do not interpret absence of active alarms as "no problem"; always cross-reference history alarms
-7. When creating metric alarm rules, reference `references/cce-prometheus-metric-alarms.md` for recommended PromQL expressions and thresholds
-
----
-
-## Reference Documents
-
-| Document | Description |
-|----------|-------------|
-| `references/workflow.md` | Alarm correlation workflow: collection, deduplication, grouping, and diagnosis handoff |
-| `references/output-schema.md` | Output JSON schema for alarm correlation and inspection results |
-| `references/risk-rules.md` | Risk boundary rules: read-only vs. mutation actions, prohibited operations |
-| `references/cce-event-list.md` | CCE event list with naming format for creating event alarm rules |
-| `references/cce-prometheus-metric-alarms.md` | Prometheus metric alarm reference for creating metric alarm rules |
-| [Huawei Cloud KooCLI Documentation](https://support.huaweicloud.com/intl/en-us/productdesc-hcli/hcli_01.html) | hcloud/KooCLI reference |
-| [Huawei Cloud API Explorer](https://support.huaweicloud.com/apiexplorer/index.html) | API interactive explorer |
-
----
-
-## Common Pitfalls
-
-| Pitfall | Correct Approach |
-|---------|-----------------|
-| Only querying active alarms and ignoring history | Always use `huawei_list_aom_alarms` which merges active + history; history alarms may indicate recurring resource issues |
-| Calling mutation tools without preview step | Always call without `confirm` first to preview; only add `confirm=true` after explicit user approval |
-| Creating event alarm rules with incorrect `event_name` format | Reference `references/cce-event-list.md` and use `Chinese description##EventName` format |
-| Creating metric alarm rules with arbitrary thresholds | Reference `references/cce-prometheus-metric-alarms.md` for recommended PromQL and threshold values |
-| Deleting action rules without understanding notification impact | Preview first; verify which alarms depend on the action rule before confirming deletion |
-| Executing remediation actions directly from this skill | This skill does not perform remediation; hand off to `huawei-cloud-cce-auto-remediation-runner` |
-| Assuming "no active alarms" means "no problems" | Check history alarms — resolved alarms may indicate ongoing resource issues that flare periodically |
-| Not checking mute rules when alarms are missing from notifications | Always query mute rules (`huawei_list_aom_mute_rules`) alongside action rules to identify suppression |
+| Document | Use |
+|----------|-----|
+| `references/operation-guide.md` | Detailed parameters, output expectations, verification, diagnosis hand-off, and pitfalls |
+| `references/workflow.md` | Alarm correlation workflow |
+| `references/output-schema.md` | Output JSON schema |
+| `references/risk-rules.md` | Risk boundary rules |
+| `references/cce-event-list.md` | CCE event names for event alarm rules |
+| `references/cce-prometheus-metric-alarms.md` | Prometheus metric alarm references |
