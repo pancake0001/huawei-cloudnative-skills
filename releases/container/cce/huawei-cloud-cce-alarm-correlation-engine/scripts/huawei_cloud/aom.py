@@ -6,13 +6,14 @@ import json
 import re
 import copy
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from .common import extract_items, get_project_id_for_region, redact_command, run_hcloud, run_hcloud_json_input
 
 
 CLUSTER_ID_PLACEHOLDER = "__CCE_CLUSTER_ID__"
+CCE_ALARM_RULE_TEMPLATE_ID = "at0000000000000000cce001"
+CCE_ALARM_RULE_TEMPLATE_NAME = "CCE模板"
 
 
 EVENT_NAME_ALIASES = {
@@ -30,65 +31,9 @@ EVENT_NAME_ALIASES = {
     "Pulled": "镜像拉取完成##Pulled",
 }
 
-DEFAULT_EVENT_ALARM_NAMES = {
-    "PodOOMKilling",
-    "FailedStart",
-    "FailedPullImage",
-    "BackOffStart",
-    "FailedScheduling",
-    "BackOffPullImage",
-    "FailedCreate",
-    "Rebooted",
-    "NodeNotSchedulable",
-    "NodeNotReady",
-    "NodeCreateFailed",
-    "FailedToAttachDetach",
-    "ScaleUpTimedOut",
-    "NotTriggerScaleUp",
-    "ScaleDownFailed",
-    "FailedToScaleUpGroup",
-    "ScaleUpFailed",
-    "NodePoolSoldOut",
-}
-
-
-def _reference_dir() -> Path:
-    return Path(__file__).resolve().parents[2] / "references"
-
-
-def _parse_markdown_table(path: Path, expected_columns: int) -> List[List[str]]:
-    if not path.exists():
-        return []
-
-    rows: List[List[str]] = []
-    for raw_line in path.read_text(encoding="utf-8-sig").splitlines():
-        line = raw_line.strip()
-        if not line.startswith("|") or "---" in line:
-            continue
-        cells = [cell.strip().strip("`").replace("\\|", "|") for cell in re.split(r"(?<!\\)\|", line.strip("|"))]
-        if len(cells) < expected_columns:
-            continue
-        if cells[0].lower() in {"告警项", "alarm item (cn)", "category", "event description (cn)"}:
-            continue
-        rows.append(cells)
-    return rows
-
-
 def _slug(value: str, fallback: str) -> str:
     slug = re.sub(r"[^a-zA-Z0-9_]+", "_", value).strip("_").lower()
     return slug or fallback
-
-
-def _display_name(value: str) -> str:
-    match = re.search(r"\(([^)]+)\)\s*$", value)
-    return match.group(1) if match else value
-
-
-def _parse_promql_threshold(promql: str) -> tuple[str, str]:
-    match = re.search(r"\s(>=|<=|>|<|==)\s*([0-9.]+)\s*$", promql)
-    if match:
-        return match.group(1), match.group(2)
-    return ">", "0"
 
 
 def _scope_promql_to_cluster(promql: str, cluster_id: str) -> str:
@@ -104,61 +49,124 @@ def _scope_promql_to_cluster(promql: str, cluster_id: str) -> str:
     return scoped
 
 
-def _load_metric_alarm_templates() -> List[Dict[str, Any]]:
-    rows = _parse_markdown_table(_reference_dir() / "cce-prometheus-metric-alarms.md", 3)
-    templates: List[Dict[str, Any]] = []
-    for index, cells in enumerate(rows, start=1):
-        name, description, promql = cells[:3]
-        operator, threshold = _parse_promql_threshold(promql)
-        templates.append({
-            "kind": "metric",
-            "name": name,
-            "description": description,
-            "promql": promql,
-            "metric_name": f"cce_promql_rule_{index}_{_slug(name, str(index))}",
-            "namespace": "CCE.PROMETHEUS",
-            "comparison_operator": operator,
-            "threshold": threshold,
-            "period": 60,
-            "evaluation_periods": 3,
-            "statistic": "average",
-            "alarm_level": 2,
-        })
-    return templates
+def _template_monitor_object(spec: Dict[str, Any], kind: str) -> Dict[str, str]:
+    if kind == "event":
+        return {"clusterId": CLUSTER_ID_PLACEHOLDER}
+    for condition in spec.get("trigger_conditions") or []:
+        templates = condition.get("promql_monitor_templates") or []
+        if templates:
+            return {str(templates[0]): CLUSTER_ID_PLACEHOLDER}
+    return {"cluster": CLUSTER_ID_PLACEHOLDER}
 
 
-def _load_event_alarm_templates() -> List[Dict[str, Any]]:
-    rows = _parse_markdown_table(_reference_dir() / "cce-event-list.md", 4)
-    templates: List[Dict[str, Any]] = []
-    for cells in rows:
-        category, description, event_name, event_level = cells[:4]
-        if event_name not in DEFAULT_EVENT_ALARM_NAMES:
+def _scope_template_promql(value: Any) -> Any:
+    if not isinstance(value, str):
+        return value
+    return _scope_promql_to_cluster(value, CLUSTER_ID_PLACEHOLDER)
+
+
+def _template_item_to_rule(template_item: Dict[str, Any], template_id: str) -> Optional[Dict[str, Any]]:
+    kind = template_item.get("alarm_template_spec_type")
+    if kind not in {"metric", "event"}:
+        return None
+
+    spec_key = "metric_alarm_template_spec" if kind == "metric" else "event_alarm_template_spec"
+    rule_spec_key = "metric_alarm_spec" if kind == "metric" else "event_alarm_spec"
+    source_spec = template_item.get(spec_key)
+    if not isinstance(source_spec, dict):
+        return None
+
+    spec = copy.deepcopy(source_spec)
+    monitor_object = _template_monitor_object(spec, kind)
+    spec["alarm_rule_template_bind_enable"] = False
+    spec["alarm_rule_template_id"] = template_id
+    spec["bind_alarm_rule_template_info"] = {
+        "alarm_rule_template_id": template_id,
+        "alarm_rule_template_rule_desc": template_item.get("desc") or "",
+        "alarm_rule_template_rule_name": template_item.get("alarm_template_name") or "",
+        "monitor_object": monitor_object,
+        "related_cloud_service": "CCEFromProm",
+    }
+    spec.setdefault("monitor_objects", [monitor_object])
+    spec["monitor_objects"] = _replace_cluster_id(spec["monitor_objects"], None, CLUSTER_ID_PLACEHOLDER)
+    spec["update_alarm_rule"] = template_item.get("update_alarm_rule", True)
+
+    for condition in spec.get("trigger_conditions") or []:
+        if not isinstance(condition, dict):
             continue
-        zh_match = re.search(r"\(([^)]+)\)", description)
-        cn_description = zh_match.group(1) if zh_match else description
-        templates.append({
-            "kind": "event",
-            "name": event_name,
-            "category": category,
-            "description": description,
-            "event_name": f"{cn_description}##{event_name}",
-            "alarm_level": "Major" if event_level.lower() == "important" else "Minor",
-        })
-    return templates
+        for key in ("promql", "promql_expr", "mix_promql"):
+            if key in condition:
+                condition[key] = _scope_template_promql(condition[key])
+        if kind == "event":
+            condition.setdefault("frequency", "-1")
+
+    alias = template_item.get("alarm_template_name") or template_item.get("alarm_template_name_en") or "CCE alarm rule"
+    return {
+        "alarm_rule_description": template_item.get("desc") or template_item.get("desc_en") or str(alias),
+        "alarm_rule_enable": True,
+        "alarm_rule_name": f"CCE_{alias}_{CLUSTER_ID_PLACEHOLDER}",
+        "alarm_rule_type": kind,
+        "alias": alias,
+        rule_spec_key: spec,
+    }
 
 
-def _load_aom_rule_body_templates() -> List[Dict[str, Any]]:
-    path = _reference_dir() / "cce-aom-alarm-rule-templates.json"
-    if not path.exists():
-        return []
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
-        return []
-    templates = data.get("templates") if isinstance(data, dict) else data
-    if not isinstance(templates, list):
-        return []
-    return [{"raw": item} for item in templates if isinstance(item, dict)]
+def _load_cce_alarm_rule_templates_from_cloud(
+    region: str,
+    ak: Optional[str],
+    sk: Optional[str],
+    project_id: Optional[str],
+    enterprise_project_id: Optional[str],
+    template_id: str = CCE_ALARM_RULE_TEMPLATE_ID,
+) -> Dict[str, Any]:
+    params: List[tuple[str, Any]] = [
+        ("type", "template"),
+        ("id", template_id),
+        ("Enterprise-Project-Id", enterprise_project_id or "all_granted_eps"),
+    ]
+    result = run_hcloud("AOM", "ListAlarmRuleTemplate", region, params, ak, sk, project_id)
+    if not result.get("success"):
+        result.update({"action": "load_cce_alarm_rule_template", "template_id": template_id})
+        return result
+
+    templates = extract_items(result.get("data"), "alarm_rule_templates", "templates")
+    template = next((item for item in templates if item.get("alarm_rule_template_id") == template_id), None)
+    if not template:
+        return {
+            "success": False,
+            "action": "load_cce_alarm_rule_template",
+            "template_id": template_id,
+            "error": f"CCE alarm rule template not found: {template_id}",
+            "hcloud_command": result.get("command"),
+        }
+
+    rule_templates: List[Dict[str, Any]] = []
+    for spec_group in template.get("alarm_template_spec_list") or []:
+        for template_item in spec_group.get("alarm_template_spec_items") or []:
+            rule = _template_item_to_rule(template_item, template_id)
+            if rule:
+                rule_templates.append({"raw": rule, "template_item": template_item})
+
+    if not rule_templates:
+        return {
+            "success": False,
+            "action": "load_cce_alarm_rule_template",
+            "template_id": template_id,
+            "error": "CCE alarm rule template does not contain metric or event template items.",
+            "hcloud_command": result.get("command"),
+        }
+
+    return {
+        "success": True,
+        "action": "load_cce_alarm_rule_template",
+        "template_id": template_id,
+        "template_name": template.get("alarm_rule_template_name") or CCE_ALARM_RULE_TEMPLATE_NAME,
+        "template_version": template.get("alarm_rule_template_version"),
+        "template_source": template.get("alarm_rule_template_source"),
+        "templates": rule_templates,
+        "count": len(rule_templates),
+        "hcloud_command": result.get("command"),
+    }
 
 
 def _cluster_id_in_rule(rule: Dict[str, Any]) -> Optional[str]:
@@ -956,10 +964,6 @@ def create_aom_event_alarm_rule(
     frequency: str = "-1",
     prom_instance_id: Optional[str] = None,
     enterprise_project_id: Optional[str] = None,
-    notification_topic_urn: Optional[str] = None,
-    notification_topic_name: Optional[str] = None,
-    notification_topic_display_name: Optional[str] = None,
-    notification_user_name: Optional[str] = None,
     confirm: bool = False,
     ak: Optional[str] = None,
     sk: Optional[str] = None,
@@ -1034,6 +1038,7 @@ def configure_cce_aom_alarm_rules(
     notification_topic_name: Optional[str] = None,
     notification_topic_display_name: Optional[str] = None,
     notification_user_name: Optional[str] = None,
+    alarm_template_id: str = CCE_ALARM_RULE_TEMPLATE_ID,
     confirm: bool = False,
     ak: Optional[str] = None,
     sk: Optional[str] = None,
@@ -1043,7 +1048,25 @@ def configure_cce_aom_alarm_rules(
     prefix = rule_name_prefix or cluster_id
     wanted_items = _split_csv(alarm_items)
     candidates: List[Dict[str, Any]] = []
-    embedded_template_rules = _load_aom_rule_body_templates()
+    cloud_template = _load_cce_alarm_rule_templates_from_cloud(
+        region,
+        ak,
+        sk,
+        project_id,
+        enterprise_project_id,
+        alarm_template_id or CCE_ALARM_RULE_TEMPLATE_ID,
+    )
+    if not cloud_template.get("success"):
+        return {
+            "success": False,
+            "action": "configure_cce_aom_alarm_rules",
+            "region": region,
+            "cluster_id": cluster_id,
+            "executed": False,
+            "error": "Unable to load CCE alarm rule template through hcloud.",
+            "template": cloud_template,
+        }
+    embedded_template_rules = cloud_template.get("templates") or []
 
     if embedded_template_rules:
         for item in embedded_template_rules:
@@ -1057,23 +1080,6 @@ def configure_cce_aom_alarm_rules(
             if wanted_items and not _matches_any(candidate["name"], wanted_items):
                 continue
             candidates.append(candidate)
-
-    if not embedded_template_rules and include_metric_alarms:
-        for template in _load_metric_alarm_templates():
-            if wanted_items and not (_matches_any(template["name"], wanted_items) or template["metric_name"] in wanted_items):
-                continue
-            candidates.append({
-                **template,
-                "rule_name": f"{prefix}-{_slug(template['name'], template['metric_name'])}",
-                "display_name": _display_name(template["name"]),
-                "promql": _scope_promql_to_cluster(template["promql"], cluster_id),
-            })
-
-    if not embedded_template_rules and include_event_alarms:
-        for template in _load_event_alarm_templates():
-            if wanted_items and not (_matches_any(template["name"], wanted_items) or _matches_any(template["event_name"], wanted_items)):
-                continue
-            candidates.append({**template, "rule_name": f"{prefix}-{template['name']}"})
 
     if not candidates:
         return {
@@ -1142,6 +1148,10 @@ def configure_cce_aom_alarm_rules(
             "confirm_required": True,
             "will_execute": False,
             "executed": False,
+            "alarm_template_id": cloud_template.get("template_id"),
+            "alarm_template_name": cloud_template.get("template_name"),
+            "alarm_template_version": cloud_template.get("template_version"),
+            "alarm_template_source": "cloud",
             "template_count": len(candidates),
             "metric_template_count": sum(1 for item in candidates if item["kind"] == "metric"),
             "event_template_count": sum(1 for item in candidates if item["kind"] == "event"),
@@ -1343,6 +1353,10 @@ def configure_cce_aom_alarm_rules(
         "region": region,
         "cluster_id": cluster_id,
         "executed": True,
+        "alarm_template_id": cloud_template.get("template_id"),
+        "alarm_template_name": cloud_template.get("template_name"),
+        "alarm_template_version": cloud_template.get("template_version"),
+        "alarm_template_source": "cloud",
         "template_count": len(candidates),
         "created_count": len(created),
         "skipped_count": len(skipped),

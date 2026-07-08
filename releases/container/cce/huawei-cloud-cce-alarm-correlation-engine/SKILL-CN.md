@@ -30,7 +30,7 @@ description: 华为云 AOM 告警关联分析技能，支持查询 active/histor
 |------|---------|---------|------|
 | `huawei_create_aom_alarm_rule` | 创建 | R2 | 创建新的 AOM 告警规则，可能引入新的告警通知 |
 | `huawei_create_aom_event_alarm_rule` | 创建 | R2 | 创建新的 AOM 事件告警规则，可能引入新的事件告警通知 |
-| `huawei_configure_cce_aom_alarm_rules` | 批量创建 | R2 | 按 CCE 默认模板为指定集群批量创建 AOM 告警规则；用户提供 SMN 主题参数时可自动创建集群通知动作规则 |
+| `huawei_configure_cce_aom_alarm_rules` | 批量创建 | R2 | 按 AOM 云侧 `CCE模板` 为指定集群批量创建告警规则；用户提供 SMN 主题参数时可自动创建集群通知动作规则 |
 | `huawei_update_aom_alarm_rule` | 修改 | R1 | 修改 AOM 告警规则阈值、开关、通知动作、描述等配置 |
 | `huawei_delete_aom_alarm_rule` | 删除 | R0 | 删除 AOM 告警规则，可能导致后续告警无法触发 |
 | `huawei_disable_aom_alarm_rule` | 停用 | R1 | 停用 AOM 告警规则，可能导致相关告警不再触发 |
@@ -199,7 +199,7 @@ python3 huawei-cloud.py huawei_analyze_aom_alarms \
 | `huawei_resolve_cce_aom_prom_instance` | 解析目标集群 AOM Prometheus 实例 | R3 | 否 | `region`, `cluster_id` |
 | `huawei_create_aom_alarm_rule` | 创建 AOM 告警规则 | R2 | **是** | `region`, `rule_name`, `metric_name`, `namespace`, `comparison_operator`, `threshold`, `period`, `evaluation_periods`, `statistic`, `alarm_level` |
 | `huawei_create_aom_event_alarm_rule` | 创建 AOM 事件告警规则 | R2 | **是** | `region`, `cluster_id`, `rule_name`, `event_name` |
-| `huawei_configure_cce_aom_alarm_rules` | 一键批量创建 CCE 推荐告警规则 | R2 | **是** | `region`, `cluster_id` |
+| `huawei_configure_cce_aom_alarm_rules` | 使用 AOM `CCE模板` 一键批量创建 CCE 推荐告警规则 | R2 | **是** | `region`, `cluster_id` |
 | `huawei_update_aom_alarm_rule` | 修改 AOM 告警规则 | R1 | **是** | `region`, `rule_name` |
 | `huawei_delete_aom_alarm_rule` | 删除 AOM 告警规则 | R0 | **是** | `region`, `rule_name` |
 | `huawei_disable_aom_alarm_rule` | 停用 AOM 告警规则 | R1 | **是** | `region`, `rule_id` |
@@ -231,6 +231,7 @@ python3 huawei-cloud.py huawei_analyze_aom_alarms \
 - `notification_topic_name` (optional for configure): 自动创建 `auto-cluster-{cluster_id}` 时必填，SMN 主题名称
 - `notification_topic_display_name` (optional for configure): 自动创建通知动作规则时使用的 SMN 主题显示名
 - `notification_user_name` (optional for configure): 自动创建通知动作规则时记录的用户名
+- `alarm_template_id` (optional for configure): 批量创建使用的 AOM 告警模板 ID，默认使用云侧 CCE 模板 `at0000000000000000cce001`
 - `rule_name_prefix` (optional for configure): 批量创建规则名前缀，默认使用 `cluster_id`
 - `include_metric_alarms` (optional for configure): 是否创建 Prometheus 指标类模板，默认 `true`
 - `include_event_alarms` (optional for configure): 是否创建 CCE 事件类模板，默认 `true`

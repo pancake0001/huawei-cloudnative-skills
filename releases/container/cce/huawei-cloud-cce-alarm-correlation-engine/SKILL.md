@@ -42,7 +42,7 @@ This skill has **both read-only tools** (alarm query, analysis, inspection, rule
 4. Query, create, update, delete, enable, disable AOM alarm rules (mutation requires `confirm=true`)
 5. Create AOM event alarm rules referencing CCE event list (`huawei_create_aom_event_alarm_rule`)
 6. Resolve the target cluster AOM Prometheus instance from CCE addon config (`huawei_resolve_cce_aom_prom_instance`)
-7. Batch configure recommended CCE AOM alarm rules from bundled Prometheus/event templates (`huawei_configure_cce_aom_alarm_rules`)
+7. Batch configure recommended CCE AOM alarm rules from the cloud-side AOM CCE alarm template (`huawei_configure_cce_aom_alarm_rules`)
 8. Query and delete AOM action/notification rules (delete requires `confirm=true`)
 9. Query AOM mute rules (`huawei_list_aom_mute_rules`)
 10. CCE cluster alarm inspection with risk summary (`huawei_aom_alarm_inspection`)
@@ -212,7 +212,7 @@ python3 scripts/huawei-cloud.py huawei_analyze_aom_alarms \
 | `huawei_resolve_cce_aom_prom_instance` | Resolve target cluster AOM Prometheus instance | R3 | No | `region`, `cluster_id` |
 | `huawei_create_aom_alarm_rule` | Create AOM metric alarm rule | R2 | **Yes** | `region`, `rule_name`, `metric_name`, `namespace`, `comparison_operator`, `threshold`, `period`, `evaluation_periods`, `statistic`, `alarm_level` |
 | `huawei_create_aom_event_alarm_rule` | Create AOM event alarm rule | R2 | **Yes** | `region`, `cluster_id`, `rule_name`, `event_name` |
-| `huawei_configure_cce_aom_alarm_rules` | Batch create recommended CCE AOM alarm rules | R2 | **Yes** | `region`, `cluster_id` |
+| `huawei_configure_cce_aom_alarm_rules` | Batch create recommended CCE AOM alarm rules from AOM `CCE模板` | R2 | **Yes** | `region`, `cluster_id` |
 | `huawei_update_aom_alarm_rule` | Update AOM alarm rule | R1 | **Yes** | `region`, `rule_name` |
 | `huawei_delete_aom_alarm_rule` | Delete AOM alarm rule | R0 | **Yes** | `region`, `rule_name` |
 | `huawei_disable_aom_alarm_rule` | Disable AOM alarm rule | R1 | **Yes** | `region`, `rule_id` |
@@ -346,6 +346,7 @@ python3 scripts/huawei-cloud.py huawei_aom_alarm_inspection \
 | `notification_topic_name` | No (configure) | Required when auto-creating `auto-cluster-{cluster_id}`; SMN topic name |
 | `notification_topic_display_name` | No (configure) | Optional SMN topic display name for auto-created notification action rule |
 | `notification_user_name` | No (configure) | Optional user name stored on the auto-created notification action rule |
+| `alarm_template_id` | No (configure) | AOM alarm template ID used for batch configure; defaults to the cloud-side CCE template `at0000000000000000cce001` |
 | `rule_name_prefix` | No (configure) | Prefix for batch-created rule names; defaults to `cluster_id` |
 | `include_metric_alarms` | No (configure) | Whether to include Prometheus metric alarm templates; default `true` |
 | `include_event_alarms` | No (configure) | Whether to include recommended CCE event alarm templates; default `true` |

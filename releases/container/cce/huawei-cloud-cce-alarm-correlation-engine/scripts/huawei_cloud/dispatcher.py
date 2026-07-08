@@ -148,6 +148,7 @@ def _configure_cce_aom_alarm_rules(params: Dict[str, str]) -> Dict[str, Any]:
         notification_topic_name=params.get("notification_topic_name"),
         notification_topic_display_name=params.get("notification_topic_display_name"),
         notification_user_name=params.get("notification_user_name"),
+        alarm_template_id=params.get("alarm_template_id") or aom.CCE_ALARM_RULE_TEMPLATE_ID,
         confirm=params.get("confirm", "").lower() == "true",
         ak=params.get("ak"),
         sk=params.get("sk"),
