@@ -169,6 +169,7 @@ python3 scripts/huawei-cloud.py huawei_create_aom_alarm_rule \
 | Action | Description |
 |--------|-------------|
 | Create/update arbitrary action rules | Only `huawei_create_aom_notification_action_rule` creates notification action rules; batch configure requires `bind_notification_rule_id` |
+| Automatically choose notification rules | Never choose `bind_notification_rule_id` on behalf of the user. If the user has not provided it, call `huawei_list_aom_action_rules`, present the candidates, and wait for explicit user confirmation before batch creating alarm rules |
 | Modify mute rules | Do not create, update, or delete mute rules |
 | Execute remediation actions | Do not scale, reboot, drain, or delete workloads or nodes |
 | Modify cluster resources | Do not change CCE, ECS, ELB, EIP, VPC, security groups, etc. |
@@ -251,7 +252,8 @@ python3 scripts/huawei-cloud.py huawei_create_aom_alarm_rule \
 python3 scripts/huawei-cloud.py huawei_configure_cce_aom_alarm_rules \
   region=cn-north-4 cluster_id=<cluster-id>
 
-# If the user has not provided bind_notification_rule_id, list notification rules first
+# If the user has not provided bind_notification_rule_id, list notification rules first.
+# Do not choose one automatically; ask the user to confirm which rule to use.
 python3 scripts/huawei-cloud.py huawei_list_aom_action_rules region=cn-north-4
 
 # Confirm batch create and bind an existing notification rule
@@ -364,7 +366,7 @@ python3 scripts/huawei-cloud.py huawei_aom_alarm_inspection \
 | `metric_name` | Yes (create metric rule) | Metric name (e.g., `cpuUsage`) |
 | `namespace` | Yes (create) | Metric namespace (e.g., `PAAS.NODE`) |
 | `event_name` | Yes (create event rule) | Event name; reference `references/cce-event-list.md` for naming format |
-| `bind_notification_rule_id` | Yes (configure); No (single create) | Existing AOM notification rule ID/name to bind. If the user has not provided one, first call `huawei_list_aom_action_rules` and let the user choose an existing rule, or create a new rule with `huawei_create_aom_notification_action_rule`, then call batch configure with this parameter. |
+| `bind_notification_rule_id` | Yes (configure); No (single create) | Existing AOM notification rule ID/name to bind. If the user has not provided one, first call `huawei_list_aom_action_rules` and present the list to the user. Do not choose automatically; wait for explicit user confirmation, or create a new rule with `huawei_create_aom_notification_action_rule`, then call batch configure with this parameter. |
 | `notification_topic_urn` | Yes (create notification) | SMN topic URN required by `huawei_create_aom_notification_action_rule` |
 | `notification_topic_name` | Yes (create notification) | SMN topic name required by `huawei_create_aom_notification_action_rule` |
 | `notification_topic_display_name` | No (create notification) | Optional SMN topic display name for the notification action rule |

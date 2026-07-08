@@ -82,6 +82,7 @@ python3 huawei-cloud.py huawei_create_aom_alarm_rule \
 | 动作 | 说明 |
 |------|------|
 | 创建/更新动作规则 | 不创建、更新通知动作规则 |
+| 自动选择通知规则 | 不允许替用户选择 `bind_notification_rule_id`；如果用户未提供，必须先调用 `huawei_list_aom_action_rules` 展示候选通知规则，并等待用户明确确认后再批量创建告警规则 |
 | 修改静默规则 | 不创建、更新、删除静默规则 |
 | 执行恢复动作 | 不扩缩容、不重启、不 drain、不删除工作负载或节点 |
 | 修改集群资源 | 不变更 CCE、ECS、ELB、EIP、VPC、安全组等资源 |
@@ -230,7 +231,7 @@ python3 huawei-cloud.py huawei_analyze_aom_alarms \
 - `rule_id` (required for enable): 需要启用的告警规则 ID
 - `rule_name` (required for delete action rule): AOM 通知动作规则名称
 - `enterprise_project_id` (optional for list action rules): 企业项目范围，默认 `all_granted_eps`
-- `bind_notification_rule_id` (required for configure; optional for single create): 绑定已有 AOM 通知规则 ID/名称；如果用户未提供，应先调用 `huawei_list_aom_action_rules` 获取当前通知规则列表给用户选择，或先用 `huawei_create_aom_notification_action_rule` 创建新规则，再携带该参数调用批量创建
+- `bind_notification_rule_id` (required for configure; optional for single create): 绑定已有 AOM 通知规则 ID/名称；如果用户未提供，应先调用 `huawei_list_aom_action_rules` 获取当前通知规则列表并展示给用户。不得自动选择，必须等待用户明确确认；也可以先用 `huawei_create_aom_notification_action_rule` 创建新规则，再携带该参数调用批量创建
 - `notification_topic_urn` (required for create notification): 创建通知动作规则时必填，SMN 主题 URN
 - `notification_topic_name` (required for create notification): 创建通知动作规则时必填，SMN 主题名称
 - `notification_topic_display_name` (optional for create notification): 创建通知动作规则时使用的 SMN 主题显示名
@@ -293,7 +294,8 @@ python3 huawei-cloud.py huawei_configure_cce_aom_alarm_rules \
   region=cn-north-4 \
   cluster_id=<cluster-id>
 
-# 如果用户未提供 bind_notification_rule_id，先查询通知动作规则给用户选择
+# 如果用户未提供 bind_notification_rule_id，先查询通知动作规则给用户选择。
+# 不允许自动代替用户选择，必须等待用户明确确认使用哪条规则。
 python3 huawei-cloud.py huawei_list_aom_action_rules \
   region=cn-north-4
 
