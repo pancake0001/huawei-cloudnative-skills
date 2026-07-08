@@ -77,6 +77,7 @@ def _template_item_to_rule(template_item: Dict[str, Any], template_id: str) -> O
         return None
 
     spec = copy.deepcopy(source_spec)
+    spec = _replace_cluster_id(spec, _first_cluster_id(spec), CLUSTER_ID_PLACEHOLDER)
     monitor_object = _template_monitor_object(spec, kind)
     spec["alarm_rule_template_bind_enable"] = False
     spec["alarm_rule_template_id"] = template_id
@@ -87,8 +88,7 @@ def _template_item_to_rule(template_item: Dict[str, Any], template_id: str) -> O
         "monitor_object": monitor_object,
         "related_cloud_service": "CCEFromProm",
     }
-    spec.setdefault("monitor_objects", [monitor_object])
-    spec["monitor_objects"] = _replace_cluster_id(spec["monitor_objects"], None, CLUSTER_ID_PLACEHOLDER)
+    spec["monitor_objects"] = [monitor_object]
     spec["update_alarm_rule"] = template_item.get("update_alarm_rule", True)
 
     for condition in spec.get("trigger_conditions") or []:
@@ -201,6 +201,33 @@ def _candidate_from_rule_template(
         "display_name": str(alias),
         "_template_rule": template_rule,
     }
+
+
+def _cce_alarm_rule_candidates(
+    cloud_template: Dict[str, Any],
+    cluster_id: str,
+    rule_name_prefix: Optional[str],
+    include_metric_alarms: bool,
+    include_event_alarms: bool,
+    alarm_items: Optional[str],
+) -> List[Dict[str, Any]]:
+    explicit_rule_name_prefix = bool(rule_name_prefix)
+    prefix = rule_name_prefix or cluster_id
+    wanted_items = _split_csv(alarm_items)
+    candidates: List[Dict[str, Any]] = []
+
+    for item in cloud_template.get("templates") or []:
+        template_rule = item.get("raw") or {}
+        kind = template_rule.get("alarm_rule_type")
+        if kind == "metric" and not include_metric_alarms:
+            continue
+        if kind == "event" and not include_event_alarms:
+            continue
+        candidate = _candidate_from_rule_template(template_rule, cluster_id, prefix, explicit_rule_name_prefix)
+        if wanted_items and not _matches_any(candidate["name"], wanted_items):
+            continue
+        candidates.append(candidate)
+    return candidates
 
 
 def _split_csv(value: Optional[str]) -> set[str]:
@@ -1045,9 +1072,6 @@ def configure_cce_aom_alarm_rules(
     project_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     explicit_rule_name_prefix = bool(rule_name_prefix)
-    prefix = rule_name_prefix or cluster_id
-    wanted_items = _split_csv(alarm_items)
-    candidates: List[Dict[str, Any]] = []
     cloud_template = _load_cce_alarm_rule_templates_from_cloud(
         region,
         ak,
@@ -1067,19 +1091,14 @@ def configure_cce_aom_alarm_rules(
             "template": cloud_template,
         }
     embedded_template_rules = cloud_template.get("templates") or []
-
-    if embedded_template_rules:
-        for item in embedded_template_rules:
-            template_rule = item.get("raw") or {}
-            kind = template_rule.get("alarm_rule_type")
-            if kind == "metric" and not include_metric_alarms:
-                continue
-            if kind == "event" and not include_event_alarms:
-                continue
-            candidate = _candidate_from_rule_template(template_rule, cluster_id, prefix, explicit_rule_name_prefix)
-            if wanted_items and not _matches_any(candidate["name"], wanted_items):
-                continue
-            candidates.append(candidate)
+    candidates = _cce_alarm_rule_candidates(
+        cloud_template,
+        cluster_id,
+        rule_name_prefix,
+        include_metric_alarms,
+        include_event_alarms,
+        alarm_items,
+    )
 
     if not candidates:
         return {
@@ -1366,6 +1385,185 @@ def configure_cce_aom_alarm_rules(
         "failed": failed,
         "notification_action_rule": notification_action_rule,
         "bind_notification_rule_id": resolved_notification_rule_id,
+    }
+
+
+def _rule_matches_any_candidate(rule: Dict[str, Any], candidates: List[Dict[str, Any]]) -> bool:
+    rule_name = _normalize_alarm_rule_name(str(rule.get("rule_name") or ""))
+    candidate_names = {
+        _normalize_alarm_rule_name(str(candidate.get("rule_name") or ""))
+        for candidate in candidates
+        if candidate.get("rule_name")
+    }
+    if rule_name and rule_name in candidate_names:
+        return True
+
+    for candidate in candidates:
+        if _find_template_rule(candidate, [rule]):
+            return True
+    return False
+
+
+def cleanup_cce_aom_alarm_rules(
+    region: str,
+    cluster_id: str,
+    rule_name_prefix: Optional[str] = None,
+    include_metric_alarms: bool = True,
+    include_event_alarms: bool = True,
+    alarm_items: Optional[str] = None,
+    alarm_template_id: str = CCE_ALARM_RULE_TEMPLATE_ID,
+    delete_auto_notification_rule: bool = False,
+    confirm: bool = False,
+    ak: Optional[str] = None,
+    sk: Optional[str] = None,
+    project_id: Optional[str] = None,
+    enterprise_project_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    cloud_template = _load_cce_alarm_rule_templates_from_cloud(
+        region,
+        ak,
+        sk,
+        project_id,
+        enterprise_project_id,
+        alarm_template_id or CCE_ALARM_RULE_TEMPLATE_ID,
+    )
+    if not cloud_template.get("success"):
+        return {
+            "success": False,
+            "action": "cleanup_cce_aom_alarm_rules",
+            "region": region,
+            "cluster_id": cluster_id,
+            "executed": False,
+            "error": "Unable to load CCE alarm rule template through hcloud.",
+            "template": cloud_template,
+        }
+
+    candidates = _cce_alarm_rule_candidates(
+        cloud_template,
+        cluster_id,
+        rule_name_prefix,
+        include_metric_alarms,
+        include_event_alarms,
+        alarm_items,
+    )
+    if not candidates:
+        return {
+            "success": False,
+            "action": "cleanup_cce_aom_alarm_rules",
+            "region": region,
+            "cluster_id": cluster_id,
+            "executed": False,
+            "error": "No alarm templates matched the requested filters.",
+        }
+
+    existing = list_aom_alarm_rules(region, ak, sk, project_id, limit=200, offset=0, enterprise_project_id=enterprise_project_id, cluster_id=cluster_id)
+    if not existing.get("success"):
+        return existing
+
+    matched_rules = [
+        rule for rule in existing.get("rules", [])
+        if _rule_matches_any_candidate(rule, candidates)
+    ]
+    auto_notification_rule = f"auto-cluster-{cluster_id}"
+    notification_rule_exists = False
+    if delete_auto_notification_rule:
+        notification_rule_exists = bool(_resolve_auto_notification_rule_id(region, cluster_id, ak, sk, project_id))
+
+    if not confirm:
+        delete_commands = [
+            _preview(
+                "DeleteMetricOrEventAlarmRule",
+                region,
+                [("alarm_rules.1", rule["rule_name"])],
+                "R0",
+                "Preview only. Add confirm=true to delete the CCE AOM alarm rule through hcloud.",
+            )["hcloud_command"]
+            for rule in matched_rules[:10]
+            if rule.get("rule_name")
+        ]
+        if delete_auto_notification_rule and notification_rule_exists:
+            delete_commands.append(
+                _preview(
+                    "DeleteActionRule",
+                    region,
+                    [("1", auto_notification_rule)],
+                    "R0",
+                    "Preview only. Add confirm=true to delete the auto-created notification action rule through hcloud.",
+                )["hcloud_command"]
+            )
+        return {
+            "success": True,
+            "action": "cleanup_cce_aom_alarm_rules",
+            "region": region,
+            "cluster_id": cluster_id,
+            "risk": "R0",
+            "confirm_required": True,
+            "will_execute": False,
+            "executed": False,
+            "alarm_template_id": cloud_template.get("template_id"),
+            "alarm_template_name": cloud_template.get("template_name"),
+            "alarm_template_version": cloud_template.get("template_version"),
+            "alarm_template_source": "cloud",
+            "template_count": len(candidates),
+            "matched_count": len(matched_rules),
+            "matched_rules": [
+                {"rule_name": rule.get("rule_name"), "kind": rule.get("rule_type"), "rule_id": rule.get("rule_id")}
+                for rule in matched_rules
+            ],
+            "delete_auto_notification_rule": delete_auto_notification_rule,
+            "auto_notification_rule": auto_notification_rule if notification_rule_exists else None,
+            "hcloud_command_samples": delete_commands,
+            "notes": [
+                "This is an R0 destructive operation and requires confirm=true.",
+                "Only rules matching the cloud-side CCE alarm template and target cluster are selected.",
+                "Set delete_auto_notification_rule=true to also delete auto-cluster-{cluster_id} when it exists.",
+            ],
+        }
+
+    deleted = []
+    failed = []
+    for rule in matched_rules:
+        rule_name = rule.get("rule_name")
+        if not rule_name:
+            failed.append({"rule": rule, "reason": "missing rule_name"})
+            continue
+        result = delete_aom_alarm_rule(region, rule_name, confirm=True, ak=ak, sk=sk, project_id=project_id)
+        entry = {"rule_name": rule_name, "kind": rule.get("rule_type"), "rule_id": rule.get("rule_id"), "result": result}
+        if result.get("success"):
+            deleted.append(entry)
+        else:
+            failed.append(entry)
+
+    notification_action_rule = None
+    if delete_auto_notification_rule and notification_rule_exists:
+        result = delete_aom_action_rule(region, auto_notification_rule, confirm=True, ak=ak, sk=sk, project_id=project_id)
+        notification_action_rule = {
+            "rule_name": auto_notification_rule,
+            "deleted": result.get("success", False),
+            "result": result,
+        }
+        if not result.get("success"):
+            failed.append({"rule_name": auto_notification_rule, "kind": "notification_action_rule", "result": result})
+
+    return {
+        "success": not failed,
+        "action": "cleanup_cce_aom_alarm_rules",
+        "region": region,
+        "cluster_id": cluster_id,
+        "risk": "R0",
+        "executed": True,
+        "alarm_template_id": cloud_template.get("template_id"),
+        "alarm_template_name": cloud_template.get("template_name"),
+        "alarm_template_version": cloud_template.get("template_version"),
+        "alarm_template_source": "cloud",
+        "template_count": len(candidates),
+        "matched_count": len(matched_rules),
+        "deleted_count": len(deleted),
+        "failed_count": len(failed),
+        "deleted": deleted,
+        "failed": failed,
+        "delete_auto_notification_rule": delete_auto_notification_rule,
+        "notification_action_rule": notification_action_rule,
     }
 
 

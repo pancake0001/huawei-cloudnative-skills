@@ -156,6 +156,24 @@ def _configure_cce_aom_alarm_rules(params: Dict[str, str]) -> Dict[str, Any]:
     )
 
 
+def _cleanup_cce_aom_alarm_rules(params: Dict[str, str]) -> Dict[str, Any]:
+    return aom.cleanup_cce_aom_alarm_rules(
+        region=params["region"],
+        cluster_id=params["cluster_id"],
+        rule_name_prefix=params.get("rule_name_prefix"),
+        include_metric_alarms=_to_bool(params.get("include_metric_alarms"), True),
+        include_event_alarms=_to_bool(params.get("include_event_alarms"), True),
+        alarm_items=params.get("alarm_items"),
+        alarm_template_id=params.get("alarm_template_id") or aom.CCE_ALARM_RULE_TEMPLATE_ID,
+        delete_auto_notification_rule=_to_bool(params.get("delete_auto_notification_rule"), False),
+        confirm=params.get("confirm", "").lower() == "true",
+        ak=params.get("ak"),
+        sk=params.get("sk"),
+        project_id=params.get("project_id"),
+        enterprise_project_id=params.get("enterprise_project_id"),
+    )
+
+
 def _resolve_cce_aom_prom_instance(params: Dict[str, str]) -> Dict[str, Any]:
     return aom.resolve_cce_aom_prom_instance(
         params["region"],
@@ -330,6 +348,7 @@ ACTION_SPECS: Dict[str, tuple[tuple[str, ...], Handler]] = {
     ),
     "huawei_create_aom_event_alarm_rule": (("region", "cluster_id", "rule_name", "event_name"), _create_aom_event_alarm_rule),
     "huawei_configure_cce_aom_alarm_rules": (("region", "cluster_id"), _configure_cce_aom_alarm_rules),
+    "huawei_cleanup_cce_aom_alarm_rules": (("region", "cluster_id"), _cleanup_cce_aom_alarm_rules),
     "huawei_resolve_cce_aom_prom_instance": (("region", "cluster_id"), _resolve_cce_aom_prom_instance),
     "huawei_update_aom_alarm_rule": (("region", "rule_name"), _update_aom_alarm_rule),
     "huawei_delete_aom_alarm_rule": (("region", "rule_name"), _delete_aom_alarm_rule),
