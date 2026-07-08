@@ -30,7 +30,8 @@ description: 华为云 AOM 告警关联分析技能，支持查询 active/histor
 |------|---------|---------|------|
 | `huawei_create_aom_alarm_rule` | 创建 | R2 | 创建新的 AOM 告警规则，可能引入新的告警通知 |
 | `huawei_create_aom_event_alarm_rule` | 创建 | R2 | 创建新的 AOM 事件告警规则，可能引入新的事件告警通知 |
-| `huawei_configure_cce_aom_alarm_rules` | 批量创建 | R2 | 按 AOM 云侧 `CCE模板` 为指定集群批量创建告警规则；用户提供 SMN 主题参数时可自动创建集群通知动作规则 |
+| `huawei_create_aom_notification_action_rule` | 创建 | R2 | 使用用户提供的 SMN 主题创建 AOM 通知动作规则 |
+| `huawei_configure_cce_aom_alarm_rules` | 批量创建 | R2 | 按 AOM 云侧 `CCE模板` 为指定集群批量创建告警规则；必须显式传入已有通知动作规则 |
 | `huawei_cleanup_cce_aom_alarm_rules` | 批量清理 | R0 | 按同一个 AOM 云侧 `CCE模板` 清理指定集群的告警规则 |
 | `huawei_update_aom_alarm_rule` | 修改 | R1 | 修改 AOM 告警规则阈值、开关、通知动作、描述等配置 |
 | `huawei_delete_aom_alarm_rule` | 删除 | R0 | 删除 AOM 告警规则，可能导致后续告警无法触发 |
@@ -200,7 +201,8 @@ python3 huawei-cloud.py huawei_analyze_aom_alarms \
 | `huawei_resolve_cce_aom_prom_instance` | 解析目标集群 AOM Prometheus 实例 | R3 | 否 | `region`, `cluster_id` |
 | `huawei_create_aom_alarm_rule` | 创建 AOM 告警规则 | R2 | **是** | `region`, `rule_name`, `metric_name`, `namespace`, `comparison_operator`, `threshold`, `period`, `evaluation_periods`, `statistic`, `alarm_level` |
 | `huawei_create_aom_event_alarm_rule` | 创建 AOM 事件告警规则 | R2 | **是** | `region`, `cluster_id`, `rule_name`, `event_name` |
-| `huawei_configure_cce_aom_alarm_rules` | 使用 AOM `CCE模板` 一键批量创建 CCE 推荐告警规则 | R2 | **是** | `region`, `cluster_id` |
+| `huawei_create_aom_notification_action_rule` | 使用 SMN 主题创建 AOM 通知动作规则 | R2 | **是** | `region`, `rule_name`, `notification_topic_urn`, `notification_topic_name` |
+| `huawei_configure_cce_aom_alarm_rules` | 使用 AOM `CCE模板` 一键批量创建 CCE 推荐告警规则 | R2 | **是** | `region`, `cluster_id`, `bind_notification_rule_id` |
 | `huawei_cleanup_cce_aom_alarm_rules` | 使用 AOM `CCE模板` 一键批量清理 CCE 推荐告警规则 | R0 | **是** | `region`, `cluster_id` |
 | `huawei_update_aom_alarm_rule` | 修改 AOM 告警规则 | R1 | **是** | `region`, `rule_name` |
 | `huawei_delete_aom_alarm_rule` | 删除 AOM 告警规则 | R0 | **是** | `region`, `rule_name` |
@@ -228,11 +230,11 @@ python3 huawei-cloud.py huawei_analyze_aom_alarms \
 - `rule_id` (required for enable): 需要启用的告警规则 ID
 - `rule_name` (required for delete action rule): AOM 通知动作规则名称
 - `enterprise_project_id` (optional for list action rules): 企业项目范围，默认 `all_granted_eps`
-- `bind_notification_rule_id` (optional for create/configure): 绑定已有 AOM 通知规则 ID/名称；未传时批量创建会尝试自动创建 `auto-cluster-{cluster_id}`，但必须由用户提供 SMN 订阅主题参数
-- `notification_topic_urn` (optional for configure): 自动创建 `auto-cluster-{cluster_id}` 时必填，SMN 主题 URN
-- `notification_topic_name` (optional for configure): 自动创建 `auto-cluster-{cluster_id}` 时必填，SMN 主题名称
-- `notification_topic_display_name` (optional for configure): 自动创建通知动作规则时使用的 SMN 主题显示名
-- `notification_user_name` (optional for configure): 自动创建通知动作规则时记录的用户名
+- `bind_notification_rule_id` (required for configure; optional for single create): 绑定已有 AOM 通知规则 ID/名称；如果用户未提供，应先调用 `huawei_list_aom_action_rules` 获取当前通知规则列表给用户选择，或先用 `huawei_create_aom_notification_action_rule` 创建新规则，再携带该参数调用批量创建
+- `notification_topic_urn` (required for create notification): 创建通知动作规则时必填，SMN 主题 URN
+- `notification_topic_name` (required for create notification): 创建通知动作规则时必填，SMN 主题名称
+- `notification_topic_display_name` (optional for create notification): 创建通知动作规则时使用的 SMN 主题显示名
+- `notification_user_name` (optional for create notification): 创建通知动作规则时记录的用户名
 - `alarm_template_id` (optional for configure/cleanup): 批量创建或清理使用的 AOM 告警模板 ID，默认使用云侧 CCE 模板 `at0000000000000000cce001`
 - `rule_name_prefix` (optional for configure/cleanup): 批量创建或匹配规则名前缀，默认使用 `cluster_id`
 - `include_metric_alarms` (optional for configure/cleanup): 是否包含 Prometheus 指标类模板，默认 `true`
@@ -291,19 +293,15 @@ python3 huawei-cloud.py huawei_configure_cce_aom_alarm_rules \
   region=cn-north-4 \
   cluster_id=<cluster-id>
 
+# 如果用户未提供 bind_notification_rule_id，先查询通知动作规则给用户选择
+python3 huawei-cloud.py huawei_list_aom_action_rules \
+  region=cn-north-4
+
 # 确认批量创建，并绑定已有通知规则
 python3 huawei-cloud.py huawei_configure_cce_aom_alarm_rules \
   region=cn-north-4 \
   cluster_id=<cluster-id> \
   bind_notification_rule_id=auto-cluster-xxx \
-  confirm=true
-
-# 确认批量创建，并使用用户提供的 SMN 主题自动创建集群通知动作规则
-python3 huawei-cloud.py huawei_configure_cce_aom_alarm_rules \
-  region=cn-north-4 \
-  cluster_id=<cluster-id> \
-  notification_topic_name=<smn-topic-name> \
-  notification_topic_urn=<smn-topic-urn> \
   confirm=true
 
 # 预览批量清理 CCE 模板告警规则，不执行
@@ -368,6 +366,21 @@ python3 huawei-cloud.py huawei_enable_aom_alarm_rule \
 # 查询动作规则
 python3 huawei-cloud.py huawei_list_aom_action_rules \
   region=cn-north-4
+
+# 预览使用 SMN 主题创建通知动作规则，不执行
+python3 huawei-cloud.py huawei_create_aom_notification_action_rule \
+  region=cn-north-4 \
+  rule_name=auto-cluster-xxx \
+  notification_topic_name=<smn-topic-name> \
+  notification_topic_urn=<smn-topic-urn>
+
+# 确认使用 SMN 主题创建通知动作规则
+python3 huawei-cloud.py huawei_create_aom_notification_action_rule \
+  region=cn-north-4 \
+  rule_name=auto-cluster-xxx \
+  notification_topic_name=<smn-topic-name> \
+  notification_topic_urn=<smn-topic-urn> \
+  confirm=true
 
 # 预览删除动作规则，不执行
 python3 huawei-cloud.py huawei_delete_aom_action_rule \

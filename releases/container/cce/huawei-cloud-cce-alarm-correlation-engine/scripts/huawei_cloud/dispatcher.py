@@ -144,10 +144,6 @@ def _configure_cce_aom_alarm_rules(params: Dict[str, str]) -> Dict[str, Any]:
         skip_existing=_to_bool(params.get("skip_existing"), True),
         prom_instance_id=params.get("prom_instance_id"),
         enterprise_project_id=params.get("enterprise_project_id"),
-        notification_topic_urn=params.get("notification_topic_urn"),
-        notification_topic_name=params.get("notification_topic_name"),
-        notification_topic_display_name=params.get("notification_topic_display_name"),
-        notification_user_name=params.get("notification_user_name"),
         alarm_template_id=params.get("alarm_template_id") or aom.CCE_ALARM_RULE_TEMPLATE_ID,
         confirm=params.get("confirm", "").lower() == "true",
         ak=params.get("ak"),
@@ -171,6 +167,22 @@ def _cleanup_cce_aom_alarm_rules(params: Dict[str, str]) -> Dict[str, Any]:
         sk=params.get("sk"),
         project_id=params.get("project_id"),
         enterprise_project_id=params.get("enterprise_project_id"),
+    )
+
+
+def _create_aom_notification_action_rule(params: Dict[str, str]) -> Dict[str, Any]:
+    return aom.create_aom_notification_action_rule(
+        region=params["region"],
+        rule_name=params["rule_name"],
+        notification_topic_urn=params["notification_topic_urn"],
+        notification_topic_name=params["notification_topic_name"],
+        notification_topic_display_name=params.get("notification_topic_display_name"),
+        notification_user_name=params.get("notification_user_name"),
+        description=params.get("description"),
+        confirm=params.get("confirm", "").lower() == "true",
+        ak=params.get("ak"),
+        sk=params.get("sk"),
+        project_id=params.get("project_id"),
     )
 
 
@@ -349,6 +361,7 @@ ACTION_SPECS: Dict[str, tuple[tuple[str, ...], Handler]] = {
     "huawei_create_aom_event_alarm_rule": (("region", "cluster_id", "rule_name", "event_name"), _create_aom_event_alarm_rule),
     "huawei_configure_cce_aom_alarm_rules": (("region", "cluster_id"), _configure_cce_aom_alarm_rules),
     "huawei_cleanup_cce_aom_alarm_rules": (("region", "cluster_id"), _cleanup_cce_aom_alarm_rules),
+    "huawei_create_aom_notification_action_rule": (("region", "rule_name", "notification_topic_urn", "notification_topic_name"), _create_aom_notification_action_rule),
     "huawei_resolve_cce_aom_prom_instance": (("region", "cluster_id"), _resolve_cce_aom_prom_instance),
     "huawei_update_aom_alarm_rule": (("region", "rule_name"), _update_aom_alarm_rule),
     "huawei_delete_aom_alarm_rule": (("region", "rule_name"), _delete_aom_alarm_rule),
