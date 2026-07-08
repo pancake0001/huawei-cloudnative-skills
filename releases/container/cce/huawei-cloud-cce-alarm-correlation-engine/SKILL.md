@@ -1,5 +1,4 @@
 ---
-id: huawei-cloud-cce-alarm-correlation-engine
 name: huawei-cloud-cce-alarm-correlation-engine
 description: |
   Huawei Cloud AOM alarm correlation analysis skill for CCE operations.
