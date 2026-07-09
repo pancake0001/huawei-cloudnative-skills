@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 import copy
+import hashlib
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
@@ -34,6 +35,90 @@ EVENT_NAME_ALIASES = {
 def _slug(value: str, fallback: str) -> str:
     slug = re.sub(r"[^a-zA-Z0-9_]+", "_", value).strip("_").lower()
     return slug or fallback
+
+
+def _safe_alarm_alias(value: Any, fallback: str = "cce_alarm_rule") -> str:
+    """Return an AOM alias using only API-accepted characters."""
+    raw = str(value or "")
+    alias = re.sub(r"[^a-zA-Z0-9_-]+", "_", raw).strip("_-")
+    if not alias:
+        digest = hashlib.sha1(raw.encode("utf-8")).hexdigest()[:8]
+        alias = f"{fallback}_{digest}"
+    alias = alias[:256].strip("_-")
+    return alias or fallback
+
+
+def _sanitize_metric_alarm_spec(spec: Dict[str, Any]) -> Dict[str, Any]:
+    """Keep only fields accepted by AddOrUpdateMetricOrEventAlarmRule."""
+    allowed_spec_keys = {
+        "alarm_rule_template_bind_enable",
+        "alarm_rule_template_id",
+        "alarm_tags",
+        "monitor_objects",
+        "monitor_type",
+        "no_data_conditions",
+        "recovery_conditions",
+        "trigger_conditions",
+    }
+    allowed_condition_keys = {
+        "aggregate_type",
+        "aggregation_type",
+        "aggregation_window",
+        "aom_monitor_level",
+        "cmdb",
+        "expression",
+        "metric_labels",
+        "metric_name",
+        "metric_namespace",
+        "metric_query_mode",
+        "metric_statistic_method",
+        "metric_unit",
+        "mix_promql",
+        "operator",
+        "promql",
+        "promql_expr",
+        "promql_for",
+        "query_match",
+        "query_param",
+        "thresholds",
+        "trigger_interval",
+        "trigger_times",
+        "trigger_type",
+    }
+    sanitized = {key: copy.deepcopy(value) for key, value in spec.items() if key in allowed_spec_keys}
+    sanitized["trigger_conditions"] = [
+        {key: copy.deepcopy(value) for key, value in condition.items() if key in allowed_condition_keys}
+        for condition in spec.get("trigger_conditions") or []
+        if isinstance(condition, dict)
+    ]
+    return sanitized
+
+
+def _sanitize_event_alarm_spec(spec: Dict[str, Any]) -> Dict[str, Any]:
+    """Keep only fields accepted by AddOrUpdateMetricOrEventAlarmRule."""
+    allowed_spec_keys = {
+        "alarm_rule_template_bind_enable",
+        "alarm_rule_template_id",
+        "alarm_source",
+        "event_source",
+        "monitor_objects",
+        "trigger_conditions",
+    }
+    allowed_condition_keys = {
+        "aggregation_window",
+        "event_name",
+        "frequency",
+        "operator",
+        "thresholds",
+        "trigger_type",
+    }
+    sanitized = {key: copy.deepcopy(value) for key, value in spec.items() if key in allowed_spec_keys}
+    sanitized["trigger_conditions"] = [
+        {key: copy.deepcopy(value) for key, value in condition.items() if key in allowed_condition_keys}
+        for condition in spec.get("trigger_conditions") or []
+        if isinstance(condition, dict)
+    ]
+    return sanitized
 
 
 def _scope_promql_to_cluster(promql: str, cluster_id: str) -> str:
@@ -100,11 +185,12 @@ def _template_item_to_rule(template_item: Dict[str, Any], template_id: str) -> O
         if kind == "event":
             condition.setdefault("frequency", "-1")
 
-    alias = template_item.get("alarm_template_name") or template_item.get("alarm_template_name_en") or "CCE alarm rule"
+    display_name = template_item.get("alarm_template_name") or template_item.get("alarm_template_name_en") or "CCE alarm rule"
+    alias = _safe_alarm_alias(template_item.get("alarm_template_name_en") or display_name)
     return {
-        "alarm_rule_description": template_item.get("desc") or template_item.get("desc_en") or str(alias),
+        "alarm_rule_description": template_item.get("desc") or template_item.get("desc_en") or str(display_name),
         "alarm_rule_enable": True,
-        "alarm_rule_name": f"CCE_{alias}_{CLUSTER_ID_PLACEHOLDER}",
+        "alarm_rule_name": f"CCE_{display_name}_{CLUSTER_ID_PLACEHOLDER}",
         "alarm_rule_type": kind,
         "alias": alias,
         rule_spec_key: spec,
@@ -836,15 +922,16 @@ def _build_rule_from_template(
 ) -> Dict[str, Any]:
     old_cluster_id = _first_cluster_id(template_rule)
     body: Dict[str, Any] = {}
-    for key in ("metric_alarm_spec", "event_alarm_spec"):
-        if key in template_rule:
-            body[key] = copy.deepcopy(template_rule[key])
+    if "metric_alarm_spec" in template_rule:
+        body["metric_alarm_spec"] = _sanitize_metric_alarm_spec(template_rule["metric_alarm_spec"])
+    if "event_alarm_spec" in template_rule:
+        body["event_alarm_spec"] = _sanitize_event_alarm_spec(template_rule["event_alarm_spec"])
     body.update({
         "alarm_rule_description": template_rule.get("alarm_rule_description") or candidate.get("description") or "Created by Codex hcloud skill.",
         "alarm_rule_enable": True,
         "alarm_rule_name": _normalize_alarm_rule_name(rule_name),
         "alarm_rule_type": template_rule.get("alarm_rule_type"),
-        "alias": template_rule.get("alias") or candidate.get("display_name") or _normalize_alarm_rule_name(rule_name),
+        "alias": _safe_alarm_alias(template_rule.get("alias") or candidate.get("display_name") or rule_name),
     })
     effective_prom_instance_id = prom_instance_id
     if effective_prom_instance_id:
@@ -858,7 +945,7 @@ def _build_rule_from_template(
             "notification_enable": True,
             "route_group_enable": False,
             "bind_notification_rule_id": bind_notification_rule_id,
-            "notify_frequency": -1,
+            "notify_frequency": -1 if is_event_rule else 0,
             "notify_resolved": True,
             "notify_triggered": True,
         })
@@ -873,6 +960,18 @@ def _build_rule_from_template(
         }
 
     body = _replace_cluster_id(body, old_cluster_id, cluster_id)
+    event_spec = body.get("event_alarm_spec")
+    if isinstance(event_spec, dict):
+        conditions = event_spec.get("trigger_conditions") or []
+        event_name = next(
+            (condition.get("event_name") for condition in conditions if isinstance(condition, dict) and condition.get("event_name")),
+            None,
+        )
+        if event_name:
+            monitor_objects = event_spec.setdefault("monitor_objects", [{"clusterId": cluster_id}])
+            for monitor_object in monitor_objects:
+                if isinstance(monitor_object, dict):
+                    monitor_object.setdefault("event_name", event_name)
     header_ep = enterprise_project_id
     payload: Dict[str, Any] = {
         "query": {"action_id": action_id},
