@@ -263,6 +263,21 @@ def get_project_id_for_region(region: str, ak: Optional[str] = None, sk: Optiona
     return None
 
 
+def resolve_project_id_for_region(
+    region: str,
+    ak: Optional[str] = None,
+    sk: Optional[str] = None,
+    project_id: Optional[str] = None,
+) -> Optional[str]:
+    """Resolve project ID using explicit input, hcloud profile, then environment."""
+    if project_id:
+        return project_id
+    resolved = get_project_id_for_region(region, ak, sk)
+    if resolved:
+        return resolved
+    return os.environ.get("HUAWEI_PROJECT_ID") or os.environ.get("HUAWEICLOUD_SDK_PROJECT_ID")
+
+
 def extract_items(data: Any, *keys: str) -> List[Dict[str, Any]]:
     """Extract a list of dictionaries from a hcloud JSON response."""
     if isinstance(data, list):

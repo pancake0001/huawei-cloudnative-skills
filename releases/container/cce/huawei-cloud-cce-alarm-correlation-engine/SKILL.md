@@ -40,6 +40,7 @@ The dispatcher script requires:
 - Python >= 3.8
 - Huawei Cloud KooCLI / `hcloud` >= 7.2.2 available in `PATH`
 - A local `hcloud` profile configured with `hcloud configure`; the dispatcher relies on the local hcloud configuration for Huawei Cloud authentication and project/region resolution
+- Tools that need `project_id` resolve it internally whenever possible: explicit `project_id` parameter first, then the active hcloud profile/IAM project lookup for the target region, then environment fallback
 
 ### Credential Configuration
 
@@ -47,7 +48,7 @@ The dispatcher script requires:
 |----------|----------|-------------|
 | HUAWEI_AK | No | Fallback Huawei Cloud Access Key; used only when no explicit AK/SK parameters are provided and no local hcloud profile is configured |
 | HUAWEI_SK | No | Fallback Huawei Cloud Secret Key; used only when no explicit AK/SK parameters are provided and no local hcloud profile is configured |
-| HUAWEI_PROJECT_ID | No | Fallback Project ID; used only when no explicit `project_id` is provided and no local hcloud profile is configured |
+| HUAWEI_PROJECT_ID | No | Fallback Project ID; used only when no explicit `project_id` is provided and hcloud/IAM project lookup cannot resolve the region project |
 | HUAWEI_SECURITY_TOKEN | No | Fallback temporary security token; used only with fallback environment AK/SK credentials |
 
 🚫 **Never expose or log AK/SK values.** Credentials exist only in the current request call stack and are released after each invocation. Do not write credentials to files, logs, or responses.

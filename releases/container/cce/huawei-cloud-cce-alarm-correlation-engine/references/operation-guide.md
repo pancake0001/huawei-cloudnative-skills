@@ -12,7 +12,7 @@ This reference holds detailed operating notes for `huawei-cloud-cce-alarm-correl
 | `cluster_id` | No | CCE cluster ID; when provided, only alarms related to this cluster are returned |
 | `ak` | No | Access Key ID; explicit tool parameter has highest priority |
 | `sk` | No | Secret Access Key; explicit tool parameter has highest priority |
-| `project_id` | No | Huawei Cloud project ID; explicit value has highest priority, otherwise hcloud profile is used before environment fallback |
+| `project_id` | No | Huawei Cloud project ID; tools resolve it internally when possible: explicit value first, then active hcloud profile/IAM project lookup for the target region, then environment fallback |
 
 ### Alarm Rule Mutation Parameters
 

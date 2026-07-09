@@ -8,7 +8,7 @@ import copy
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
-from .common import extract_items, get_project_id_for_region, redact_command, run_hcloud, run_hcloud_json_input
+from .common import extract_items, get_project_id_for_region, redact_command, resolve_project_id_for_region, run_hcloud, run_hcloud_json_input
 
 
 CLUSTER_ID_PLACEHOLDER = "__CCE_CLUSTER_ID__"
@@ -1646,6 +1646,14 @@ def _set_alarm_rule_enabled(region: str, rule_id: str, enabled: bool, confirm: b
     rule = _find_rule_by_id(region, rule_id, ak, sk, project_id)
     if not rule:
         return {"success": False, "error": f"Alarm rule not found by rule_id={rule_id}"}
+    resolved_project_id = resolve_project_id_for_region(region, ak, sk, project_id)
+    if not resolved_project_id:
+        return {
+            "success": False,
+            "error": "Project ID not found. Please configure the hcloud profile project or provide project_id.",
+            "action": "enable_aom_alarm_rule" if enabled else "disable_aom_alarm_rule",
+            "executed": False,
+        }
 
     body = {
         "alarm_rule_name": rule.get("alarm_rule_name"),
@@ -1661,14 +1669,13 @@ def _set_alarm_rule_enabled(region: str, rule_id: str, enabled: bool, confirm: b
     payload = {
         "query": {"action_id": "update-alarm-action"},
         "body": body,
+        "path": {"project_id": resolved_project_id},
     }
-    if project_id:
-        payload["path"] = {"project_id": project_id}
     ep_id = rule.get("enterprise_project_id")
     if ep_id:
         payload["header"] = {"Enterprise-Project-Id": ep_id}
 
-    result = run_hcloud_json_input("AOM", "AddOrUpdateMetricOrEventAlarmRule", region, payload, ak, sk, project_id)
+    result = run_hcloud_json_input("AOM", "AddOrUpdateMetricOrEventAlarmRule", region, payload, ak, sk, resolved_project_id)
     result.update({"action": "enable_aom_alarm_rule" if enabled else "disable_aom_alarm_rule", "executed": result["success"]})
     return result
 
