@@ -13,6 +13,8 @@ Runtime note: the user-facing entry remains `python3 scripts/huawei-cloud.py`. C
 
 > **认证优先级**：hcloud 调用使用 `工具入参 > 本机 hcloud profile > 环境变量`。AOM Prometheus signed HTTP 和 Kubernetes 证书创建无法直接使用加密的 hcloud profile 凭证材料，因此签名类调用使用 `工具入参 > 环境变量`。
 
+> **采集依赖**：controller-manager 和 scheduler 指标需要在 AOM 中单独开启对应的 ServiceMonitor；如果未开启，工具可以正常执行，但可能返回空指标序列。
+
 ## Scope
 
 Use this skill when the user asks to:
@@ -46,13 +48,14 @@ This skill is read-only. It does not modify resources or configurations.
 | `huawei_get_cce_pod_metrics` | 查询 | R3 | 读取单个 Pod CPU/内存/磁盘时序指标 |
 | `huawei_get_cce_node_metrics_topN` | 查询 | R3 | 从 AOM Prometheus 读取 Node CPU/内存/磁盘 TopN 指标 |
 | `huawei_get_cce_node_metrics` | 查询 | R3 | 读取单个 Node CPU/内存/磁盘时序指标 |
-| `huawei_get_cce_coredns_metrics` | 查询 | R3 | 读取 CoreDNS QPS、错误率、P95 延迟、副本数以及 Pod CPU/内存指标 |
+| `huawei_get_cce_node_gpu_metrics` | 查询 | R3 | 读取单个 Node GPU 和 xGPU 监控指标 |
+| `huawei_get_cce_coredns_metrics` | 查询 | R3 | 读取 CoreDNS QPS、排除 NXDOMAIN 的错误率、NXDOMAIN 比例、P95 延迟、副本数以及 Pod CPU/内存指标 |
 | `huawei_get_cce_nginx_ingress_metrics` | 查询 | R3 | 读取 nginx-ingress 请求处理指标和 Ingress TLS 证书过期状态 |
 | `huawei_get_cce_autoscaler_metrics` | 查询 | R3 | 读取 Cluster Autoscaler 扩缩容指标、HPA 副本状态以及 autoscaler Pod CPU/内存指标 |
-| `huawei_get_cce_apiserver_metrics` | 查询 | R3 | 读取 kube-apiserver QPS、错误率、延迟、inflight 请求、CPU 和内存指标 |
+| `huawei_get_cce_apiserver_metrics` | 查询 | R3 | 读取 kube-apiserver QPS、错误率、延迟和 inflight 请求指标 |
 | `huawei_get_cce_etcd_metrics` | 查询 | R3 | 读取 etcd leader、proposal、DB 大小、磁盘延迟、CPU 和内存指标 |
-| `huawei_get_cce_controller_manager_metrics` | 查询 | R3 | 读取 controller-manager workqueue、延迟、CPU 和内存指标 |
-| `huawei_get_cce_scheduler_metrics` | 查询 | R3 | 读取 scheduler 调度尝试、待调度 Pod、延迟、队列、CPU 和内存指标 |
+| `huawei_get_cce_controller_manager_metrics` | 查询 | R3 | 读取控制面 workqueue 深度、adds、retries、排队延迟和处理耗时指标 |
+| `huawei_get_cce_scheduler_metrics` | 查询 | R3 | 读取 scheduler 调度尝试、待调度 Pod、调度延迟和队列指标 |
 | `huawei_get_ecs_metrics` | 查询 | R3 | 通过 hcloud/CES 读取 ECS 监控指标 |
 | `huawei_get_elb_metrics` | 查询 | R3 | 通过 hcloud/CES 读取 ELB 监控指标 |
 | `huawei_get_eip_metrics` | 查询 | R3 | 通过 hcloud/CES 读取 EIP 监控指标 |
@@ -69,7 +72,8 @@ This skill is read-only. It does not modify resources or configurations.
 | `huawei_get_cce_pod_metrics` | Get single Pod CPU/memory/disk time-series | `region`, `cluster_id`, `pod_name` |
 | `huawei_get_cce_node_metrics_topN` | Get Node CPU/memory/disk TopN | `region`, `cluster_id` |
 | `huawei_get_cce_node_metrics` | Get single Node time-series | `region`, `cluster_id`, `node_ip` |
-| `huawei_get_cce_coredns_metrics` | Get CoreDNS QPS/error-rate/P95/replicas/CPU/memory | `region`, `cluster_id` |
+| `huawei_get_cce_node_gpu_metrics` | Get single Node GPU and xGPU metrics | `region`, `cluster_id`, `node_ip` |
+| `huawei_get_cce_coredns_metrics` | Get CoreDNS QPS/error-rate excluding NXDOMAIN/NXDOMAIN-rate/P95/replicas/CPU/memory | `region`, `cluster_id` |
 | `huawei_get_cce_nginx_ingress_metrics` | Get nginx-ingress request metrics and TLS certificate expiration | `region`, `cluster_id` |
 | `huawei_get_cce_autoscaler_metrics` | Get Cluster Autoscaler and HPA metrics | `region`, `cluster_id` |
 | `huawei_get_cce_apiserver_metrics` | Get kube-apiserver key metrics | `region`, `cluster_id` |
@@ -130,6 +134,13 @@ python3 scripts/huawei-cloud.py huawei_get_cce_node_metrics \
   cluster_id=<cluster-id> \
   node_ip=<node-ip> \
   hours=1
+
+# Node GPU and xGPU metrics
+python3 scripts/huawei-cloud.py huawei_get_cce_node_gpu_metrics \
+  region=cn-north-4 \
+  cluster_id=<cluster-id> \
+  node_ip=<node-ip> \
+  hours=1
 ```
 
 ### CoreDNS Metrics
@@ -172,7 +183,7 @@ python3 scripts/huawei-cloud.py huawei_get_cce_autoscaler_metrics \
 
 ```bash
 python3 scripts/huawei-cloud.py huawei_get_cce_apiserver_metrics \
-  region=cn-north-4 cluster_id=<cluster-id> namespace=kube-system hours=1
+  region=cn-north-4 cluster_id=<cluster-id> hours=1
 
 python3 scripts/huawei-cloud.py huawei_get_cce_etcd_metrics \
   region=cn-north-4 cluster_id=<cluster-id> namespace=kube-system hours=1

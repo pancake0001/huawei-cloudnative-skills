@@ -29,7 +29,8 @@ Query and analyze metrics for CCE clusters (Pod/Node CPU/memory/disk) and cloud 
 **Capabilities**:
 - Pod CPU/memory TopN ranking and single Pod time-series metrics
 - Node CPU/memory/disk TopN ranking and single Node time-series metrics
-- CoreDNS QPS, error rate, P95 latency, replica count, and per-Pod CPU/memory metrics
+- Node GPU and xGPU metrics, including GPU utilization, memory, temperature, power, schedule policy, xGPU allocation, usage, and health
+- CoreDNS QPS, error rate excluding NXDOMAIN, NXDOMAIN rate, P95 latency, replica count, and per-Pod CPU/memory metrics
 - nginx-ingress QPS, 4xx/5xx rate, success rate, P95 latency, active connections, per-Pod CPU/memory, and Ingress TLS certificate expiration status
 - Autoscaler unschedulable Pods, node state count, scale-up/down events, errors, node groups, HPA current/desired replicas, and per-Pod CPU/memory metrics
 - Kubernetes control-plane metrics for apiserver, etcd, controller-manager, and scheduler
@@ -44,6 +45,7 @@ Query and analyze metrics for CCE clusters (Pod/Node CPU/memory/disk) and cloud 
 
 - "Show Pods with the highest CPU usage in my cluster"
 - "Get Node memory usage ranking"
+- "Get GPU and xGPU metrics for a CCE node"
 - "Check CoreDNS QPS, latency, and error rate"
 - "Check nginx-ingress request latency, 5xx rate, and TLS certificate expiration"
 - "Check autoscaler scaling activity and HPA replica gaps"
@@ -63,6 +65,7 @@ Query and analyze metrics for CCE clusters (Pod/Node CPU/memory/disk) and cloud 
 - hcloud (KooCLI) 7.2.2+ for CCE/ECS/ELB/VPC/EIP/NAT/CES/IAM cloud service queries
 - Kubernetes Python client for reading in-cluster Pod/Node/Service details after hcloud creates short-lived CCE cluster credentials
 - AOM Prometheus range queries use signed HTTPS requests with AK/SK because the hcloud AOM Prometheus query path is not compatible with the required query_range API
+- Controller-manager and scheduler metrics require the corresponding ServiceMonitor to be enabled separately in AOM; otherwise these tools may return empty metric series
 - Run environment check before first use (see Verification section)
 
 ### 2. Credential Configuration
@@ -148,12 +151,17 @@ python3 scripts/huawei-cloud.py huawei_get_cce_node_metrics_topN \
 python3 scripts/huawei-cloud.py huawei_get_cce_node_metrics \
   region=cn-north-4 cluster_id=<cluster-id> \
   node_ip=10.0.0.1 hours=1
+
+# Node GPU and xGPU metrics
+python3 scripts/huawei-cloud.py huawei_get_cce_node_gpu_metrics \
+  region=cn-north-4 cluster_id=<cluster-id> \
+  node_ip=10.0.0.1 hours=1
 ```
 
 ### 3. CCE CoreDNS Metrics
 
 ```bash
-# CoreDNS key metrics: QPS, error rate, P95 latency, replicas, CPU, and memory
+# CoreDNS key metrics: QPS, error rate excluding NXDOMAIN, NXDOMAIN rate, P95 latency, replicas, CPU, and memory
 python3 scripts/huawei-cloud.py huawei_get_cce_coredns_metrics \
   region=cn-north-4 cluster_id=<cluster-id> \
   namespace=kube-system pod_regex=".*coredns.*" hours=1
@@ -183,7 +191,7 @@ python3 scripts/huawei-cloud.py huawei_get_cce_autoscaler_metrics \
 
 ```bash
 python3 scripts/huawei-cloud.py huawei_get_cce_apiserver_metrics \
-  region=cn-north-4 cluster_id=<cluster-id> namespace=kube-system hours=1
+  region=cn-north-4 cluster_id=<cluster-id> hours=1
 
 python3 scripts/huawei-cloud.py huawei_get_cce_etcd_metrics \
   region=cn-north-4 cluster_id=<cluster-id> namespace=kube-system hours=1
@@ -244,13 +252,14 @@ This skill is read-only. It does not create, update, delete, restart, scale, or 
 | `huawei_get_cce_pod_metrics` | Query | R3 | Read single Pod CPU/memory/disk time-series metrics |
 | `huawei_get_cce_node_metrics_topN` | Query | R3 | Read Node CPU/memory/disk TopN metrics from AOM Prometheus |
 | `huawei_get_cce_node_metrics` | Query | R3 | Read single Node CPU/memory/disk time-series metrics |
-| `huawei_get_cce_coredns_metrics` | Query | R3 | Read CoreDNS QPS, error rate, P95 latency, replicas, and per-Pod CPU/memory metrics |
+| `huawei_get_cce_node_gpu_metrics` | Query | R3 | Read single Node GPU and xGPU metrics from AOM Prometheus |
+| `huawei_get_cce_coredns_metrics` | Query | R3 | Read CoreDNS QPS, error rate excluding NXDOMAIN, NXDOMAIN rate, P95 latency, replicas, and per-Pod CPU/memory metrics |
 | `huawei_get_cce_nginx_ingress_metrics` | Query | R3 | Read nginx-ingress request-processing metrics and Ingress TLS certificate expiration status |
 | `huawei_get_cce_autoscaler_metrics` | Query | R3 | Read Cluster Autoscaler scaling metrics, HPA replica state, and autoscaler Pod CPU/memory metrics |
-| `huawei_get_cce_apiserver_metrics` | Query | R3 | Read kube-apiserver QPS, error rate, latency, inflight requests, CPU, and memory metrics |
+| `huawei_get_cce_apiserver_metrics` | Query | R3 | Read kube-apiserver QPS, error rate, latency, and inflight request metrics |
 | `huawei_get_cce_etcd_metrics` | Query | R3 | Read etcd leader, proposal, DB size, disk latency, CPU, and memory metrics |
-| `huawei_get_cce_controller_manager_metrics` | Query | R3 | Read controller-manager workqueue, latency, CPU, and memory metrics |
-| `huawei_get_cce_scheduler_metrics` | Query | R3 | Read scheduler attempts, pending Pods, latency, queue, CPU, and memory metrics |
+| `huawei_get_cce_controller_manager_metrics` | Query | R3 | Read control-plane workqueue depth, adds, retries, queue latency, and work duration metrics |
+| `huawei_get_cce_scheduler_metrics` | Query | R3 | Read scheduler attempts, pending Pods, scheduling latency, and queue metrics |
 | `huawei_get_ecs_metrics` | Query | R3 | Read ECS monitoring data through hcloud/CES |
 | `huawei_get_elb_metrics` | Query | R3 | Read ELB monitoring data through hcloud/CES |
 | `huawei_get_eip_metrics` | Query | R3 | Read EIP monitoring data through hcloud/CES |
@@ -308,6 +317,27 @@ This skill is read-only. It does not create, update, delete, restart, scale, or 
 | `node_ip`  | Yes      | Target Node IP              | N/A      |
 | `hours`    | No       | Metrics lookback hours      | 1        |
 
+### `huawei_get_cce_node_gpu_metrics` Parameters
+
+| Parameter | Required | Description | Default |
+| --------- | -------- | ----------- | ------- |
+| `node_ip` | Yes | Target Node IP or node name | N/A |
+| `hours` | No | Metrics lookback hours | 1 |
+| `gpu_selector` | No | Custom GPU metric label selector. Use this when GPU metrics do not use the `node` label | `node=~"<node_ip>|<node_name>"` |
+| `utilization_query` | No | Custom `cce_gpu_utilization` PromQL | Auto |
+| `memory_utilization_query` | No | Custom `cce_gpu_memory_utilization` PromQL | Auto |
+| `memory_used_query` | No | Custom `cce_gpu_memory_used` PromQL | Auto |
+| `memory_total_query` | No | Custom `cce_gpu_memory_total` PromQL | Auto |
+| `memory_free_query` | No | Custom `cce_gpu_memory_free` PromQL | Auto |
+| `temperature_query` | No | Custom `cce_gpu_temperature` PromQL | Auto |
+| `power_usage_query` | No | Custom `cce_gpu_power_usage` PromQL | Auto |
+| `schedule_policy_query` | No | Custom `gpu_schedule_policy` PromQL for xGPU mode detection | Auto |
+| `xgpu_memory_total_query` | No | Custom `xgpu_memory_total` PromQL | Auto |
+| `xgpu_memory_used_query` | No | Custom `xgpu_memory_used` PromQL | Auto |
+| `xgpu_core_total_query` | No | Custom `xgpu_core_percentage_total` PromQL | Auto |
+| `xgpu_core_used_query` | No | Custom `xgpu_core_percentage_used` PromQL | Auto |
+| `xgpu_device_health_query` | No | Custom `xgpu_device_health` PromQL | Auto |
+
 ### `huawei_get_cce_coredns_metrics` Parameters
 
 | Parameter | Required | Description | Default |
@@ -316,7 +346,8 @@ This skill is read-only. It does not create, update, delete, restart, scale, or 
 | `pod_regex` | No | Regex used to match CoreDNS Pods | `.*coredns.*` |
 | `hours` | No | Metrics lookback hours | 1 |
 | `qps_query` | No | Custom CoreDNS QPS PromQL | Auto |
-| `error_rate_query` | No | Custom CoreDNS error-rate PromQL | Auto |
+| `error_rate_query` | No | Custom CoreDNS error-rate PromQL. The default excludes NXDOMAIN because Kubernetes search domains commonly generate NXDOMAIN responses | Auto |
+| `nxdomain_rate_query` | No | Custom CoreDNS NXDOMAIN-rate PromQL for reference only | Auto |
 | `latency_p95_query` | No | Custom CoreDNS P95 latency PromQL | Auto |
 | `cpu_query` | No | Custom CoreDNS CPU PromQL | Auto |
 | `memory_query` | No | Custom CoreDNS memory PromQL | Auto |
@@ -365,10 +396,19 @@ This skill is read-only. It does not create, update, delete, restart, scale, or 
 
 Applies to `huawei_get_cce_apiserver_metrics`, `huawei_get_cce_etcd_metrics`, `huawei_get_cce_controller_manager_metrics`, and `huawei_get_cce_scheduler_metrics`.
 
+`huawei_get_cce_apiserver_metrics` defaults to `cluster="<cluster_id>",component="apiserver"` and does not add namespace or Pod labels. Its default P95 latency excludes `WATCH|CONNECT` requests and also returns `latency_p95_by_verb_ms` for diagnosis. Use `metric_selector` only when the Prometheus labels differ.
+
+`huawei_get_cce_controller_manager_metrics` defaults to `cluster="<cluster_id>"` because CCE AOM workqueue metrics may not expose stable controller-manager Pod labels. It returns both aggregate workqueue metrics and per-queue `name` breakdowns.
+
+`huawei_get_cce_scheduler_metrics` defaults to `cluster="<cluster_id>"` and returns aggregate metrics plus `result`, `profile/result`, and `queue` breakdowns.
+
+Controller-manager and scheduler metrics depend on AOM ServiceMonitor collection being enabled for those control-plane endpoints. If ServiceMonitor is not enabled, the tools can run successfully but return empty series.
+
 | Parameter | Required | Description | Default |
 | --------- | -------- | ----------- | ------- |
 | `namespace` | No | Namespace of control-plane Pods. Use an empty value to query all namespaces | `kube-system` |
 | `pod_regex` | No | Regex used to match target component Pods | component-specific |
+| `metric_selector` | No | Custom apiserver/controller-manager/scheduler metric label selector | apiserver: `cluster="<cluster_id>",component="apiserver"`; controller-manager/scheduler: `cluster="<cluster_id>"` |
 | `hours` | No | Metrics lookback hours | 1 |
 
 ### `huawei_get_ecs_metrics` Parameters

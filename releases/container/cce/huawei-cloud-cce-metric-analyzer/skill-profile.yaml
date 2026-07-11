@@ -7,6 +7,7 @@ tools:
   - huawei_get_cce_pod_metrics
   - huawei_get_cce_node_metrics_topN
   - huawei_get_cce_node_metrics
+  - huawei_get_cce_node_gpu_metrics
   - huawei_get_cce_coredns_metrics
   - huawei_get_cce_nginx_ingress_metrics
   - huawei_get_cce_autoscaler_metrics
