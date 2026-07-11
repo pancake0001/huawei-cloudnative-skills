@@ -1789,6 +1789,243 @@ def get_cce_node_gpu_metrics(
         },
     }
 
+def get_cce_pod_gpu_metrics(
+    region: str,
+    cluster_id: str,
+    pod_name: str,
+    ak: Optional[str] = None,
+    sk: Optional[str] = None,
+    project_id: Optional[str] = None,
+    namespace: str = None,
+    hours: int = 1,
+    gpu_selector: Optional[str] = None,
+    utilization_query: str = None,
+    memory_utilization_query: str = None,
+    memory_used_query: str = None,
+    memory_total_query: str = None,
+    memory_free_query: str = None,
+    schedule_policy_query: str = None,
+    xgpu_memory_total_query: str = None,
+    xgpu_memory_used_query: str = None,
+    xgpu_core_total_query: str = None,
+    xgpu_core_used_query: str = None,
+    xgpu_device_health_query: str = None,
+    security_token: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Query GPU and xGPU metrics for a single CCE Pod."""
+    import time as time_module
+
+    access_key, secret_key, proj_id = get_credentials_with_region(region, ak, sk, project_id)
+    if not cluster_id:
+        return {"success": False, "error": "cluster_id is required"}
+    if not pod_name:
+        return {"success": False, "error": "pod_name is required"}
+
+    cluster_name = cluster_id
+    try:
+        clusters_result = cce.list_cce_clusters(region, ak, sk, project_id)
+        if clusters_result.get("success"):
+            for cluster in clusters_result.get("clusters", []):
+                if cluster.get("id") == cluster_id:
+                    cluster_name = cluster.get("name", cluster_id)
+                    break
+    except Exception:
+        pass
+
+    pod_info = {}
+    try:
+        pods_result = cce.get_kubernetes_pods(region, cluster_id, access_key, secret_key, proj_id, namespace)
+        if pods_result.get("success"):
+            for pod in pods_result.get("pods", []):
+                if pod.get("name") == pod_name and (not namespace or pod.get("namespace") == namespace):
+                    pod_info = pod
+                    namespace = pod.get("namespace") or namespace
+                    break
+    except Exception:
+        pass
+
+    aom_result = _get_aom_instance(region, cluster_id, ak, sk, project_id)
+    if not aom_result.get("success"):
+        return {
+            "success": False,
+            "error": aom_result.get("error", "AOM instance not found"),
+            "error_type": aom_result.get("error_type"),
+            "cluster_id": cluster_id,
+            "cluster_name": cluster_name,
+            "pod_name": pod_name,
+            "namespace": namespace,
+        }
+    aom_instance_id = aom_result.get("aom_instance_id")
+
+    if gpu_selector is None:
+        selector_parts = [f'pod="{pod_name}"']
+        if namespace:
+            selector_parts.append(f'namespace="{namespace}"')
+        gpu_selector = ",".join(selector_parts)
+    selector = "{" + gpu_selector + "}" if gpu_selector else ""
+
+    if utilization_query is None:
+        utilization_query = f"cce_gpu_utilization{selector}"
+    if memory_utilization_query is None:
+        memory_utilization_query = f"cce_gpu_memory_utilization{selector}"
+    if memory_used_query is None:
+        memory_used_query = f"cce_gpu_memory_used{selector}"
+    if memory_total_query is None:
+        memory_total_query = f"cce_gpu_memory_total{selector}"
+    if memory_free_query is None:
+        memory_free_query = f"cce_gpu_memory_free{selector}"
+    if schedule_policy_query is None:
+        schedule_policy_query = f"gpu_schedule_policy{selector}"
+    if xgpu_memory_total_query is None:
+        xgpu_memory_total_query = f"xgpu_memory_total{selector}"
+    if xgpu_memory_used_query is None:
+        xgpu_memory_used_query = f"xgpu_memory_used{selector}"
+    if xgpu_core_total_query is None:
+        xgpu_core_total_query = f"xgpu_core_percentage_total{selector}"
+    if xgpu_core_used_query is None:
+        xgpu_core_used_query = f"xgpu_core_percentage_used{selector}"
+    if xgpu_device_health_query is None:
+        xgpu_device_health_query = f"xgpu_device_health{selector}"
+
+    queries = {
+        "gpu_utilization": utilization_query,
+        "gpu_memory_utilization": memory_utilization_query,
+        "gpu_memory_used": memory_used_query,
+        "gpu_memory_total": memory_total_query,
+        "gpu_memory_free": memory_free_query,
+        "gpu_schedule_policy": schedule_policy_query,
+        "xgpu_memory_total": xgpu_memory_total_query,
+        "xgpu_memory_used": xgpu_memory_used_query,
+        "xgpu_core_total": xgpu_core_total_query,
+        "xgpu_core_used": xgpu_core_used_query,
+        "xgpu_device_health": xgpu_device_health_query,
+    }
+    query_results = {
+        name: aom.get_aom_prom_metrics_http(
+            region,
+            aom_instance_id,
+            query,
+            hours=hours,
+            ak=access_key,
+            sk=secret_key,
+            project_id=proj_id,
+            security_token=security_token,
+        )
+        for name, query in queries.items()
+    }
+
+    failed_queries = {
+        name: result.get("error", "AOM query failed")
+        for name, result in query_results.items()
+        if not result.get("success")
+    }
+    if failed_queries:
+        return {
+            "success": False,
+            "error": "AOM Prometheus query failed",
+            "failed_queries": failed_queries,
+            "region": region,
+            "cluster_id": cluster_id,
+            "cluster_name": cluster_name,
+            "pod_name": pod_name,
+            "namespace": namespace,
+            "aom_instance_id": aom_instance_id,
+            "promql": queries,
+        }
+
+    def _series_from_values(values):
+        series = []
+        for ts, val in values or []:
+            try:
+                timestamp = int(float(ts))
+                value = float(val)
+            except (TypeError, ValueError):
+                continue
+            series.append({
+                "timestamp": timestamp,
+                "time": time_module.strftime("%Y-%m-%d %H:%M:%S", time_module.localtime(timestamp)),
+                "value": round(value, 4),
+            })
+        return series
+
+    def _parse_vector(result, value_key):
+        items = result.get("result", {}).get("data", {}).get("result") or []
+        parsed = []
+        for item in items:
+            metric = item.get("metric") or {}
+            series = _series_from_values(item.get("values"))
+            if not series:
+                continue
+            parsed.append({
+                "labels": metric,
+                value_key: series[-1]["value"],
+                "time_series": series,
+            })
+        parsed.sort(key=lambda item: item.get(value_key) or 0, reverse=True)
+        return parsed
+
+    metrics = {name: _parse_vector(result, name) for name, result in query_results.items()}
+
+    def _latest_values(name):
+        return [item.get(name) for item in metrics.get(name, []) if item.get(name) is not None]
+
+    def _max_value(name):
+        values = _latest_values(name)
+        return max(values) if values else None
+
+    def _sum_value(name):
+        values = _latest_values(name)
+        return round(sum(values), 4) if values else None
+
+    schedule_policy_values = _latest_values("gpu_schedule_policy")
+    xgpu_metric_count = sum(len(metrics.get(name, [])) for name in [
+        "xgpu_memory_total",
+        "xgpu_memory_used",
+        "xgpu_core_total",
+        "xgpu_core_used",
+        "xgpu_device_health",
+    ])
+    xgpu_detected = xgpu_metric_count > 0 or any(value in (0, 1) for value in schedule_policy_values)
+    unhealthy_xgpu_count = len([value for value in _latest_values("xgpu_device_health") if value == 1])
+    gpu_device_count = max(len(metrics.get("gpu_utilization", [])), len(metrics.get("gpu_memory_total", [])))
+
+    status = "normal"
+    if unhealthy_xgpu_count > 0:
+        status = "critical"
+    elif (_max_value("gpu_utilization") is not None and _max_value("gpu_utilization") >= 90) or (
+        _max_value("gpu_memory_utilization") is not None and _max_value("gpu_memory_utilization") >= 90
+    ):
+        status = "warning"
+
+    return {
+        "success": True,
+        "region": region,
+        "cluster_id": cluster_id,
+        "cluster_name": cluster_name,
+        "pod_name": pod_name,
+        "namespace": namespace,
+        "pod_info": pod_info,
+        "gpu_selector": gpu_selector,
+        "aom_instance_id": aom_instance_id,
+        "query_time": time_module.strftime("%Y-%m-%d %H:%M:%S", time_module.localtime()),
+        "query_params": {"hours": hours},
+        "promql": queries,
+        "metrics": metrics,
+        "summary": {
+            "status": status,
+            "is_gpu_pod": gpu_device_count > 0 or xgpu_metric_count > 0,
+            "gpu_device_count": gpu_device_count,
+            "max_gpu_utilization_percent": _max_value("gpu_utilization"),
+            "max_gpu_memory_utilization_percent": _max_value("gpu_memory_utilization"),
+            "gpu_memory_total_bytes": _sum_value("gpu_memory_total"),
+            "gpu_memory_used_bytes": _sum_value("gpu_memory_used"),
+            "xgpu_detected": xgpu_detected,
+            "xgpu_metric_count": xgpu_metric_count,
+            "unhealthy_xgpu_count": unhealthy_xgpu_count,
+            "gpu_schedule_policy_values": schedule_policy_values,
+        },
+    }
+
 def get_cce_node_metrics_topN(region: str, cluster_id: str, ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None, top_n: int = 10, hours: int = 1, cpu_query: str = None, memory_query: str = None, disk_query: str = None, security_token: Optional[str] = None) -> Dict[str, Any]:
     """获取 CCE 集群节点监控数据
 

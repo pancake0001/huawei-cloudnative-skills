@@ -137,6 +137,11 @@ python3 scripts/huawei-cloud.py huawei_get_cce_pod_metrics_topN \
 python3 scripts/huawei-cloud.py huawei_get_cce_pod_metrics \
   region=cn-north-4 cluster_id=<cluster-id> \
   pod_name=my-app-xxx namespace=default hours=1
+
+# Single Pod GPU and xGPU metrics
+python3 scripts/huawei-cloud.py huawei_get_cce_pod_gpu_metrics \
+  region=cn-north-4 cluster_id=<cluster-id> \
+  pod_name=my-gpu-app-xxx namespace=default hours=1
 ```
 
 ### 2. CCE Node Metrics
@@ -253,6 +258,7 @@ This skill is read-only. It does not create, update, delete, restart, scale, or 
 | `huawei_get_cce_node_metrics_topN` | Query | R3 | Read Node CPU/memory/disk TopN metrics from AOM Prometheus |
 | `huawei_get_cce_node_metrics` | Query | R3 | Read single Node CPU/memory/disk time-series metrics |
 | `huawei_get_cce_node_gpu_metrics` | Query | R3 | Read single Node GPU and xGPU metrics from AOM Prometheus |
+| `huawei_get_cce_pod_gpu_metrics` | Query | R3 | Read single Pod GPU and xGPU metrics from AOM Prometheus |
 | `huawei_get_cce_coredns_metrics` | Query | R3 | Read CoreDNS QPS, error rate excluding NXDOMAIN, NXDOMAIN rate, P95 latency, replicas, and per-Pod CPU/memory metrics |
 | `huawei_get_cce_nginx_ingress_metrics` | Query | R3 | Read nginx-ingress request-processing metrics and Ingress TLS certificate expiration status |
 | `huawei_get_cce_autoscaler_metrics` | Query | R3 | Read Cluster Autoscaler scaling metrics, HPA replica state, and autoscaler Pod CPU/memory metrics |
@@ -302,6 +308,26 @@ This skill is read-only. It does not create, update, delete, restart, scale, or 
 | `cpu_query`  | No       | Custom CPU PromQL          | Auto     |
 | `memory_query` | No     | Custom memory PromQL       | Auto     |
 | `disk_query` | No       | Custom disk PromQL         | Auto     |
+
+### `huawei_get_cce_pod_gpu_metrics` Parameters
+
+| Parameter | Required | Description | Default |
+| --------- | -------- | ----------- | ------- |
+| `pod_name` | Yes | Target Pod name | N/A |
+| `namespace` | No | Target Pod namespace | all |
+| `hours` | No | Metrics lookback hours | 1 |
+| `gpu_selector` | No | Custom GPU metric label selector. Use this when GPU metrics do not use the `pod` or `namespace` labels | `pod="<pod_name>",namespace="<namespace>"` |
+| `utilization_query` | No | Custom `cce_gpu_utilization` PromQL | Auto |
+| `memory_utilization_query` | No | Custom `cce_gpu_memory_utilization` PromQL | Auto |
+| `memory_used_query` | No | Custom `cce_gpu_memory_used` PromQL | Auto |
+| `memory_total_query` | No | Custom `cce_gpu_memory_total` PromQL | Auto |
+| `memory_free_query` | No | Custom `cce_gpu_memory_free` PromQL | Auto |
+| `schedule_policy_query` | No | Custom `gpu_schedule_policy` PromQL for xGPU mode detection | Auto |
+| `xgpu_memory_total_query` | No | Custom `xgpu_memory_total` PromQL | Auto |
+| `xgpu_memory_used_query` | No | Custom `xgpu_memory_used` PromQL | Auto |
+| `xgpu_core_total_query` | No | Custom `xgpu_core_percentage_total` PromQL | Auto |
+| `xgpu_core_used_query` | No | Custom `xgpu_core_percentage_used` PromQL | Auto |
+| `xgpu_device_health_query` | No | Custom `xgpu_device_health` PromQL | Auto |
 
 ### `huawei_get_cce_node_metrics_topN` Parameters
 

@@ -49,6 +49,7 @@ This skill is read-only. It does not modify resources or configurations.
 | `huawei_get_cce_node_metrics_topN` | 查询 | R3 | 从 AOM Prometheus 读取 Node CPU/内存/磁盘 TopN 指标 |
 | `huawei_get_cce_node_metrics` | 查询 | R3 | 读取单个 Node CPU/内存/磁盘时序指标 |
 | `huawei_get_cce_node_gpu_metrics` | 查询 | R3 | 读取单个 Node GPU 和 xGPU 监控指标 |
+| `huawei_get_cce_pod_gpu_metrics` | 查询 | R3 | 读取单个 Pod GPU 和 xGPU 监控指标 |
 | `huawei_get_cce_coredns_metrics` | 查询 | R3 | 读取 CoreDNS QPS、排除 NXDOMAIN 的错误率、NXDOMAIN 比例、P95 延迟、副本数以及 Pod CPU/内存指标 |
 | `huawei_get_cce_nginx_ingress_metrics` | 查询 | R3 | 读取 nginx-ingress 请求处理指标和 Ingress TLS 证书过期状态 |
 | `huawei_get_cce_autoscaler_metrics` | 查询 | R3 | 读取 Cluster Autoscaler 扩缩容指标、HPA 副本状态以及 autoscaler Pod CPU/内存指标 |
@@ -73,6 +74,7 @@ This skill is read-only. It does not modify resources or configurations.
 | `huawei_get_cce_node_metrics_topN` | Get Node CPU/memory/disk TopN | `region`, `cluster_id` |
 | `huawei_get_cce_node_metrics` | Get single Node time-series | `region`, `cluster_id`, `node_ip` |
 | `huawei_get_cce_node_gpu_metrics` | Get single Node GPU and xGPU metrics | `region`, `cluster_id`, `node_ip` |
+| `huawei_get_cce_pod_gpu_metrics` | Get single Pod GPU and xGPU metrics | `region`, `cluster_id`, `pod_name` |
 | `huawei_get_cce_coredns_metrics` | Get CoreDNS QPS/error-rate excluding NXDOMAIN/NXDOMAIN-rate/P95/replicas/CPU/memory | `region`, `cluster_id` |
 | `huawei_get_cce_nginx_ingress_metrics` | Get nginx-ingress request metrics and TLS certificate expiration | `region`, `cluster_id` |
 | `huawei_get_cce_autoscaler_metrics` | Get Cluster Autoscaler and HPA metrics | `region`, `cluster_id` |
@@ -111,6 +113,14 @@ python3 scripts/huawei-cloud.py huawei_get_cce_pod_metrics_topN \
 
 # Single Pod
 python3 scripts/huawei-cloud.py huawei_get_cce_pod_metrics \
+  region=cn-north-4 \
+  cluster_id=<cluster-id> \
+  pod_name=<pod-name> \
+  namespace=default \
+  hours=1
+
+# Single Pod GPU and xGPU metrics
+python3 scripts/huawei-cloud.py huawei_get_cce_pod_gpu_metrics \
   region=cn-north-4 \
   cluster_id=<cluster-id> \
   pod_name=<pod-name> \
