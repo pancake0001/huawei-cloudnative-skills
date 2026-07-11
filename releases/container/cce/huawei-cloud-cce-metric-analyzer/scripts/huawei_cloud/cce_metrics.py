@@ -477,6 +477,1029 @@ def get_cce_pod_metrics(region: str, cluster_id: str, pod_name: str, ak: Optiona
         }
     }
 
+def get_cce_coredns_metrics(
+    region: str,
+    cluster_id: str,
+    ak: Optional[str] = None,
+    sk: Optional[str] = None,
+    project_id: Optional[str] = None,
+    namespace: str = "kube-system",
+    pod_regex: str = ".*coredns.*",
+    hours: int = 1,
+    qps_query: str = None,
+    error_rate_query: str = None,
+    latency_p95_query: str = None,
+    cpu_query: str = None,
+    memory_query: str = None,
+    replicas_query: str = None,
+    security_token: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Query key CoreDNS metrics from the CCE cluster AOM Prometheus instance."""
+    import time as time_module
+
+    access_key, secret_key, proj_id = get_credentials_with_region(region, ak, sk, project_id)
+    if not cluster_id:
+        return {"success": False, "error": "cluster_id is required"}
+
+    cluster_name = cluster_id
+    try:
+        clusters_result = cce.list_cce_clusters(region, ak, sk, project_id)
+        if clusters_result.get("success"):
+            for cluster in clusters_result.get("clusters", []):
+                if cluster.get("id") == cluster_id:
+                    cluster_name = cluster.get("name", cluster_id)
+                    break
+    except Exception:
+        pass
+
+    aom_result = _get_aom_instance(region, cluster_id, ak, sk, project_id)
+    if not aom_result.get("success"):
+        return {
+            "success": False,
+            "error": aom_result.get("error", "AOM instance not found"),
+            "error_type": aom_result.get("error_type"),
+            "cluster_id": cluster_id,
+            "cluster_name": cluster_name,
+        }
+    aom_instance_id = aom_result.get("aom_instance_id")
+
+    selector = f'namespace="{namespace}",pod=~"{pod_regex}"'
+    dns_selector = f'namespace="{namespace}",pod=~"{pod_regex}"'
+    if qps_query is None:
+        qps_query = f"sum(rate(coredns_dns_requests_total{{{dns_selector}}}[5m]))"
+    if error_rate_query is None:
+        error_rate_query = (
+            f"sum(rate(coredns_dns_responses_total{{{dns_selector},rcode!=\"NOERROR\"}}[5m])) "
+            f"/ sum(rate(coredns_dns_responses_total{{{dns_selector}}}[5m])) * 100"
+        )
+    if latency_p95_query is None:
+        latency_p95_query = (
+            f"histogram_quantile(0.95, sum by (le) "
+            f"(rate(coredns_dns_request_duration_seconds_bucket{{{dns_selector}}}[5m]))) * 1000"
+        )
+    if cpu_query is None:
+        cpu_query = (
+            f"sum by (pod, namespace) "
+            f"(rate(container_cpu_usage_seconds_total{{image!=\"\",{selector}}}[5m]))"
+        )
+    if memory_query is None:
+        memory_query = (
+            f"sum by (pod, namespace) "
+            f"(container_memory_working_set_bytes{{image!=\"\",{selector}}})"
+        )
+    if replicas_query is None:
+        replicas_query = f"count(kube_pod_info{{{selector}}})"
+
+    queries = {
+        "qps": qps_query,
+        "error_rate": error_rate_query,
+        "latency_p95": latency_p95_query,
+        "cpu": cpu_query,
+        "memory": memory_query,
+        "replicas": replicas_query,
+    }
+    query_results = {
+        name: aom.get_aom_prom_metrics_http(
+            region,
+            aom_instance_id,
+            query,
+            hours=hours,
+            ak=access_key,
+            sk=secret_key,
+            project_id=proj_id,
+            security_token=security_token,
+        )
+        for name, query in queries.items()
+    }
+
+    failed_queries = {
+        name: result.get("error", "AOM query failed")
+        for name, result in query_results.items()
+        if not result.get("success")
+    }
+    if failed_queries:
+        return {
+            "success": False,
+            "error": "AOM Prometheus query failed",
+            "failed_queries": failed_queries,
+            "region": region,
+            "cluster_id": cluster_id,
+            "cluster_name": cluster_name,
+            "aom_instance_id": aom_instance_id,
+            "promql": queries,
+        }
+
+    def _series_from_values(values):
+        series = []
+        for ts, val in values or []:
+            try:
+                timestamp = int(float(ts))
+                value = float(val)
+            except (TypeError, ValueError):
+                continue
+            series.append({
+                "timestamp": timestamp,
+                "time": time_module.strftime("%Y-%m-%d %H:%M:%S", time_module.localtime(timestamp)),
+                "value": round(value, 4),
+            })
+        return series
+
+    def _parse_scalar(result, value_key):
+        items = result.get("result", {}).get("data", {}).get("result") or []
+        for item in items:
+            series = _series_from_values(item.get("values"))
+            if series:
+                return {value_key: series[-1]["value"], "time_series": series}
+        return {value_key: None, "time_series": []}
+
+    def _parse_pod_vector(result, value_key):
+        items = result.get("result", {}).get("data", {}).get("result") or []
+        parsed = []
+        for item in items:
+            metric = item.get("metric") or {}
+            series = _series_from_values(item.get("values"))
+            if not series:
+                continue
+            parsed.append({
+                "pod": metric.get("pod", "unknown"),
+                "namespace": metric.get("namespace", namespace),
+                value_key: series[-1]["value"],
+                "time_series": series,
+            })
+        parsed.sort(key=lambda item: item.get(value_key) or 0, reverse=True)
+        return parsed
+
+    qps = _parse_scalar(query_results["qps"], "qps")
+    error_rate = _parse_scalar(query_results["error_rate"], "error_rate_percent")
+    latency_p95 = _parse_scalar(query_results["latency_p95"], "latency_p95_ms")
+    replicas = _parse_scalar(query_results["replicas"], "replicas")
+    cpu_by_pod = _parse_pod_vector(query_results["cpu"], "cpu_cores")
+    memory_by_pod = _parse_pod_vector(query_results["memory"], "memory_working_set_bytes")
+
+    latest_error_rate = error_rate.get("error_rate_percent")
+    latest_latency = latency_p95.get("latency_p95_ms")
+    status = "normal"
+    if (latest_error_rate is not None and latest_error_rate > 5) or (latest_latency is not None and latest_latency > 1000):
+        status = "critical"
+    elif (latest_error_rate is not None and latest_error_rate > 1) or (latest_latency is not None and latest_latency > 200):
+        status = "warning"
+
+    return {
+        "success": True,
+        "region": region,
+        "cluster_id": cluster_id,
+        "cluster_name": cluster_name,
+        "namespace": namespace,
+        "pod_regex": pod_regex,
+        "aom_instance_id": aom_instance_id,
+        "query_time": time_module.strftime("%Y-%m-%d %H:%M:%S", time_module.localtime()),
+        "query_params": {"hours": hours},
+        "promql": queries,
+        "metrics": {
+            "qps": qps,
+            "error_rate": error_rate,
+            "latency_p95": latency_p95,
+            "replicas": replicas,
+            "cpu_by_pod": cpu_by_pod,
+            "memory_by_pod": memory_by_pod,
+        },
+        "summary": {
+            "status": status,
+            "qps": qps.get("qps"),
+            "error_rate_percent": latest_error_rate,
+            "latency_p95_ms": latest_latency,
+            "replicas": replicas.get("replicas"),
+            "observed_cpu_pods": len(cpu_by_pod),
+            "observed_memory_pods": len(memory_by_pod),
+        },
+    }
+
+def get_cce_nginx_ingress_metrics(
+    region: str,
+    cluster_id: str,
+    ak: Optional[str] = None,
+    sk: Optional[str] = None,
+    project_id: Optional[str] = None,
+    namespace: Optional[str] = "kube-system",
+    pod_regex: str = ".*nginx.*ingress.*|.*ingress.*nginx.*",
+    ingress_namespace: Optional[str] = None,
+    hours: int = 1,
+    cert_expire_warning_days: int = 30,
+    check_certificates: bool = True,
+    qps_query: str = None,
+    http_4xx_query: str = None,
+    http_5xx_query: str = None,
+    success_rate_query: str = None,
+    latency_p95_query: str = None,
+    active_connections_query: str = None,
+    cpu_query: str = None,
+    memory_query: str = None,
+    security_token: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Query nginx-ingress request-processing metrics and Ingress TLS certificate status."""
+    import time as time_module
+
+    access_key, secret_key, proj_id = get_credentials_with_region(region, ak, sk, project_id)
+    if not cluster_id:
+        return {"success": False, "error": "cluster_id is required"}
+
+    cluster_name = cluster_id
+    try:
+        clusters_result = cce.list_cce_clusters(region, ak, sk, project_id)
+        if clusters_result.get("success"):
+            for cluster in clusters_result.get("clusters", []):
+                if cluster.get("id") == cluster_id:
+                    cluster_name = cluster.get("name", cluster_id)
+                    break
+    except Exception:
+        pass
+
+    aom_result = _get_aom_instance(region, cluster_id, ak, sk, project_id)
+    if not aom_result.get("success"):
+        return {
+            "success": False,
+            "error": aom_result.get("error", "AOM instance not found"),
+            "error_type": aom_result.get("error_type"),
+            "cluster_id": cluster_id,
+            "cluster_name": cluster_name,
+        }
+    aom_instance_id = aom_result.get("aom_instance_id")
+
+    selector_parts = []
+    if namespace:
+        selector_parts.append(f'namespace="{namespace}"')
+    if pod_regex:
+        selector_parts.append(f'pod=~"{pod_regex}"')
+    selector = ",".join(selector_parts)
+    container_selector = ",".join(["image!=\"\""] + selector_parts)
+
+    def _with_selector(extra: str = "") -> str:
+        labels = ",".join(part for part in [selector, extra] if part)
+        return "{" + labels + "}"
+
+    http_4xx_label = 'status=~"4.."'
+    http_5xx_label = 'status=~"5.."'
+    non_5xx_label = 'status!~"5.."'
+    active_state_label = 'state="active"'
+
+    if qps_query is None:
+        qps_query = f"sum(rate(nginx_ingress_controller_requests{_with_selector()}[5m]))"
+    if http_4xx_query is None:
+        http_4xx_query = f"sum(rate(nginx_ingress_controller_requests{_with_selector(http_4xx_label)}[5m]))"
+    if http_5xx_query is None:
+        http_5xx_query = f"sum(rate(nginx_ingress_controller_requests{_with_selector(http_5xx_label)}[5m]))"
+    if success_rate_query is None:
+        success_rate_query = (
+            f"sum(rate(nginx_ingress_controller_requests{_with_selector(non_5xx_label)}[5m])) "
+            f"/ sum(rate(nginx_ingress_controller_requests{_with_selector()}[5m])) * 100"
+        )
+    if latency_p95_query is None:
+        latency_p95_query = (
+            f"histogram_quantile(0.95, sum by (le) "
+            f"(rate(nginx_ingress_controller_request_duration_seconds_bucket{_with_selector()}[5m]))) * 1000"
+        )
+    if active_connections_query is None:
+        active_connections_query = (
+            f"sum(nginx_ingress_controller_nginx_process_connections{_with_selector(active_state_label)})"
+        )
+    if cpu_query is None:
+        cpu_query = (
+            f"sum by (pod, namespace) "
+            f"(rate(container_cpu_usage_seconds_total{{{container_selector}}}[5m]))"
+        )
+    if memory_query is None:
+        memory_query = (
+            f"sum by (pod, namespace) "
+            f"(container_memory_working_set_bytes{{{container_selector}}})"
+        )
+
+    queries = {
+        "qps": qps_query,
+        "http_4xx": http_4xx_query,
+        "http_5xx": http_5xx_query,
+        "success_rate": success_rate_query,
+        "latency_p95": latency_p95_query,
+        "active_connections": active_connections_query,
+        "cpu": cpu_query,
+        "memory": memory_query,
+    }
+    query_results = {
+        name: aom.get_aom_prom_metrics_http(
+            region,
+            aom_instance_id,
+            query,
+            hours=hours,
+            ak=access_key,
+            sk=secret_key,
+            project_id=proj_id,
+            security_token=security_token,
+        )
+        for name, query in queries.items()
+    }
+
+    failed_queries = {
+        name: result.get("error", "AOM query failed")
+        for name, result in query_results.items()
+        if not result.get("success")
+    }
+    if failed_queries:
+        return {
+            "success": False,
+            "error": "AOM Prometheus query failed",
+            "failed_queries": failed_queries,
+            "region": region,
+            "cluster_id": cluster_id,
+            "cluster_name": cluster_name,
+            "aom_instance_id": aom_instance_id,
+            "promql": queries,
+        }
+
+    def _series_from_values(values):
+        series = []
+        for ts, val in values or []:
+            try:
+                timestamp = int(float(ts))
+                value = float(val)
+            except (TypeError, ValueError):
+                continue
+            series.append({
+                "timestamp": timestamp,
+                "time": time_module.strftime("%Y-%m-%d %H:%M:%S", time_module.localtime(timestamp)),
+                "value": round(value, 4),
+            })
+        return series
+
+    def _parse_scalar(result, value_key):
+        items = result.get("result", {}).get("data", {}).get("result") or []
+        for item in items:
+            series = _series_from_values(item.get("values"))
+            if series:
+                return {value_key: series[-1]["value"], "time_series": series}
+        return {value_key: None, "time_series": []}
+
+    def _parse_pod_vector(result, value_key):
+        items = result.get("result", {}).get("data", {}).get("result") or []
+        parsed = []
+        for item in items:
+            metric = item.get("metric") or {}
+            series = _series_from_values(item.get("values"))
+            if not series:
+                continue
+            parsed.append({
+                "pod": metric.get("pod", "unknown"),
+                "namespace": metric.get("namespace", namespace or "unknown"),
+                value_key: series[-1]["value"],
+                "time_series": series,
+            })
+        parsed.sort(key=lambda item: item.get(value_key) or 0, reverse=True)
+        return parsed
+
+    qps = _parse_scalar(query_results["qps"], "qps")
+    http_4xx = _parse_scalar(query_results["http_4xx"], "http_4xx_qps")
+    http_5xx = _parse_scalar(query_results["http_5xx"], "http_5xx_qps")
+    success_rate = _parse_scalar(query_results["success_rate"], "success_rate_percent")
+    latency_p95 = _parse_scalar(query_results["latency_p95"], "latency_p95_ms")
+    active_connections = _parse_scalar(query_results["active_connections"], "active_connections")
+    cpu_by_pod = _parse_pod_vector(query_results["cpu"], "cpu_cores")
+    memory_by_pod = _parse_pod_vector(query_results["memory"], "memory_working_set_bytes")
+
+    certificate_check = {"success": False, "skipped": True, "reason": "disabled"}
+    if check_certificates:
+        certificate_check = cce.get_ingress_tls_certificates(
+            region,
+            cluster_id,
+            access_key,
+            secret_key,
+            proj_id,
+            ingress_namespace,
+            cert_expire_warning_days,
+        )
+
+    latest_5xx = http_5xx.get("http_5xx_qps")
+    latest_success_rate = success_rate.get("success_rate_percent")
+    latest_latency = latency_p95.get("latency_p95_ms")
+    expired_count = certificate_check.get("expired_count", 0) if certificate_check.get("success") else 0
+    expiring_soon_count = certificate_check.get("expiring_soon_count", 0) if certificate_check.get("success") else 0
+
+    status = "normal"
+    if (
+        (latest_5xx is not None and latest_5xx > 0)
+        or (latest_success_rate is not None and latest_success_rate < 99)
+        or expired_count > 0
+    ):
+        status = "critical"
+    elif (
+        (latest_latency is not None and latest_latency > 1000)
+        or (latest_success_rate is not None and latest_success_rate < 99.9)
+        or expiring_soon_count > 0
+    ):
+        status = "warning"
+
+    return {
+        "success": True,
+        "region": region,
+        "cluster_id": cluster_id,
+        "cluster_name": cluster_name,
+        "namespace": namespace or "all",
+        "pod_regex": pod_regex,
+        "ingress_namespace": ingress_namespace or "all",
+        "aom_instance_id": aom_instance_id,
+        "query_time": time_module.strftime("%Y-%m-%d %H:%M:%S", time_module.localtime()),
+        "query_params": {
+            "hours": hours,
+            "cert_expire_warning_days": cert_expire_warning_days,
+            "check_certificates": check_certificates,
+        },
+        "promql": queries,
+        "metrics": {
+            "qps": qps,
+            "http_4xx": http_4xx,
+            "http_5xx": http_5xx,
+            "success_rate": success_rate,
+            "latency_p95": latency_p95,
+            "active_connections": active_connections,
+            "cpu_by_pod": cpu_by_pod,
+            "memory_by_pod": memory_by_pod,
+        },
+        "certificate_check": certificate_check,
+        "summary": {
+            "status": status,
+            "qps": qps.get("qps"),
+            "http_4xx_qps": http_4xx.get("http_4xx_qps"),
+            "http_5xx_qps": latest_5xx,
+            "success_rate_percent": latest_success_rate,
+            "latency_p95_ms": latest_latency,
+            "active_connections": active_connections.get("active_connections"),
+            "observed_cpu_pods": len(cpu_by_pod),
+            "observed_memory_pods": len(memory_by_pod),
+            "expired_certificate_count": expired_count,
+            "expiring_soon_certificate_count": expiring_soon_count,
+        },
+    }
+
+def get_cce_autoscaler_metrics(
+    region: str,
+    cluster_id: str,
+    ak: Optional[str] = None,
+    sk: Optional[str] = None,
+    project_id: Optional[str] = None,
+    namespace: Optional[str] = "kube-system",
+    pod_regex: str = ".*cluster.*autoscaler.*|.*autoscaler.*",
+    hpa_namespace: Optional[str] = None,
+    hours: int = 1,
+    include_hpa: bool = True,
+    unschedulable_pods_query: str = None,
+    nodes_count_query: str = None,
+    scale_up_query: str = None,
+    scale_down_query: str = None,
+    errors_query: str = None,
+    node_groups_query: str = None,
+    hpa_current_replicas_query: str = None,
+    hpa_desired_replicas_query: str = None,
+    cpu_query: str = None,
+    memory_query: str = None,
+    security_token: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Query Cluster Autoscaler and HPA metrics from the CCE cluster AOM Prometheus instance."""
+    import time as time_module
+
+    access_key, secret_key, proj_id = get_credentials_with_region(region, ak, sk, project_id)
+    if not cluster_id:
+        return {"success": False, "error": "cluster_id is required"}
+
+    cluster_name = cluster_id
+    try:
+        clusters_result = cce.list_cce_clusters(region, ak, sk, project_id)
+        if clusters_result.get("success"):
+            for cluster in clusters_result.get("clusters", []):
+                if cluster.get("id") == cluster_id:
+                    cluster_name = cluster.get("name", cluster_id)
+                    break
+    except Exception:
+        pass
+
+    aom_result = _get_aom_instance(region, cluster_id, ak, sk, project_id)
+    if not aom_result.get("success"):
+        return {
+            "success": False,
+            "error": aom_result.get("error", "AOM instance not found"),
+            "error_type": aom_result.get("error_type"),
+            "cluster_id": cluster_id,
+            "cluster_name": cluster_name,
+        }
+    aom_instance_id = aom_result.get("aom_instance_id")
+
+    selector_parts = []
+    if namespace:
+        selector_parts.append(f'namespace="{namespace}"')
+    if pod_regex:
+        selector_parts.append(f'pod=~"{pod_regex}"')
+    selector = ",".join(selector_parts)
+    container_selector = ",".join(["image!=\"\""] + selector_parts)
+    hpa_selector = f'namespace="{hpa_namespace}"' if hpa_namespace else ""
+
+    def _selector(labels: str = "") -> str:
+        merged = ",".join(part for part in [selector, labels] if part)
+        return "{" + merged + "}"
+
+    def _hpa_selector() -> str:
+        return "{" + hpa_selector + "}" if hpa_selector else ""
+
+    if unschedulable_pods_query is None:
+        unschedulable_pods_query = f"sum(cluster_autoscaler_unschedulable_pods_count{_selector()})"
+    if nodes_count_query is None:
+        nodes_count_query = f"sum by (state) (cluster_autoscaler_nodes_count{_selector()})"
+    if scale_up_query is None:
+        scale_up_query = f"sum(increase(cluster_autoscaler_scaled_up_nodes_total{_selector()}[1h]))"
+    if scale_down_query is None:
+        scale_down_query = f"sum(increase(cluster_autoscaler_scaled_down_nodes_total{_selector()}[1h]))"
+    if errors_query is None:
+        errors_query = f"sum(increase(cluster_autoscaler_errors_total{_selector()}[1h]))"
+    if node_groups_query is None:
+        node_groups_query = f"sum(cluster_autoscaler_node_groups_count{_selector()})"
+    if hpa_current_replicas_query is None:
+        hpa_current_replicas_query = (
+            f"sum by (namespace, horizontalpodautoscaler) "
+            f"(kube_horizontalpodautoscaler_status_current_replicas{_hpa_selector()})"
+        )
+    if hpa_desired_replicas_query is None:
+        hpa_desired_replicas_query = (
+            f"sum by (namespace, horizontalpodautoscaler) "
+            f"(kube_horizontalpodautoscaler_status_desired_replicas{_hpa_selector()})"
+        )
+    if cpu_query is None:
+        cpu_query = (
+            f"sum by (pod, namespace) "
+            f"(rate(container_cpu_usage_seconds_total{{{container_selector}}}[5m]))"
+        )
+    if memory_query is None:
+        memory_query = (
+            f"sum by (pod, namespace) "
+            f"(container_memory_working_set_bytes{{{container_selector}}})"
+        )
+
+    queries = {
+        "unschedulable_pods": unschedulable_pods_query,
+        "nodes_count": nodes_count_query,
+        "scale_up": scale_up_query,
+        "scale_down": scale_down_query,
+        "errors": errors_query,
+        "node_groups": node_groups_query,
+        "cpu": cpu_query,
+        "memory": memory_query,
+    }
+    if include_hpa:
+        queries["hpa_current_replicas"] = hpa_current_replicas_query
+        queries["hpa_desired_replicas"] = hpa_desired_replicas_query
+
+    query_results = {
+        name: aom.get_aom_prom_metrics_http(
+            region,
+            aom_instance_id,
+            query,
+            hours=hours,
+            ak=access_key,
+            sk=secret_key,
+            project_id=proj_id,
+            security_token=security_token,
+        )
+        for name, query in queries.items()
+    }
+
+    failed_queries = {
+        name: result.get("error", "AOM query failed")
+        for name, result in query_results.items()
+        if not result.get("success")
+    }
+    if failed_queries:
+        return {
+            "success": False,
+            "error": "AOM Prometheus query failed",
+            "failed_queries": failed_queries,
+            "region": region,
+            "cluster_id": cluster_id,
+            "cluster_name": cluster_name,
+            "aom_instance_id": aom_instance_id,
+            "promql": queries,
+        }
+
+    def _series_from_values(values):
+        series = []
+        for ts, val in values or []:
+            try:
+                timestamp = int(float(ts))
+                value = float(val)
+            except (TypeError, ValueError):
+                continue
+            series.append({
+                "timestamp": timestamp,
+                "time": time_module.strftime("%Y-%m-%d %H:%M:%S", time_module.localtime(timestamp)),
+                "value": round(value, 4),
+            })
+        return series
+
+    def _parse_scalar(result, value_key):
+        items = result.get("result", {}).get("data", {}).get("result") or []
+        for item in items:
+            series = _series_from_values(item.get("values"))
+            if series:
+                return {value_key: series[-1]["value"], "time_series": series}
+        return {value_key: None, "time_series": []}
+
+    def _parse_labeled_vector(result, value_key, labels):
+        items = result.get("result", {}).get("data", {}).get("result") or []
+        parsed = []
+        for item in items:
+            metric = item.get("metric") or {}
+            series = _series_from_values(item.get("values"))
+            if not series:
+                continue
+            row = {label: metric.get(label, "unknown") for label in labels}
+            row[value_key] = series[-1]["value"]
+            row["time_series"] = series
+            parsed.append(row)
+        parsed.sort(key=lambda item: item.get(value_key) or 0, reverse=True)
+        return parsed
+
+    unschedulable_pods = _parse_scalar(query_results["unschedulable_pods"], "unschedulable_pods")
+    scale_up = _parse_scalar(query_results["scale_up"], "scaled_up_nodes")
+    scale_down = _parse_scalar(query_results["scale_down"], "scaled_down_nodes")
+    errors = _parse_scalar(query_results["errors"], "errors")
+    node_groups = _parse_scalar(query_results["node_groups"], "node_groups")
+    nodes_count = _parse_labeled_vector(query_results["nodes_count"], "nodes", ["state"])
+    cpu_by_pod = _parse_labeled_vector(query_results["cpu"], "cpu_cores", ["namespace", "pod"])
+    memory_by_pod = _parse_labeled_vector(query_results["memory"], "memory_working_set_bytes", ["namespace", "pod"])
+
+    hpa_current = []
+    hpa_desired = []
+    hpa_status = []
+    if include_hpa:
+        hpa_current = _parse_labeled_vector(
+            query_results["hpa_current_replicas"],
+            "current_replicas",
+            ["namespace", "horizontalpodautoscaler"],
+        )
+        hpa_desired = _parse_labeled_vector(
+            query_results["hpa_desired_replicas"],
+            "desired_replicas",
+            ["namespace", "horizontalpodautoscaler"],
+        )
+        desired_map = {
+            (item.get("namespace"), item.get("horizontalpodautoscaler")): item.get("desired_replicas")
+            for item in hpa_desired
+        }
+        for item in hpa_current:
+            key = (item.get("namespace"), item.get("horizontalpodautoscaler"))
+            desired = desired_map.get(key)
+            current = item.get("current_replicas")
+            hpa_status.append({
+                "namespace": key[0],
+                "horizontalpodautoscaler": key[1],
+                "current_replicas": current,
+                "desired_replicas": desired,
+                "replica_gap": round((desired or 0) - (current or 0), 4) if desired is not None and current is not None else None,
+            })
+
+    latest_unschedulable = unschedulable_pods.get("unschedulable_pods")
+    latest_errors = errors.get("errors")
+    latest_scaled_up = scale_up.get("scaled_up_nodes")
+    latest_scaled_down = scale_down.get("scaled_down_nodes")
+    hpa_gap_count = len([item for item in hpa_status if item.get("replica_gap") not in (None, 0)])
+
+    status = "normal"
+    if (latest_errors is not None and latest_errors > 0) or (latest_unschedulable is not None and latest_unschedulable > 0):
+        status = "critical"
+    elif (latest_scaled_up is not None and latest_scaled_up > 0) or (latest_scaled_down is not None and latest_scaled_down > 0) or hpa_gap_count > 0:
+        status = "warning"
+
+    return {
+        "success": True,
+        "region": region,
+        "cluster_id": cluster_id,
+        "cluster_name": cluster_name,
+        "namespace": namespace or "all",
+        "pod_regex": pod_regex,
+        "hpa_namespace": hpa_namespace or "all",
+        "aom_instance_id": aom_instance_id,
+        "query_time": time_module.strftime("%Y-%m-%d %H:%M:%S", time_module.localtime()),
+        "query_params": {"hours": hours, "include_hpa": include_hpa},
+        "promql": queries,
+        "metrics": {
+            "unschedulable_pods": unschedulable_pods,
+            "nodes_count": nodes_count,
+            "scale_up": scale_up,
+            "scale_down": scale_down,
+            "errors": errors,
+            "node_groups": node_groups,
+            "cpu_by_pod": cpu_by_pod,
+            "memory_by_pod": memory_by_pod,
+            "hpa_current_replicas": hpa_current,
+            "hpa_desired_replicas": hpa_desired,
+            "hpa_status": hpa_status,
+        },
+        "summary": {
+            "status": status,
+            "unschedulable_pods": latest_unschedulable,
+            "scaled_up_nodes": latest_scaled_up,
+            "scaled_down_nodes": latest_scaled_down,
+            "errors": latest_errors,
+            "node_groups": node_groups.get("node_groups"),
+            "node_state_count": nodes_count,
+            "observed_autoscaler_pods": len(cpu_by_pod),
+            "hpa_count": len(hpa_status),
+            "hpa_replica_gap_count": hpa_gap_count,
+        },
+    }
+
+def _get_cce_control_plane_metrics(
+    region: str,
+    cluster_id: str,
+    component: str,
+    default_namespace: Optional[str],
+    default_pod_regex: str,
+    queries: Dict[str, str],
+    vector_labels: Dict[str, list],
+    ak: Optional[str] = None,
+    sk: Optional[str] = None,
+    project_id: Optional[str] = None,
+    namespace: Optional[str] = None,
+    pod_regex: Optional[str] = None,
+    hours: int = 1,
+    security_token: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Shared AOM Prometheus query path for Kubernetes control-plane components."""
+    import time as time_module
+
+    access_key, secret_key, proj_id = get_credentials_with_region(region, ak, sk, project_id)
+    if not cluster_id:
+        return {"success": False, "error": "cluster_id is required"}
+
+    cluster_name = cluster_id
+    try:
+        clusters_result = cce.list_cce_clusters(region, ak, sk, project_id)
+        if clusters_result.get("success"):
+            for cluster in clusters_result.get("clusters", []):
+                if cluster.get("id") == cluster_id:
+                    cluster_name = cluster.get("name", cluster_id)
+                    break
+    except Exception:
+        pass
+
+    aom_result = _get_aom_instance(region, cluster_id, ak, sk, project_id)
+    if not aom_result.get("success"):
+        return {
+            "success": False,
+            "error": aom_result.get("error", "AOM instance not found"),
+            "error_type": aom_result.get("error_type"),
+            "cluster_id": cluster_id,
+            "cluster_name": cluster_name,
+        }
+    aom_instance_id = aom_result.get("aom_instance_id")
+
+    namespace = default_namespace if namespace is None else namespace
+    pod_regex = pod_regex or default_pod_regex
+    selector_parts = []
+    if namespace:
+        selector_parts.append(f'namespace="{namespace}"')
+    if pod_regex:
+        selector_parts.append(f'pod=~"{pod_regex}"')
+    selector = ",".join(selector_parts)
+    container_selector = ",".join(["image!=\"\""] + selector_parts)
+
+    def _selector(extra: str = "") -> str:
+        labels = ",".join(part for part in [selector, extra] if part)
+        return "{" + labels + "}"
+
+    rendered_queries = {}
+    replacements = {
+        "{selector}": _selector(),
+        "{selector_5xx}": _selector('status=~"5.."'),
+        "{container_selector}": container_selector,
+    }
+    for name, query in queries.items():
+        rendered = query
+        for placeholder, value in replacements.items():
+            rendered = rendered.replace(placeholder, value)
+        rendered_queries[name] = rendered
+
+    query_results = {
+        name: aom.get_aom_prom_metrics_http(
+            region,
+            aom_instance_id,
+            query,
+            hours=hours,
+            ak=access_key,
+            sk=secret_key,
+            project_id=proj_id,
+            security_token=security_token,
+        )
+        for name, query in rendered_queries.items()
+    }
+
+    failed_queries = {
+        name: result.get("error", "AOM query failed")
+        for name, result in query_results.items()
+        if not result.get("success")
+    }
+    if failed_queries:
+        return {
+            "success": False,
+            "error": "AOM Prometheus query failed",
+            "failed_queries": failed_queries,
+            "region": region,
+            "cluster_id": cluster_id,
+            "cluster_name": cluster_name,
+            "aom_instance_id": aom_instance_id,
+            "promql": rendered_queries,
+        }
+
+    def _series_from_values(values):
+        series = []
+        for ts, val in values or []:
+            try:
+                timestamp = int(float(ts))
+                value = float(val)
+            except (TypeError, ValueError):
+                continue
+            series.append({
+                "timestamp": timestamp,
+                "time": time_module.strftime("%Y-%m-%d %H:%M:%S", time_module.localtime(timestamp)),
+                "value": round(value, 4),
+            })
+        return series
+
+    def _parse_scalar(result, value_key):
+        items = result.get("result", {}).get("data", {}).get("result") or []
+        for item in items:
+            series = _series_from_values(item.get("values"))
+            if series:
+                return {value_key: series[-1]["value"], "time_series": series}
+        return {value_key: None, "time_series": []}
+
+    def _parse_vector(result, value_key, labels):
+        parsed = []
+        items = result.get("result", {}).get("data", {}).get("result") or []
+        for item in items:
+            metric = item.get("metric") or {}
+            series = _series_from_values(item.get("values"))
+            if not series:
+                continue
+            row = {label: metric.get(label, "unknown") for label in labels}
+            row[value_key] = series[-1]["value"]
+            row["time_series"] = series
+            parsed.append(row)
+        parsed.sort(key=lambda item: item.get(value_key) or 0, reverse=True)
+        return parsed
+
+    metrics = {}
+    for name, result in query_results.items():
+        if name in vector_labels:
+            metrics[name] = _parse_vector(result, name, vector_labels[name])
+        else:
+            metrics[name] = _parse_scalar(result, name)
+
+    summary = {"status": "normal"}
+    scalar_values = {
+        name: value.get(name)
+        for name, value in metrics.items()
+        if isinstance(value, dict)
+    }
+    if (
+        any((value or 0) > 0 for key, value in scalar_values.items() if key in {"errors", "error_rate_percent", "leader_changes", "failed_proposals"})
+        or (scalar_values.get("has_leader") is not None and scalar_values.get("has_leader") < 1)
+    ):
+        summary["status"] = "critical"
+    elif (
+        any((value or 0) > 0 for key, value in scalar_values.items() if key in {"queue_depth", "pending_pods"})
+        or any((value or 0) > 1000 for key, value in scalar_values.items() if key.endswith("_p95_ms") or key == "latency_p95_ms")
+    ):
+        summary["status"] = "warning"
+    summary.update(scalar_values)
+
+    return {
+        "success": True,
+        "region": region,
+        "cluster_id": cluster_id,
+        "cluster_name": cluster_name,
+        "component": component,
+        "namespace": namespace or "all",
+        "pod_regex": pod_regex,
+        "aom_instance_id": aom_instance_id,
+        "query_time": time_module.strftime("%Y-%m-%d %H:%M:%S", time_module.localtime()),
+        "query_params": {"hours": hours},
+        "promql": rendered_queries,
+        "metrics": metrics,
+        "summary": summary,
+    }
+
+
+def get_cce_apiserver_metrics(
+    region: str,
+    cluster_id: str,
+    ak: Optional[str] = None,
+    sk: Optional[str] = None,
+    project_id: Optional[str] = None,
+    namespace: Optional[str] = "kube-system",
+    pod_regex: str = ".*kube-apiserver.*|.*apiserver.*",
+    hours: int = 1,
+    security_token: Optional[str] = None,
+) -> Dict[str, Any]:
+    queries = {
+        "qps": "sum(rate(apiserver_request_total{selector}[5m]))",
+        "error_rate_percent": "sum(rate(apiserver_request_total{selector_5xx}[5m])) / sum(rate(apiserver_request_total{selector}[5m])) * 100",
+        "latency_p95_ms": "histogram_quantile(0.95, sum by (le) (rate(apiserver_request_duration_seconds_bucket{selector}[5m]))) * 1000",
+        "inflight_requests": "sum(apiserver_current_inflight_requests{selector})",
+        "cpu_by_pod": "sum by (namespace, pod) (rate(container_cpu_usage_seconds_total{{container_selector}}[5m]))",
+        "memory_by_pod": "sum by (namespace, pod) (container_memory_working_set_bytes{{container_selector}})",
+    }
+    return _get_cce_control_plane_metrics(
+        region, cluster_id, "apiserver", namespace, pod_regex, queries,
+        {"cpu_by_pod": ["namespace", "pod"], "memory_by_pod": ["namespace", "pod"]},
+        ak, sk, project_id, namespace, pod_regex, hours, security_token,
+    )
+
+
+def get_cce_etcd_metrics(
+    region: str,
+    cluster_id: str,
+    ak: Optional[str] = None,
+    sk: Optional[str] = None,
+    project_id: Optional[str] = None,
+    namespace: Optional[str] = "kube-system",
+    pod_regex: str = ".*etcd.*",
+    hours: int = 1,
+    security_token: Optional[str] = None,
+) -> Dict[str, Any]:
+    queries = {
+        "has_leader": "max(etcd_server_has_leader{selector})",
+        "leader_changes": "sum(increase(etcd_server_leader_changes_seen_total{selector}[1h]))",
+        "failed_proposals": "sum(increase(etcd_server_proposals_failed_total{selector}[1h]))",
+        "db_size_bytes": "max(etcd_mvcc_db_total_size_in_bytes{selector} or etcd_debugging_mvcc_db_total_size_in_bytes{selector})",
+        "wal_fsync_p95_ms": "histogram_quantile(0.95, sum by (le) (rate(etcd_disk_wal_fsync_duration_seconds_bucket{selector}[5m]))) * 1000",
+        "backend_commit_p95_ms": "histogram_quantile(0.95, sum by (le) (rate(etcd_disk_backend_commit_duration_seconds_bucket{selector}[5m]))) * 1000",
+        "cpu_by_pod": "sum by (namespace, pod) (rate(container_cpu_usage_seconds_total{{container_selector}}[5m]))",
+        "memory_by_pod": "sum by (namespace, pod) (container_memory_working_set_bytes{{container_selector}})",
+    }
+    return _get_cce_control_plane_metrics(
+        region, cluster_id, "etcd", namespace, pod_regex, queries,
+        {"cpu_by_pod": ["namespace", "pod"], "memory_by_pod": ["namespace", "pod"]},
+        ak, sk, project_id, namespace, pod_regex, hours, security_token,
+    )
+
+
+def get_cce_controller_manager_metrics(
+    region: str,
+    cluster_id: str,
+    ak: Optional[str] = None,
+    sk: Optional[str] = None,
+    project_id: Optional[str] = None,
+    namespace: Optional[str] = "kube-system",
+    pod_regex: str = ".*kube-controller-manager.*|.*controller-manager.*",
+    hours: int = 1,
+    security_token: Optional[str] = None,
+) -> Dict[str, Any]:
+    queries = {
+        "queue_depth": "sum(workqueue_depth{selector})",
+        "retries": "sum(rate(workqueue_retries_total{selector}[5m]))",
+        "adds": "sum(rate(workqueue_adds_total{selector}[5m]))",
+        "queue_latency_p95_ms": "histogram_quantile(0.95, sum by (le) (rate(workqueue_queue_duration_seconds_bucket{selector}[5m]))) * 1000",
+        "work_duration_p95_ms": "histogram_quantile(0.95, sum by (le) (rate(workqueue_work_duration_seconds_bucket{selector}[5m]))) * 1000",
+        "cpu_by_pod": "sum by (namespace, pod) (rate(container_cpu_usage_seconds_total{{container_selector}}[5m]))",
+        "memory_by_pod": "sum by (namespace, pod) (container_memory_working_set_bytes{{container_selector}})",
+    }
+    return _get_cce_control_plane_metrics(
+        region, cluster_id, "controller-manager", namespace, pod_regex, queries,
+        {"cpu_by_pod": ["namespace", "pod"], "memory_by_pod": ["namespace", "pod"]},
+        ak, sk, project_id, namespace, pod_regex, hours, security_token,
+    )
+
+
+def get_cce_scheduler_metrics(
+    region: str,
+    cluster_id: str,
+    ak: Optional[str] = None,
+    sk: Optional[str] = None,
+    project_id: Optional[str] = None,
+    namespace: Optional[str] = "kube-system",
+    pod_regex: str = ".*kube-scheduler.*|.*scheduler.*",
+    hours: int = 1,
+    security_token: Optional[str] = None,
+) -> Dict[str, Any]:
+    queries = {
+        "scheduling_attempts": "sum(rate(scheduler_schedule_attempts_total{selector}[5m]))",
+        "attempts_by_result": "sum by (result) (rate(scheduler_schedule_attempts_total{selector}[5m]))",
+        "pending_pods": "sum(scheduler_pending_pods{selector})",
+        "scheduling_latency_p95_ms": "histogram_quantile(0.95, sum by (le) (rate(scheduler_e2e_scheduling_duration_seconds_bucket{selector}[5m]))) * 1000",
+        "queue_incoming_pods": "sum(rate(scheduler_queue_incoming_pods_total{selector}[5m]))",
+        "cpu_by_pod": "sum by (namespace, pod) (rate(container_cpu_usage_seconds_total{{container_selector}}[5m]))",
+        "memory_by_pod": "sum by (namespace, pod) (container_memory_working_set_bytes{{container_selector}})",
+    }
+    return _get_cce_control_plane_metrics(
+        region, cluster_id, "scheduler", namespace, pod_regex, queries,
+        {"attempts_by_result": ["result"], "cpu_by_pod": ["namespace", "pod"], "memory_by_pod": ["namespace", "pod"]},
+        ak, sk, project_id, namespace, pod_regex, hours, security_token,
+    )
+
 def get_cce_node_metrics_topN(region: str, cluster_id: str, ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None, top_n: int = 10, hours: int = 1, cpu_query: str = None, memory_query: str = None, disk_query: str = None, security_token: Optional[str] = None) -> Dict[str, Any]:
     """获取 CCE 集群节点监控数据
 
