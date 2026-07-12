@@ -26,6 +26,7 @@ def get_ecs_metrics(region: str, instance_id: str, ak: Optional[str] = None, sk:
         ]
 
         all_metrics = {}
+        metric_errors = {}
 
         for metric_name in metrics_to_query:
             try:
@@ -59,6 +60,8 @@ def get_ecs_metrics(region: str, instance_id: str, ak: Optional[str] = None, sk:
                         "unit": latest.get("unit", "") if latest else ""
                     }
                 else:
+                    if not metric_result.get("success"):
+                        metric_errors[metric_name] = metric_result.get("error", "hcloud metric query failed")
                     all_metrics[metric_name] = {
                         "datapoints": [],
                         "note": "No data available",
@@ -66,10 +69,12 @@ def get_ecs_metrics(region: str, instance_id: str, ak: Optional[str] = None, sk:
                     }
 
             except Exception as e:
+                metric_errors[metric_name] = str(e)
                 all_metrics[metric_name] = {"error": str(e)}
 
-        return {
-            "success": True,
+        has_datapoints = any(item.get("datapoints") for item in all_metrics.values() if isinstance(item, dict))
+        response = {
+            "success": not metric_errors or has_datapoints,
             "region": region,
             "instance_id": instance_id,
             "source": "hcloud",
@@ -80,6 +85,11 @@ def get_ecs_metrics(region: str, instance_id: str, ak: Optional[str] = None, sk:
             },
             "metrics": all_metrics
         }
+        if metric_errors:
+            response["metric_errors"] = metric_errors
+            if not has_datapoints:
+                response["error"] = "All ECS metric queries failed"
+        return response
 
     except Exception as e:
         return {

@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import base64
 import os
+import ssl
+import tempfile
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from .common import (
@@ -289,6 +292,128 @@ def get_kubernetes_nodes(
             "action": "get_kubernetes_nodes",
             "count": len(node_list),
             "nodes": node_list,
+        }
+    except Exception as exc:
+        return {"success": False, "error": str(exc), "error_type": type(exc).__name__}
+    finally:
+        _safe_delete_file(cert_file)
+        _safe_delete_file(key_file)
+
+
+def _decode_tls_certificate(pem_data: bytes) -> Dict[str, Any]:
+    temp_file = None
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".crt") as handle:
+            temp_file = handle.name
+            handle.write(pem_data)
+
+        cert = ssl._ssl._test_decode_cert(temp_file)
+        not_after_raw = cert.get("notAfter")
+        expires_at = None
+        days_remaining = None
+        if not_after_raw:
+            expires_at = datetime.strptime(not_after_raw, "%b %d %H:%M:%S %Y %Z").replace(tzinfo=timezone.utc)
+            days_remaining = int((expires_at - datetime.now(timezone.utc)).total_seconds() // 86400)
+
+        def _flatten_name(items):
+            values = []
+            for item in items or []:
+                for key, value in item:
+                    values.append(f"{key}={value}")
+            return ", ".join(values)
+
+        return {
+            "not_after": expires_at.isoformat() if expires_at else None,
+            "days_remaining": days_remaining,
+            "subject": _flatten_name(cert.get("subject")),
+            "issuer": _flatten_name(cert.get("issuer")),
+            "serial_number": cert.get("serialNumber"),
+        }
+    finally:
+        _safe_delete_file(temp_file)
+
+
+def get_ingress_tls_certificates(
+    region: str,
+    cluster_id: str,
+    ak: Optional[str] = None,
+    sk: Optional[str] = None,
+    project_id: Optional[str] = None,
+    namespace: Optional[str] = None,
+    warning_days: int = 30,
+) -> Dict[str, Any]:
+    """List Ingress TLS certificates and calculate expiration status."""
+    access_key, secret_key, proj_id = get_credentials(ak, sk, project_id)
+    error = _k8s_preflight(cluster_id, access_key, secret_key)
+    if error:
+        return error
+
+    cert_file = None
+    key_file = None
+    try:
+        _, cert_file, key_file = _setup_k8s_client(region, cluster_id, access_key, secret_key, proj_id, "ingress_tls")
+        networking_v1 = k8s_client.NetworkingV1Api()
+        core_v1 = k8s_client.CoreV1Api()
+        ingresses = (
+            networking_v1.list_namespaced_ingress(namespace)
+            if namespace
+            else networking_v1.list_ingress_for_all_namespaces()
+        )
+
+        secret_hosts: Dict[tuple[str, str], set[str]] = {}
+        for ingress in ingresses.items:
+            ingress_namespace = ingress.metadata.namespace
+            for tls in getattr(ingress.spec, "tls", None) or []:
+                if not tls.secret_name:
+                    continue
+                key = (ingress_namespace, tls.secret_name)
+                secret_hosts.setdefault(key, set()).update(tls.hosts or [])
+
+        certificates: List[Dict[str, Any]] = []
+        expired_count = 0
+        expiring_soon_count = 0
+        for (secret_namespace, secret_name), hosts in sorted(secret_hosts.items()):
+            item = {
+                "namespace": secret_namespace,
+                "secret_name": secret_name,
+                "hosts": sorted(hosts),
+                "status": "unknown",
+            }
+            try:
+                secret = core_v1.read_namespaced_secret(secret_name, secret_namespace)
+                crt_b64 = (secret.data or {}).get("tls.crt")
+                if not crt_b64:
+                    item["error"] = "tls.crt not found in secret"
+                else:
+                    cert_info = _decode_tls_certificate(base64.b64decode(crt_b64))
+                    item.update(cert_info)
+                    days_remaining = cert_info.get("days_remaining")
+                    if days_remaining is None:
+                        item["status"] = "unknown"
+                    elif days_remaining < 0:
+                        item["status"] = "expired"
+                        expired_count += 1
+                    elif days_remaining <= warning_days:
+                        item["status"] = "expiring_soon"
+                        expiring_soon_count += 1
+                    else:
+                        item["status"] = "valid"
+            except Exception as exc:
+                item["error"] = str(exc)
+                item["error_type"] = type(exc).__name__
+            certificates.append(item)
+
+        return {
+            "success": True,
+            "region": region,
+            "cluster_id": cluster_id,
+            "action": "get_ingress_tls_certificates",
+            "namespace": namespace or "all",
+            "warning_days": warning_days,
+            "total_tls_secrets": len(certificates),
+            "expired_count": expired_count,
+            "expiring_soon_count": expiring_soon_count,
+            "certificates": certificates,
         }
     except Exception as exc:
         return {"success": False, "error": str(exc), "error_type": type(exc).__name__}

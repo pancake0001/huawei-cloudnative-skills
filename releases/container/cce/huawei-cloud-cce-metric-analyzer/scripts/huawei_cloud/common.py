@@ -92,6 +92,36 @@ def _mask_secret(value: Optional[str]) -> Optional[str]:
     return f"{value[:4]}***{value[-4:]}"
 
 
+def _redact_text(text: str, *secrets: Optional[str]) -> str:
+    redacted = text
+    for secret in secrets:
+        if secret:
+            redacted = redacted.replace(secret, _mask_secret(secret) or "")
+    return redacted
+
+
+def _parse_hcloud_json_output(output: str) -> tuple[Optional[Any], Optional[str]]:
+    """Parse hcloud JSON output, allowing warning text before/after JSON."""
+    text = (output or "").strip()
+    if not text:
+        return None, "empty output"
+    try:
+        return json.loads(text), None
+    except json.JSONDecodeError:
+        pass
+
+    decoder = json.JSONDecoder()
+    for index, char in enumerate(text):
+        if char not in "{[":
+            continue
+        try:
+            parsed, _ = decoder.raw_decode(text[index:])
+            return parsed, None
+        except json.JSONDecodeError:
+            continue
+    return None, "no valid JSON object or array found"
+
+
 def run_hcloud(
     service: str,
     operation: str,
@@ -146,22 +176,19 @@ def run_hcloud(
     stderr = proc.stderr.strip()
     if proc.returncode != 0:
         message = stderr or stdout or f"hcloud exited with code {proc.returncode}"
-        if access_key:
-            message = message.replace(access_key, _mask_secret(access_key) or "")
-        if secret_key:
-            message = message.replace(secret_key, _mask_secret(secret_key) or "")
+        message = _redact_text(message, access_key, secret_key)
         return {"success": False, "error": message, "command": safe_cmd, "returncode": proc.returncode}
 
-    try:
-        data = json.loads(stdout)
-    except json.JSONDecodeError:
-        match = re.search(r"(\{.*\}|\[.*\])", stdout, flags=re.S)
-        if not match:
-            return {"success": False, "error": "hcloud returned non-JSON output", "output": stdout[:1000], "command": safe_cmd}
-        try:
-            data = json.loads(match.group(1))
-        except json.JSONDecodeError as exc:
-            return {"success": False, "error": f"Failed to parse hcloud JSON output: {exc}", "output": stdout[:1000], "command": safe_cmd}
+    data, parse_error = _parse_hcloud_json_output(stdout)
+    if parse_error:
+        combined_output = "\n".join(item for item in [stdout, stderr] if item)
+        return {
+            "success": False,
+            "error": f"hcloud returned non-JSON output: {parse_error}",
+            "output": _redact_text(combined_output[:2000], access_key, secret_key),
+            "command": safe_cmd,
+            "returncode": proc.returncode,
+        }
 
     return {"success": True, "data": data, "command": safe_cmd}
 
