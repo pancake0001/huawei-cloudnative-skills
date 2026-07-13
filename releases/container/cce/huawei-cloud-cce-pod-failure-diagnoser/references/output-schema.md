@@ -155,18 +155,18 @@ The final user-facing report may be Markdown, but it should be easy to map to th
 
 ## Markdown Report Sections
 
-When writing a human-readable report, use:
+When writing a human-readable report, put the action-driving sections first:
 
-1. Target and scope.
-2. CLI path used.
-3. Summary and confidence.
-4. Pod lifecycle status.
-5. Top causes with evidence.
-6. Root-cause interpretation and negative evidence.
+1. Executive summary: status, confidence, affected object, and one-line conclusion.
+2. Root-cause analysis: top causes, direct evidence, and plain-language interpretation.
+3. Recommended next steps: safe checks, candidate fix paths, and handoff skills.
+4. Target and scope.
+5. Pod lifecycle status.
+6. Negative evidence and ruled-out causes.
 7. Logs, Events, metrics, node/storage findings.
 8. Verification gaps.
-9. Detailed follow-up checks and candidate fix paths.
-10. Recommended next steps and handoff skills.
+9. Detailed supporting evidence.
+10. CLI path used.
 11. Explicit statement that no mutating command was run.
 
 ## Scenario-Specific Recommendation Requirements

@@ -1,69 +1,88 @@
 # Workflow
 
-## Reusable Capabilities and Gaps
+This workflow is read-only and uses only `hcloud CCE` plus `kubectl`.
 
-- Available reusable tools: `huawei_get_kubernetes_nodes` for Node Ready/pressure conditions, `huawei_get_cce_events` for Kubernetes Events, `huawei_get_cce_pods` for Pod phase/reason/lastState, `huawei_get_cce_node_metrics` and `huawei_get_cce_pod_metrics_topN` for AOM metrics, `huawei_node_diagnose`/`huawei_node_batch_diagnose` for node monitoring, NPD, and workload summary.
-- The external huawei-cloud skill also emphasizes the CCE node, Pod, Event, monitoring, inspection, and diagnosis report tool family; these read-only tools and the "list tasks first, then output complete report" output pattern can be directly reused.
-- Original gaps: missing `kube-node-lease` renewal evidence, missing full Node condition timestamps, missing pod symptom aggregation per node, missing a deterministic action to synthesize NotReady/pressure/CNI/kubelet evidence into a Markdown report.
-- Filled by the primary tool: `huawei_node_failure_diagnose` outputs structured evidence and `report_markdown` in one invocation.
+## Evidence Order
 
-## Main Flow
+1. Scope: confirm `region`, `project_id`, `cluster_id`, and one of `node_name` or `node_ip`.
+2. CLI setup: verify hcloud, masked credentials, kubectl, cluster metadata, endpoint reachability, kubeconfig acquisition, and read RBAC.
+3. Node inventory: list CCE nodes with hcloud when node ID metadata is useful; list Kubernetes nodes with kubectl for actual health state.
+4. Node snapshot: inspect Ready condition, pressure conditions, NetworkUnavailable, taints, unschedulable state, labels, capacity, allocatable, and allocated resource summary.
+5. Lease: inspect `kube-node-lease/<node-name>` and compare renew time with the current time. A stale lease plus Ready=Unknown is strong control-plane-to-node heartbeat evidence.
+6. Events: collect Node-specific Events first, then cluster Events sorted by time. Preserve reason, message, count, source, and timestamp.
+7. Workload impact: list all Pods on the node and classify Running, Pending, Failed, Evicted, Unknown, NotReady, and restart-heavy Pods.
+8. Concentrated symptoms: look for node-local patterns such as `FailedCreatePodSandBox`, `ContainerStatusUnknown`, volume mount failures, CNI errors, image pull failures only on this node, or evictions.
+9. Metrics: use `kubectl top node` and `kubectl top pods -A` when metrics-server is available. Record a verification gap when it is not.
+10. Output: rank Top3 causes, cite evidence, describe impact, list safe next checks, and hand off any mutation.
 
-1. Input must include `region`, `cluster_id`, and either `node_name` or `node_ip`.
-2. Call `huawei_node_failure_diagnose` with defaults: `lease_timeout_seconds=40`, `event_limit=500`, `hours=1`, `include_metrics=true`.
-3. If the primary tool returns `report_markdown`, use that Markdown as the final report body. You may only add clarifications the user requests; do not discard evidence tables.
-4. If the primary tool fails, follow the manual fallback workflow below.
+## Baseline Commands
 
-## 1. Control Plane Liveness Triage
+```bash
+hcloud CCE ShowCluster --cluster_id=<cluster-id> --project_id=<project-id> --detail=true --cli-region=<region> --cli-output=json
+hcloud CCE ShowClusterEndpoints --cluster_id=<cluster-id> --project_id=<project-id> --cli-region=<region> --cli-output=json
+hcloud CCE ListNodes --cluster_id=<cluster-id> --project_id=<project-id> --cli-region=<region> --cli-output=json
+hcloud CCE CreateKubernetesClusterCert --cluster_id=<cluster-id> --project_id=<project-id> --duration=1 --cli-region=<region> --cli-output=json > <kubeconfig-file>
 
-Collect:
+kubectl --kubeconfig=<kubeconfig-file> get nodes -o wide
+kubectl --kubeconfig=<kubeconfig-file> describe node <node-name>
+kubectl --kubeconfig=<kubeconfig-file> get lease <node-name> -n kube-node-lease -o yaml
+kubectl --kubeconfig=<kubeconfig-file> get events -A --field-selector involvedObject.kind=Node,involvedObject.name=<node-name> --sort-by=.lastTimestamp
+kubectl --kubeconfig=<kubeconfig-file> get pods -A --field-selector spec.nodeName=<node-name> -o wide
+kubectl --kubeconfig=<kubeconfig-file> top node <node-name>
+```
 
-- `v1.Node.status.conditions` for `Ready`, `MemoryPressure`, `DiskPressure`, `PIDPressure`, `NetworkUnavailable`.
-- `kube-node-lease/<node_name>` `spec.renewTime`; calculate the difference between current time and renewTime.
+## Failure Rules
 
-Determine:
+### Control Plane Disconnected
 
-- **Case A**: `Ready=Unknown` and Lease renewal delay exceeds 40 seconds. Inference: control plane disconnected from the node. If there is no stronger evidence such as `SystemOOM`, `EvictionThresholdMet`, `FailedCreatePodSandBox/CNI`, or `ContainerRuntimeNotReady`, the conclusion should read "control plane disconnected from node (network link or Kubelet/CRI heartbeat interrupted, requires node-side verification)" — do not prematurely attribute to kubelet or network alone.
-- **Case B**: `Ready=False` and Lease is renewing normally. Inference: kubelet is alive and actively reporting node or infrastructure unhealthy.
-- **Case C**: `Ready=True`. Inference: basic communication is normal; continue investigating local resource pressure, CNI, and workload symptoms.
-- **Case D**: Other combinations. Mark as insufficient evidence; continue narrowing with Event, Pod, and node local logs.
+- Signals: `Ready=Unknown`, reason `NodeStatusUnknown`, kube-node-lease renew time is stale, pressure conditions may also be `Unknown`.
+- Interpretation: the control plane is no longer receiving node heartbeats. Do not label kubelet, network, or runtime as the single root cause unless Events or node-side evidence identify it.
+- Next checks: node reachability from cluster network, kubelet status, container runtime status, CNI daemon state, and recent node maintenance or reboot events.
 
-## 2. Node Event Timeline Retrospection
+### Node NotReady
 
-Filter Events where `involvedObject.kind=Node` and `involvedObject.name=<node_name>`, sorted by `lastTimestamp/eventTime/firstTimestamp` descending.
+- Signals: `Ready=False`, kubelet reports node unhealthy, node problem detector Events, or repeated node condition transitions.
+- Interpretation: the node is reachable enough to report state, but kubelet or node health is abnormal.
+- Next checks: Node Events, kubelet/runtime/CNI conditions, pods on node, and whether symptoms affect multiple nodes.
 
-Strong signals:
+### Resource Pressure
 
-- `SystemOOM`: strong memory pressure evidence.
-- `EvictionThresholdMet` with message containing `imagefs`, `nodefs`, `DiskPressure`, `ephemeral-storage`: strong disk pressure evidence.
-- `KubeletSetupFailed`, `ContainerRuntimeNotReady`, `PLEG`, runtime not ready: strong kubelet/CRI abnormality evidence.
-- `NodeNotReady`: NotReady result evidence; root cause must still be identified.
+- Signals: `MemoryPressure=True`, `DiskPressure=True`, `PIDPressure=True`, evicted Pods, ephemeral-storage messages, or allocatable/request saturation.
+- Interpretation: kubelet is protecting node stability or the node is near an operating limit.
+- Next checks: node `describe` allocated resources, `kubectl top`, affected Pod QoS classes, eviction messages, image/container log disk usage, and recent workload changes.
 
-## 3. Workload Symptom Drill-Down
+### Network Or CNI Node Issue
 
-Query all Pods where `spec.nodeName=<node_name>`, and aggregate `phase`, `reason`, `message`, container `state`, and `lastState`.
+- Signals: `NetworkUnavailable=True`, `CNIProblem`, `FailedCreatePodSandBox`, IP allocation errors, or CNI daemon issues concentrated on one node.
+- Interpretation: Pods may schedule but cannot get a working sandbox or network.
+- Next checks: CNI system Pods on the node, node conditions, Events mentioning IP allocation or plugin failure, and whether other nodes are healthy.
 
-Determine:
+### Kubelet Or Runtime Problem
 
-- **Disk pressure**: Multiple Pods `phase=Failed`, `reason=Evicted`, message mentions `DiskPressure`, `nodefs`, `imagefs`, or `ephemeral-storage`.
-- **Memory pressure**: Business Pod `lastState.terminated.reason=OOMKilled`, especially exit code `137`; if `SystemOOM` is also present, confidence is high.
-- **Network abnormality**: New Pods stuck in `ContainerCreating`; corresponding Pod Events have `FailedCreatePodSandBox`, message contains `CNI`, `network plugin returns error`, `timeout waiting for DHCP`, etc.
-- **kubelet/CRI abnormality**: Many Pods become `Unknown`/`NodeLost`, or `kube-system` core DaemonSets (kube-proxy, CNI plugin, CSI plugin, etc.) are abnormal, frequently restarting, or `Unhealthy`.
+- Signals: `KUBELETProblem`, `CRIProblem`, frequent kubelet/containerd restarts, container status unknown, or kubelet not posting ready status.
+- Interpretation: node agent or container runtime cannot manage Pods reliably.
+- Next checks: node problem detector conditions, affected Pods, runtime restart Events, and handoff to node operations for host-side logs.
 
-## 4. Metrics and Cloud-Side Supplementary Evidence
+### Scheduling Disabled Or Tainted
 
-- Use `huawei_get_cce_node_metrics` to verify CPU, memory, disk trends; do not treat single-point peaks as root cause directly.
-- Use `huawei_get_cce_pod_metrics_topN node_ip=<node_ip>` to find high-memory/high-CPU Pods on the node.
-- When NotReady or network hypothesis is strong, additionally check security groups, network ACLs, and Master-Node communication paths.
-- When kernel vulnerabilities or reboot-required issues are involved, additionally check HSS host and vulnerability lists, but do not execute repairs in this skill.
+- Signals: `SchedulingDisabled`, `spec.unschedulable=true`, taints without matching tolerations, or pods pending due to node selectors/taints.
+- Interpretation: node may be intentionally excluded from scheduling or blocked by taints.
+- Next checks: taints, tolerations, scheduler Events, node pool operation history, and maintenance window.
 
-## 5. Conclusion Synthesis
+### Healthy Node Or Non-Node Root Cause
 
-Priority is evidence strength, not fixed order:
+- Signals: Ready=True, lease fresh, no pressure or node problem conditions, other nodes show same app symptom.
+- Interpretation: node is likely not the primary root cause; hand off to Pod, workload, storage, or network diagnoser based on failing workload evidence.
 
-1. Strong Event + Pod symptom agreement: high confidence; can directly categorize as memory, disk, network, or kubelet/CRI.
-2. `Ready=Unknown` + Lease timeout: high confidence for "node disconnected" itself; usually only medium-low confidence for underlying root cause, unless independent strong evidence exists.
-3. Pressure condition `Unknown` with reason `NodeStatusUnknown`: only means kubelet stopped reporting; does not equate to MemoryPressure/DiskPressure being normal or abnormal; report should label as "indeterminate" and note missing independent evidence.
-4. Only NotReady or only metric anomaly: medium-low confidence; requires local log verification.
+## Confidence Guidance
 
-Conclusions must include: root cause category, confidence level, key evidence, impact radius, unconfirmed risks, and next-step verification.
+- High: direct Node condition/Event/lease evidence and matching workload impact.
+- Medium: node symptoms are present but metrics or Events are incomplete.
+- Low: RBAC or reachability gaps prevent key evidence collection.
+
+## Handoff Guidance
+
+- Auto-remediation runner: cordon/drain/reboot/scale only after user confirmation.
+- Network failure diagnoser: CNI or node network evidence spans service connectivity.
+- Pod failure diagnoser: one or a few Pods fail while the node is otherwise healthy.
+- Storage failure diagnoser: node-local mount or volume attach errors dominate.

@@ -1,260 +1,235 @@
 ---
 id: huawei-cloud-cce-node-failure-diagnoser
 name: huawei-cloud-cce-node-failure-diagnoser
-description: |
-  Huawei Cloud CCE Node failure diagnosis skill using Python SDK dispatcher.
-  Use this skill when the user wants to: (1) diagnose CCE node NotReady, node resource pressure, node failure events, (2) analyze node disk/memory/CPU pressure, (3) check node status and conditions, (4) view node metrics and events.
-  Trigger: user mentions "node failure", "节点故障", "NodeNotReady", "节点 NotReady", "node pressure", "节点压力", "node disk pressure", "磁盘压力", "node eviction", "节点驱逐", "节点异常", "节点诊断", "CCE node", "CCE 节点", "节点状态"
-tags: [cce, node-diagnosis, kubernetes, fault-diagnosis]
+description: >
+  Diagnose Huawei Cloud CCE node failures with hcloud CLI for CCE cluster discovery, node metadata, and kubeconfig acquisition, then kubectl for read-only Kubernetes node evidence. Use this skill for CCE NodeNotReady, Ready=Unknown, kube-node-lease timeout, DiskPressure, MemoryPressure, PIDPressure, NetworkUnavailable, CNI/node network symptoms, kubelet or container runtime abnormalities, node problem detector events, eviction impact, and node-level workload impact. Do not use the Python SDK dispatcher.
+tags: [huawei-cloud, cce, hcloud, koocli, kubectl, node, diagnosis]
 ---
 
 # Huawei Cloud CCE Node Failure Diagnoser
 
-> **⚠️ Execution Method (Must Read): This skill executes queries via the local Python dispatcher script. Using hcloud, openstack, or other CLI tools or direct API calls is prohibited.**
->
-> - The dispatcher script is located at `scripts/huawei-cloud.py` within the skill directory
-> - All scripts and environment check scripts are inside the skill package. **You must use `skill action=exec` to execute them. Do not run them directly in a shell.**
-> - **Do not attempt hcloud, openstack, curl IAM, or any other CLI/API methods. This skill does not depend on those tools.**
-> - **All paths are relative to the skill directory, which is the directory where this SKILL.md is located.**
+This skill diagnoses CCE/Kubernetes node failures through Huawei Cloud `hcloud` CLI and Kubernetes `kubectl`.
 
-## Overview
+Execution model:
 
-This skill diagnoses CCE/Kubernetes node failures and produces a complete Markdown diagnosis report. It uses the local Python dispatcher (`scripts/huawei-cloud.py`) to call the Huawei Cloud Python SDK and Kubernetes client APIs, collecting node status, kube-node-lease evidence, events, pod symptoms, and AOM metrics.
+```text
+hcloud CCE -> short-lived kubeconfig -> kubectl --kubeconfig=<file> -> read-only node evidence -> ranked diagnosis report
+```
 
-The skill covers: node NotReady, disk/memory/CPU pressure, network abnormalities, kubelet/CRI failures, NPD events, and workload impact on the affected node.
+Use CCE hcloud commands for cluster-level and CCE node metadata:
 
-### Related Skills
+- `hcloud CCE ListClusters`
+- `hcloud CCE ShowCluster`
+- `hcloud CCE ShowClusterEndpoints`
+- `hcloud CCE ListNodes`
+- `hcloud CCE ShowNode`
+- `hcloud CCE CreateKubernetesClusterCert`
 
-| Skill | Purpose |
-|-------|---------|
-| `huawei-cloud-cce-pod-failure-diagnoser` | Pod-level failure diagnosis |
-| `huawei-cloud-cce-network-failure-diagnoser` | Network failure diagnosis |
-| `huawei-cloud-cce-storage-failure-diagnoser` | Storage failure diagnosis |
-| `huawei-cloud-cce-auto-remediation-runner` | Execute remediation actions (cordon, drain, reboot) |
-| `huawei-cloud-cce-metric-analyzer` | Metric trend analysis |
-| `huawei-cloud-cce-observability-context-builder` | Observability context enrichment |
+Use `kubectl` for Kubernetes node state, kube-node-lease, Events, Pods on the node, logs from affected Pods when needed, and metrics from metrics-server.
 
-### Capabilities
+Do not use Python SDK dispatcher commands, `scripts/huawei-cloud.py`, `skill action=exec`, old `huawei_node_*` actions, or Huawei Cloud SDK imports for this skill.
 
-1. One-shot node failure diagnosis with structured evidence and Markdown report (`huawei_node_failure_diagnose`)
-2. Kubernetes node status and conditions collection (`huawei_get_kubernetes_nodes`)
-3. Node/Pod event timeline retrieval (`huawei_get_cce_events`)
-4. Pod phase/reason/state aggregation per node (`huawei_get_cce_pods`)
-5. Node and Pod AOM metric queries (`huawei_get_cce_node_metrics`, `huawei_get_cce_pod_metrics_topN`)
-6. Node inspection items (status, resource, vulnerability) (`huawei_node_status_inspection`, `huawei_node_resource_inspection`, `huawei_node_vul_inspection`)
-7. Security group and HSS vulnerability correlation (`huawei_list_security_groups`, `huawei_hss_list_hosts`, `huawei_hss_list_host_vuls_all`)
+## When To Use
 
-### Typical Use Cases
+Use this skill for:
 
-- Diagnose a CCE node that transitioned to NotReady state
-- Investigate node disk or memory pressure conditions
-- Analyze kubelet or container runtime failures on a node
-- Check node network connectivity issues (CNI sandbox failures)
-- Assess pod impact when a node becomes unhealthy
-- Review NPD events and node-level security findings
+- Node `NotReady`, `Ready=False`, `Ready=Unknown`, or stale kube-node-lease.
+- `DiskPressure`, `MemoryPressure`, `PIDPressure`, `NetworkUnavailable`, CNI, CRI, kubelet, or node problem detector signals.
+- Pod evictions, sandbox creation failures, image pull failures, or restart storms concentrated on one node.
+- Node resource pressure, allocatable/request saturation, taints, scheduling disabled, or node-local workload impact.
+- User asks to diagnose a CCE node without mutating the cluster.
 
----
+Do not use this skill to modify node or workload state. Cordon, uncordon, drain, reboot, delete, taint, scale, or restart operations must be written as recommendations and handed off to a remediation skill after confirmation.
+
+## Required Inputs
+
+| Input | Required | Notes |
+| --- | --- | --- |
+| `region` | Yes | Example: `cn-north-4` |
+| `project_id` | Usually | Required by most hcloud CCE operations |
+| `cluster_id` | Preferred | If absent, resolve by cluster name with `ListClusters` |
+| `cluster_name` | Optional | Use only to locate `cluster_id` |
+| `node_name` | Preferred | Kubernetes node name, often the internal IP in CCE |
+| `node_ip` | Optional | Use to match `kubectl get nodes -o wide` or CCE node metadata |
+| `namespace` | Optional | Needed when narrowing affected Pods or logs |
+
+At least one of `node_name` or `node_ip` should be provided. If both are missing, first list nodes and ask the user which node or symptom to focus on.
 
 ## Prerequisites
 
-### Python Dependencies
-
-The dispatcher script requires Python >= 3.6 and the following packages:
-
-- `huaweicloudsdkcore`
-- `huaweicloudsdkcce`
-- `huaweicloudsdkaom`
-- `huaweicloudsdkhss`
-- `huaweicloudsdkvpc`
-- `huaweicloudsdkecs`
-- `huaweicloudsdkces`
-- `huaweicloudsdkevs`
-- `huaweicloudsdkeip`
-- `huaweicloudsdkelb`
-- `huaweicloudsdkiam`
-- `kubernetes`
-
-### Credential Configuration
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| HUAWEI_AK | Yes | Huawei Cloud Access Key |
-| HUAWEI_SK | Yes | Huawei Cloud Secret Key |
-| HUAWEI_REGION | No | Default region (overrides `region` param if set) |
-| HUAWEI_PROJECT_ID | No | Project ID (auto-obtained via IAM API when not set) |
-| HUAWEI_SECURITY_TOKEN | No | Required when using temporary AK/SK |
-
-🚫 **Never expose or log AK/SK values.** Credentials exist only in the current request call stack and are released after each invocation. Do not write credentials to files, logs, or responses.
-
-✅ **Use environment variables** `HUAWEI_AK` / `HUAWEI_SK` for authentication. The dispatcher reads them automatically.
-
-### IAM Permissions
-
-| Permission | Service | Required For |
-|------------|---------|---------------|
-| CCE cluster/node read | CCE | `huawei_list_cce_nodes`, `huawei_get_cce_nodes`, `huawei_node_diagnose` |
-| Kubernetes API read | CCE (kubeconfig) | `huawei_get_kubernetes_nodes`, `huawei_node_failure_diagnose` |
-| AOM metrics read | AOM | `huawei_get_cce_node_metrics`, `huawei_get_cce_pod_metrics_topN` |
-| CES alarm read | CES | `huawei_get_cce_events` |
-| HSS host/vul read | HSS | `huawei_hss_list_hosts`, `huawei_hss_list_host_vuls_all` |
-| VPC/SG read | VPC | `huawei_list_security_groups`, `huawei_list_vpc_acls` |
-
----
-
-## Core Tools
-
-All actions are invoked via the dispatcher script:
+1. `hcloud` is installed and available in `PATH`, or a platform-native binary has been located and validated with `hcloud version`.
+2. `kubectl` is installed and compatible with the target Kubernetes version. Linux sandboxes must use a Linux kubectl binary; Windows workstations use `kubectl.exe`.
+3. Credentials are available to hcloud through a profile, environment, or one-off CLI parameters. Verify only masked configuration with:
 
 ```bash
-python3 scripts/huawei-cloud.py <action> region=<region> cluster_id=<cluster_id> [key=value ...]
+hcloud configure list
 ```
 
-### Primary Diagnosis Action
+4. IAM allows CCE cluster/node read and kubeconfig certificate creation.
+5. Kubernetes RBAC allows read access to nodes, leases, events, pods, pod logs, and metrics when available.
+
+Never print AK, SK, security tokens, kubeconfig certificates, Authorization headers, or registry secrets.
+
+## CCE hcloud Setup Flow
+
+### 1. Confirm CLI Tools
 
 ```bash
-python3 scripts/huawei-cloud.py huawei_node_failure_diagnose \
-  region=cn-north-4 cluster_id=<cluster_id> \
-  node_name=<node_name> lease_timeout_seconds=40 \
-  event_limit=500 hours=1 include_metrics=true
+hcloud version
+hcloud configure list
+kubectl version --client
 ```
 
-Returns structured evidence + `report_markdown` (complete Markdown diagnosis report).
+If a tool is not in `PATH`, locate or install a platform-native binary and validate the exact binary before using it. Keep skill examples platform-neutral as `hcloud` and `kubectl`; only local debug notes may contain absolute executable paths.
 
-### Evidence Collection Actions
+### 2. Locate And Check The Cluster
 
-| Action | Required Params | Description |
-|--------|----------------|-------------|
-| `huawei_get_kubernetes_nodes` | `region`, `cluster_id` | Query v1.Node Ready/conditions status |
-| `huawei_get_cce_events` | `region`, `cluster_id` | Retrieve Kubernetes events |
-| `huawei_get_cce_pods` | `region`, `cluster_id` | List Pod phase/reason/lastState |
-| `huawei_get_cce_node_metrics` | `region`, `cluster_id`, `node_ip` | Query node CPU/memory/disk metrics |
-| `huawei_get_cce_node_metrics_topN` | `region`, `cluster_id` | Top-N node metrics |
-| `huawei_get_cce_pod_metrics_topN` | `region`, `cluster_id` | Top-N pod metrics (supports `node_ip` filter) |
+```bash
+hcloud CCE ListClusters --project_id=<project-id> --detail=true --cli-region=<region> --cli-output=json
+hcloud CCE ShowCluster --cluster_id=<cluster-id> --project_id=<project-id> --detail=true --cli-region=<region> --cli-output=json
+hcloud CCE ShowClusterEndpoints --cluster_id=<cluster-id> --project_id=<project-id> --cli-region=<region> --cli-output=json
+```
 
-### Inspection Actions
+Confirm the cluster is in the expected region/project and is reachable from the current network. If only a private API endpoint is available, run kubectl from a VPC/VPN/Direct Connect/Cloud Desktop environment that can reach the private endpoint.
 
-| Action | Required Params | Description |
-|--------|----------------|-------------|
-| `huawei_node_status_inspection` | `region`, `cluster_id` | Node status health inspection |
-| `huawei_node_resource_inspection` | `region`, `cluster_id` | Node resource utilization inspection |
-| `huawei_node_vul_inspection` | `region`, `cluster_id` | Node vulnerability inspection |
+### 3. Optional CCE Node Metadata
 
-### Security Correlation Actions
+Use these commands to correlate Kubernetes node names with CCE node IDs and cloud metadata:
 
-| Action | Required Params | Description |
-|--------|----------------|-------------|
-| `huawei_list_security_groups` | `region` | List VPC security groups |
-| `huawei_list_vpc_acls` | `region` | List VPC network ACLs |
-| `huawei_hss_list_hosts` | `region` | List HSS host security status |
-| `huawei_hss_list_host_vuls_all` | `region`, `host_id` | List all vulnerabilities for a host |
+```bash
+hcloud CCE ListNodes --cluster_id=<cluster-id> --project_id=<project-id> --cli-region=<region> --cli-output=json
+hcloud CCE ShowNode --cluster_id=<cluster-id> --node_id=<node-id> --project_id=<project-id> --cli-region=<region> --cli-output=json
+```
 
----
+Do not use CCE node update/delete/reset operations.
 
-## Parameter Reference
+### 4. Acquire A Short-Lived Kubeconfig
 
-### `huawei_node_failure_diagnose`
+```bash
+hcloud CCE CreateKubernetesClusterCert --cluster_id=<cluster-id> --project_id=<project-id> --duration=1 --cli-region=<region> --cli-output=json > <temp-kubeconfig-file>
+chmod 600 <temp-kubeconfig-file>
+```
 
-| Parameter | Required | Default | Description |
-|-----------|----------|---------|-------------|
-| `region` | Yes | - | Huawei Cloud region (e.g., `cn-north-4`) |
-| `cluster_id` | Yes | - | CCE cluster ID |
-| `node_name` | No* | - | Target node name (one of node_name or node_ip required) |
-| `node_ip` | No* | - | Target node internal IP (one of node_name or node_ip required) |
-| `lease_timeout_seconds` | No | 40 | Kube-node-lease stale threshold in seconds |
-| `event_limit` | No | 500 | Maximum events to retrieve |
-| `hours` | No | 1 | Metric lookback window in hours |
-| `include_metrics` | No | true | Whether to include AOM metrics |
+KooCLI may output JSON-formatted kubeconfig. `kubectl` accepts JSON or YAML kubeconfig. Store it outside the repository and delete it after the diagnosis when no longer needed.
 
-*At least one of `node_name` or `node_ip` must be provided. If both are omitted, the action returns an error.
+If the cluster was recently awakened or an EIP was just bound, retry certificate creation with explicit timeouts:
 
-### Common Parameters
+```bash
+hcloud CCE CreateKubernetesClusterCert --cluster_id=<cluster-id> --project_id=<project-id> --duration=1 --cli-region=<region> --cli-output=json --cli-connect-timeout=20 --cli-read-timeout=90 --cli-retry-count=2 > <temp-kubeconfig-file>
+```
 
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `region` | Yes | Huawei Cloud region |
-| `cluster_id` | Yes (most actions) | CCE cluster ID |
-| `node_ip` | Required for `huawei_get_cce_node_metrics` | Node internal IP |
-| `top_n` | No | Number of top results (default 10) |
-| `hours` | No | Metric lookback hours (default 1) |
+### 5. Verify Kubernetes Read Access
 
----
+```bash
+kubectl --kubeconfig=<kubeconfig-file> cluster-info
+kubectl --kubeconfig=<kubeconfig-file> auth can-i get nodes
+kubectl --kubeconfig=<kubeconfig-file> auth can-i list leases -n kube-node-lease
+kubectl --kubeconfig=<kubeconfig-file> auth can-i list events -A
+kubectl --kubeconfig=<kubeconfig-file> auth can-i list pods -A
+kubectl --kubeconfig=<kubeconfig-file> auth can-i get pods/log -A
+```
 
-## Output Format
+If RBAC denies a read, report the missing verb/resource and continue only with allowed evidence.
 
-The primary action `huawei_node_failure_diagnose` returns structured evidence and a Markdown report. See `references/output-schema.md` for the full JSON response schema.
+## Diagnosis Workflow
 
-Key output fields:
+Read `references/workflow.md` for detailed evidence order and failure rules.
 
-| Field | Description |
-|-------|-------------|
-| `success` | Whether the diagnosis completed successfully |
-| `node` | Node name, IP, Ready status, conditions |
-| `lease` | kube-node-lease renew time, stale status, delay seconds |
-| `liveness` | Control plane liveness case (A/B/C/D) and conclusion |
-| `root_category` | Root cause category (ControlPlaneDisconnected, MemoryPressure, DiskPressure, Network, Kubelet, NotReady, Healthy) |
-| `confidence` | Confidence level (High/Medium/Low) |
-| `evidence` | List of evidence items with category, severity, signal, source, detail |
-| `pod_summary` | Pod phase counts and symptomatic pod list |
-| `health_items` | Node health check items with status |
-| `report_markdown` | Complete Markdown diagnosis report (use as final output) |
+Start with the cluster and node baseline:
 
-When `report_markdown` is present, use it as the final report body. You may add clarifications the user requests, but do not discard evidence tables.
+```bash
+kubectl --kubeconfig=<kubeconfig-file> get nodes -o wide
+kubectl --kubeconfig=<kubeconfig-file> describe node <node-name>
+kubectl --kubeconfig=<kubeconfig-file> get lease <node-name> -n kube-node-lease -o yaml
+kubectl --kubeconfig=<kubeconfig-file> get events -A --field-selector involvedObject.kind=Node,involvedObject.name=<node-name> --sort-by=.lastTimestamp
+```
 
----
+Then inspect workload impact on the node:
+
+```bash
+kubectl --kubeconfig=<kubeconfig-file> get pods -A --field-selector spec.nodeName=<node-name> -o wide
+kubectl --kubeconfig=<kubeconfig-file> get pods -A --field-selector spec.nodeName=<node-name> -o custom-columns="NAMESPACE:.metadata.namespace,NAME:.metadata.name,READY:.status.containerStatuses[*].ready,RESTARTS:.status.containerStatuses[*].restartCount,PHASE:.status.phase,REASON:.status.reason,NODE:.spec.nodeName"
+kubectl --kubeconfig=<kubeconfig-file> get events -A --sort-by=.lastTimestamp
+```
+
+Use metrics-server when available:
+
+```bash
+kubectl --kubeconfig=<kubeconfig-file> top node <node-name>
+kubectl --kubeconfig=<kubeconfig-file> top pods -A --sort-by=memory
+```
+
+If `kubectl top` returns `Metrics API not available`, record it as a verification gap and avoid inventing resource trends.
+
+## Cause Ranking
+
+Rank causes by direct evidence and the first failing layer:
+
+1. Cluster/API reachability or kubeconfig/RBAC gap.
+2. Node liveness and kube-node-lease staleness.
+3. Node conditions: Ready, pressure, NetworkUnavailable, kubelet/CRI/CNI/NPD conditions.
+4. Taints, unschedulable state, and scheduling impact.
+5. Pod symptoms concentrated on the node: Evicted, ContainerStatusUnknown, FailedCreatePodSandBox, volume mount failures, restart storms.
+6. Resource saturation using allocatable/request summary and metrics when available.
+
+Common cause labels:
+
+| Cause | Evidence |
+| --- | --- |
+| `ControlPlaneDisconnected` | Ready=Unknown, stale lease, NodeStatusUnknown conditions |
+| `NodeNotReady` | Ready=False with kubelet/node problem Events |
+| `MemoryPressure` | MemoryPressure=True, evictions, memory metrics or allocatable pressure |
+| `DiskPressure` | DiskPressure=True, ephemeral-storage evictions, disk problem conditions |
+| `PIDPressure` | PIDPressure=True or PID problem Events |
+| `NetworkUnavailableOrCNI` | NetworkUnavailable=True, CNIProblem, FailedCreatePodSandBox concentrated on node |
+| `KubeletOrRuntimeProblem` | KUBELETProblem, CRIProblem, containerd/kubelet restart signals |
+| `SchedulingDisabledOrTainted` | unschedulable node or taints causing scheduling impact |
+| `HealthyOrNoNodeFault` | Node Ready, lease fresh, no pressure/problem signals |
+
+## Report Format
+
+Use `references/output-schema.md` as the detailed schema. Put decision-critical information first; command traces and raw condition tables come after the conclusion and next steps.
+
+The user-facing report should include, in this order:
+
+- Executive summary: node health status, confidence, root category, and one-line conclusion.
+- Root-cause analysis: top causes ranked with direct evidence and interpretation.
+- Recommended next steps: safe checks, candidate fix paths, and handoff owner/skill.
+- Target: region, project, cluster, node name/IP, and optional namespace/workload scope.
+- Node lifecycle/liveness funnel.
+- Workload impact: Pods on node, evicted/failed/not-ready Pods, and concentrated symptoms.
+- Negative evidence: adjacent causes that were checked and are less likely.
+- Node condition table and kube-node-lease finding.
+- Metrics and verification gaps.
+- CLI path used: hcloud CCE operations and kubectl evidence commands.
+- Explicit statement that no mutating command was run.
+
+## Safety Rules
+
+Read `references/risk-rules.md` before making recommendations. This skill is read-only. Do not run:
+
+- `kubectl apply`, `create`, `patch`, `edit`, `delete`, `scale`, `rollout undo`, `cordon`, `uncordon`, `drain`, or `taint`
+- CCE node reset/delete/update operations
+- ECS reboot/stop/delete operations
+- Any SDK dispatcher action
 
 ## Verification
 
-1. Run the dispatcher with a known cluster and node to confirm connectivity:
-   ```bash
-   python3 scripts/huawei-cloud.py huawei_get_kubernetes_nodes region=cn-north-4 cluster_id=<cluster_id>
-   ```
-2. Execute `huawei_node_failure_diagnose` on a healthy node; expect `root_category=Healthy` and `confidence=High`
-3. Verify `report_markdown` contains all required sections (see `references/output-schema.md`)
-4. Compare node conditions in the output with the CCE console
+Read `references/verification-method.md` for the CLI verification checklist. A valid implementation should pass these checks:
 
----
+- `hcloud version`, `hcloud configure list`, and `kubectl version --client` work.
+- `hcloud CCE ListClusters`, `ShowCluster`, and `CreateKubernetesClusterCert` work.
+- `kubectl --kubeconfig=<file>` can read nodes, leases, events, and pods.
+- Repository/package search finds no SDK dispatcher entrypoints in this skill package.
 
-## Best Practices
+## References
 
-1. Always call `huawei_node_failure_diagnose` first; use manual fallback actions only if the primary action fails
-2. When `Ready=Unknown` and lease is stale, conclude "control plane disconnected from node" rather than prematurely attributing to kubelet or network alone
-3. When pressure conditions are `Unknown` with `NodeStatusUnknown` reason, label them "indeterminate" — do not mark as "normal"
-4. Correlate Event signals with Pod symptoms before forming conclusions; evidence strength determines confidence level
-5. Include security group and HSS checks only when network or vulnerability hypotheses are strong
-6. Do not single-point metric peaks as root cause; validate with trend data
-
----
-
-## Reference Documents
-
-| Document | Description |
-|----------|-------------|
-| `references/workflow.md` | Diagnosis triage flow, evidence rules, and fallback workflow |
-| `references/output-schema.md` | Output JSON schema and required Markdown report sections |
-| `references/risk-rules.md` | Risk boundary rules: allowed read actions, prohibited write actions |
-| [Huawei Cloud Python SDK Documentation](https://doc.huihua.com/api/sdk/python.html) | SDK reference |
-| [Huawei Cloud API Explorer](https://support.huaweicloud.com/apiexplorer/index.html) | API interactive explorer |
-
----
-
-## Notes
-
-1. This skill is **read-only diagnosis only** — it does not cordon, uncordon, drain, reboot, or modify vulnerability status
-2. When remediation actions are needed, hand off to `huawei-cloud-cce-auto-remediation-runner` and require user confirmation
-3. Never expose or log AK/SK or environment variable values
-4. All actions are executed via `python3 scripts/huawei-cloud.py <action>`; do not use hcloud CLI or direct API calls
-5. If the primary action `huawei_node_failure_diagnose` fails, follow the manual fallback workflow in `references/workflow.md`
-
----
-
-## Common Pitfalls
-
-| Pitfall | Correct Approach |
-|---------|-----------------|
-| Concluding "kubelet failure" when `Ready=Unknown` + lease stale | Conclude "control plane disconnected from node (network or kubelet/CRI heartbeat interrupted, requires node-side verification)" |
-| Marking `Unknown` pressure conditions as "normal" | Label as "indeterminate — no independent evidence available" |
-| Using a single metric spike as root cause | Validate with trend data over time; use `hours` parameter for lookback |
-| Skipping event/pod correlation | Always cross-reference Event signals with Pod symptoms before forming conclusions |
-| Executing cordon/drain/reboot directly | This skill does not perform write actions; hand off to `huawei-cloud-cce-auto-remediation-runner` |
-| Ignoring CNI sandbox failures in Pod events | `FailedCreatePodSandBox` + CNI error patterns are strong network abnormality evidence |
-| Not checking kube-node-lease when node is NotReady | Lease staleness is critical evidence for control plane connectivity |
+- `references/workflow.md` - node evidence order and failure rules.
+- `references/common-pitfalls.md` - node diagnosis traps and CLI examples.
+- `references/output-schema.md` - Markdown and JSON report structure.
+- `references/risk-rules.md` - read-only boundaries and handoff rules.
+- `references/verification-method.md` - environment and CLI verification.
+- `references/iam-policies.md` - IAM and Kubernetes RBAC requirements.
+- Huawei Cloud KooCLI documentation: https://support.huaweicloud.com/hcli/
+- Huawei Cloud CCE documentation: https://support.huaweicloud.com/cce/
+- Kubernetes kubectl reference: https://kubernetes.io/docs/reference/kubectl/

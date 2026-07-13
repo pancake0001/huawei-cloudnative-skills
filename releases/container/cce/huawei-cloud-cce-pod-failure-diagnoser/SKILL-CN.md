@@ -278,19 +278,20 @@ kubectl --kubeconfig=<kubeconfig-file> get pv
 
 ## 报告格式
 
-用户侧报告应包含：
+用户侧报告要把决策信息放前面；命令轨迹和支撑证据放在读者已经看到结论之后。
 
+报告应按这个顺序输出：
+
+- 执行摘要：状态、置信度、受影响 Pod/workload 和一句话结论。
+- 根因分析：Top causes，附直接证据和人能看懂的解释。
+- 下一步措施：立即可做的安全检查、候选修复路径、移交对象或 skill。
 - 目标：region、project、cluster、namespace、Pod/workload/selector。
-- CLI 路径：使用过的 hcloud CCE 和 kubectl 证据命令。
-- 摘要状态和置信度。
 - Pod 生命周期漏斗的通过/失败层。
-- Top causes，附直接证据片段。
-- 根因解释：用人能看懂的话解释失败信息意味着什么，包括镜像名解析、默认 registry、调度状态、节点压力、存储状态等如何影响结论。
-- 反向证据：简要说明为什么排除了相邻原因，例如调度、节点 NotReady、日志、指标、OOM、存储、探针等。
+- 反向证据：为什么排除了相邻原因，例如调度、节点 NotReady、日志、指标、OOM、存储、探针等。
 - 当前日志和 previous 日志发现。
 - 指标、节点、存储等缺口。
-- 深入分析建议：给出下一步具体检查项、什么结果能确认或推翻当前假设、应该检查哪个系统或配置。
-- 候选修复路径：只描述安全修复方案，不直接执行；需要变更时说明移交到 workload、node、storage、network、root-cause 或 remediation skill。
+- 详细证据：相关 Events、状态字段、owner/workload 信息和关键命令证据。
+- CLI 路径：使用过的 hcloud CCE 和 kubectl 证据命令。
 - 明确说明没有执行变更命令。
 
 识别 Top Cause 后，读取 `references/scenario-guides.md` 并套用对应场景。这个规则适用于所有明确故障类型，不只适用于镜像拉取失败。场景指南覆盖 ImagePullBackOff、CrashLoopBackOff、OOMKilled、Pending、存储挂载、Evicted、探针失败、CNI/sandbox、Admission/Quota 等场景，并给出每类的解释、反向证据、下一步检查、候选修复和移交建议。
