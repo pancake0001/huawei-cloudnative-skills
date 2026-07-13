@@ -282,19 +282,20 @@ Common cause labels:
 
 ## Report Format
 
-Use `references/output-schema.md` as the detailed schema. The user-facing report should include:
+Use `references/output-schema.md` as the detailed schema. Put decision-critical information first; command traces and supporting evidence come after the reader already knows the conclusion.
 
+The user-facing report should include, in this order:
+
+- Executive summary: status, confidence, affected Pod/workload, and one-line conclusion.
+- Root-cause analysis: top causes ranked with direct evidence and plain-language interpretation.
+- Recommended next steps: immediate safe checks, candidate fix paths, and handoff owner/skill.
 - Target: region, project, cluster, namespace, Pod/workload/selector.
-- CLI path used: hcloud CCE operations and kubectl evidence commands.
-- Summary status and confidence.
 - Pod lifecycle funnel with pass/fail layers.
-- Top causes ranked with direct evidence snippets.
-- Root-cause interpretation: explain what the failing message means in plain language, including how image names, registry defaults, scheduler state, node pressure, or storage state affect the conclusion.
-- Negative evidence: briefly state why likely adjacent causes were ruled out, such as scheduling, node readiness, logs, metrics, OOM, storage, or probes.
+- Negative evidence: why adjacent causes were ruled out, such as scheduling, node readiness, logs, metrics, OOM, storage, or probes.
 - Current/previous log findings when available.
 - Metrics and node/storage gaps when unavailable.
-- Follow-up analysis recommendations: include concrete next checks, what result would confirm or refute the hypothesis, and which owner/system should be checked.
-- Candidate fix paths: describe safe remediation options without executing them, and state when to hand off to workload, node, storage, network, root-cause, or remediation skills.
+- Detailed evidence: relevant Events, status fields, owner/workload details, and selected command evidence.
+- CLI path used: hcloud CCE operations and kubectl evidence commands.
 - Explicit note that no mutating command was run.
 
 After identifying the top cause, read `references/scenario-guides.md` and apply the matching scenario section. Do this for every concrete failure type, not only image pull failures. The scenario guide contains the expected interpretation, ruled-out causes, follow-up checks, candidate fixes, and handoff guidance for ImagePullBackOff, CrashLoopBackOff, OOMKilled, Pending, storage mount failures, eviction, probe failures, CNI/sandbox failures, and admission/quota failures.

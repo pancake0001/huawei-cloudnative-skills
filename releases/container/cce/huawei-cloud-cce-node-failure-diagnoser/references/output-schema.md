@@ -1,97 +1,115 @@
 # Output Schema
 
-The primary tool `huawei_node_failure_diagnose` returns structured evidence and a Markdown report. The final user-facing output should preferentially use `report_markdown`.
+The final report may be Markdown, but it should map cleanly to this JSON shape. Include command evidence without secrets.
 
 ```json
 {
   "success": true,
-  "action": "huawei_node_failure_diagnose",
-  "region": "cn-north-4",
-  "cluster_id": "cluster-id",
+  "action": "node_failure_diagnose_cli",
+  "execution_model": "hcloud CCE + kubectl",
+  "target": {
+    "region": "cn-north-4",
+    "project_id": "optional",
+    "cluster_id": "cluster uuid",
+    "cluster_name": "optional",
+    "node_name": "192.168.0.10",
+    "node_ip": "192.168.0.10"
+  },
+  "cli_path": {
+    "hcloud_commands": [
+      "hcloud CCE ShowCluster ...",
+      "hcloud CCE ListNodes ...",
+      "hcloud CCE CreateKubernetesClusterCert ..."
+    ],
+    "kubectl_commands": [
+      "kubectl --kubeconfig=<file> describe node ...",
+      "kubectl --kubeconfig=<file> get lease ...",
+      "kubectl --kubeconfig=<file> get pods -A --field-selector spec.nodeName=..."
+    ],
+    "mutating_commands_run": false
+  },
+  "summary": {
+    "diagnosis_status": "abnormal | healthy | partial_evidence",
+    "confidence": 0.9,
+    "root_category": "ControlPlaneDisconnected | NodeNotReady | MemoryPressure | DiskPressure | PIDPressure | NetworkUnavailableOrCNI | KubeletOrRuntimeProblem | SchedulingDisabledOrTainted | HealthyOrNoNodeFault",
+    "affected_pod_count": 5
+  },
   "node": {
-    "name": "node-name",
-    "internal_ip": "10.0.0.1",
+    "name": "192.168.0.10",
+    "internal_ip": "192.168.0.10",
     "ready": "True | False | Unknown",
+    "unschedulable": false,
+    "taints": [],
     "conditions": [
       {
         "type": "Ready",
-        "status": "Unknown",
-        "reason": "NodeStatusUnknown",
-        "message": "...",
-        "last_heartbeat_time": "2026-05-30T10:00:00Z",
-        "last_transition_time": "2026-05-30T10:01:00Z"
+        "status": "True",
+        "reason": "KubeletReady",
+        "message": "kubelet is posting ready status",
+        "last_transition_time": "2026-07-06T10:00:00Z"
       }
-    ]
+    ],
+    "lease": {
+      "available": true,
+      "renew_time": "2026-07-06T10:00:00Z",
+      "stale": false,
+      "delay_seconds": 10
+    }
   },
-  "lease": {
-    "found": true,
-    "namespace": "kube-node-lease",
-    "renew_time": "2026-05-30T10:00:00Z",
-    "renew_delay_seconds": 72,
-    "stale": true,
-    "threshold_seconds": 40
-  },
-  "liveness": {
-    "case": "A | B | C | D",
-    "ready": "True | False | Unknown",
-    "lease_stale": true,
-    "conclusion": "Control plane disconnected from node",
-    "inference": "Ready=Unknown and Lease renewal exceeds threshold..."
-  },
-  "root_category": "ControlPlaneDisconnected | MemoryPressure | DiskPressure | Network | Kubelet | NotReady | Healthy",
-  "conclusion": "Control plane disconnected from node (network link or Kubelet/CRI heartbeat interrupted, requires node-side verification)",
-  "confidence": "High",
-  "scores": {
-    "ControlPlaneDisconnected": 8,
-    "MemoryPressure": 11,
-    "Kubelet": 4
-  },
-  "evidence": [
+  "top_causes": [
     {
-      "category": "MemoryPressure",
-      "severity": "critical",
-      "signal": "SystemOOM",
-      "source": "Event/kubelet",
-      "detail": "System OOM encountered..."
+      "rank": 1,
+      "type": "NodeNotReady",
+      "title": "Node is not ready",
+      "confidence": 0.9,
+      "interpretation": "Plain-language explanation of the evidence.",
+      "evidence": [],
+      "ruled_out": [],
+      "follow_up_checks": [],
+      "candidate_fix": [],
+      "handoff": "huawei-cloud-cce-auto-remediation-runner"
     }
   ],
-  "pod_summary": {
-    "total": 24,
-    "phase_counts": {
-      "Running": 10,
-      "Unknown": 14
-    },
-    "symptomatic": [],
-    "observed": [
-      {
-        "namespace": "kube-system",
-        "name": "node-local-dns-abc",
-        "phase": "Running",
-        "restart_total": 0,
-        "core_daemon": true
-      }
-    ]
+  "workload_impact": {
+    "pods_on_node": 12,
+    "symptomatic_pods": [],
+    "evicted_pods": [],
+    "not_ready_pods": []
   },
-  "health_items": [
-    {
-      "item": "Memory Pressure",
-      "status": "Indeterminate",
-      "detail": "MemoryPressure=Unknown; evidence_score=0"
-    }
-  ],
-  "node_events": [],
-  "pod_events": [],
-  "metrics": {},
-  "metric_error": null,
-  "report_markdown": "# Kubernetes Node Automated Diagnosis Report\n..."
+  "metrics": {
+    "available": true,
+    "source": "kubectl top",
+    "notes": []
+  },
+  "verification_gaps": [],
+  "recommended_actions": []
 }
 ```
 
-## Required Markdown Report Sections
+## Markdown Report Sections
 
-1. `# Kubernetes Node Automated Diagnosis Report`
-2. `## 1. Diagnosis Overview`: target node, diagnosis conclusion, confidence level, blast radius.
-3. `## 2. Node Status Health`: NotReady, memory pressure, disk pressure, network status, Kubelet status, node scheduling taints; when pressure conditions are `Unknown` with `NodeStatusUnknown` reason and no independent evidence exists, label as "indeterminate" — do not mark as "normal".
-4. `## 3. Key Investigation`: control plane liveness triage, key event timeline, node workload anomaly observation, metric snapshot, evidence matrix.
-5. `## 4. Diagnosis Conclusion`: derive conclusions from evidence, and indicate parts that still require local log confirmation.
-6. `## 5. Remediation Recommendations`: provide suggestions and verification steps only; do not directly execute changes.
+Use these sections in the human-readable report, with action-driving sections first:
+
+1. Executive summary: node status, confidence, root category, and one-line conclusion.
+2. Root-cause analysis: top causes, evidence, and interpretation.
+3. Recommended next steps and handoff recommendation.
+4. Target and scope.
+5. Node lifecycle and liveness funnel.
+6. Workload impact on the node.
+7. Negative evidence and ruled-out causes.
+8. Node conditions and kube-node-lease.
+9. Metrics, Events, and verification gaps.
+10. Detailed supporting evidence.
+11. CLI path used.
+12. Explicit statement that no mutating command was run.
+
+## Recommendation Requirements
+
+Each top cause should include:
+
+- `interpretation`: what the node signal means.
+- `evidence`: direct condition, Event, lease, pod, or metric evidence.
+- `ruled_out`: adjacent causes that are less likely and why.
+- `follow_up_checks`: specific checks and expected confirming/refuting signals.
+- `candidate_fix`: safe remediation options without executing them.
+- `handoff`: owner or skill for actions outside this read-only diagnoser.

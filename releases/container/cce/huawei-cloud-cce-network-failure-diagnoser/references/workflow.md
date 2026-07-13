@@ -1,94 +1,104 @@
 # Workflow
 
-## Reuse Priorities
+This workflow is read-only and uses `hcloud CCE`, `kubectl`, and optional read-only `hcloud` cloud-network commands.
 
-Existing capabilities must be reused first:
+## Evidence Order
 
-- K8s objects: `huawei_get_cce_services`, `huawei_get_cce_ingresses`, `huawei_get_cce_pods`, `huawei_get_kubernetes_nodes`, `huawei_get_cce_events`, `huawei_get_pod_logs`.
-- Cloud network: `huawei_list_elb`, `huawei_list_elb_listeners`, `huawei_get_elb_metrics`, `huawei_list_eip`, `huawei_get_eip_metrics`, `huawei_list_nat`, `huawei_get_nat_gateway_metrics`, `huawei_list_security_groups`, `huawei_list_vpc_acls`.
-- Legacy comprehensive diagnosis: `huawei_network_diagnose`, `huawei_network_diagnose_by_alarm` — can still be used for workload-level link and monitoring coarse diagnosis.
-- Logging & observability: existing LTS/AOM logs, Pod logs, AOM metrics capabilities are available; do not re-implement log or metrics platforms.
+1. Scope: confirm `region`, `project_id`, `cluster_id`, `namespace`, `failure_symptom`, and the target object or path.
+2. CLI setup: verify hcloud, masked credentials, kubectl, cluster metadata, endpoint reachability, kubeconfig acquisition, and read RBAC.
+3. Node base layer: check nodes and CNI-related conditions before interpreting Service or Ingress failures.
+4. DNS layer: inspect kube-dns/CoreDNS Service, EndpointSlices, Pods, Events, and logs when the symptom involves DNS.
+5. Service layer: inspect Service type, selector, ports, Endpoints, EndpointSlices, and backend Pod readiness.
+6. Policy layer: inspect NetworkPolicies in the namespace and determine whether they select the destination and allow the source/port.
+7. Ingress layer: inspect Ingress rules, class, annotations, backend Service/port, status address, controller Events, and related logs when available.
+8. Cloud north-south layer: inspect ELB, listener, pool, member health, EIP, NAT, VPC, security group, subnet, and ACL only when the symptom requires it.
+9. Application backend layer: inspect backend Pod readiness, restarts, Events, and sanitized logs when the network path is otherwise present.
+10. Output: rank Top3 causes, cite evidence, list verification gaps, and provide safe handoff recommendations.
 
-New thin-layer capabilities added by this skill:
+## Baseline Commands
 
-- `huawei_network_failure_diagnose`: one-shot collection of Service, Ingress, EndpointSlice, NetworkPolicy, Node, Pod, Events, CoreDNS/Ingress logs and cloud ELB backend health, directly generating a Markdown report.
-- `huawei_get_elb_backend_status`: reads ELB pool/member/health monitor/load balancer status, filling the gap where ELB metrics alone cannot confirm specific backend health.
+```bash
+hcloud CCE ShowCluster --cluster_id=<cluster-id> --project_id=<project-id> --detail=true --cli-region=<region> --cli-output=json
+hcloud CCE ShowClusterEndpoints --cluster_id=<cluster-id> --project_id=<project-id> --cli-region=<region> --cli-output=json
+hcloud CCE CreateKubernetesClusterCert --cluster_id=<cluster-id> --project_id=<project-id> --duration=1 --cli-region=<region> --cli-output=json > <kubeconfig-file>
 
-What this skill still does NOT do:
+kubectl --kubeconfig=<kubeconfig-file> get nodes -o wide
+kubectl --kubeconfig=<kubeconfig-file> get svc,endpoints,endpointslice,ingress,networkpolicy -n <namespace> -o wide
+kubectl --kubeconfig=<kubeconfig-file> get pods -n <namespace> -o wide
+kubectl --kubeconfig=<kubeconfig-file> get events -n <namespace> --sort-by=.lastTimestamp
+```
 
-- Does not execute `kubectl exec` for active probing; does not modify security groups/ACLs/ELB/Ingress/Service.
-- Does not replace `huawei-cloud-cce-pod-failure-diagnoser`, `huawei-cloud-cce-node-failure-diagnoser`, or `huawei-cloud-cce-workload-failure-diagnoser`; when Pod/Node/deployment root causes are found, it only cross-references them.
+## Failure Rules
 
-## Input and Collection
+### Node Or CNI Unhealthy
 
-Minimum input: `region`, `cluster_id`, `namespace`. Provide as many of the following as possible:
+- Signals: Node NotReady, NetworkUnavailable, CNIProblem, CNI Pods unhealthy, or `FailedCreatePodSandBox` concentrated on nodes.
+- Interpretation: higher network layers may be symptoms; diagnose node/CNI first.
+- Next checks: affected nodes, CNI daemon Pods, Events, and handoff to node/network operations.
 
-- `failure_symptom`: `domain_unresolvable`, `in_cluster_service_unreachable`, `service_intermittent`, `external_access_failed`, `ingress_502_504`.
-- `target_kind` + `target_name`: Pod, Service, Ingress, etc.
-- `service_name`, `ingress_name`, `source_pod`, `destination_pod`, `domain`, `elb_id`.
+### DNS/CoreDNS Failure
 
-Default: call `huawei_network_failure_diagnose` first. It creates a near-simultaneous read-only context snapshot and returns:
+- Signals: kube-dns/CoreDNS Service has no ready endpoints, CoreDNS Pods restarting, node-local-dns unhealthy, logs show upstream timeout or NXDOMAIN for expected domains.
+- Interpretation: service name or external domain resolution may fail before traffic reaches Service routing.
+- Next checks: kube-system DNS resources, CoreDNS logs, node-local-dns injection, upstream DNS config, and whether only one namespace/node is affected.
 
-- `snapshot`: raw objects and cloud-side context.
-- `findings` / `top_causes`: structured diagnosis hits.
-- `report_markdown`: the final complete Markdown report delivered to the customer.
+### Service No Ready Endpoint
 
-## Layered Diagnosis Pipeline
+- Signals: Service exists but EndpointSlice has zero ready addresses, backend Pods are not Ready, or EndpointSlice address does not match expected Pods.
+- Interpretation: Service routing has no healthy backend.
+- Next checks: Service selector, backend Pod labels, readiness probes, Pod Events, and recent rollout.
 
-### 1. Infrastructure and Node Layer
+### Service Selector Mismatch
 
-Check target source/destination Pods, backend Pods, and CoreDNS/Ingress Controller nodes first:
+- Signals: Service selector matches no Pods or wrong Pods.
+- Interpretation: Kubernetes cannot build correct endpoints for the Service.
+- Next checks: compare `spec.selector` with Pod labels and workload template labels.
 
-- `Ready=False` or `Ready=Unknown`: output node infrastructure failure directly and prune (skip) upper application-layer diagnosis.
-- `MemoryPressure`, `DiskPressure`, `PIDPressure`, `NetworkUnavailable=True`: correlate with `OOMKilled`, `KubeletNotReady`, `Evicted`, `FailedCreatePodSandBox` events. If overlapping with the failure window, prune.
+### NetworkPolicy Blocked
 
-### 2. DNS Path
+- Signals: NetworkPolicy selects destination Pods and no ingress/egress rule allows the source labels, namespace labels, port, or protocol.
+- Interpretation: policy is the likely blocking layer when Service and endpoints are otherwise healthy.
+- Next checks: source Pod labels, destination Pod labels, namespace labels, policy types, ports, and default-deny policies.
 
-Trigger condition: `failure_symptom` contains DNS, domain, resolution, NXDOMAIN, etc.
+### Ingress Backend Mismatch
 
-Path: Client Pod → `kube-dns` Service → CoreDNS Pods → upstream DNS / cluster Service DNS.
+- Signals: Ingress backend points to missing Service/port, empty address, controller Events, or 502/504 upstream errors while Service mapping is wrong or backends are not ready.
+- Interpretation: north-south HTTP route cannot reach a healthy backend.
+- Next checks: Ingress rules, class, annotations, Service port names/numbers, EndpointSlices, and ingress controller logs.
 
-Assertions:
+### ELB Backend Unhealthy
 
-- Client Pod `dnsPolicy=None` with no `dnsConfig`: output Pod DNS configuration missing.
-- `kube-dns` EndpointSlice has 0 ready endpoints: output CoreDNS backend unavailable.
-- CoreDNS Events contain `OOMKilled`, `Liveness probe failed`, `Unhealthy`, `BackOff`: output CoreDNS restart/probe failure causing resolution flapping.
-- CoreDNS logs contain `NXDOMAIN`: output service name typo, namespace suffix, or non-existent service.
-- CoreDNS logs contain `i/o timeout` / timeout: output upstream DNS or out-of-cluster network failure candidate.
+- Signals: Kubernetes LoadBalancer/Ingress object exists, but ELB member health is unhealthy or listener/pool/member mapping is inconsistent.
+- Interpretation: cloud load balancer cannot reach backend members or health checks fail.
+- Next checks: ELB listener, pool, members, health monitor, backend port, subnet, security group, and backend Pod readiness.
 
-### 3. East-West Service and Policy Layer
+### Security Policy Blocked
 
-Trigger condition: in-cluster Service unreachable, intermittent, flapping, or default check when no external path is specified.
+- Signals: Security group or ACL rules do not allow required source/destination/port/protocol, or route/subnet evidence blocks the path.
+- Interpretation: cloud-side policy may block north-south or node-to-ELB traffic.
+- Next checks: effective security group rules, VPC ACLs, subnet route table, ELB subnet, and expected source CIDR.
 
-Path: Source Pod → NetworkPolicy → Service → EndpointSlice → Destination Pod.
+### EIP/NAT Issue
 
-Assertions:
+- Signals: EIP not bound to expected load balancer, NAT gateway missing for egress, SNAT rules absent, or EIP status abnormal.
+- Interpretation: external ingress or egress path may be missing cloud-side network attachment.
+- Next checks: EIP association, NAT gateway/SNAT rules, route table, and workload subnet.
 
-- Target Pod selected by NetworkPolicy but rules do not allow source Pod labels, namespace labels, or port: output NetworkPolicy blocking (confidence 100%).
-- Service selector matches no Pods, or EndpointSlice has 0 ready endpoints: output Service selector/backend topology broken.
-- Backend Pod Events show dense `Readiness probe failed` or `Unhealthy`: output readiness flapping causing backend removal.
-- Backend application logs show OOM, connection pool exhausted, connection refused: output application overloaded/refusing connections candidate.
+### Backend Application Issue
 
-### 4. North-South Ingress/ELB Layer
+- Signals: Service, endpoints, policy, ingress, and ELB look healthy, but backend Pods are not Ready or logs show application errors.
+- Interpretation: network path is likely present; the backend application is failing health checks or requests.
+- Next checks: Pod failure diagnoser and workload owner.
 
-Trigger condition: external domain/IP access failure, Ingress 502/504, ELB backend abnormal.
+## Pruning Rules
 
-Path: External request → Cloud ELB/EIP → Ingress Controller → Service → EndpointSlice → Pod.
+- If node/CNI is unhealthy, report upper network layers as pruned or low-confidence until node health is restored.
+- If DNS is the symptom and DNS layer is abnormal, do not over-investigate ELB unless the target is an external DNS name tied to ELB.
+- If Service has no ready endpoints, Ingress/ELB failures are downstream symptoms until backend readiness is fixed.
 
-Assertions:
+## Handoff Guidance
 
-- Ingress or LoadBalancer Service `status.loadBalancer.ingress` is empty: correlate with CCM/CCE Events showing ELB creation failure, quota exceeded, insufficient permissions, security group/subnet errors.
-- ELB member/pool status unhealthy while K8s backend Pod is Ready: output cloud security group not allowing NodePort, health check port mismatch, or node IPVS/Iptables/kube-proxy sync anomaly candidates.
-- Ingress Controller logs show `502 Bad Gateway`, `504 Gateway Timeout`: output Ingress-to-backend or backend application response anomaly; continue checking Service/Endpoint and application timeout.
-
-## Report Requirements
-
-The Markdown report must include:
-
-1. **Diagnosis Overview**: target, symptom, conclusion, confidence, collection time, pruned stages.
-2. **Investigation Process**: four-stage per-item status — checked, abnormal, or pruned/skipped.
-3. **Link Topology**: output DNS, east-west, or north-south path based on failure type.
-4. **Key Object Snapshot**: Service, EndpointSlice, Backend Pods, Ingress, NetworkPolicy, Cloud ELB.
-5. **Evidence Matrix**: stage, type, confidence, evidence summary.
-6. **Top Root Causes**: max 3, each backed by evidence.
-7. **Recommended Actions and Verification Criteria**: read-only verification steps or change suggestions to hand off to the remediation skill.
+- Node failure diagnoser for node/CNI base-layer faults.
+- Pod or workload failure diagnoser for backend Pods not Ready.
+- Auto-remediation runner for confirmed, user-approved changes.
+- Platform/network owner for ELB, security group, ACL, NAT, EIP, or route changes.

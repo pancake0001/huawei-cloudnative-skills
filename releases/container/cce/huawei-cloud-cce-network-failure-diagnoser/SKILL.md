@@ -1,313 +1,270 @@
 ---
 id: huawei-cloud-cce-network-failure-diagnoser
 name: huawei-cloud-cce-network-failure-diagnoser
-description: |
-  Huawei Cloud CCE Network failure diagnosis skill using Python SDK dispatcher.
-  Use this skill when the user wants to: (1) diagnose CCE network connectivity issues, Service/Ingress failures, (2) analyze ELB configuration, VPC/Subnet issues, (3) diagnose DNS resolution failures, (4) check network policies and security group rules.
-  Trigger: user mentions "network failure", "网络故障", "Service unreachable", "Service 不通", "Ingress 502", "Ingress 504", "ELB error", "ELB 异常", "DNS failure", "DNS 解析失败", "network diagnosis", "网络诊断", "VPC", "subnet", "子网", "安全组", "网络策略"
-tags: [cce, network-diagnosis, elb, vpc, fault-diagnosis]
+description: >
+  Diagnose Huawei Cloud CCE network failures with hcloud CLI for CCE cluster discovery, kubeconfig acquisition, and optional read-only ELB/VPC/EIP/NAT evidence, then kubectl for Kubernetes network objects. Use this skill for Service unreachable, DNS/CoreDNS errors, Ingress 502/504, NetworkPolicy blocks, EndpointSlice/backend readiness issues, ELB backend health, EIP/NAT/VPC/security-group/ACL concerns, and end-to-end network Markdown reports. Do not use the Python SDK dispatcher.
+tags: [huawei-cloud, cce, hcloud, koocli, kubectl, network, elb, vpc, diagnosis]
 ---
 
 # Huawei Cloud CCE Network Failure Diagnoser
 
-> **⚠️ Execution Method (Must Read): This skill executes diagnosis via local Python scripts using a dispatcher pattern. Using hcloud, openstack, or other CLI tools or direct API calls is prohibited.**
->
-> - The dispatcher script is `scripts/huawei-cloud.py`, invoked as `python3 scripts/huawei-cloud.py <action> <key=value params>`
-> - All scripts and environment check scripts are inside the skill package. **You must use `skill action=exec` to execute them. Do not run them directly in a shell.**
-> - For action details and parameters, refer to `references/workflow.md`, `references/risk-rules.md`, and `references/output-schema.md`
-> - **Do not attempt hcloud, openstack, curl IAM, or any other CLI/API methods. This skill does not depend on those tools.**
-> - **All paths are relative to the skill directory, which is the directory where this SKILL.md is located.**
+This skill diagnoses CCE network failures through Huawei Cloud `hcloud` CLI and Kubernetes `kubectl`.
 
-## Overview
+Execution model:
 
-This skill diagnoses CCE (Cloud Container Engine) network failures by performing a layered, read-only diagnosis across the full network stack — from node infrastructure, DNS, Service/EndpointSlice, NetworkPolicy, Ingress to cloud-side ELB/EIP/NAT/VPC security policies. It produces a complete Markdown diagnosis report that must include the investigation process, evidence, conclusions, confidence levels, and verification criteria.
+```text
+hcloud CCE -> short-lived kubeconfig -> kubectl network evidence -> optional hcloud ELB/VPC/EIP/NAT read-only evidence -> ranked diagnosis report
+```
 
-**Use this skill when:**
+Use CCE hcloud commands for cluster discovery and kubeconfig:
 
-1. CCE Service connectivity is broken (Service unreachable, intermittent, or flapping)
-2. DNS/CoreDNS resolution failures (NXDOMAIN, timeout)
-3. Ingress 502/504 errors or ELB backend health issues
-4. NetworkPolicy blocking traffic between Pods
-5. VPC/Subnet/Security Group/ACL configuration affecting cluster networking
-6. EIP/NAT gateway affecting external access from the cluster
+- `hcloud CCE ListClusters`
+- `hcloud CCE ShowCluster`
+- `hcloud CCE ShowClusterEndpoints`
+- `hcloud CCE CreateKubernetesClusterCert`
 
-**This skill does NOT handle:**
+Use `kubectl` for Kubernetes network objects: Nodes, Pods, Services, Endpoints, EndpointSlices, Ingresses, NetworkPolicies, Events, CoreDNS/kube-dns resources, and relevant controller logs when RBAC allows.
 
-1. Creating, modifying, or deleting any resources
-2. Binding/unbinding EIP or modifying security groups/ACLs/ELB listeners
-3. Scaling workloads or restarting components
-4. Pod-level or Node-level root causes (cross-reference to `huawei-cloud-cce-pod-failure-diagnoser`, `huawei-cloud-cce-node-failure-diagnoser`, `huawei-cloud-cce-workload-failure-diagnoser`)
+Use cloud network hcloud commands only for read-only north-south evidence when identifiers are available or can be safely correlated:
 
----
+- `hcloud ELB ListLoadBalancers/v3`
+- `hcloud ELB ListListeners/v3`
+- `hcloud ELB ListPools/v3`
+- `hcloud ELB ListMembers/v3`
+- `hcloud ELB ListHealthMonitors/v3`
+- `hcloud VPC ListSecurityGroups/v3`
+- `hcloud VPC ListSecurityGroupRules/v3`
+- `hcloud VPC ListVpcs/v3`
+- `hcloud VPC ListSubnets`
+- `hcloud EIP ListPublicips/v3`
+- `hcloud NAT ListNatGateways`
+
+Do not use Python SDK dispatcher commands, `scripts/huawei-cloud.py`, `skill action=exec`, old `huawei_network_*` actions, or Huawei Cloud SDK imports for this skill.
+
+## When To Use
+
+Use this skill for:
+
+- Service unreachable, intermittent, or selector/EndpointSlice issues.
+- DNS/CoreDNS failures such as NXDOMAIN, timeout, or missing kube-dns endpoints.
+- Ingress 502/504, ingress controller upstream errors, or LoadBalancer provisioning issues.
+- NetworkPolicy blocking east-west traffic.
+- ELB backend unhealthy, listener/pool/member mismatch, EIP/NAT/VPC/security group/ACL questions.
+- Network symptoms that require an end-to-end Markdown report with evidence and verification criteria.
+
+Do not use this skill to mutate resources. Binding/unbinding EIP, changing security groups, updating ELB listeners, editing CoreDNS, creating NetworkPolicies, scaling workloads, or restarting components must be handed off as recommendations only.
+
+## Required Inputs
+
+| Input | Required | Notes |
+| --- | --- | --- |
+| `region` | Yes | Example: `cn-north-4` |
+| `project_id` | Usually | Required by most hcloud operations |
+| `cluster_id` | Preferred | Resolve by name with `ListClusters` if absent |
+| `namespace` | Usually | Required for namespaced K8s objects |
+| `failure_symptom` | Recommended | `dns_failure`, `service_unreachable`, `ingress_502_504`, `external_access_failed`, `network_policy_block`, `intermittent` |
+| `service_name` | Optional | Target Service |
+| `ingress_name` | Optional | Target Ingress |
+| `source_pod` | Optional | Source Pod name or selector |
+| `destination_pod` | Optional | Destination Pod name or selector |
+| `domain` | Optional | Domain involved in DNS/Ingress failure |
+| `elb_id` | Optional | ELB load balancer ID for north-south checks |
+
+If the target is vague, start with a namespace scan and ask for the specific service, ingress, source, destination, or domain before drawing a strong conclusion.
 
 ## Prerequisites
 
-**You must run the environment check script first to complete environment validation and dependency installation in one step:**
+1. `hcloud` is installed and available in `PATH`, or a platform-native binary has been located and validated with `hcloud version`.
+2. `kubectl` is installed and compatible with the target Kubernetes version. Linux sandboxes must use Linux kubectl; Windows workstations use `kubectl.exe`.
+3. hcloud credentials are available through a profile, environment, or one-off CLI parameters. Verify only masked configuration with:
 
-- Linux / macOS: `skill action=exec: bash skill://scripts/check_env.sh`
-- Windows: `skill action=exec: powershell -ExecutionPolicy Bypass -File skill://scripts/check_env.ps1`
-
-> Windows note: Do not use `&&` to chain commands (PowerShell 5.x does not support it); use semicolons if you need to change directories first.
-
-The script will check in order: Python >= 3.6 → install dependencies → validate SDK → validate credentials → validate service availability. If the environment check fails, fix the issues before proceeding.
-
-**Environment Variables:**
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| HW_ACCESS_KEY | Yes | Huawei Cloud AK (Access Key) |
-| HW_SECRET_KEY | Yes | Huawei Cloud SK (Secret Key) |
-| HW_REGION_NAME | No | Default cn-north-4 |
-| HW_PROJECT_ID | No | Project ID (automatically obtained via IAM API when not set) |
-| HW_SECURITY_TOKEN | No | Required when using temporary AK/SK |
-| HW_CCE_CLUSTER_ID | Yes | CCE cluster ID for diagnosis target |
-| KUBECONFIG | No | Kubernetes config; auto-obtained from CCE API if not set |
-
-**Security Constraints:**
-
-1. Never persist AK/SK/Token/Certificate to filesystem
-2. AK/SK exists only in the current call stack; released after call ends
-3. Only non-sensitive project IDs may be cached in process memory (never written to disk)
-4. All temporary certificate files must be deleted immediately after use
-5. Never leak AK/SK in logs, responses, or error messages
-6. Never send credentials to any third-party server
-
-**Do not output the values of environment variables.**
-
----
-
-### IAM Permission Requirements
-
-| API Action | Permission | Purpose |
-|-----------|------------|---------|
-| cce:cluster:get | Get cluster | View cluster details |
-| cce:cluster:list | List clusters | List CCE clusters |
-| cce:node:list | List nodes | List cluster nodes |
-| vpc:vpc:list | List VPCs | Query VPC details |
-| vpc:subnet:list | List subnets | Query subnet details |
-| elb:loadbalancer:list | List ELBs | Query ELB details |
-| elb:listener:list | List listeners | Query ELB listeners |
-| aom:*:get | Read AOM | Query AOM metrics and alarms |
-
-**Permission Failure Handling**:
-1. When any command fails due to permission errors, display required permission list
-2. Guide the user to create a custom policy in the IAM console
-3. Pause execution and wait for user confirmation
-
----
-
-## Core Tools
-
-All actions are invoked via the Python dispatcher script:
-
-```
-python3 scripts/huawei-cloud.py <action> region=<region> cluster_id=<cluster_id> namespace=<namespace> [other_params...]
+```bash
+hcloud configure list
 ```
 
-**Execution via skill:**
+4. IAM allows CCE cluster read and kubeconfig certificate creation. ELB/VPC/EIP/NAT read permissions are needed only when diagnosing cloud-side network objects.
+5. Kubernetes RBAC allows read access to Services, Endpoints, EndpointSlices, Ingresses, NetworkPolicies, Pods, Nodes, Events, and relevant logs.
 
-- Linux / macOS: `skill action=exec: skill://.venv/bin/python3 skill://scripts/huawei-cloud.py <action> <params>`
-- Windows: `skill action=exec: skill://.venv/Scripts/python3.exe skill://scripts/huawei-cloud.py <action> <params>`
+Never print AK, SK, security tokens, kubeconfig certificates, Authorization headers, or registry/application secrets.
 
-### Primary Diagnosis Action
+## CCE hcloud Setup Flow
 
-| Action | Description |
-|--------|-------------|
-| `huawei_network_failure_diagnose` | One-shot diagnosis: collects K8s and cloud-side read-only snapshots, returns structured findings + `report_markdown` |
+### 1. Confirm CLI Tools
 
-### Kubernetes Evidence Actions
-
-| Action | Description |
-|--------|-------------|
-| `huawei_get_cce_services` | List Services in a namespace |
-| `huawei_get_cce_ingresses` | List Ingresses in a namespace |
-| `huawei_get_cce_pods` | List Pods in a namespace |
-| `huawei_get_kubernetes_nodes` | List cluster Nodes |
-| `huawei_get_cce_events` | List cluster Events |
-| `huawei_get_pod_logs` | Retrieve Pod container logs |
-
-### Cloud Network Evidence Actions
-
-| Action | Description |
-|--------|-------------|
-| `huawei_get_elb_backend_status` | Read ELB pool/member/health monitor/load balancer status |
-| `huawei_get_elb_metrics` | Retrieve ELB monitoring metrics |
-| `huawei_list_elb` | List ELB load balancers |
-| `huawei_list_elb_listeners` | List ELB listeners |
-| `huawei_list_eip` | List EIP addresses |
-| `huawei_get_eip_metrics` | Retrieve EIP monitoring metrics |
-| `huawei_list_nat` | List NAT gateways |
-| `huawei_get_nat_gateway_metrics` | Retrieve NAT gateway metrics |
-| `huawei_list_security_groups` | List VPC security groups |
-| `huawei_list_vpc_acls` | List VPC ACLs |
-
-### Legacy Compatibility Actions
-
-| Action | Description |
-|--------|-------------|
-| `huawei_network_diagnose` | Legacy comprehensive network diagnosis |
-| `huawei_network_diagnose_by_alarm` | Diagnosis triggered by alarm correlation |
-| `huawei_network_verify_pod_scheduling` | Verify Pod scheduling constraints (read-only) |
-
----
-
-## Parameter Reference
-
-### Required Parameters
-
-| Parameter | Description |
-|-----------|-------------|
-| `region` | Huawei Cloud region, e.g., `cn-north-4` |
-| `cluster_id` | CCE cluster ID |
-| `namespace` | Kubernetes namespace |
-
-### Optional Parameters (provide as many as possible for accurate diagnosis)
-
-| Parameter | Description |
-|-----------|-------------|
-| `failure_symptom` | Symptom description: `domain_unresolvable`, `in_cluster_service_unreachable`, `service_intermittent`, `external_access_failed`, `ingress_502_504` |
-| `target_kind` | Resource type: Pod, Service, Ingress, etc. |
-| `target_name` | Resource name |
-| `service_name` | Target Service name |
-| `ingress_name` | Target Ingress name |
-| `source_pod` | Source Pod name or label |
-| `destination_pod` | Destination Pod name or label |
-| `domain` | Domain name for DNS diagnosis |
-| `elb_id` | ELB load balancer ID |
-
----
-
-## Output Format
-
-`huawei_network_failure_diagnose` returns structured JSON with an embedded `report_markdown`:
-
-```json
-{
-  "success": true,
-  "action": "huawei_network_failure_diagnose",
-  "region": "cn-north-4",
-  "cluster_id": "cluster-id",
-  "namespace": "default",
-  "conclusion": "high signal conclusion",
-  "confidence": "High",
-  "pipeline_pruned": false,
-  "findings": [
-    {
-      "stage": "Stage 3: East-West Routing and Policy Layer",
-      "type": "NetworkPolicyBlocked",
-      "title": "NetworkPolicy selects target Pod but does not allow source Pod labels or target port",
-      "confidence": 1.0,
-      "severity": "critical",
-      "evidence": [],
-      "recommendation": [],
-      "prune": false
-    }
-  ],
-  "top_causes": [],
-  "snapshot": {
-    "inputs": {},
-    "nodes": [],
-    "pods": [],
-    "services": [],
-    "ingresses": [],
-    "endpoint_slices": [],
-    "network_policies": [],
-    "events": [],
-    "logs": {},
-    "cloud": {
-      "elb_ids": [],
-      "elbs": {},
-      "eips": {},
-      "nat": {},
-      "security_groups": {},
-      "vpc_acls": {}
-    }
-  },
-  "report_markdown": "# CCE Network Failure Automated Diagnosis Report\n..."
-}
+```bash
+hcloud version
+hcloud configure list
+kubectl version --client
 ```
 
-### Markdown Report Sections
+If a tool is not in `PATH`, locate or install a platform-native binary and validate the exact binary before using it. Keep examples platform-neutral as `hcloud` and `kubectl`.
 
-The `report_markdown` must contain the following headings:
+### 2. Locate And Check The Cluster
 
-1. **Diagnosis Overview** — target, symptom, conclusion, confidence, collection time, pruned stages
-2. **Investigation Process** — per-stage status (checked, abnormal, pruned/skipped)
-3. **Link Topology** — DNS path, east-west path, or north-south path based on failure type
-4. **Key Object Snapshot** — Service, EndpointSlice, Backend Pods, Ingress, NetworkPolicy, Cloud ELB
-5. **Evidence Matrix** — stage, type, confidence, evidence summary
-6. **Diagnosis Conclusion** — top root causes (max 3), each backed by evidence
-7. **Recommended Actions and Verification Criteria** — read-only verification steps or change suggestions to hand off to `huawei-cloud-cce-auto-remediation-runner`
+```bash
+hcloud CCE ListClusters --project_id=<project-id> --detail=true --cli-region=<region> --cli-output=json
+hcloud CCE ShowCluster --cluster_id=<cluster-id> --project_id=<project-id> --detail=true --cli-region=<region> --cli-output=json
+hcloud CCE ShowClusterEndpoints --cluster_id=<cluster-id> --project_id=<project-id> --cli-region=<region> --cli-output=json
+```
 
-### Finding Types
+If only a private API endpoint is available, run kubectl from a VPC/VPN/Direct Connect/Cloud Desktop environment that can reach the private endpoint.
 
-Common `type` values in findings:
+### 3. Acquire A Short-Lived Kubeconfig
 
-| Type | Description |
-|------|-------------|
-| `NodeUnhealthy` | Node Ready=False or Ready=Unknown |
-| `NodePressure` | Memory/Disk/PID/Network pressure on node |
-| `PodDNSConfigMissing` | Pod dnsPolicy=None with no dnsConfig |
-| `KubeDnsNoEndpoint` | kube-dns EndpointSlice has 0 ready endpoints |
-| `CoreDNSRestarting` | CoreDNS pods showing OOMKilled/LivenessProbe failures |
-| `CoreDNSNxDomain` | CoreDNS logs showing NXDOMAIN responses |
-| `CoreDNSUpstreamTimeout` | CoreDNS logs showing upstream i/o timeout |
-| `NetworkPolicyBlocked` | NetworkPolicy blocks source Pod traffic (confidence 100%) |
-| `ServiceNoReadyEndpoint` | Service has 0 ready endpoints in EndpointSlice |
+```bash
+hcloud CCE CreateKubernetesClusterCert --cluster_id=<cluster-id> --project_id=<project-id> --duration=1 --cli-region=<region> --cli-output=json > <temp-kubeconfig-file>
+chmod 600 <temp-kubeconfig-file>
+```
+
+Store kubeconfig outside the repository and delete it after diagnosis when no longer needed. If KooCLI times out on a recently awakened cluster, retry with `--cli-connect-timeout=20 --cli-read-timeout=90 --cli-retry-count=2`.
+
+### 4. Verify Kubernetes Read Access
+
+```bash
+kubectl --kubeconfig=<kubeconfig-file> cluster-info
+kubectl --kubeconfig=<kubeconfig-file> auth can-i list services -n <namespace>
+kubectl --kubeconfig=<kubeconfig-file> auth can-i list endpoints -n <namespace>
+kubectl --kubeconfig=<kubeconfig-file> auth can-i list endpointslices.discovery.k8s.io -n <namespace>
+kubectl --kubeconfig=<kubeconfig-file> auth can-i list networkpolicies.networking.k8s.io -n <namespace>
+kubectl --kubeconfig=<kubeconfig-file> auth can-i list ingresses.networking.k8s.io -n <namespace>
+kubectl --kubeconfig=<kubeconfig-file> auth can-i list pods -n <namespace>
+kubectl --kubeconfig=<kubeconfig-file> auth can-i list events -n <namespace>
+```
+
+If RBAC denies a read, report the missing verb/resource and continue only with allowed evidence.
+
+## Diagnosis Workflow
+
+Read `references/workflow.md` for detailed evidence order and failure rules.
+
+Start with the Kubernetes network baseline:
+
+```bash
+kubectl --kubeconfig=<kubeconfig-file> get nodes -o wide
+kubectl --kubeconfig=<kubeconfig-file> get svc,endpoints,endpointslice,ingress,networkpolicy -n <namespace> -o wide
+kubectl --kubeconfig=<kubeconfig-file> get pods -n <namespace> -o wide
+kubectl --kubeconfig=<kubeconfig-file> get events -n <namespace> --sort-by=.lastTimestamp
+```
+
+For a Service:
+
+```bash
+kubectl --kubeconfig=<kubeconfig-file> get svc <service-name> -n <namespace> -o yaml
+kubectl --kubeconfig=<kubeconfig-file> get endpoints <service-name> -n <namespace> -o yaml
+kubectl --kubeconfig=<kubeconfig-file> get endpointslice -n <namespace> -l kubernetes.io/service-name=<service-name> -o yaml
+```
+
+For DNS:
+
+```bash
+kubectl --kubeconfig=<kubeconfig-file> get svc,endpoints,endpointslice -n kube-system -o wide
+kubectl --kubeconfig=<kubeconfig-file> get pods -n kube-system -o wide | grep -E 'coredns|kube-dns|node-local-dns'
+kubectl --kubeconfig=<kubeconfig-file> logs -n kube-system -l k8s-app=kube-dns --tail=200
+```
+
+On PowerShell, replace `grep` with `Select-String`.
+
+For Ingress and LoadBalancer:
+
+```bash
+kubectl --kubeconfig=<kubeconfig-file> get ingress <ingress-name> -n <namespace> -o yaml
+kubectl --kubeconfig=<kubeconfig-file> describe ingress <ingress-name> -n <namespace>
+kubectl --kubeconfig=<kubeconfig-file> describe svc <service-name> -n <namespace>
+```
+
+Use hcloud cloud-network reads only when needed:
+
+```bash
+hcloud ELB ListLoadBalancers/v3 --project_id=<project-id> --cli-region=<region> --cli-output=json
+hcloud ELB ListListeners/v3 --project_id=<project-id> --cli-region=<region> --cli-output=json
+hcloud ELB ListPools/v3 --project_id=<project-id> --cli-region=<region> --cli-output=json
+hcloud ELB ListMembers/v3 --project_id=<project-id> --pool_id=<pool-id> --cli-region=<region> --cli-output=json
+hcloud VPC ListSecurityGroups/v3 --project_id=<project-id> --cli-region=<region> --cli-output=json
+hcloud VPC ListSecurityGroupRules/v3 --project_id=<project-id> --cli-region=<region> --cli-output=json
+hcloud EIP ListPublicips/v3 --project_id=<project-id> --cli-region=<region> --cli-output=json
+hcloud NAT ListNatGateways --project_id=<project-id> --cli-region=<region> --cli-output=json
+```
+
+Use `hcloud <service> <operation> --help` when a filter parameter differs by API version.
+
+## Active Test Boundary
+
+By default, do not run `kubectl exec`, packet capture, stress tests, or synthetic traffic generation. If the user explicitly requests an active connectivity test, explain the scope and risk, then prefer the least invasive command and include it in the report.
+
+## Cause Ranking
+
+Rank causes by the first failing layer:
+
+1. Cluster/API/RBAC reachability gap.
+2. Node or CNI health that invalidates higher-layer diagnosis.
+3. DNS/CoreDNS/kube-dns/node-local-dns.
+4. Service selector and EndpointSlice readiness.
+5. NetworkPolicy and namespace policy.
+6. Ingress/controller/backend mapping.
+7. Cloud ELB listener/pool/member/health monitor.
+8. VPC/security group/ACL/EIP/NAT.
+9. Application/backend readiness or overload.
+
+Common cause labels:
+
+| Cause | Evidence |
+| --- | --- |
+| `NodeOrCNIUnhealthy` | Node NotReady, CNIProblem, FailedCreatePodSandBox |
+| `DnsCoreDNSFailure` | kube-dns/CoreDNS has no ready endpoints, restarting, timeout, NXDOMAIN evidence |
+| `ServiceNoReadyEndpoint` | Service exists but EndpointSlice has no ready addresses |
 | `ServiceSelectorMismatch` | Service selector matches no Pods |
-| `ReadinessFlapping` | Backend Pod readiness probe flapping |
-| `BackendOverloaded` | Application logs show OOM/connection pool exhausted |
-| `LoadBalancerProvisioningFailed` | LoadBalancer Ingress status empty with CCM errors |
-| `ELBBackendUnhealthy` | ELB member unhealthy while K8s backend Pod is Ready |
-| `IngressUpstreamError` | Ingress controller logs show 502/504 |
+| `NetworkPolicyBlocked` | NetworkPolicy selects destination and does not allow source/port |
+| `IngressBackendMismatch` | Ingress routes to missing Service/port or unhealthy backend |
+| `ELBBackendUnhealthy` | ELB member unhealthy while K8s object mapping is present |
+| `SecurityPolicyBlocked` | Security group, ACL, or route evidence blocks traffic |
+| `EgressNatOrEipIssue` | NAT/EIP missing or abnormal for external egress/ingress path |
+| `BackendApplicationIssue` | Network path exists but backend Pods are not ready or logs show app errors |
 
----
+## Report Format
+
+Use `references/output-schema.md` as the detailed schema. Put decision-critical information first; topology, object snapshots, and command traces come after the conclusion and next steps.
+
+The user-facing report should include, in this order:
+
+- Executive summary: symptom status, confidence, root category, and one-line conclusion.
+- Root-cause analysis: top causes ranked with direct evidence and interpretation.
+- Recommended next steps: verification checks, candidate fix paths, and handoff owner/skill.
+- Target: region, project, cluster, namespace, symptom, source/destination, Service/Ingress/domain/ELB.
+- Network path funnel with checked, abnormal, skipped, and pruned stages.
+- Negative evidence: layers checked and why they are less likely.
+- Key object snapshot: Service, EndpointSlice, Pods, Ingress, NetworkPolicy, CoreDNS, ELB/VPC objects when relevant.
+- Verification gaps.
+- Evidence matrix and detailed supporting evidence.
+- CLI path used: hcloud CCE, kubectl, and optional hcloud ELB/VPC/EIP/NAT reads.
+- Explicit statement that no mutating command was run.
+
+## Safety Rules
+
+Read `references/risk-rules.md` before making recommendations. This skill is read-only. Do not run:
+
+- `kubectl apply`, `create`, `patch`, `edit`, `delete`, `scale`, `rollout undo`, or component restarts
+- `kubectl exec`, packet capture, or traffic generation unless explicitly requested and acknowledged
+- hcloud create/update/delete operations
+- Any SDK dispatcher action
 
 ## Verification
 
-1. Run the environment check script to confirm dependencies and credentials are available
-2. Execute `huawei_network_failure_diagnose` with a known-healthy cluster and verify the report structure
-3. Cross-reference findings with Huawei Cloud console data (ELB health, security groups, VPC ACLs)
-4. Verify `pipeline_pruned` flag is set correctly when node-level issues prune upper layers
-5. Confirm that `confidence` and `severity` values are present in all findings
+Read `references/verification-method.md` for the CLI verification checklist. A valid implementation should pass these checks:
 
----
+- `hcloud version`, `hcloud configure list`, and `kubectl version --client` work.
+- `hcloud CCE ListClusters`, `ShowCluster`, and `CreateKubernetesClusterCert` work.
+- `kubectl --kubeconfig=<file>` can read network objects in the target namespace.
+- Optional hcloud ELB/VPC/EIP/NAT read operations work when cloud-side evidence is needed.
+- Repository/package search finds no SDK dispatcher entrypoints in this skill package.
 
-## Best Practices
+## References
 
-1. Always provide `failure_symptom` to direct the diagnosis pipeline to the relevant stage (DNS, east-west, or north-south)
-2. Provide as many optional parameters as possible (`service_name`, `ingress_name`, `source_pod`, `destination_pod`, `domain`) for more precise diagnosis
-3. Start with `huawei_network_failure_diagnose` for one-shot comprehensive diagnosis; use individual actions only for targeted follow-up queries
-4. When evidence is insufficient, state "evidence insufficient" explicitly — never present guesses as conclusions
-5. For north-south (external access) issues, always supplement with `huawei_get_elb_backend_status` and `huawei_list_security_groups` to check cloud-side configuration
-6. When node-level issues are found, note that upper-layer diagnosis may be pruned; cross-reference with `huawei-cloud-cce-node-failure-diagnoser`
-
----
-
-## Reference Documents
-
-- Diagnosis workflow, reuse priorities, and layered pipeline: `references/workflow.md`
-- Risk rules and action boundaries: `references/risk-rules.md`
-- Output schema and finding type reference: `references/output-schema.md`
-
----
-
-## Notes
-
-1. This skill is strictly read-only; it never modifies Service, Ingress, NetworkPolicy, CoreDNS ConfigMap, security groups, ACLs, ELB listeners/backends, EIP bindings, or NAT rules
-2. Never execute `kubectl exec`, packet capture, stress testing, or active traffic injection unless the user explicitly requests and acknowledges the risk
-3. `huawei_network_verify_pod_scheduling` is for verification only; it does not replace scaling actions
-4. Any network change suggestion must describe impact scope, rollback method, and verification criteria, and be handed off to `huawei-cloud-cce-auto-remediation-runner` for preview
-5. Do not output the values of environment variables such as HW_ACCESS_KEY, HW_SECRET_KEY, HW_SECURITY_TOKEN
-6. All scripts must be executed via `skill action=exec`; do not run them directly in a shell
-
----
-
-## Common Pitfalls
-
-1. **Missing cluster_id**: The `cluster_id` parameter is required for all CCE actions. If the user only provides a cluster name, query `huawei_list_cce_clusters` first to resolve the ID
-2. **Wrong failure_symptom**: Using a wrong symptom category (e.g., `ingress_502_504` for an in-cluster issue) may misdirect the pipeline. Always confirm the symptom type with the user
-3. **Ignoring node-level root cause**: If nodes are NotReady, upper-layer diagnosis may be pruned. Do not skip the node-layer check even when the symptom appears to be Service/DNS-level
-4. **Confusing K8s-side and cloud-side**: ELB backend unhealthy does not always mean the K8s Pod is unhealthy — check both `huawei_get_elb_backend_status` and `huawei_get_cce_pods` together
-5. **Over-interpreting insufficient evidence**: When EndpointSlice has 0 ready endpoints, it could be selector mismatch, readiness flapping, or Pod crash. Do not jump to conclusions without checking Pod events and logs
-6. **Not checking NetworkPolicy for east-west issues**: NetworkPolicy blocking has 100% confidence when confirmed, but is easily overlooked. Always check NetworkPolicy in the target namespace
+- `references/workflow.md` - layered network evidence order and failure rules.
+- `references/common-pitfalls.md` - network diagnosis traps and CLI examples.
+- `references/output-schema.md` - Markdown and JSON report structure.
+- `references/risk-rules.md` - read-only boundaries and handoff rules.
+- `references/verification-method.md` - environment and CLI verification.
+- `references/iam-policies.md` - IAM and Kubernetes RBAC requirements.
+- Huawei Cloud KooCLI documentation: https://support.huaweicloud.com/hcli/
+- Huawei Cloud CCE documentation: https://support.huaweicloud.com/cce/
+- Kubernetes kubectl reference: https://kubernetes.io/docs/reference/kubectl/

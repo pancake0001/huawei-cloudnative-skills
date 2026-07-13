@@ -1,169 +1,96 @@
-# Verification Method - CCE Node Failure Diagnoser Skill
+# Verification Method
 
-## Overview
+Verification must prove that this skill uses CCE `hcloud` CLI plus `kubectl`, and no SDK dispatcher path remains.
 
-This document defines the verification steps for the CCE Node Failure Diagnoser skill. Verification is divided into five levels: environment setup, configuration verification, connectivity verification, primary diagnosis, and fallback workflow.
-
-## Level 1: Environment Setup
-
-### 1.1 Python Installation
-
-| Item | Command | Success Criteria |
-|------|---------|-----------------|
-| Python installed | `python3 --version` | Returns version >= 3.6 |
-| pip installed | `pip3 --version` | Returns pip version |
-
-If Python is not installed, download and install from the official Python release page.
-
-### 1.2 Python SDK Packages
+## Step 1: Tooling Check
 
 ```bash
-pip3 install huaweicloudsdkcore huaweicloudsdkcce huaweicloudsdkaom huaweicloudsdkhss huaweicloudsdkvpc huaweicloudsdkecs huaweicloudsdkces huaweicloudsdkevs huaweicloudsdkeip huaweicloudsdkelb huawei-cloudsdkiam kubernetes
+hcloud version
+hcloud configure list
+kubectl version --client
 ```
 
-Expected: All packages installed without errors.
+Expected:
 
-### 1.3 Dispatcher Script
+- `hcloud` reports a KooCLI version.
+- `kubectl` matches the current OS and architecture.
+- Credentials are masked or passed as one-off parameters. Secrets are not printed.
 
-| Item | Command | Success Criteria |
-|------|---------|-----------------|
-| Script exists | Check `scripts/huawei-cloud.py` in skill directory | File exists and is readable |
-
-## Level 2: Configuration Verification
-
-### 2.1 Credential Configuration
-
-| Item | Method | Success Criteria |
-|------|--------|-----------------|
-| Credentials configured | Environment variables `HUAWEI_AK`, `HUAWEI_SK`, `HUAWEI_REGION` | Variables set with valid values |
-
-🚫 **Never use** `echo $HUAWEI_AK` or `echo $HUAWEI_SK` to check credentials.
-
-✅ **Correct**: Verify via a read-only action that requires authentication.
-
-### 2.2 IAM Permission Check
-
-Verify that the IAM user has the required permissions listed in [IAM Permission Policies](iam-policies.md).
-
-## Level 3: Connectivity Verification
-
-### 3.1 List CCE Nodes
+## Step 2: CCE Cluster And Node Discovery
 
 ```bash
-python3 scripts/huawei-cloud.py huawei_list_cce_nodes region=cn-north-4 cluster_id=<cluster_id>
+hcloud CCE ListClusters --project_id=<project-id> --detail=true --cli-region=<region> --cli-output=json
+hcloud CCE ShowCluster --cluster_id=<cluster-id> --project_id=<project-id> --detail=true --cli-region=<region> --cli-output=json
+hcloud CCE ShowClusterEndpoints --cluster_id=<cluster-id> --project_id=<project-id> --cli-region=<region> --cli-output=json
+hcloud CCE ListNodes --cluster_id=<cluster-id> --project_id=<project-id> --cli-region=<region> --cli-output=json
 ```
 
-Expected: Returns list of CCE cluster nodes with names, IDs, and status.
+Expected:
 
-### 3.2 Get Kubernetes Nodes
+- Target cluster and node can be found.
+- Endpoint information explains whether kubectl should use public or private API reachability.
+- No Python process or local dispatcher script is used.
+
+## Step 3: Kubeconfig Acquisition
 
 ```bash
-python3 scripts/huawei-cloud.py huawei_get_kubernetes_nodes region=cn-north-4 cluster_id=<cluster_id>
+hcloud CCE CreateKubernetesClusterCert --cluster_id=<cluster-id> --project_id=<project-id> --duration=1 --cli-region=<region> --cli-output=json > <kubeconfig-file>
 ```
 
-Expected: Returns v1.Node list with Ready status and conditions.
+Expected:
 
-### 3.3 Get CCE Events
+- Kubeconfig content is produced and stored outside the repository.
+- The file is deleted after validation if it is temporary.
+
+## Step 4: Kubernetes Read Access
 
 ```bash
-python3 scripts/huawei-cloud.py huawei_get_cce_events region=cn-north-4 cluster_id=<cluster_id>
+kubectl --kubeconfig=<kubeconfig-file> cluster-info
+kubectl --kubeconfig=<kubeconfig-file> auth can-i get nodes
+kubectl --kubeconfig=<kubeconfig-file> auth can-i list leases -n kube-node-lease
+kubectl --kubeconfig=<kubeconfig-file> auth can-i list events -A
+kubectl --kubeconfig=<kubeconfig-file> auth can-i list pods -A
+kubectl --kubeconfig=<kubeconfig-file> auth can-i get pods/log -A
 ```
 
-Expected: Returns Kubernetes events for the cluster.
+Expected:
 
-## Level 4: Primary Diagnosis Verification
+- Required read permissions return `yes`, or missing permissions are reported as verification gaps.
 
-### 4.1 Diagnose a Healthy Node
+## Step 5: Node Evidence Baseline
 
 ```bash
-python3 scripts/huawei-cloud.py huawei_node_failure_diagnose \
-  region=cn-north-4 cluster_id=<cluster_id> \
-  node_name=<healthy-node-name> lease_timeout_seconds=40 \
-  event_limit=500 hours=1 include_metrics=true
+kubectl --kubeconfig=<kubeconfig-file> get nodes -o wide
+kubectl --kubeconfig=<kubeconfig-file> describe node <node-name>
+kubectl --kubeconfig=<kubeconfig-file> get lease <node-name> -n kube-node-lease -o yaml
+kubectl --kubeconfig=<kubeconfig-file> get events -A --field-selector involvedObject.kind=Node,involvedObject.name=<node-name> --sort-by=.lastTimestamp
+kubectl --kubeconfig=<kubeconfig-file> get pods -A --field-selector spec.nodeName=<node-name> -o wide
+kubectl --kubeconfig=<kubeconfig-file> top node <node-name>
 ```
 
-Expected: `success=true`, `root_category=Healthy`, `confidence=High`, `report_markdown` contains all required sections.
+Expected:
 
-### 4.2 Verify Report Markdown Sections
+- Node state, lease, Events, and workload impact can be inspected.
+- `kubectl top` may fail when metrics-server is unavailable; record the gap.
+- No mutating kubectl command is run.
 
-Check that `report_markdown` contains:
+## Step 6: Repository Residual Check
 
-| # | Section | Required Content |
-|---|---------|-----------------|
-| 1 | `# Kubernetes Node Automated Diagnosis Report` | Title |
-| 2 | `## 1. Diagnosis Overview` | Node, conclusion, confidence, blast radius |
-| 3 | `## 2. Node Status Health` | Conditions, pressure status, kubelet status |
-| 4 | `## 3. Key Investigation` | Liveness triage, events, pod symptoms, metrics |
-| 5 | `## 4. Diagnosis Conclusion` | Root cause, confidence, unconfirmed risks |
-| 6 | `## 5. Remediation Recommendations` | Suggestions and verification steps |
-
-### 4.3 Diagnose a NotReady Node (if available)
+From the skill package directory, run:
 
 ```bash
-python3 scripts/huawei-cloud.py huawei_node_failure_diagnose \
-  region=cn-north-4 cluster_id=<cluster_id> \
-  node_name=<notready-node-name> lease_timeout_seconds=40 \
-  event_limit=500 hours=1 include_metrics=true
+rg -n "scripts/huawei-cloud.py|skill action=exec|huawei_node_|Python SDK dispatcher|Huawei Cloud Python SDK|huaweicloudsdk|CreateKubernetesClusterCertRequest|BasicCredentials|Signer\\(" . --glob "!*.md"
 ```
 
-Expected: `success=true`, `root_category` indicates actual root cause, `confidence` and `evidence` populated, `report_markdown` contains complete diagnosis.
+Expected:
 
-### 4.4 Verify Node Conditions Match CCE Console
+- No matches in executable or non-document files.
+- Markdown may mention old terms only as explicit prohibitions or residual-check patterns.
 
-Compare node conditions (Ready, MemoryPressure, DiskPressure) in the output with the CCE console display for the same node.
+## Pass Criteria
 
-## Level 5: Fallback Workflow Verification
-
-### 5.1 Manual Evidence Collection
-
-```bash
-python3 scripts/huawei-cloud.py huawei_get_kubernetes_nodes region=cn-north-4 cluster_id=<cluster_id>
-python3 scripts/huawei-cloud.py huawei_get_cce_events region=cn-north-4 cluster_id=<cluster_id>
-python3 scripts/huawei-cloud.py huawei_get_cce_pods region=cn-north-4 cluster_id=<cluster_id>
-python3 scripts/huawei-cloud.py huawei_get_cce_node_metrics region=cn-north-4 cluster_id=<cluster_id> node_ip=<node_ip>
-python3 scripts/huawei-cloud.py huawei_get_cce_pod_metrics_topN region=cn-north-4 cluster_id=<cluster_id>
-```
-
-Expected: All actions return valid results.
-
-### 5.2 Inspection Actions
-
-```bash
-python3 scripts/huawei-cloud.py huawei_node_status_inspection region=cn-north-4 cluster_id=<cluster_id>
-python3 scripts/huawei-cloud.py huawei_node_resource_inspection region=cn-north-4 cluster_id=<cluster_id>
-python3 scripts/huawei-cloud.py huawei_node_vul_inspection region=cn-north-4 cluster_id=<cluster_id>
-```
-
-Expected: All inspection actions return valid results.
-
-### 5.3 Security Correlation Actions
-
-```bash
-python3 scripts/huawei-cloud.py huawei_list_security_groups region=cn-north-4
-python3 scripts/huawei-cloud.py huawei_list_vpc_acls region=cn-north-4
-python3 scripts/huawei-cloud.py huawei_hss_list_hosts region=cn-north-4
-python3 scripts/huawei-cloud.py huawei_hss_list_host_vuls_all region=cn-north-4 host_id=<host_id>
-```
-
-Expected: Security group, ACL, and HSS data returned.
-
-## Verification Checklist
-
-| # | Check Item | Command | Status |
-|---|-----------|---------|--------|
-| 1 | Python >= 3.6 installed | `python3 --version` | ☐ |
-| 2 | SDK packages installed | `pip3 list | grep huaweicloudsdk` | ☐ |
-| 3 | Dispatcher script exists | Check `scripts/huawei-cloud.py` | ☐ |
-| 4 | Credentials configured | Environment variables set | ☐ |
-| 5 | IAM permissions granted | Check IAM console | ☐ |
-| 6 | List CCE nodes | `python3 scripts/huawei-cloud.py huawei_list_cce_nodes region=<r> cluster_id=<id>` | ☐ |
-| 7 | Get Kubernetes nodes | `python3 scripts/huawei-cloud.py huawei_get_kubernetes_nodes region=<r> cluster_id=<id>` | ☐ |
-| 8 | Get CCE events | `python3 scripts/huawei-cloud.py huawei_get_cce_events region=<r> cluster_id=<id>` | ☐ |
-| 9 | Diagnose healthy node | `python3 scripts/huawei-cloud.py huawei_node_failure_diagnose region=<r> cluster_id=<id> node_name=<n>` | ☐ |
-| 10 | Verify report sections | Check `report_markdown` has all 5 required sections | ☐ |
-| 11 | Verify node conditions | Compare output with CCE console | ☐ |
-| 12 | Node metrics query | `python3 scripts/huawei-cloud.py huawei_get_cce_node_metrics region=<r> cluster_id=<id> node_ip=<ip>` | ☐ |
-| 13 | Pod metrics query | `python3 scripts/huawei-cloud.py huawei_get_cce_pod_metrics_topN region=<r> cluster_id=<id>` | ☐ |
-| 14 | Node status inspection | `python3 scripts/huawei-cloud.py huawei_node_status_inspection region=<r> cluster_id=<id>` | ☐ |
-| 15 | Security groups list | `python3 scripts/huawei-cloud.py huawei_list_security_groups region=<r>` | ☐ |
-| 16 | HSS hosts list | `python3 scripts/huawei-cloud.py huawei_hss_list_hosts region=<r>` | ☐ |
+1. hcloud can list/show the target CCE cluster and nodes.
+2. hcloud can create a short-lived kubeconfig.
+3. kubectl can read target node evidence or reports explicit RBAC gaps.
+4. The package contains no SDK dispatcher scripts or skill profile tool mapping.
+5. The diagnosis workflow remains read-only.
