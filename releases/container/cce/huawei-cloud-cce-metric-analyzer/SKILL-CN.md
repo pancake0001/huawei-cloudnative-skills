@@ -64,7 +64,7 @@ tags: [cce, metrics, aom, observability, analysis]
 - Python 3.8+，用于调度器和结果处理
 - hcloud (KooCLI) 7.2.2+，用于 CCE/ECS/ELB/VPC/EIP/NAT/CES/IAM 云服务查询
 - Kubernetes Python client，用于 hcloud 创建短期 CCE 集群凭据后读取集群内 Pod/Node/Service 详情
-- AOM Prometheus range 查询使用 AK/SK 签名 HTTPS 请求，因为 hcloud AOM Prometheus 查询路径不兼容所需的 query_range API
+- 普罗相关监控数据从 AOM Prometheus 获取，使用 AK/SK 签名 HTTPS 请求；目标集群必须已安装普罗插件并对接 AOM，否则相关工具可能返回空指标序列
 - controller-manager 和 scheduler 指标需要在 AOM 中单独开启对应 ServiceMonitor，否则工具可能返回空指标序列
 - 首次使用前请运行验证章节中的检查命令
 
