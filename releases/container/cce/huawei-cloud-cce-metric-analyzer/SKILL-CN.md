@@ -1,195 +1,192 @@
-﻿---
-name: metric-analyzer
-description: Use this skill to query and analyze metrics for CCE clusters and cloud resources, including Pod, Node, ECS, ELB, EIP, and NAT usage, plus threshold-based anomaly detection and status classification.
+---
+id: huawei-cloud-cce-metric-analyzer
+name: huawei-cloud-cce-metric-analyzer
+description: |
+  基于 Python 调度器的华为云 CCE 指标分析技能，云服务查询通过 hcloud 执行。
+  当用户需要以下能力时使用本技能：(1) 查询 Pod/Node/CoreDNS/nginx-ingress/autoscaler/control-plane 的 CPU、内存、磁盘、QPS、延迟、请求、连接、证书、扩缩容或错误率指标，(2) 获取资源使用率 TopN 排名，(3) 查询 ECS/ELB/EIP/NAT 云资源指标，(4) 聚合集群监控数据并做异常检测，(5) 基于阈值识别资源异常。
+  触发词：用户提到 "metric analysis"、"指标分析"、"CCE metrics"、"CCE 指标"、"AOM metrics"、"AOM 指标"、"CoreDNS metrics"、"CoreDNS 指标"、"nginx ingress metrics"、"nginx-ingress 指标"、"autoscaler metrics"、"autoscaler 指标"、"HPA 指标"、"apiserver metrics"、"etcd metrics"、"controller manager metrics"、"scheduler metrics"、"control plane metrics"、"控制面指标"、"certificate expiration"、"证书过期"、"resource metrics"、"资源指标"、"CPU 使用率"、"内存使用率"、"TopN" 或 "资源排名"。
+tags: [cce, metrics, aom, observability, analysis]
 ---
 
-# Metric Analyzer
+# 华为云 CCE 指标分析器
 
-Query and analyze metrics for CCE clusters (Pod/Node) and cloud resources (ECS, ELB, EIP, NAT). Supports threshold-based anomaly detection and status classification.
+## 概览
 
-Runtime note: the user-facing entry remains `python3 scripts/huawei-cloud.py`. CCE/ECS/ELB/VPC/EIP/NAT/CES/IAM cloud service queries are executed through hcloud (KooCLI). AOM Prometheus range queries use signed HTTPS requests with AK/SK because the hcloud AOM Prometheus query path is not compatible with the required query_range API. Configure credentials with `hcloud configure` or supported AK/SK environment variables.
+查询并分析 CCE 集群指标（Pod/Node CPU、内存、磁盘）和云资源指标（ECS、ELB、EIP、NAT）。支持基于阈值的异常检测、状态分类（critical/warning/normal）和整集群监控聚合。
 
-> **执行方式**：云服务查询统一通过本机 `hcloud` CLI 执行。AOM Prometheus `query_range` 是唯一例外，因为所需的 Prometheus range-query 路径当前不兼容 hcloud，所以使用 AK/SK 签名 HTTPS 请求。禁止在 dispatcher 外绕过工具直接调用 SDK、curl IAM、openstack 或手写云服务 API。
+**架构**：`python3 scripts/huawei-cloud.py` 调度器 -> hcloud (KooCLI) 云服务查询 + AOM Prometheus 签名 HTTP 查询 + Kubernetes client -> Pod/Node 指标、ECS/ELB/EIP/NAT 指标 -> 阈值分类 -> 异常检测。
 
-> **认证优先级**：hcloud 调用使用 `工具入参 > 本机 hcloud profile > 环境变量`。AOM Prometheus signed HTTP 和 Kubernetes 证书创建无法直接使用加密的 hcloud profile 凭证材料，因此签名类调用使用 `工具入参 > 环境变量`。
+> **执行方式**：云服务查询通过本机 `hcloud` CLI 执行。AOM Prometheus `query_range` 是唯一例外，由于所需 Prometheus range-query 路径不兼容 hcloud，因此使用签名 HTTPS 请求。禁止在调度器之外直接调用华为云 SDK、curl IAM、openstack 或手写云 API。
 
-> **采集依赖**：controller-manager 和 scheduler 指标需要在 AOM 中单独开启对应的 ServiceMonitor；如果未开启，工具可以正常执行，但可能返回空指标序列。
+**相关技能**：
+- `huawei-cloud-cce-pod-failure-diagnoser` - Pod CrashLoopBackOff、OOMKilled、重启风暴
+- `huawei-cloud-cce-node-failure-diagnoser` - 节点健康和资源压力诊断
+- `huawei-cloud-cce-kubernetes-event-analyzer` - Warning 事件和失败模式
+- `huawei-cloud-cce-capacity-trend-forecaster` - 容量规划和趋势预测
+- `huawei-cloud-cce-cost-optimization-advisor` - 资源成本优化
+- `huawei-cloud-cce-auto-remediation-runner` - 修复动作（扩缩容、规格调整、drain）
 
-## Scope
+**能力范围**：
+- Pod CPU/内存 TopN 排名和单 Pod 时序指标
+- Node CPU/内存/磁盘 TopN 排名和单 Node 时序指标
+- Node GPU 与 xGPU 指标，包括 GPU 使用率、显存、温度、功耗、调度策略、xGPU 分配、使用量和健康状态
+- Pod GPU 与 xGPU 指标
+- CoreDNS QPS、排除 NXDOMAIN 的错误率、NXDOMAIN 比例、P95 延迟、副本数和 Pod CPU/内存
+- nginx-ingress QPS、4xx/5xx 速率、成功率、P95 延迟、活跃连接、Pod CPU/内存和 Ingress TLS 证书过期状态
+- Autoscaler 不可调度 Pod、节点状态数量、扩/缩容事件、错误、节点组、HPA 当前/期望副本，以及 Pod CPU/内存
+- Kubernetes 控制面指标：apiserver、etcd、controller-manager、scheduler
+- ECS 实例 CPU/内存/磁盘/网络指标
+- ELB 连接、带宽、QPS 指标
+- EIP 带宽、流量、丢包率指标
+- NAT Gateway SNAT 连接指标
+- 整集群监控聚合和异常检测（80% 阈值）
+- 阈值状态分类：critical/warning/normal/unknown
 
-Use this skill when the user asks to:
+**典型场景**：
+- “查询集群 CPU 使用率最高的 Pod”
+- “获取 Node 内存使用率排名”
+- “获取 CCE 节点 GPU 和 xGPU 指标”
+- “检查 CoreDNS QPS、延迟和错误率”
+- “检查 nginx-ingress 请求延迟、5xx 率和 TLS 证书过期”
+- “检查 autoscaler 扩缩容活动和 HPA 副本差异”
+- “检查 apiserver、etcd、controller-manager、scheduler 关键指标”
+- “检查 ECS 实例资源指标”
+- “查看某个 ELB 的 QPS”
+- “查看 EIP 带宽使用”
+- “聚合集群全部监控数据”
+- “哪些资源超过了 critical 阈值”
+- “检测最近一小时资源异常”
 
-- Get Pod CPU/memory usage ranking in a CCE cluster
-- Get Node CPU/memory/disk usage ranking in a CCE cluster
-- Query specific Pod or Node metrics time-series
-- Check which Pods/Nodes are consuming the most resources
-- Get ECS instance CPU/memory/disk/network metrics
-- Get ELB connection, bandwidth, QPS metrics
-- Get EIP bandwidth and traffic metrics
-- Get NAT Gateway SNAT connection metrics
-- Detect resource anomalies via threshold-based classification
+## 前置条件
 
-This skill is read-only. It does not modify resources or configurations.
+### 1. 运行依赖
 
-## 风险等级
+- Python 3.8+，用于调度器和结果处理
+- hcloud (KooCLI) 7.2.2+，用于 CCE/ECS/ELB/VPC/EIP/NAT/CES/IAM 云服务查询
+- Kubernetes Python client，用于 hcloud 创建短期 CCE 集群凭据后读取集群内 Pod/Node/Service 详情
+- AOM Prometheus range 查询使用 AK/SK 签名 HTTPS 请求，因为 hcloud AOM Prometheus 查询路径不兼容所需的 query_range API
+- controller-manager 和 scheduler 指标需要在 AOM 中单独开启对应 ServiceMonitor，否则工具可能返回空指标序列
+- 首次使用前请运行验证章节中的检查命令
 
-当前技能全部工具都是只读查询或本地分析，不创建、修改、删除、重启、扩缩容任何华为云或 Kubernetes 资源。
+### 2. 认证配置
 
-| 等级 | 含义 | 执行建议 |
-|------|------|---------|
-| R3 | 无风险只读查询或本地分析 | 可自动执行 |
-| R2 | 低风险变更，例如创建监控配置，不删除资源、不扩容、不直接增加费用 | 当前工具未使用 |
-| R1 | 有风险操作，例如类似重启影响、停用保护、可能增加费用或降低可观测性的变更 | 当前工具未使用 |
-| R0 | 致命级别操作，例如删除集群、应用，或删除影响面较大的监控保护 | 当前工具未使用 |
+- 支持通过 hcloud profile 或 AK/SK 模式提供华为云认证
+- **安全规则**：
+  - 禁止在代码、对话或命令中暴露 AK/SK
+  - 禁止使用 `echo $HUAWEI_AK` 或 `echo $HUAWEI_SK` 检查凭据
+  - hcloud 调用认证优先级：显式工具参数 > 本机 hcloud profile > 环境变量
+  - AOM Prometheus 签名 HTTP 和 Kubernetes 证书创建无法使用加密 hcloud profile 中的密钥材料，因此使用显式工具参数优先、环境变量作为签名 fallback
+  - 优先使用 IAM 用户而不是根账号
+  - 对敏感操作启用 MFA
 
-| 工具 | 操作类型 | 风险等级 | 说明 |
-|------|---------|---------|------|
-| `huawei_get_cce_pod_metrics_topN` | 查询 | R3 | 从 AOM Prometheus 读取 Pod CPU/内存/磁盘 TopN 指标 |
-| `huawei_get_cce_pod_metrics` | 查询 | R3 | 读取单个 Pod CPU/内存/磁盘时序指标 |
-| `huawei_get_cce_node_metrics_topN` | 查询 | R3 | 从 AOM Prometheus 读取 Node CPU/内存/磁盘 TopN 指标 |
-| `huawei_get_cce_node_metrics` | 查询 | R3 | 读取单个 Node CPU/内存/磁盘时序指标 |
-| `huawei_get_cce_node_gpu_metrics` | 查询 | R3 | 读取单个 Node GPU 和 xGPU 监控指标 |
-| `huawei_get_cce_pod_gpu_metrics` | 查询 | R3 | 读取单个 Pod GPU 和 xGPU 监控指标 |
-| `huawei_get_cce_coredns_metrics` | 查询 | R3 | 读取 CoreDNS QPS、排除 NXDOMAIN 的错误率、NXDOMAIN 比例、P95 延迟、副本数以及 Pod CPU/内存指标 |
-| `huawei_get_cce_nginx_ingress_metrics` | 查询 | R3 | 读取 nginx-ingress 请求处理指标和 Ingress TLS 证书过期状态 |
-| `huawei_get_cce_autoscaler_metrics` | 查询 | R3 | 读取 Cluster Autoscaler 扩缩容指标、HPA 副本状态以及 autoscaler Pod CPU/内存指标 |
-| `huawei_get_cce_apiserver_metrics` | 查询 | R3 | 读取 kube-apiserver QPS、错误率、延迟和 inflight 请求指标 |
-| `huawei_get_cce_etcd_metrics` | 查询 | R3 | 读取 etcd leader、proposal、DB 大小、磁盘延迟、CPU 和内存指标 |
-| `huawei_get_cce_controller_manager_metrics` | 查询 | R3 | 读取控制面 workqueue 深度、adds、retries、排队延迟和处理耗时指标 |
-| `huawei_get_cce_scheduler_metrics` | 查询 | R3 | 读取 scheduler 调度尝试、待调度 Pod、调度延迟和队列指标 |
-| `huawei_get_ecs_metrics` | 查询 | R3 | 通过 hcloud/CES 读取 ECS 监控指标 |
-| `huawei_get_elb_metrics` | 查询 | R3 | 通过 hcloud/CES 读取 ELB 监控指标 |
-| `huawei_get_eip_metrics` | 查询 | R3 | 通过 hcloud/CES 读取 EIP 监控指标 |
-| `huawei_get_nat_gateway_metrics` | 查询 | R3 | 通过 hcloud/CES 读取 NAT Gateway 监控指标 |
-| `huawei_cce_cluster_monitoring_aggregation` | 查询 + 本地分析 | R3 | 汇总 Pod/Node/云资源监控并在本地做异常分类 |
-
-## Tools
-
-### CCE Metrics
-
-| Tool | Purpose | Required parameters |
-|------|---------|---------------------|
-| `huawei_get_cce_pod_metrics_topN` | Get Pod CPU/memory/disk TopN | `region`, `cluster_id` |
-| `huawei_get_cce_pod_metrics` | Get single Pod CPU/memory/disk time-series | `region`, `cluster_id`, `pod_name` |
-| `huawei_get_cce_node_metrics_topN` | Get Node CPU/memory/disk TopN | `region`, `cluster_id` |
-| `huawei_get_cce_node_metrics` | Get single Node time-series | `region`, `cluster_id`, `node_ip` |
-| `huawei_get_cce_node_gpu_metrics` | Get single Node GPU and xGPU metrics | `region`, `cluster_id`, `node_ip` |
-| `huawei_get_cce_pod_gpu_metrics` | Get single Pod GPU and xGPU metrics | `region`, `cluster_id`, `pod_name` |
-| `huawei_get_cce_coredns_metrics` | Get CoreDNS QPS/error-rate excluding NXDOMAIN/NXDOMAIN-rate/P95/replicas/CPU/memory | `region`, `cluster_id` |
-| `huawei_get_cce_nginx_ingress_metrics` | Get nginx-ingress request metrics and TLS certificate expiration | `region`, `cluster_id` |
-| `huawei_get_cce_autoscaler_metrics` | Get Cluster Autoscaler and HPA metrics | `region`, `cluster_id` |
-| `huawei_get_cce_apiserver_metrics` | Get kube-apiserver key metrics | `region`, `cluster_id` |
-| `huawei_get_cce_etcd_metrics` | Get etcd key metrics | `region`, `cluster_id` |
-| `huawei_get_cce_controller_manager_metrics` | Get controller-manager key metrics | `region`, `cluster_id` |
-| `huawei_get_cce_scheduler_metrics` | Get scheduler key metrics | `region`, `cluster_id` |
-
-### Cloud Resource Metrics
-
-| Tool | Purpose | Required parameters |
-|------|---------|---------------------|
-| `huawei_get_ecs_metrics` | Get ECS CPU/memory/disk/network metrics | `region`, `instance_id` |
-| `huawei_get_elb_metrics` | Get ELB connections, bandwidth, QPS | `region`, `elb_id` |
-| `huawei_get_eip_metrics` | Get EIP bandwidth, traffic, packet rate | `region`, `eip_id` |
-| `huawei_get_nat_gateway_metrics` | Get NAT SNAT connections, bandwidth | `region`, `nat_gateway_id` |
-
-### Aggregation Tool
-
-| Tool | Purpose | Required parameters |
-|------|---------|---------------------|
-| `huawei_cce_cluster_monitoring_aggregation` | Aggregate all cluster monitoring with anomaly detection | `region`, `cluster_id`, `start_time`, `end_time` |
-
-## Usage
-
-### CCE Pod Metrics
+**配置方式**：
 
 ```bash
-# Pod TopN
+hcloud configure list
+
+# 可选环境变量 fallback
+export HUAWEI_AK=<your-ak>
+export HUAWEI_SK=<your-sk>
+export HUAWEI_REGION=cn-north-4
+```
+
+### 3. IAM 权限要求
+
+| API Action | 权限用途 |
+| ---------- | -------- |
+| `cce:cluster:get` | 查看 CCE 集群详情 |
+| `aom:instance:list` | 发现用于指标查询的 AOM Prometheus 实例 |
+| `aom:metricsData:get` | 查询 Pod/Node CPU、内存、磁盘等 AOM 指标 |
+| `ces:metricsData:get` | 查询 ECS/ELB/EIP/NAT 云资源指标 |
+| `ecs:cloudServers:list` | 关联 ECS 实例 ID |
+| `elb:loadbalancers:list` | 关联 ELB ID |
+| `vpc:eips:list` | 关联 EIP ID |
+| `nat:natGateways:list` | 关联 NAT Gateway ID |
+
+**权限失败处理**：
+
+1. 命令因 IAM 权限失败时，展示需要的权限列表。
+2. 引导用户在 IAM 控制台创建自定义策略并授权。
+3. 暂停执行，等待用户确认权限已补齐。
+
+## 核心命令
+
+所有命令都使用 Python 调度器脚本：
+
+```bash
+python3 scripts/huawei-cloud.py <action> <key=value>...
+```
+
+### 1. CCE Pod 指标
+
+```bash
+# Pod TopN，集群级 CPU/内存排名
 python3 scripts/huawei-cloud.py huawei_get_cce_pod_metrics_topN \
-  region=cn-north-4 \
-  cluster_id=<cluster-id> \
-  namespace=default \
-  top_n=10 \
-  hours=1
+  region=cn-north-4 cluster_id=<cluster-id> \
+  namespace=default top_n=10 hours=1
 
-# Single Pod
+# 带 label selector 的 Pod TopN
+python3 scripts/huawei-cloud.py huawei_get_cce_pod_metrics_topN \
+  region=cn-north-4 cluster_id=<cluster-id> \
+  namespace=default label_selector="app=nginx,version=v1" top_n=10 hours=1
+
+# 单 Pod 时序指标
 python3 scripts/huawei-cloud.py huawei_get_cce_pod_metrics \
-  region=cn-north-4 \
-  cluster_id=<cluster-id> \
-  pod_name=<pod-name> \
-  namespace=default \
-  hours=1
+  region=cn-north-4 cluster_id=<cluster-id> \
+  pod_name=my-app-xxx namespace=default hours=1
 
-# Single Pod GPU and xGPU metrics
+# 单 Pod GPU 和 xGPU 指标
 python3 scripts/huawei-cloud.py huawei_get_cce_pod_gpu_metrics \
-  region=cn-north-4 \
-  cluster_id=<cluster-id> \
-  pod_name=<pod-name> \
-  namespace=default \
-  hours=1
+  region=cn-north-4 cluster_id=<cluster-id> \
+  pod_name=my-gpu-app-xxx namespace=default hours=1
 ```
 
-### CCE Node Metrics
+### 2. CCE Node 指标
 
 ```bash
-# Node TopN
+# Node TopN，集群级 CPU/内存/磁盘排名
 python3 scripts/huawei-cloud.py huawei_get_cce_node_metrics_topN \
-  region=cn-north-4 \
-  cluster_id=<cluster-id> \
-  top_n=10 \
-  hours=1
+  region=cn-north-4 cluster_id=<cluster-id> \
+  top_n=10 hours=1
 
-# Single Node
+# 单 Node 时序指标
 python3 scripts/huawei-cloud.py huawei_get_cce_node_metrics \
-  region=cn-north-4 \
-  cluster_id=<cluster-id> \
-  node_ip=<node-ip> \
-  hours=1
+  region=cn-north-4 cluster_id=<cluster-id> \
+  node_ip=10.0.0.1 hours=1
 
-# Node GPU and xGPU metrics
+# Node GPU 和 xGPU 指标
 python3 scripts/huawei-cloud.py huawei_get_cce_node_gpu_metrics \
-  region=cn-north-4 \
-  cluster_id=<cluster-id> \
-  node_ip=<node-ip> \
-  hours=1
+  region=cn-north-4 cluster_id=<cluster-id> \
+  node_ip=10.0.0.1 hours=1
 ```
 
-### CoreDNS Metrics
+### 3. CCE CoreDNS 指标
 
 ```bash
 python3 scripts/huawei-cloud.py huawei_get_cce_coredns_metrics \
-  region=cn-north-4 \
-  cluster_id=<cluster-id> \
-  namespace=kube-system \
-  pod_regex=".*coredns.*" \
-  hours=1
+  region=cn-north-4 cluster_id=<cluster-id> \
+  namespace=kube-system pod_regex=".*coredns.*" hours=1
 ```
 
-### nginx-ingress Metrics
+### 4. CCE nginx-ingress 指标
 
 ```bash
 python3 scripts/huawei-cloud.py huawei_get_cce_nginx_ingress_metrics \
-  region=cn-north-4 \
-  cluster_id=<cluster-id> \
-  namespace=kube-system \
-  pod_regex=".*nginx.*ingress.*|.*ingress.*nginx.*" \
-  ingress_namespace=default \
-  cert_expire_warning_days=30 \
-  hours=1
+  region=cn-north-4 cluster_id=<cluster-id> \
+  namespace=kube-system pod_regex=".*nginx.*ingress.*|.*ingress.*nginx.*" \
+  ingress_namespace=default cert_expire_warning_days=30 hours=1
 ```
 
-### Autoscaler Metrics
+### 5. CCE Autoscaler 指标
 
 ```bash
 python3 scripts/huawei-cloud.py huawei_get_cce_autoscaler_metrics \
-  region=cn-north-4 \
-  cluster_id=<cluster-id> \
-  namespace=kube-system \
-  pod_regex=".*cluster.*autoscaler.*|.*autoscaler.*" \
-  include_hpa=true \
-  hours=1
+  region=cn-north-4 cluster_id=<cluster-id> \
+  namespace=kube-system pod_regex=".*cluster.*autoscaler.*|.*autoscaler.*" \
+  include_hpa=true hours=1
 ```
 
-### Control Plane Metrics
+### 6. Kubernetes 控制面指标
 
 ```bash
 python3 scripts/huawei-cloud.py huawei_get_cce_apiserver_metrics \
@@ -205,80 +202,290 @@ python3 scripts/huawei-cloud.py huawei_get_cce_scheduler_metrics \
   region=cn-north-4 cluster_id=<cluster-id> namespace=kube-system hours=1
 ```
 
-### ECS Metrics
+### 7. 云资源指标
 
 ```bash
+# ECS 实例指标
 python3 scripts/huawei-cloud.py huawei_get_ecs_metrics \
-  region=cn-north-4 \
-  instance_id=<instance-id>
-```
+  region=cn-north-4 instance_id=<instance-id>
 
-### ELB Metrics
-
-```bash
+# ELB 指标
 python3 scripts/huawei-cloud.py huawei_get_elb_metrics \
-  region=cn-north-4 \
-  elb_id=<loadbalancer-id> \
-  hours=1
-```
+  region=cn-north-4 elb_id=<loadbalancer-id> hours=1
 
-### EIP Metrics
-
-```bash
+# EIP 指标
 python3 scripts/huawei-cloud.py huawei_get_eip_metrics \
-  region=cn-north-4 \
-  eip_id=<eip-id> \
-  hours=1
-```
+  region=cn-north-4 eip_id=<eip-id> hours=1
 
-### NAT Gateway Metrics
-
-```bash
+# NAT Gateway 指标
 python3 scripts/huawei-cloud.py huawei_get_nat_gateway_metrics \
-  region=cn-north-4 \
-  nat_gateway_id=<nat-gateway-id> \
-  hours=1
+  region=cn-north-4 nat_gateway_id=<nat-gateway-id> hours=1
 ```
 
-### Cluster Monitoring Aggregation
+### 8. 集群监控聚合
 
 ```bash
-# Aggregate all monitoring data for a cluster with anomaly detection
 python3 scripts/huawei-cloud.py huawei_cce_cluster_monitoring_aggregation \
-  region=cn-north-4 \
-  cluster_id=<cluster-id> \
-  start_time="2026-05-30 00:00:00" \
-  end_time="2026-05-30 23:59:59" \
-  namespace=default \
-  top_n=10
+  region=cn-north-4 cluster_id=<cluster-id> \
+  start_time="2026-05-30 00:00:00" end_time="2026-05-30 23:59:59" \
+  namespace=default top_n=10
 ```
 
-This tool aggregates:
-- Pod metrics (TopN CPU/memory)
-- Node metrics (TopN CPU/memory/disk)
-- ELB metrics (with LoadBalancer service association)
-- NAT Gateway metrics
-- EIP metrics (bandwidth, packet loss)
-- Anomaly detection using 80% threshold
+该工具聚合 Pod TopN CPU/内存、Node TopN CPU/内存/磁盘、ELB 指标（带 LoadBalancer Service 关联）、NAT Gateway 指标、EIP 指标（带宽、丢包率），并基于 80% 阈值做异常检测。
 
-## Analysis Guidance
+它也包含 CoreDNS、nginx-ingress 和 autoscaler 摘要。云资源仅在可证明与当前集群有关时纳入：ELB 通过 LoadBalancer Service IP/EIP 匹配，NAT Gateway 通过集群 VPC 过滤，EIP 限定为关联 ELB/NAT/Service IP 的地址。
 
-1. **Review results**: Focus on resources with high utilization or abnormal patterns
-2. **Check thresholds**: CPU >80%, Memory >85% typically marked as critical
-3. **Identify affected workloads**: Correlate high resource usage with application issues
-4. **Correlate with events**: If metrics show anomalies, check `kubernetes-event-analyzer`
+## 风险等级
 
-## Output Format
+本技能是只读技能，不创建、更新、删除、重启、扩容或修改华为云和 Kubernetes 资源。
 
-| Field | Description |
-|-------|-------------|
-| `success` | Query success status |
-| `region` | Cloud region |
-| `metrics` | Resource-specific metrics with values and units |
-| `time_series` | Historical data points (where available) |
+| 等级 | 含义 | 执行要求 |
+| ---- | ---- | -------- |
+| R3 | 无风险只读查询或本地分析 | 可自动执行 |
+| R2 | 低风险变更，例如创建监控配置，不删除资源、不扩容、不直接增加费用 | 当前工具未使用 |
+| R1 | 有风险操作，例如类似重启影响、停用保护、可能增加费用或降低可观测性的变更 | 当前工具未使用 |
+| R0 | 致命级别操作，例如删除集群、应用或大范围监控保护 | 当前工具未使用 |
 
-## References
+| 工具 | 操作类型 | 风险等级 | 说明 |
+| ---- | -------- | -------- | ---- |
+| `huawei_get_cce_pod_metrics_topN` | 查询 | R3 | 从 AOM Prometheus 读取 Pod CPU/内存/磁盘 TopN 指标 |
+| `huawei_get_cce_pod_metrics` | 查询 | R3 | 读取单个 Pod CPU/内存/磁盘时序指标 |
+| `huawei_get_cce_pod_gpu_metrics` | 查询 | R3 | 读取单个 Pod GPU 和 xGPU 指标 |
+| `huawei_get_cce_node_metrics_topN` | 查询 | R3 | 从 AOM Prometheus 读取 Node CPU/内存/磁盘 TopN 指标 |
+| `huawei_get_cce_node_metrics` | 查询 | R3 | 读取单个 Node CPU/内存/磁盘时序指标 |
+| `huawei_get_cce_node_gpu_metrics` | 查询 | R3 | 读取单个 Node GPU 和 xGPU 指标 |
+| `huawei_get_cce_coredns_metrics` | 查询 | R3 | 读取 CoreDNS QPS、排除 NXDOMAIN 的错误率、NXDOMAIN 比例、P95 延迟、副本数和 Pod CPU/内存 |
+| `huawei_get_cce_nginx_ingress_metrics` | 查询 | R3 | 读取 nginx-ingress 请求处理指标和 Ingress TLS 证书过期状态；缺少请求维度指标时 QPS 回退到 nginx process 请求计数 |
+| `huawei_get_cce_autoscaler_metrics` | 查询 | R3 | 读取 Cluster Autoscaler 扩缩容指标、HPA 副本状态和 autoscaler Pod CPU/内存 |
+| `huawei_get_cce_apiserver_metrics` | 查询 | R3 | 读取 kube-apiserver QPS、错误率、延迟和 inflight 请求 |
+| `huawei_get_cce_etcd_metrics` | 查询 | R3 | 读取 etcd leader、proposal、DB 大小、磁盘延迟、CPU 和内存 |
+| `huawei_get_cce_controller_manager_metrics` | 查询 | R3 | 读取控制面 workqueue 深度、adds、retries、排队延迟和处理耗时 |
+| `huawei_get_cce_scheduler_metrics` | 查询 | R3 | 读取 scheduler 调度尝试、待调度 Pod、调度延迟和队列指标 |
+| `huawei_get_ecs_metrics` | 查询 | R3 | 通过 hcloud/CES 读取 ECS 监控数据 |
+| `huawei_get_elb_metrics` | 查询 | R3 | 通过 hcloud/CES 读取 ELB 监控数据 |
+| `huawei_get_eip_metrics` | 查询 | R3 | 通过 hcloud/CES 读取 EIP 监控数据 |
+| `huawei_get_nat_gateway_metrics` | 查询 | R3 | 通过 hcloud/CES 读取 NAT Gateway 监控数据 |
+| `huawei_cce_cluster_monitoring_aggregation` | 查询 + 本地分析 | R3 | 聚合 Pod/Node/云资源指标并在本地分类异常 |
 
-- Workflow: `references/workflow.md`
-- Risk rules: `references/risk-rules.md`
-- Output schema: `references/output-schema.md`
+## 参数参考
+
+### 通用参数
+
+| 参数 | 必填/可选 | 说明 | 默认值 |
+| ---- | --------- | ---- | ------ |
+| `region` | 必填 | 华为云区域 | `HUAWEI_REGION` |
+| `cluster_id` | 必填 | CCE 集群 ID | N/A |
+| `namespace` | 推荐 | Kubernetes 命名空间 | `default` |
+| `ak` | 可选 | 显式 AK；所有调用最高优先级 | profile/env fallback |
+| `sk` | 可选 | 显式 SK；所有调用最高优先级 | profile/env fallback |
+| `project_id` | 可选 | 显式 Project ID；hcloud 使用 profile 后再环境变量 fallback | IAM/profile 自动解析 |
+
+### `huawei_get_cce_pod_metrics_topN` 参数
+
+| 参数 | 必填 | 说明 | 默认值 |
+| ---- | ---- | ---- | ------ |
+| `namespace` | 否 | 命名空间过滤 | all |
+| `label_selector` | 否 | 标签选择器，例如 app=web | N/A |
+| `top_n` | 否 | TopN 数量 | 10 |
+| `hours` | 否 | 指标回溯小时数 | 1 |
+| `node_ip` | 否 | 过滤指定节点上的 Pod | N/A |
+| `cpu_query` | 否 | 自定义 CPU PromQL | Auto |
+| `memory_query` | 否 | 自定义内存 PromQL | Auto |
+| `disk_query` | 否 | 自定义磁盘 PromQL | Auto |
+
+### `huawei_get_cce_pod_metrics` 参数
+
+| 参数 | 必填 | 说明 | 默认值 |
+| ---- | ---- | ---- | ------ |
+| `pod_name` | 是 | 目标 Pod 名称 | N/A |
+| `namespace` | 否 | 命名空间 | `default` |
+| `hours` | 否 | 指标回溯小时数 | 1 |
+| `cpu_query` | 否 | 自定义 CPU PromQL | Auto |
+| `memory_query` | 否 | 自定义内存 PromQL | Auto |
+| `disk_query` | 否 | 自定义磁盘 PromQL | Auto |
+
+### `huawei_get_cce_pod_gpu_metrics` 参数
+
+| 参数 | 必填 | 说明 | 默认值 |
+| ---- | ---- | ---- | ------ |
+| `pod_name` | 是 | 目标 Pod 名称 | N/A |
+| `namespace` | 否 | 目标 Pod 命名空间 | all |
+| `hours` | 否 | 指标回溯小时数 | 1 |
+| `gpu_selector` | 否 | 自定义 GPU 指标 label selector；当 GPU 指标不使用 `pod` 或 `namespace` 标签时使用 | `pod="<pod_name>",namespace="<namespace>"` |
+
+支持可选自定义 PromQL 覆盖 GPU 使用率、显存、调度策略、xGPU 分配/使用量和 xGPU 健康指标。
+
+### `huawei_get_cce_node_metrics_topN` 参数
+
+| 参数 | 必填 | 说明 | 默认值 |
+| ---- | ---- | ---- | ------ |
+| `top_n` | 否 | TopN 数量 | 10 |
+| `hours` | 否 | 指标回溯小时数 | 1 |
+
+### `huawei_get_cce_node_metrics` 参数
+
+| 参数 | 必填 | 说明 | 默认值 |
+| ---- | ---- | ---- | ------ |
+| `node_ip` | 是 | 目标 Node IP | N/A |
+| `hours` | 否 | 指标回溯小时数 | 1 |
+
+### `huawei_get_cce_node_gpu_metrics` 参数
+
+| 参数 | 必填 | 说明 | 默认值 |
+| ---- | ---- | ---- | ------ |
+| `node_ip` | 是 | 目标 Node IP 或节点名 | N/A |
+| `hours` | 否 | 指标回溯小时数 | 1 |
+| `gpu_selector` | 否 | 自定义 GPU 指标 label selector；当 GPU 指标不使用 `node` 标签时使用 | `node=~"<node_ip>|<node_name>"` |
+
+支持可选自定义 PromQL 覆盖 GPU 使用率、显存、温度、功耗、调度策略、xGPU 分配/使用量和 xGPU 健康指标。
+
+### `huawei_get_cce_coredns_metrics` 参数
+
+| 参数 | 必填 | 说明 | 默认值 |
+| ---- | ---- | ---- | ------ |
+| `namespace` | 否 | CoreDNS 命名空间 | `kube-system` |
+| `pod_regex` | 否 | 匹配 CoreDNS Pod 的正则 | `.*coredns.*` |
+| `hours` | 否 | 指标回溯小时数 | 1 |
+
+支持可选自定义 PromQL 覆盖 QPS、错误率、NXDOMAIN 比例、P95 延迟、CPU、内存和副本数。
+
+### `huawei_get_cce_nginx_ingress_metrics` 参数
+
+| 参数 | 必填 | 说明 | 默认值 |
+| ---- | ---- | ---- | ------ |
+| `namespace` | 否 | nginx-ingress controller Pod 所在命名空间；传空值可查全部命名空间 | `kube-system` |
+| `pod_regex` | 否 | 匹配 nginx-ingress controller Pod 的正则 | `.*nginx.*ingress.*|.*ingress.*nginx.*` |
+| `ingress_namespace` | 否 | Ingress TLS 证书检查的命名空间过滤 | all |
+| `hours` | 否 | 指标回溯小时数 | 1 |
+| `cert_expire_warning_days` | 否 | 证书到期前多少天标记为 warning | 30 |
+| `check_certificates` | 否 | 是否检查 Ingress TLS Secret 证书过期状态 | true |
+
+支持可选自定义 PromQL 覆盖 QPS、4xx/5xx、成功率、P95 延迟、活跃连接、CPU 和内存。
+
+### `huawei_get_cce_autoscaler_metrics` 参数
+
+| 参数 | 必填 | 说明 | 默认值 |
+| ---- | ---- | ---- | ------ |
+| `namespace` | 否 | Cluster Autoscaler Pod 所在命名空间；传空值可查全部命名空间 | `kube-system` |
+| `pod_regex` | 否 | 匹配 autoscaler Pod 的正则 | `.*cluster.*autoscaler.*|.*autoscaler.*` |
+| `hpa_namespace` | 否 | HPA 副本指标的命名空间过滤 | all |
+| `hours` | 否 | 指标回溯小时数 | 1 |
+| `include_hpa` | 否 | 是否查询 HPA 当前/期望副本指标 | true |
+
+支持可选自定义 PromQL 覆盖不可调度 Pod、节点状态、扩缩容事件、错误、节点组、HPA 副本、CPU 和内存。
+
+### Kubernetes 控制面工具参数
+
+适用于 `huawei_get_cce_apiserver_metrics`、`huawei_get_cce_etcd_metrics`、`huawei_get_cce_controller_manager_metrics` 和 `huawei_get_cce_scheduler_metrics`。
+
+`huawei_get_cce_apiserver_metrics` 默认使用 `cluster="<cluster_id>",component="apiserver"`，不追加 namespace 或 Pod 标签。默认 P95 延迟排除 `WATCH|CONNECT` 请求，并返回 `latency_p95_by_verb_ms` 用于诊断。Prometheus 标签不一致时再使用 `metric_selector`。
+
+`huawei_get_cce_controller_manager_metrics` 默认使用 `cluster="<cluster_id>"`，因为 CCE AOM workqueue 指标可能没有稳定的 controller-manager Pod 标签。它返回聚合 workqueue 指标和按 queue `name` 拆分的指标。
+
+`huawei_get_cce_scheduler_metrics` 默认使用 `cluster="<cluster_id>"`，返回聚合指标以及按 `result`、`profile/result` 和 `queue` 拆分的指标。
+
+controller-manager 和 scheduler 指标依赖 AOM 对这些控制面端点启用 ServiceMonitor。如果未启用，工具可以执行成功但可能返回空序列。
+
+| 参数 | 必填 | 说明 | 默认值 |
+| ---- | ---- | ---- | ------ |
+| `namespace` | 否 | 控制面 Pod 命名空间；传空值可查全部命名空间 | `kube-system` |
+| `pod_regex` | 否 | 匹配目标组件 Pod 的正则 | 组件相关 |
+| `metric_selector` | 否 | 自定义 apiserver/controller-manager/scheduler 指标 label selector | apiserver: `cluster="<cluster_id>",component="apiserver"`；controller-manager/scheduler: `cluster="<cluster_id>"` |
+| `hours` | 否 | 指标回溯小时数 | 1 |
+
+### `huawei_get_ecs_metrics` 参数
+
+| 参数 | 必填 | 说明 | 默认值 |
+| ---- | ---- | ---- | ------ |
+| `instance_id` | 是 | ECS 实例 ID | N/A |
+
+### `huawei_get_elb_metrics` 参数
+
+| 参数 | 必填 | 说明 | 默认值 |
+| ---- | ---- | ---- | ------ |
+| `elb_id` | 是 | ELB 负载均衡 ID | N/A |
+| `hours` | 否 | 指标回溯小时数 | 1 |
+
+### `huawei_get_eip_metrics` 参数
+
+| 参数 | 必填 | 说明 | 默认值 |
+| ---- | ---- | ---- | ------ |
+| `eip_id` | 是 | EIP ID | N/A |
+| `hours` | 否 | 指标回溯小时数 | 1 |
+
+### `huawei_get_nat_gateway_metrics` 参数
+
+| 参数 | 必填 | 说明 | 默认值 |
+| ---- | ---- | ---- | ------ |
+| `nat_gateway_id` | 是 | NAT Gateway ID | N/A |
+| `hours` | 否 | 指标回溯小时数 | 1 |
+
+### `huawei_cce_cluster_monitoring_aggregation` 参数
+
+| 参数 | 必填 | 说明 | 默认值 |
+| ---- | ---- | ---- | ------ |
+| `start_time` | 是 | 开始时间，格式 YYYY-MM-DD HH:MM:SS | N/A |
+| `end_time` | 是 | 结束时间，格式 YYYY-MM-DD HH:MM:SS | N/A |
+| `namespace` | 否 | 命名空间过滤 | `default` |
+| `top_n` | 否 | TopN 数量 | 10 |
+| `security_token` | 否 | AK/SK 临时会话凭据的 security token | env fallback |
+
+## 输出格式
+
+完整 JSON 响应结构见 [Output Schema](references/output-schema.md)。
+
+**关键输出字段**：
+- `success` - 查询是否完成
+- `region` - 华为云区域
+- `cluster_id` / `cluster_name` - CCE 集群标识
+- `aom_instance_id` - 指标查询使用的 AOM Prometheus 实例
+- `metrics` - 每个资源的 CPU/内存/磁盘数据和状态分类
+- `certificate_check` - nginx-ingress 启用证书检查时的 Ingress TLS 证书过期摘要
+- `time_series` - 历史数据点，包含 `timestamp`、`time`、`average`、`min`、`max`
+- `status` - 阈值分类：`critical`、`warning`、`normal`、`unknown`
+
+## 验证
+
+1. 运行 `python3 scripts/huawei-cloud.py huawei_get_cce_pod_metrics_topN region=cn-north-4 cluster_id=<cluster-id> namespace=default top_n=5` 验证 Pod 指标查询
+2. 运行 `python3 scripts/huawei-cloud.py huawei_get_cce_node_metrics_topN region=cn-north-4 cluster_id=<cluster-id> top_n=5` 验证 Node 指标查询
+3. 运行 `python3 scripts/huawei-cloud.py huawei_get_ecs_metrics region=cn-north-4 instance_id=<instance-id>` 验证 CES 指标连通性
+
+## 最佳实践
+
+1. **先用 TopN 获取集群概览** - 先看 Pod/Node TopN，再钻取单个资源。
+2. **限制时间范围** - 最近分析建议 `hours` 保持 1-4；历史回顾最多 24 小时。
+3. **使用命名空间过滤** - Pod TopN 尽量提供 `namespace` 以减少噪声。
+4. **关注状态分类** - 优先关注 `critical` 和 `warning` 资源。
+5. **使用聚合工具做集群健康概览** - `huawei_cce_cluster_monitoring_aggregation` 一次性聚合 Pod、Node、CoreDNS、nginx-ingress、autoscaler 和集群关联云资源指标。
+6. **结合事件分析** - 指标异常时，使用 `huawei-cloud-cce-kubernetes-event-analyzer` 查看相关 Warning 事件。
+7. **只分析不修复** - 本技能只读；根因分析或修复交给对应诊断/修复技能。
+8. **输出脱敏** - 对外摘要不要暴露生产 Pod 名、节点 IP 或集群 ID。
+
+## 参考文档
+
+| 文档 | 说明 |
+| ---- | ---- |
+| [Workflow](references/workflow.md) | 指标查询顺序、Pod/Node 工作流、阈值检测和后续交接 |
+| [Risk Rules](references/risk-rules.md) | 只读约束、数据脱敏规则、时间范围约束、阈值注意事项 |
+| [Output Schema](references/output-schema.md) | CCE 指标、云资源指标、时序和状态值的 JSON 响应格式 |
+
+## 注意事项
+
+- 本技能严格只读，只查询和分析指标，不修改资源或配置。
+- 阈值（CPU >80%、Memory >85%、Disk >85%）是预设基线，实际阈值应结合业务 SLO 调整。
+- AK/SK 禁止硬编码；常规 hcloud 调用优先使用 hcloud profile，AOM/Kubernetes 签名调用可使用环境变量 fallback。
+- `scripts/huawei-cloud.py` 是唯一面向用户的执行入口。
+- AOM Prometheus 实例会自动发现，无需手动指定 `aom_instance_id`。
+- 云资源指标（ECS/ELB/EIP/NAT）使用 CES（Cloud Eye Service），不是 AOM。
+- 不要仅凭指标分析自动做扩缩容或修复决策；如需修复，明确请求并验证后交给 `huawei-cloud-cce-auto-remediation-runner`。
+
+## 常见问题
+
+| 问题 | 表现 | 处理方式 |
+| ---- | ---- | -------- |
+| 缺少 `cluster_id` | action 立即失败 | 使用集群列表中的 `cluster_id` |
+| 找不到 AOM Prometheus 实例 | 指标查询为空 | 确保集群已创建 AOM Prom 实例；检查 `aom:instance:list` 权限 |
+| 时间窗口过大且没有 namespace 过滤 | 响应慢、结果过多 | 将 `hours` 缩小到 1-4，并添加 `namespace` |
+| 云资源 ID 不存在 | ECS/ELB/EIP/NAT 查询报错 | 确认资源 ID 存在并具备 CES 权限 |
+| 自定义 PromQL 语法错误 | 查询返回空 | 优先使用默认 PromQL |
+| 聚合缺少时间范围 | 缺少 `start_time` / `end_time` | 聚合查询必须同时提供开始和结束时间 |

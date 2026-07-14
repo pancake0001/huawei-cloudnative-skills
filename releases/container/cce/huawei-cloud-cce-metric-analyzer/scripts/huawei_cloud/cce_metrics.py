@@ -757,7 +757,10 @@ def get_cce_nginx_ingress_metrics(
     active_state_label = 'state="active"'
 
     if qps_query is None:
-        qps_query = f"sum(rate(nginx_ingress_controller_requests{_with_selector()}[5m]))"
+        qps_query = (
+            f"sum(rate(nginx_ingress_controller_requests{_with_selector()}[5m])) "
+            f"or sum(rate(nginx_ingress_controller_nginx_process_requests_total{_with_selector()}[5m]))"
+        )
     if http_4xx_query is None:
         http_4xx_query = f"sum(rate(nginx_ingress_controller_requests{_with_selector(http_4xx_label)}[5m]))"
     if http_5xx_query is None:

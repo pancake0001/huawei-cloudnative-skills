@@ -1,514 +1,433 @@
-﻿---
-name: alarm-correlation-engine
-description: 华为云 AOM 告警关联分析技能，支持查询 active/history 告警、当前活跃告警、告警去重归并、严重级别分组、突发/常态告警识别，以及告警规则查询、创建、修改、删除、动作规则和静默规则核对。
+---
+id: huawei-cloud-cce-alarm-correlation-engine
+name: huawei-cloud-cce-alarm-correlation-engine
+description: |
+  面向 CCE 运维场景的华为云 AOM 告警关联分析与告警规则管理技能。
+  当用户需要以下能力时使用本技能：(1) 查询 AOM 活跃告警和历史告警，(2) 分析告警去重、告警风暴、严重级别分组、突发告警和常态告警，(3) 巡检 CCE 集群告警健康状态，(4) 查询、创建、修改、删除、启用或停用 AOM 告警规则，(5) 查询或创建通知动作规则，(6) 基于云侧 CCE 告警模板批量配置或清理推荐告警规则。
+  触发词：用户提到 "alarm correlation"、"AOM alarm"、"alarm rule"、"alarm storm"、"alarm inspection"、"notification rule"、"告警关联"、"AOM 告警"、"告警规则"、"告警风暴"、"通知规则" 或 "CCE 告警"。
+tags: [cce, alarm-correlation, aom, observability, alarm-management]
 ---
 
-# 华为云 AOM 告警关联分析
+# 华为云 CCE 告警关联分析引擎
 
-华为云 AOM 告警关联分析技能，用于把 CCE 相关告警从原始事件流整理成可行动的告警线索。核心原则是同时考虑 active 和 history，避免漏掉已经恢复但影响诊断的资源类告警。
+## 概览
 
-> **执行方式：本技能仍通过 `scripts/huawei-cloud.py` 统一入口执行，但入口内部使用 `hcloud` 获取华为云数据。禁止在技能外绕过 dispatcher 直接调用 SDK、curl IAM、openstack 或手写签名 API。**
+本技能用于关联分析华为云 AOM 活跃告警和历史告警，将原始告警流转换为可执行的排障线索。同时，本技能也支持通过严格的“先预览、再确认”流程管理 AOM 告警规则和通知动作规则。
 
-## ⛔ 安全约束
+**架构**：`python3 scripts/huawei-cloud.py` 调度器 -> 本机 `hcloud` (KooCLI) -> AOM/CCE/IAM 云服务操作 -> 告警查询、告警关联、告警规则管理、通知规则管理和 CCE 告警健康巡检。
 
-### 告警规则变更二次确认机制
+> **执行方式**：所有华为云操作都必须通过技能内置 Python 调度器完成。调度器调用本机 `hcloud` CLI。禁止直接导入 SDK、手写 API 签名、curl IAM、openstack 命令，或使用任何工具之外的云访问路径。
 
-> **本技能允许查询、创建、修改和删除 AOM 告警规则，并支持删除 AOM 通知动作规则；其中创建、修改和删除类操作必须携带 `confirm=true` 才会真正执行，否则仅返回预览和确认提示。**
+**相关技能**：
+- `huawei-cloud-cce-metric-analyzer` - CCE、AOM 和云资源指标检查
+- `huawei-cloud-cce-kubernetes-event-analyzer` - Kubernetes Warning 事件分析
+- `huawei-cloud-cce-pod-failure-diagnoser` - Pod 故障诊断
+- `huawei-cloud-cce-node-failure-diagnoser` - Node 故障诊断
+- `huawei-cloud-cce-auto-remediation-runner` - 修复动作预览与执行
 
-#### 需二次确认的操作列表
+**能力范围**：
+- 查询 AOM 活跃告警、历史告警，以及活跃+历史合并视图
+- 分析告警去重、严重级别分组、突发告警、关注告警和常态告警
+- 巡检 CCE 告警健康状态，并输出后续诊断风险项
+- 查询 AOM 告警规则，支持按 `cluster_id` 过滤
+- 解析 CCE 集群绑定的 AOM Prometheus 实例
+- 创建指标告警规则和事件告警规则
+- 使用用户提供的 SMN 主题创建通知动作规则
+- 基于云侧 CCE 告警模板批量配置 CCE 推荐告警规则
+- 批量清理匹配云侧 CCE 告警模板的告警规则
+- 修改、删除、启用和停用 AOM 告警规则
+- 查询 AOM 动作规则和静默规则
 
-#### 风险等级定义
-
-| 等级 | 含义 | 执行建议 |
-|------|------|---------|
-| R3 | 无风险只读操作 | 可自动执行 |
-| R2 | 低风险变更，例如创建监控配置，不删除资源、不扩容、不直接增加费用 | 先预览；用户要求变更时再执行 |
-| R1 | 有风险操作，例如类似重启影响、停用保护、可能增加费用或降低可观测性的变更 | 必须显式确认并携带 `confirm=true` |
-| R0 | 致命级别操作，例如删除集群、应用，或删除影响面较大的通知/监控保护 | 禁止自动执行；需要明确确认、影响评估和回滚方案 |
-
-| 工具 | 操作类型 | 风险等级 | 说明 |
-|------|---------|---------|------|
-| `huawei_create_aom_alarm_rule` | 创建 | R2 | 创建新的 AOM 告警规则，可能引入新的告警通知 |
-| `huawei_create_aom_event_alarm_rule` | 创建 | R2 | 创建新的 AOM 事件告警规则，可能引入新的事件告警通知 |
-| `huawei_create_aom_notification_action_rule` | 创建 | R2 | 使用用户提供的 SMN 主题创建 AOM 通知动作规则 |
-| `huawei_configure_cce_aom_alarm_rules` | 批量创建 | R2 | 按 AOM 云侧 `CCE模板` 为指定集群批量创建告警规则；必须显式传入已有通知动作规则 |
-| `huawei_cleanup_cce_aom_alarm_rules` | 批量清理 | R0 | 按同一个 AOM 云侧 `CCE模板` 清理指定集群的告警规则 |
-| `huawei_update_aom_alarm_rule` | 修改 | R1 | 修改 AOM 告警规则阈值、开关、通知动作、描述等配置 |
-| `huawei_delete_aom_alarm_rule` | 删除 | R0 | 删除 AOM 告警规则，可能导致后续告警无法触发 |
-| `huawei_disable_aom_alarm_rule` | 停用 | R1 | 停用 AOM 告警规则，可能导致相关告警不再触发 |
-| `huawei_enable_aom_alarm_rule` | 启用 | R2 | 启用 AOM 告警规则，可能恢复并触发告警通知 |
-| `huawei_delete_aom_action_rule` | 删除 | R0 | 删除 AOM 通知动作规则，可能导致告警无法发送通知 |
-
-#### 工作流程
-
-**第一步：预览操作** - 不带 `confirm` 参数调用
-```bash
-# 示例：预览创建告警规则
-python3 huawei-cloud.py huawei_create_aom_alarm_rule \
-  region=cn-north-4 \
-  rule_name=my-rule \
-  metric_name=cpuUsage \
-  namespace=PAAS.NODE \
-  comparison_operator='>' \
-  threshold=80 \
-  period=60 \
-  evaluation_periods=3 \
-  statistic=average \
-  alarm_level=2
-
-```
-
-返回：操作预览、目标规则、规则字段和确认示例，不执行真实创建。
-
-**第二步：确认执行** - 携带 `confirm=true` 参数再次调用
-```bash
-# 示例：确认创建告警规则
-python3 huawei-cloud.py huawei_create_aom_alarm_rule \
-  region=cn-north-4 \
-  rule_name=my-rule \
-  metric_name=cpuUsage \
-  namespace=PAAS.NODE \
-  comparison_operator='>' \
-  threshold=80 \
-  period=60 \
-  evaluation_periods=3 \
-  statistic=average \
-  alarm_level=2 \
-  confirm=true
-```
-
-#### 禁止动作
-
-| 动作 | 说明 |
-|------|------|
-| 创建/更新动作规则 | 不创建、更新通知动作规则 |
-| 自动选择通知规则 | 不允许替用户选择 `bind_notification_rule_id`；如果用户未提供，必须先调用 `huawei_list_aom_action_rules` 展示候选通知规则，并等待用户明确确认后再批量创建告警规则 |
-| 修改静默规则 | 不创建、更新、删除静默规则 |
-| 执行恢复动作 | 不扩缩容、不重启、不 drain、不删除工作负载或节点 |
-| 修改集群资源 | 不变更 CCE、ECS、ELB、EIP、VPC、安全组等资源 |
-
-如果分析结果需要扩缩容、重启、drain、漏洞状态变更或其它恢复动作，必须只输出建议，并转交 `auto-remediation-runner` 进行预览、确认和执行后验证。
-
-### 认证信息安全
-
-✅ **本技能严格遵守以下安全规则：**
-
-1. **禁止持久化存储认证信息** - 从不将 AK/SK、Token、证书等敏感认证信息保存到磁盘文件
-2. **禁止长期内存缓存** - AK/SK 仅在当前 hcloud 调用过程中存在于内存，调用结束后释放
-3. **不做自定义项目 ID 缓存** - project/profile 解析交给 hcloud 处理
-4. **禁止日志泄露** - 不在任何日志、响应输出或错误信息中包含 AK/SK 等敏感信息
-5. **输出脱敏** - 对外输出只展示告警、资源和规则信息，不展示认证凭证
-
-AK/SK 支持以下三种方式使用，优先级顺序为：
-- 通过每次调用参数 `ak` / `sk` 传入（最高优先级，仅本次调用有效）
-- 已配置的 hcloud profile（推荐）
-- 通过环境变量 `HUAWEI_AK` / `HUAWEI_SK` 传入（仅在没有 hcloud profile 时作为兜底）
-
----
+**典型场景**：
+- “查询这个 CCE 集群的 AOM 告警”
+- “分析活跃和历史告警，看是否有告警风暴”
+- “查看 `<cluster_id>` 当前配置了哪些告警规则”
+- “使用这个通知规则创建 CCE 推荐告警规则”
+- “清理这个集群的 CCE 模板告警规则”
+- “使用这个 SMN 主题创建通知动作规则”
+- “我确认后停用这个噪声告警规则”
 
 ## 前置条件
 
-### hcloud 配置
+### 1. 运行依赖
 
-**方式一：使用 hcloud profile（推荐）**
+- Python 3.8+，用于调度器和结果处理
+- `PATH` 中可用的 hcloud (KooCLI) 7.2.2+
+- 已通过 `hcloud configure` 配置本机 hcloud profile
+- 首次使用前，如技能包提供环境检查脚本，应先运行检查
+
+### 2. 认证配置
+
+- 支持通过显式工具参数、本机 hcloud profile 或环境变量 fallback 提供华为云认证
+- hcloud 调用的认证优先级：显式工具参数 > 本机 hcloud profile > 环境变量
+- 需要 `project_id` 的工具会尽量内部解析：显式 `project_id` 参数优先，然后使用目标区域的 hcloud profile/IAM project 查询，最后使用环境变量 fallback
+
+**安全规则**：
+- 禁止在代码、命令、日志或回复中暴露 AK/SK、token 或任何认证派生敏感信息
+- 禁止运行 `echo $HUAWEI_AK` 或 `echo $HUAWEI_SK`
+- 禁止将认证信息写入文件
+- 常规使用优先采用 hcloud profile
+- 使用最小权限 IAM 用户
+
+**可选环境变量 fallback**：
+
 ```bash
-hcloud configure init
+export HUAWEI_AK=<your-ak>
+export HUAWEI_SK=<your-sk>
+export HUAWEI_REGION=cn-north-4
+export HUAWEI_PROJECT_ID=<project-id>
+export HUAWEI_SECURITY_TOKEN=<security-token>
 ```
 
-**方式二：环境变量**
-```bash
-export HUAWEI_AK="your-access-key-id"
-export HUAWEI_SK="your-secret-access-key"
-```
+### 3. IAM 权限要求
 
-**方式三：每次调用参数传入**
-在每次脚本调用时传入 `ak` 和 `sk` 参数（不推荐用于生产环境）。
-
-### 运行依赖
-
-- Python 3.8+
-- `hcloud` CLI 7.2.2+，并且可在 `PATH` 中直接执行
-- 本机已通过 `hcloud configure` 配置可用 profile；dispatcher 依赖本机 hcloud 配置完成华为云认证以及 project/region 解析
-
-### IAM 权限策略
-
-确保 IAM 用户具有以下最小权限：
-
-| 权限 | 说明 |
-|------|------|
-| `aom:event:list` | 查询 AOM 告警事件 |
+| 权限 | 用途 |
+| ---- | ---- |
+| `aom:event:list` | 查询 AOM 活跃告警和历史告警 |
 | `aom:alarmRule:list` | 查询 AOM 告警规则 |
 | `aom:alarmRule:create` | 创建 AOM 告警规则 |
-| `aom:alarmRule:update` | 修改 AOM 告警规则 |
+| `aom:alarmRule:update` | 修改、启用或停用 AOM 告警规则 |
 | `aom:alarmRule:delete` | 删除 AOM 告警规则 |
-| `aom:actionRule:list` | 查询 AOM 动作规则 |
+| `aom:actionRule:list` | 查询 AOM 动作/通知规则 |
+| `aom:actionRule:create` | 创建 AOM 通知动作规则 |
+| `aom:actionRule:delete` | 删除 AOM 通知动作规则 |
 | `aom:muteRule:list` | 查询 AOM 静默规则 |
+| `cce:cluster:get` | 解析 CCE 集群及其 AOM Prometheus 绑定关系 |
 
----
+**权限失败处理**：
 
-## 工具分类
+1. 展示失败操作和缺失权限。
+2. 提醒用户补充对应 IAM 权限。
+3. 对于变更类操作，等待用户确认权限已准备好后再继续。
 
-### 告警查询与归并
+## 核心命令
 
-| 工具 | 功能 | 风险等级 | 集群过滤 | 参数 |
-|------|------|---------|---------|------|
-| `huawei_list_aom_alarms` | 查询 active + history 告警并合并去重 | R3 | 支持 `cluster_id` | `region` |
-| `huawei_list_aom_current_alarms` | 查询当前活跃告警 | R3 | 支持 `cluster_id` | `region` |
-| `huawei_analyze_aom_alarms` | 对 active + history 告警做去重、分级和突发/常态识别 | R3 | 支持 `cluster_id` | `region` |
+所有命令都使用 Python 调度器脚本：
 
-**参数说明：**
-- `region` (required): 华为云区域，例如 `cn-north-4`
-- `cluster_id` (optional): CCE 集群 ID；传入后只返回该集群相关告警
-- `ak` (optional): Access Key ID，显式工具入参优先级最高
-- `sk` (optional): Secret Access Key，显式工具入参优先级最高
-- `project_id` (optional): 华为云项目 ID；显式入参优先，其次使用当前 hcloud profile/project 配置，最后才使用环境变量兜底
-
-**使用示例：**
 ```bash
-# 查询区域内 active + history 告警
-python3 huawei-cloud.py huawei_list_aom_alarms \
-  region=cn-north-4
-
-# 查询指定集群 active + history 告警
-python3 huawei-cloud.py huawei_list_aom_alarms \
-  region=cn-north-4 \
-  cluster_id=xxx
-
-# 查询指定集群当前活跃告警
-python3 huawei-cloud.py huawei_list_aom_current_alarms \
-  region=cn-north-4 \
-  cluster_id=xxx
-
-# 分析指定集群告警，输出突发、关注、常态分组
-python3 huawei-cloud.py huawei_analyze_aom_alarms \
-  region=cn-north-4 \
-  cluster_id=xxx
+python3 scripts/huawei-cloud.py <action> <key=value>...
 ```
 
----
+### 1. 告警查询与关联
 
-### 告警规则管理
-
-**事件告警创建约束：**
-- 使用 `huawei_create_aom_event_alarm_rule` 创建事件告警时，`event_name` 必须优先参考 `references/cce-event-list.md` 中的事件列表与命名格式（推荐 `中文事件描述##事件名称`）。
-- 创建事件告警时，默认启用告警降噪（`route_group_enable=true`）。
-
-**指标告警创建约束：**
-- 使用 `huawei_create_aom_alarm_rule` 创建指标告警时，PromQL/指标口径与阈值应优先参考 `references/cce-prometheus-metric-alarms.md`。
-
-| 工具 | 功能 | 风险等级 | 需确认 | 参数 |
-|------|------|---------|-------|------|
-| `huawei_list_aom_alarm_rules` | 查询 AOM 告警规则 | R3 | 否 | `region`；可选 `cluster_id` |
-| `huawei_resolve_cce_aom_prom_instance` | 解析目标集群 AOM Prometheus 实例 | R3 | 否 | `region`, `cluster_id` |
-| `huawei_create_aom_alarm_rule` | 创建 AOM 告警规则 | R2 | **是** | `region`, `rule_name`, `metric_name`, `namespace`, `comparison_operator`, `threshold`, `period`, `evaluation_periods`, `statistic`, `alarm_level` |
-| `huawei_create_aom_event_alarm_rule` | 创建 AOM 事件告警规则 | R2 | **是** | `region`, `cluster_id`, `rule_name`, `event_name` |
-| `huawei_create_aom_notification_action_rule` | 使用 SMN 主题创建 AOM 通知动作规则 | R2 | **是** | `region`, `rule_name`, `notification_topic_urn`, `notification_topic_name` |
-| `huawei_configure_cce_aom_alarm_rules` | 使用 AOM `CCE模板` 一键批量创建 CCE 推荐告警规则 | R2 | **是** | `region`, `cluster_id`, `bind_notification_rule_id` |
-| `huawei_cleanup_cce_aom_alarm_rules` | 使用 AOM `CCE模板` 一键批量清理 CCE 推荐告警规则 | R0 | **是** | `region`, `cluster_id` |
-| `huawei_update_aom_alarm_rule` | 修改 AOM 告警规则 | R1 | **是** | `region`, `rule_name` |
-| `huawei_delete_aom_alarm_rule` | 删除 AOM 告警规则 | R0 | **是** | `region`, `rule_name` |
-| `huawei_disable_aom_alarm_rule` | 停用 AOM 告警规则 | R1 | **是** | `region`, `rule_id` |
-| `huawei_enable_aom_alarm_rule` | 启用 AOM 告警规则 | R2 | **是** | `region`, `rule_id` |
-| `huawei_list_aom_action_rules` | 查询 AOM 告警动作规则 | R3 | 否 | `region`, `enterprise_project_id` |
-| `huawei_delete_aom_action_rule` | 删除 AOM 告警动作规则（通知规则） | R0 | **是** | `region`, `rule_name` |
-| `huawei_list_aom_mute_rules` | 查询 AOM 静默规则 | R3 | 否 | `region` |
-
-**参数说明：**
-- `region` (required): 华为云区域
-- `cluster_id` (optional for list alarm rules): CCE 集群 ID；传入后只返回规则内容中关联该集群 ID 的告警规则
-- `metric_name` (required for create): 指标名称
-- `namespace` (required for create): 指标命名空间
-- `comparison_operator` (required for create): 阈值比较符，例如 `>`、`<`、`>=`、`<=`
-- `threshold` (required for create): 告警阈值
-- `period` (required for create): 统计周期，单位秒
-- `evaluation_periods` (required for create): 连续触发周期数
-- `statistic` (required for create): 统计方式，例如 `average`、`max`、`min`
-- `alarm_level` (required for create): 告警级别
-- `rule_name` (required for update): 告警规则名称，AOM 更新接口通过规则名称定位规则
-- `rule_name` (required for delete): 告警规则名称
-- `rule_id` (required for disable): 需要停用的告警规则 ID
-- `rule_id` (required for enable): 需要启用的告警规则 ID
-- `rule_name` (required for delete action rule): AOM 通知动作规则名称
-- `enterprise_project_id` (optional for list action rules): 企业项目范围，默认 `all_granted_eps`
-- `bind_notification_rule_id` (required for configure; optional for single create): 绑定已有 AOM 通知规则 ID/名称；如果用户未提供，应先调用 `huawei_list_aom_action_rules` 获取当前通知规则列表并展示给用户。不得自动选择，必须等待用户明确确认；也可以先用 `huawei_create_aom_notification_action_rule` 创建新规则，再携带该参数调用批量创建
-- `notification_topic_urn` (required for create notification): 创建通知动作规则时必填，SMN 主题 URN
-- `notification_topic_name` (required for create notification): 创建通知动作规则时必填，SMN 主题名称
-- `notification_topic_display_name` (optional for create notification): 创建通知动作规则时使用的 SMN 主题显示名
-- `notification_user_name` (optional for create notification): 创建通知动作规则时记录的用户名
-- `alarm_template_id` (optional for configure/cleanup): 批量创建或清理使用的 AOM 告警模板 ID，默认使用云侧 CCE 模板 `at0000000000000000cce001`
-- `rule_name_prefix` (optional for configure/cleanup): 批量创建或匹配规则名前缀，默认使用 `cluster_id`
-- `include_metric_alarms` (optional for configure/cleanup): 是否包含 Prometheus 指标类模板，默认 `true`
-- `include_event_alarms` (optional for configure/cleanup): 是否包含 CCE 事件类模板，默认 `true`
-- `alarm_items` (optional for configure/cleanup): 逗号分隔的告警项白名单，仅创建或清理指定模板/事件名
-- `skip_existing` (optional for configure): 确认执行时跳过集群下已有同名规则，默认 `true`
-- `prom_instance_id` (optional for configure): 可选覆盖值；批量创建会默认从目标集群 `cie-collector` 插件配置自动解析 AOM Prometheus 实例 ID
-- `delete_auto_notification_rule` (optional for cleanup): 批量清理 CCE 模板告警规则时，同时删除 `auto-cluster-{cluster_id}` 自动通知动作规则，默认 `false`
-- `fields` (optional): 创建规则时的额外 JSON 字段，例如 `{"unit":"%","is_turn_on":true}`
-- `updates` (optional): JSON 格式的批量更新字段，例如 `{"threshold":"80","is_turn_on":true}`
-- `confirm` (optional): 创建、修改或删除时必须显式设置为 `true` 才会执行
-- `ak` (optional): Access Key ID，显式工具入参优先级最高
-- `sk` (optional): Secret Access Key，显式工具入参优先级最高
-- `project_id` (optional): 华为云项目 ID；显式入参优先，其次使用当前 hcloud profile/project 配置，最后才使用环境变量兜底
-
-**使用示例：**
 ```bash
-# 查询告警规则
-python3 huawei-cloud.py huawei_list_aom_alarm_rules \
+# 查询区域内活跃 + 历史告警
+python3 scripts/huawei-cloud.py huawei_list_aom_alarms \
   region=cn-north-4
 
-# 查询指定集群相关的告警规则
-python3 huawei-cloud.py huawei_list_aom_alarm_rules \
-  region=cn-north-4 \
-  cluster_id=<cluster-id>
+# 查询指定集群活跃 + 历史告警
+python3 scripts/huawei-cloud.py huawei_list_aom_alarms \
+  region=cn-north-4 cluster_id=<cluster-id>
 
-# 预览创建告警规则，不执行
-python3 huawei-cloud.py huawei_create_aom_alarm_rule \
-  region=cn-north-4 \
-  rule_name=my-rule \
-  metric_name=cpuUsage \
-  namespace=PAAS.NODE \
-  comparison_operator='>' \
-  threshold=80 \
-  period=60 \
-  evaluation_periods=3 \
-  statistic=average \
-  alarm_level=2
+# 仅查询当前活跃告警
+python3 scripts/huawei-cloud.py huawei_list_aom_current_alarms \
+  region=cn-north-4 cluster_id=<cluster-id>
 
-# 确认创建告警规则
-python3 huawei-cloud.py huawei_create_aom_alarm_rule \
-  region=cn-north-4 \
-  rule_name=my-rule \
-  metric_name=cpuUsage \
-  namespace=PAAS.NODE \
-  comparison_operator='>' \
-  threshold=80 \
-  period=60 \
-  evaluation_periods=3 \
-  statistic=average \
-  alarm_level=2 \
-  confirm=true
+# 分析去重、突发、关注和常态告警分组
+python3 scripts/huawei-cloud.py huawei_analyze_aom_alarms \
+  region=cn-north-4 cluster_id=<cluster-id>
+```
 
-# 预览一键批量创建 CCE 推荐告警规则，不执行
-python3 huawei-cloud.py huawei_configure_cce_aom_alarm_rules \
-  region=cn-north-4 \
-  cluster_id=<cluster-id>
+> 不能因为“没有活跃告警”就判断没有问题。诊断最近发生或已恢复的问题时，必须同时参考历史告警。
 
-# 如果用户未提供 bind_notification_rule_id，先查询通知动作规则给用户选择。
-# 不允许自动代替用户选择，必须等待用户明确确认使用哪条规则。
-python3 huawei-cloud.py huawei_list_aom_action_rules \
+### 2. 告警规则查询
+
+```bash
+# 查询区域内所有告警规则
+python3 scripts/huawei-cloud.py huawei_list_aom_alarm_rules \
   region=cn-north-4
 
-# 确认批量创建，并绑定已有通知规则
-python3 huawei-cloud.py huawei_configure_cce_aom_alarm_rules \
-  region=cn-north-4 \
-  cluster_id=<cluster-id> \
-  bind_notification_rule_id=auto-cluster-xxx \
-  confirm=true
+# 查询某个 CCE 集群相关的告警规则
+python3 scripts/huawei-cloud.py huawei_list_aom_alarm_rules \
+  region=cn-north-4 cluster_id=<cluster-id>
 
-# 预览批量清理 CCE 模板告警规则，不执行
-python3 huawei-cloud.py huawei_cleanup_cce_aom_alarm_rules \
-  region=cn-north-4 \
-  cluster_id=<cluster-id>
+# 解析集群 AOM Prometheus 实例
+python3 scripts/huawei-cloud.py huawei_resolve_cce_aom_prom_instance \
+  region=cn-north-4 cluster_id=<cluster-id>
+```
 
-# 确认批量清理；可选同时删除自动创建的通知动作规则
-python3 huawei-cloud.py huawei_cleanup_cce_aom_alarm_rules \
-  region=cn-north-4 \
-  cluster_id=<cluster-id> \
-  delete_auto_notification_rule=true \
-  confirm=true
+`huawei_list_aom_alarm_rules` 只支持通过 `cluster_id` 进行集群过滤，不支持使用 `cluster_name` 作为过滤条件。
 
-# 预览修改告警规则，不执行
-python3 huawei-cloud.py huawei_update_aom_alarm_rule \
-  region=cn-north-4 \
-  rule_name=my-rule \
-  threshold=80
+### 3. 通知规则
 
-# 确认修改告警规则
-python3 huawei-cloud.py huawei_update_aom_alarm_rule \
-  region=cn-north-4 \
-  rule_name=my-rule \
-  threshold=80 \
-  confirm=true
-
-# 预览删除告警规则，不执行
-python3 huawei-cloud.py huawei_delete_aom_alarm_rule \
-  region=cn-north-4 \
-  rule_name=xxx
-
-# 确认删除告警规则
-python3 huawei-cloud.py huawei_delete_aom_alarm_rule \
-  region=cn-north-4 \
-  rule_name=xxx \
-  confirm=true
-
-# 预览停用告警规则，不执行
-python3 huawei-cloud.py huawei_disable_aom_alarm_rule \
-  region=cn-north-4 \
-  rule_id=xxx
-
-# 确认停用告警规则
-python3 huawei-cloud.py huawei_disable_aom_alarm_rule \
-  region=cn-north-4 \
-  rule_id=xxx \
-  confirm=true
-
-# 预览启用告警规则，不执行
-python3 huawei-cloud.py huawei_enable_aom_alarm_rule \
-  region=cn-north-4 \
-  rule_id=xxx
-
-# 确认启用告警规则
-python3 huawei-cloud.py huawei_enable_aom_alarm_rule \
-  region=cn-north-4 \
-  rule_id=xxx \
-  confirm=true
-
-
-# 查询动作规则
-python3 huawei-cloud.py huawei_list_aom_action_rules \
+```bash
+# 查询已有动作/通知规则
+python3 scripts/huawei-cloud.py huawei_list_aom_action_rules \
   region=cn-north-4
 
-# 预览使用 SMN 主题创建通知动作规则，不执行
-python3 huawei-cloud.py huawei_create_aom_notification_action_rule \
-  region=cn-north-4 \
-  rule_name=auto-cluster-xxx \
+# 预览：使用 SMN 主题创建通知动作规则
+python3 scripts/huawei-cloud.py huawei_create_aom_notification_action_rule \
+  region=cn-north-4 rule_name=auto-cluster-xxx \
   notification_topic_name=<smn-topic-name> \
   notification_topic_urn=<smn-topic-urn>
 
-# 确认使用 SMN 主题创建通知动作规则
-python3 huawei-cloud.py huawei_create_aom_notification_action_rule \
-  region=cn-north-4 \
-  rule_name=auto-cluster-xxx \
+# 确认创建
+python3 scripts/huawei-cloud.py huawei_create_aom_notification_action_rule \
+  region=cn-north-4 rule_name=auto-cluster-xxx \
   notification_topic_name=<smn-topic-name> \
   notification_topic_urn=<smn-topic-urn> \
   confirm=true
+```
 
-# 预览删除动作规则，不执行
-python3 huawei-cloud.py huawei_delete_aom_action_rule \
-  region=cn-north-4 \
-  rule_name=xxx
+禁止自动选择通知规则。如果批量创建告警规则时缺少 `bind_notification_rule_id`，应先列出可用动作规则并等待用户明确选择，或让用户提供 SMN 主题后先创建通知规则。
 
-# 确认删除动作规则
-python3 huawei-cloud.py huawei_delete_aom_action_rule \
-  region=cn-north-4 \
-  rule_name=xxx \
+### 4. 告警规则创建
+
+```bash
+# 预览：创建指标告警规则
+python3 scripts/huawei-cloud.py huawei_create_aom_alarm_rule \
+  region=cn-north-4 rule_name=my-rule metric_name=cpuUsage \
+  namespace=PAAS.NODE comparison_operator='>' threshold=80 \
+  period=60 evaluation_periods=3 statistic=average alarm_level=2
+
+# 确认：创建指标告警规则
+python3 scripts/huawei-cloud.py huawei_create_aom_alarm_rule \
+  region=cn-north-4 rule_name=my-rule metric_name=cpuUsage \
+  namespace=PAAS.NODE comparison_operator='>' threshold=80 \
+  period=60 evaluation_periods=3 statistic=average alarm_level=2 \
   confirm=true
 
-# 查询静默规则
-python3 huawei-cloud.py huawei_list_aom_mute_rules \
-  region=cn-north-4
+# 预览：创建事件告警规则
+python3 scripts/huawei-cloud.py huawei_create_aom_event_alarm_rule \
+  region=cn-north-4 cluster_id=<cluster-id> \
+  rule_name=my-event-rule event_name="<event-name>"
+
+# 确认：创建事件告警规则
+python3 scripts/huawei-cloud.py huawei_create_aom_event_alarm_rule \
+  region=cn-north-4 cluster_id=<cluster-id> \
+  rule_name=my-event-rule event_name="<event-name>" \
+  confirm=true
 ```
 
-### 集群告警巡检
+事件告警规则的 `event_name` 应参考 `references/cce-event-list.md`。指标告警阈值应参考 `references/cce-prometheus-metric-alarms.md`。
 
-| 工具 | 功能 | 风险等级 | 集群过滤 | 参数 |
-|------|------|---------|---------|------|
-| `huawei_aom_alarm_inspection` | 对指定 CCE 集群做 AOM 告警巡检并输出风险项 | R3 | `cluster_id` 必填 | `region`, `cluster_id` |
+### 5. CCE 模板告警规则
 
-**参数说明：**
-- `region` (required): 华为云区域
-- `cluster_id` (required): CCE 集群 ID
-- `ak` (optional): Access Key ID，显式工具入参优先级最高
-- `sk` (optional): Secret Access Key，显式工具入参优先级最高
-- `project_id` (optional): 华为云项目 ID；显式入参优先，其次使用当前 hcloud profile/project 配置，最后才使用环境变量兜底
-
-**使用示例：**
 ```bash
-# 巡检指定集群 AOM 告警
-python3 huawei-cloud.py huawei_aom_alarm_inspection \
-  region=cn-north-4 \
-  cluster_id=xxx
+# 预览：批量创建 CCE 推荐告警规则
+python3 scripts/huawei-cloud.py huawei_configure_cce_aom_alarm_rules \
+  region=cn-north-4 cluster_id=<cluster-id> \
+  bind_notification_rule_id=<action-rule-id>
+
+# 确认：批量创建
+python3 scripts/huawei-cloud.py huawei_configure_cce_aom_alarm_rules \
+  region=cn-north-4 cluster_id=<cluster-id> \
+  bind_notification_rule_id=<action-rule-id> confirm=true
+
+# 预览：清理某个集群的 CCE 模板告警规则
+python3 scripts/huawei-cloud.py huawei_cleanup_cce_aom_alarm_rules \
+  region=cn-north-4 cluster_id=<cluster-id>
+
+# 确认：清理
+python3 scripts/huawei-cloud.py huawei_cleanup_cce_aom_alarm_rules \
+  region=cn-north-4 cluster_id=<cluster-id> \
+  delete_auto_notification_rule=true confirm=true
 ```
 
----
+`huawei_configure_cce_aom_alarm_rules` 必须显式传入 `bind_notification_rule_id`。如果用户没有提供，不应由该工具返回或选择 `available_notification_rules`；应单独调用 `huawei_list_aom_action_rules` 并展示候选项，由用户确认。
 
-## 推荐工作流
+### 6. 告警规则变更
 
-### 场景一：查询指定集群告警
+```bash
+# 预览修改
+python3 scripts/huawei-cloud.py huawei_update_aom_alarm_rule \
+  region=cn-north-4 rule_name=my-rule threshold=80
 
-1. 明确 `region` 和 `cluster_id`
-2. 调用 `huawei_list_aom_alarms` 查询 active + history 合并结果
-3. 按告警类型、资源对象、状态和严重级别归并
-4. 输出当前触发中告警、已恢复但仍需关注的历史告警、Top 资源对象
+# 确认修改
+python3 scripts/huawei-cloud.py huawei_update_aom_alarm_rule \
+  region=cn-north-4 rule_name=my-rule threshold=80 confirm=true
 
-### 场景二：告警风暴或重复告警降噪
+# 预览删除
+python3 scripts/huawei-cloud.py huawei_delete_aom_alarm_rule \
+  region=cn-north-4 rule_name=my-rule
 
-1. 调用 `huawei_analyze_aom_alarms`
-2. 将原始告警归并为唯一告警组
-3. 区分突发告警、关注告警和常态告警
-4. 输出噪音削减比例、Top 关注项和推荐诊断 skill
+# 确认删除
+python3 scripts/huawei-cloud.py huawei_delete_aom_alarm_rule \
+  region=cn-north-4 rule_name=my-rule confirm=true
 
-### 场景三：查询、创建、修改或删除告警规则
+# 预览停用或启用
+python3 scripts/huawei-cloud.py huawei_disable_aom_alarm_rule \
+  region=cn-north-4 rule_id=<rule-id>
 
-1. 调用 `huawei_list_aom_alarm_rules` 查询告警规则
-2. 需要创建时先调用 `huawei_create_aom_alarm_rule` 获取预览
-3. 需要修改时先调用 `huawei_update_aom_alarm_rule` 获取预览
-4. 需要删除时先调用 `huawei_delete_aom_alarm_rule` 获取预览
-5. 需要停用时先调用 `huawei_disable_aom_alarm_rule` 获取预览
-6. 用户明确确认后再次调用并携带 `confirm=true`
-7. 创建、修改、删除或停用后再次调用 `huawei_list_aom_alarm_rules` 验证规则状态
+python3 scripts/huawei-cloud.py huawei_enable_aom_alarm_rule \
+  region=cn-north-4 rule_id=<rule-id>
+```
 
-### 场景四：确认告警是否被动作规则或静默影响
+### 7. 动作规则和静默规则可见性
 
-1. 调用 `huawei_list_aom_action_rules` 查询通知动作规则
-2. 如需删除失效动作规则，先调用 `huawei_delete_aom_action_rule` 预览，再由用户确认后携带 `confirm=true` 执行
-3. 调用 `huawei_list_aom_mute_rules` 查询静默规则
-4. 判断是否存在动作规则异常或静默导致的通知缺失
+```bash
+# 查询静默规则
+python3 scripts/huawei-cloud.py huawei_list_aom_mute_rules \
+  region=cn-north-4
 
-### 场景五：集群巡检入口
+# 预览删除动作规则
+python3 scripts/huawei-cloud.py huawei_delete_aom_action_rule \
+  region=cn-north-4 rule_name=<rule-name>
+```
 
-1. 调用 `huawei_aom_alarm_inspection`
-2. 汇总指定集群告警总数、触发中数量、已恢复数量和严重级别分布
-3. 输出资源告警列表和需要进一步诊断的对象
-4. 如涉及 Pod、Node、Network 问题，转交对应诊断 skill
+### 8. 集群告警巡检
 
----
+```bash
+python3 scripts/huawei-cloud.py huawei_aom_alarm_inspection \
+  region=cn-north-4 cluster_id=<cluster-id>
+```
 
-## 输出要求
+## 风险等级
 
-### 告警摘要
+本技能同时包含只读查询工具和变更工具。变更工具必须先预览，并等待用户明确确认后才能使用 `confirm=true`。
 
-输出必须包含：
+| 等级 | 含义 | 执行要求 |
+| ---- | ---- | -------- |
+| R3 | 无风险只读查询或本地分析 | 可自动执行 |
+| R2 | 低风险监控配置变更，例如创建告警或通知配置，不删除资源、不扩容、不直接增加费用 | 先预览；用户明确确认后执行 |
+| R1 | 有风险监控变更，例如修改或停用规则，可能降低可观测性 | 先预览；需要明确确认和 `confirm=true` |
+| R0 | 致命级别监控保护移除，例如删除告警规则、动作规则或批量清理 | 需要明确确认、影响评估和回滚计划后才允许 `confirm=true` |
 
-| 字段 | 说明 |
-|------|------|
-| `region` | 查询区域 |
-| `cluster_id` | 如用户指定集群，则输出集群 ID |
-| `total_count` | 告警总数 |
-| `firing_count` | 当前触发中告警数量 |
-| `resolved_count` | 已恢复告警数量 |
-| `severity_stats` | 严重级别分布 |
-| `type_stats` | 按告警类型归并统计 |
+| 工具 | 操作类型 | 风险等级 | 说明 |
+| ---- | -------- | -------- | ---- |
+| `huawei_list_aom_alarms` | 查询 | R3 | 查询活跃 + 历史告警，并合并去重 |
+| `huawei_list_aom_current_alarms` | 查询 | R3 | 仅查询当前活跃告警 |
+| `huawei_analyze_aom_alarms` | 查询 + 本地分析 | R3 | 分析告警分组、突发、关注和常态告警 |
+| `huawei_aom_alarm_inspection` | 查询 + 本地分析 | R3 | 巡检集群告警健康状态 |
+| `huawei_list_aom_alarm_rules` | 查询 | R3 | 查询 AOM 告警规则；支持可选 `cluster_id` |
+| `huawei_resolve_cce_aom_prom_instance` | 查询 | R3 | 解析集群 AOM Prometheus 实例 |
+| `huawei_list_aom_action_rules` | 查询 | R3 | 查询动作/通知规则 |
+| `huawei_list_aom_mute_rules` | 查询 | R3 | 查询静默规则 |
+| `huawei_create_aom_alarm_rule` | 创建 | R2 | 创建 AOM 指标告警规则 |
+| `huawei_create_aom_event_alarm_rule` | 创建 | R2 | 创建 AOM 事件告警规则 |
+| `huawei_create_aom_notification_action_rule` | 创建 | R2 | 使用用户提供的 SMN 主题创建通知动作规则 |
+| `huawei_configure_cce_aom_alarm_rules` | 批量创建 | R2 | 使用显式已有通知动作规则创建 CCE 推荐告警规则 |
+| `huawei_enable_aom_alarm_rule` | 启用 | R2 | 启用 AOM 告警规则 |
+| `huawei_update_aom_alarm_rule` | 修改 | R1 | 修改 AOM 告警规则 |
+| `huawei_disable_aom_alarm_rule` | 停用 | R1 | 停用 AOM 告警规则 |
+| `huawei_delete_aom_alarm_rule` | 删除 | R0 | 删除 AOM 告警规则 |
+| `huawei_cleanup_cce_aom_alarm_rules` | 批量删除 | R0 | 删除目标集群的 CCE 模板告警规则 |
+| `huawei_delete_aom_action_rule` | 删除 | R0 | 删除通知动作规则 |
 
-### 资源线索
+## 参数参考
 
-对 CCE 告警，优先输出以下资源维度：
+### 通用参数
 
-| 字段 | 说明 |
-|------|------|
-| `cluster_name` | 集群名称 |
-| `namespace` | 命名空间 |
-| `pod_name` | Pod 名称 |
-| `resource_kind` | 资源类型 |
-| `event_name` | 告警名称 |
-| `message` | 告警消息 |
+| 参数 | 必填/可选 | 说明 | 默认值 |
+| ---- | --------- | ---- | ------ |
+| `region` | 必填 | 华为云区域 | `HUAWEI_REGION` |
+| `cluster_id` | 视工具而定 | CCE 集群 ID；集群级操作必填 | N/A |
+| `ak` | 可选 | 显式 AK；hcloud 调用最高优先级 | profile/env fallback |
+| `sk` | 可选 | 显式 SK；hcloud 调用最高优先级 | profile/env fallback |
+| `project_id` | 可选 | 显式 Project ID | hcloud/IAM/env fallback |
+| `confirm` | 仅变更工具 | 设为 `true` 时执行已预览的变更 | `false` |
 
-### 推荐诊断 skill
+### 告警查询参数
 
-| 告警特征 | 推荐 skill |
-|----------|------------|
-| `CrashLoopBackOff`、`BackOffStart`、`FailedStart`、`ImagePullBackOff` | `pod-failure-diagnoser` |
-| `FailedScheduling`、`Insufficient cpu`、`Insufficient memory` | `pod-failure-diagnoser` 或 `node-failure-diagnoser` |
-| `NodeNotReady`、节点资源压力、NPD 事件 | `node-failure-diagnoser` |
-| `Ingress 502/504`、Service 不通、ELB 异常 | `network-failure-diagnoser` |
-| 多类告警同时出现且影响业务 | `root-cause-analyzer` |
-| 需要扩缩容、重启、drain 等恢复动作 | `auto-remediation-runner` |
+| 工具 | 必填 | 可选 |
+| ---- | ---- | ---- |
+| `huawei_list_aom_alarms` | `region` | `cluster_id`、时间窗口/过滤参数 |
+| `huawei_list_aom_current_alarms` | `region` | `cluster_id`、过滤参数 |
+| `huawei_analyze_aom_alarms` | `region` | `cluster_id`、时间窗口/过滤参数 |
+| `huawei_aom_alarm_inspection` | `region`, `cluster_id` | 过滤参数 |
 
----
+### 告警规则参数
 
-## References
+| 工具 | 必填 | 说明 |
+| ---- | ---- | ---- |
+| `huawei_list_aom_alarm_rules` | `region` | 可选 `cluster_id`；不支持 `cluster_name` 过滤 |
+| `huawei_create_aom_alarm_rule` | `region`, `rule_name`, `metric_name`, `namespace`, `comparison_operator`, `threshold`, `period`, `evaluation_periods`, `statistic`, `alarm_level` | R2；先预览再 `confirm=true` |
+| `huawei_create_aom_event_alarm_rule` | `region`, `cluster_id`, `rule_name`, `event_name` | R2；事件名参考 references |
+| `huawei_create_aom_notification_action_rule` | `region`, `rule_name`, `notification_topic_urn`, `notification_topic_name` | R2；用户必须提供主题 |
+| `huawei_configure_cce_aom_alarm_rules` | `region`, `cluster_id`, `bind_notification_rule_id` | R2；用户必须明确选择通知规则 |
+| `huawei_cleanup_cce_aom_alarm_rules` | `region`, `cluster_id` | R0；可选 `delete_auto_notification_rule=true` |
+| `huawei_update_aom_alarm_rule` | `region`, `rule_name` | R1；可更新字段由工具支持范围决定 |
+| `huawei_delete_aom_alarm_rule` | `region`, `rule_name` | R0 |
+| `huawei_disable_aom_alarm_rule` | `region`, `rule_id` | R1 |
+| `huawei_enable_aom_alarm_rule` | `region`, `rule_id` | R2 |
 
-- 告警归并步骤读 `references/workflow.md`
-- 只读边界和误报处理读 `references/risk-rules.md`
-- 输出结构按 `references/output-schema.md`
-- Prometheus 指标告警规则参考 `references/cce-prometheus-metric-alarms.md`
+## 输出格式
+
+完整 JSON 响应结构见 [Output Schema](references/output-schema.md)。
+
+**关键输出字段**：
+- `success`：命令是否成功
+- `error`：`success=false` 时的失败原因
+- `preview`：未提供 `confirm=true` 时的变更预览
+- `requires_confirmation`：是否需要用户确认
+- `report`：告警关联分析摘要
+- `issues`：巡检风险项
+- `alarms`, `rules`, `action_rules`, `mute_rules`：查询到的资源
+
+## 工作流
+
+详细告警关联流程见 [Workflow](references/workflow.md)。
+
+推荐流程：
+
+1. 读取用户提供的告警名、资源、时间窗口和严重级别。
+2. 默认查询最近 1 小时，除非用户给出其他故障时间窗口。
+3. 使用 `huawei_list_aom_alarms` 查询活跃 + 历史告警。
+4. 使用 `huawei_analyze_aom_alarms` 分析告警分组。
+5. 当怀疑通知缺失或静默影响时，查询告警规则、动作规则和静默规则。
+6. 按资源、命名空间、节点、工作负载和告警类型分组。
+7. 将 Pod、Node、Network、Storage 或 Workload 根因分析交给对应诊断技能。
+
+## 验证
+
+先执行只读检查：
+
+```bash
+python3 scripts/huawei-cloud.py huawei_list_aom_alarms region=cn-north-4
+python3 scripts/huawei-cloud.py huawei_list_aom_alarm_rules region=cn-north-4
+python3 scripts/huawei-cloud.py huawei_list_aom_action_rules region=cn-north-4
+```
+
+集群级检查：
+
+```bash
+python3 scripts/huawei-cloud.py huawei_aom_alarm_inspection \
+  region=cn-north-4 cluster_id=<cluster-id>
+```
+
+变更验证：
+
+1. 不带 `confirm=true` 执行命令。
+2. 检查 `preview`、影响资源和预期影响。
+3. 等待用户明确确认。
+4. 重新执行并带上 `confirm=true`。
+5. 使用对应查询命令验证结果。
+
+## 最佳实践
+
+1. **诊断时使用活跃 + 历史告警** - 只看活跃告警可能遗漏已恢复的问题。
+2. **按 `cluster_id` 过滤** - 集群级告警规则和告警分析使用精确集群 ID。
+3. **所有变更都先预览** - R2/R1/R0 工具不得跳过预览步骤。
+4. **不要自动选择通知规则** - 必须等待用户选择 `bind_notification_rule_id`。
+5. **通知配置保持显式** - 只使用用户提供的 SMN 主题创建通知动作规则。
+6. **分析和修复分离** - 本技能只给出建议，修复交给修复类技能。
+7. **保护可观测性** - 除非影响已明确且用户确认，不要停用或删除规则。
+
+## 故障排查
+
+| 现象 | 可能原因 | 处理方式 |
+| ---- | -------- | -------- |
+| hcloud 命令失败 | profile、区域或 IAM 权限缺失 | 检查 `hcloud configure list` 和 IAM 策略 |
+| 没有活跃告警 | 问题可能已恢复或只存在于历史中 | 查询活跃 + 历史告警 |
+| 批量配置因缺少通知规则失败 | 缺少 `bind_notification_rule_id` | 查询动作规则或基于 SMN 主题创建通知规则后重试 |
+| 集群告警规则查询返回过多规则 | 缺少 `cluster_id` 过滤 | 使用精确 `cluster_id` 重新查询 |
+| Project ID 报错 | profile/project 解析失败 | 显式提供 `project_id` 或修复 hcloud profile |
+
+## 限制
+
+- 本技能不修改 CCE、ECS、ELB、EIP、VPC、安全组、节点、工作负载或 Kubernetes 资源。
+- 本技能不得创建、修改或删除静默规则。
+- 本技能不得通过工具之外的云命令修改告警资源。
+- 本技能不能替用户安全推断通知规则。
+- `huawei_list_aom_alarm_rules` 按 `cluster_id` 过滤，不按集群名称过滤。
+
+## 参考文档
+
+| 文档 | 用途 |
+| ---- | ---- |
+| [Operation Guide](references/operation-guide.md) | 详细参数、输出预期、验证、诊断交接和常见问题 |
+| [Workflow](references/workflow.md) | 告警关联工作流 |
+| [Output Schema](references/output-schema.md) | 输出 JSON 结构 |
+| [Risk Rules](references/risk-rules.md) | 风险边界和确认规则 |
+| [CCE Event List](references/cce-event-list.md) | 事件告警规则使用的 CCE 事件名 |
+| [Prometheus Metric Alarms](references/cce-prometheus-metric-alarms.md) | Prometheus 指标告警参考 |
