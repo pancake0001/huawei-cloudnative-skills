@@ -16,14 +16,19 @@ from datetime import datetime, timedelta
 from typing import Dict, Any, Optional, List
 
 try:
-    from . import cce_metrics, cce_k8s, elb, network
+    from . import cce, cce_metrics, cce_k8s, elb, network
+    from .common import get_credentials, get_credentials_with_region, get_security_token
     _AVAILABLE = True
 except ImportError:
     _AVAILABLE = False
+    cce = None
     cce_metrics = None
     cce_k8s = None
     elb = None
     network = None
+    get_credentials = None
+    get_credentials_with_region = None
+    get_security_token = None
 
 
 ANOMALY_THRESHOLD = 80.0
@@ -67,7 +72,68 @@ def _is_usage_metric(metric_name: str, metric_data: Dict[str, Any]) -> bool:
     return unit == "%" or "usage" in metric_name or "ratio" in metric_name or "使用率" in name
 
 
-def _get_pod_metrics(region: str, cluster_id: str, hours: int, namespace: str, top_n: int, ak: str, sk: str, project_id: str) -> Dict[str, Any]:
+def _strip_time_series(value: Any) -> Any:
+    """Remove verbose time-series arrays from nested component outputs."""
+    if isinstance(value, dict):
+        return {key: _strip_time_series(val) for key, val in value.items() if key != "time_series"}
+    if isinstance(value, list):
+        return [_strip_time_series(item) for item in value]
+    return value
+
+
+def _component_summary(name: str, data: Dict[str, Any]) -> Dict[str, Any]:
+    """Return compact component metric output and anomaly classification."""
+    if not data.get("success"):
+        return {
+            "name": name,
+            "success": False,
+            "status": "unknown",
+            "error": data.get("error", "query failed"),
+        }
+    summary = _strip_time_series(data.get("summary", {}))
+    status = summary.get("status", "unknown")
+    return {
+        "name": name,
+        "success": True,
+        "status": status,
+        "summary": summary,
+        "metrics": _strip_time_series(data.get("metrics", {})),
+    }
+
+
+def _get_cluster_network(region: str, cluster_id: str, ak: Optional[str], sk: Optional[str], project_id: Optional[str]) -> Dict[str, Any]:
+    """Resolve cluster network identifiers used to narrow cloud-resource scope."""
+    detail_result = cce.run_hcloud(
+        "CCE",
+        "ShowCluster",
+        region,
+        {"cluster_id": cluster_id, "project_id": project_id},
+        ak=ak,
+        sk=sk,
+        project_id=project_id,
+    )
+    if detail_result.get("success"):
+        cluster = (detail_result.get("data") or {}).get("cluster") or detail_result.get("data") or {}
+        spec = cluster.get("spec") or {}
+        host_network = spec.get("hostNetwork") or spec.get("host_network") or spec.get("network") or {}
+        eni_network = spec.get("eniNetwork") or spec.get("eni_network") or {}
+        if host_network or eni_network:
+            return {
+                "vpc_id": host_network.get("vpc") or host_network.get("vpc_id"),
+                "subnet_id": host_network.get("subnet") or host_network.get("subnet_id"),
+                "eni_subnet_id": eni_network.get("eniSubnetId") or eni_network.get("eni_subnet_id"),
+            }
+
+    result = cce.list_cce_clusters(region, ak=ak, sk=sk, project_id=project_id)
+    if not result.get("success"):
+        return {}
+    for cluster in result.get("clusters", []):
+        if cluster.get("id") == cluster_id:
+            return cluster.get("network") or {}
+    return {}
+
+
+def _get_pod_metrics(region: str, cluster_id: str, hours: int, namespace: str, top_n: int, ak: str, sk: str, project_id: str, security_token: Optional[str] = None) -> Dict[str, Any]:
     """Get Pod metrics with anomaly detection."""
     result = cce_metrics.get_cce_pod_metrics_topN(
         region=region,
@@ -77,7 +143,8 @@ def _get_pod_metrics(region: str, cluster_id: str, hours: int, namespace: str, t
         project_id=project_id,
         namespace=namespace,
         top_n=top_n,
-        hours=hours
+        hours=hours,
+        security_token=security_token
     )
 
     if not result.get("success"):
@@ -204,7 +271,7 @@ def _get_pod_metrics(region: str, cluster_id: str, hours: int, namespace: str, t
     return {"items": items, "anomalies": anomalies}
 
 
-def _get_node_metrics(region: str, cluster_id: str, hours: int, top_n: int, ak: str, sk: str, project_id: str) -> Dict[str, Any]:
+def _get_node_metrics(region: str, cluster_id: str, hours: int, top_n: int, ak: str, sk: str, project_id: str, security_token: Optional[str] = None) -> Dict[str, Any]:
     """Get Node metrics with anomaly detection."""
     result = cce_metrics.get_cce_node_metrics_topN(
         region=region,
@@ -213,7 +280,8 @@ def _get_node_metrics(region: str, cluster_id: str, hours: int, top_n: int, ak: 
         sk=sk,
         project_id=project_id,
         top_n=top_n,
-        hours=hours
+        hours=hours,
+        security_token=security_token
     )
 
     if not result.get("success"):
@@ -309,11 +377,19 @@ def _get_node_metrics(region: str, cluster_id: str, hours: int, top_n: int, ak: 
     return {"items": items, "anomalies": anomalies}
 
 
-def _get_elb_metrics(region: str, hours: int, ak: str, sk: str, project_id: str) -> List[Dict[str, Any]]:
-    """Get ELB metrics for all loadbalancers."""
+def _get_elb_metrics(region: str, hours: int, ak: str, sk: str, project_id: str, lb_services: Optional[List[Dict[str, Any]]] = None) -> List[Dict[str, Any]]:
+    """Get ELB metrics for load balancers associated with current cluster services."""
     lb_result = elb.list_elb_loadbalancers(region=region, ak=ak, sk=sk, project_id=project_id)
 
     if not lb_result.get("success"):
+        return []
+
+    service_ips = {
+        svc.get("load_balancer_ip")
+        for svc in (lb_services or [])
+        if svc.get("load_balancer_ip")
+    }
+    if not service_ips:
         return []
 
     items = []
@@ -322,6 +398,8 @@ def _get_elb_metrics(region: str, hours: int, ak: str, sk: str, project_id: str)
         elb_name = lb.get("name", elb_id)
         vip = lb.get("vip_address", "")
         eip = lb.get("eip_address", "")
+        if service_ips and vip not in service_ips and eip not in service_ips:
+            continue
 
         metrics_result = elb.get_elb_metrics(
             region=region,
@@ -375,17 +453,23 @@ def _get_elb_metrics(region: str, hours: int, ak: str, sk: str, project_id: str)
     return items
 
 
-def _get_nat_gateway_metrics(region: str, hours: int, ak: str, sk: str, project_id: str) -> List[Dict[str, Any]]:
-    """Get NAT Gateway metrics."""
+def _get_nat_gateway_metrics(region: str, hours: int, ak: str, sk: str, project_id: str, cluster_network: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+    """Get NAT Gateway metrics scoped to the cluster VPC when it can be resolved."""
     nat_result = network.list_nat_gateways(region=region, ak=ak, sk=sk, project_id=project_id)
 
     if not nat_result.get("success"):
+        return []
+
+    cluster_vpc_id = (cluster_network or {}).get("vpc_id")
+    if not cluster_vpc_id:
         return []
 
     items = []
     for nat in nat_result.get("nat_gateways", []):
         nat_id = nat.get("id")
         nat_name = nat.get("name", nat_id)
+        if cluster_vpc_id and nat.get("router_id") != cluster_vpc_id:
+            continue
 
         metrics_result = network.get_nat_gateway_metrics(
             region=region,
@@ -427,6 +511,7 @@ def _get_nat_gateway_metrics(region: str, hours: int, ak: str, sk: str, project_
         items.append({
             "nat_id": nat_id,
             "nat_name": nat_name,
+            "router_id": nat.get("router_id"),
             "status": status,
             "reason": "; ".join(anomalies) if anomalies else None,
             "metrics": parsed_metrics
@@ -435,11 +520,34 @@ def _get_nat_gateway_metrics(region: str, hours: int, ak: str, sk: str, project_
     return items
 
 
-def _get_eip_metrics(region: str, hours: int, ak: str, sk: str, project_id: str) -> List[Dict[str, Any]]:
-    """Get EIP metrics."""
+def _get_eip_metrics(region: str, hours: int, ak: str, sk: str, project_id: str, elb_metrics: Optional[List[Dict[str, Any]]] = None, nat_metrics: Optional[List[Dict[str, Any]]] = None, lb_services: Optional[List[Dict[str, Any]]] = None) -> List[Dict[str, Any]]:
+    """Get EIP metrics only for EIPs associated with current cluster ELB/NAT resources."""
     eip_result = network.list_eip_addresses(region=region, ak=ak, sk=sk, project_id=project_id)
 
     if not eip_result.get("success"):
+        return []
+
+    associated_ips = {
+        item.get("eip")
+        for item in (elb_metrics or [])
+        if item.get("eip")
+    }
+    associated_ips.update(
+        svc.get("load_balancer_ip")
+        for svc in (lb_services or [])
+        if svc.get("load_balancer_ip")
+    )
+    associated_instance_ids = {
+        item.get("elb_id")
+        for item in (elb_metrics or [])
+        if item.get("elb_id")
+    }
+    associated_instance_ids.update(
+        item.get("nat_id")
+        for item in (nat_metrics or [])
+        if item.get("nat_id")
+    )
+    if not associated_ips and not associated_instance_ids:
         return []
 
     items = []
@@ -449,6 +557,8 @@ def _get_eip_metrics(region: str, hours: int, ak: str, sk: str, project_id: str)
         instance_type = eip.get("instance_type", "")
         instance_id = eip.get("instance_id", "")
         bandwidth_size = eip.get("bandwidth_size", 0)
+        if ip_address not in associated_ips and instance_id not in associated_instance_ids:
+            continue
 
         metrics_result = network.get_eip_metrics(
             region=region,
@@ -559,7 +669,8 @@ def analyze_cce_cluster_monitoring(
     top_n: int = 10,
     ak: Optional[str] = None,
     sk: Optional[str] = None,
-    project_id: Optional[str] = None
+    project_id: Optional[str] = None,
+    security_token: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Aggregate monitoring data for a CCE cluster.
@@ -585,20 +696,45 @@ def analyze_cce_cluster_monitoring(
         }
 
     hours = _time_str_to_hours(start_time, end_time)
-    access_key, secret_key, proj_id = ak, sk, project_id
+    access_key, secret_key, proj_id = get_credentials_with_region(region, ak, sk, project_id)
+    hcloud_ak, hcloud_sk, hcloud_project_id = get_credentials(ak, sk, project_id)
+    sec_token = get_security_token(security_token)
 
-    pod_data = _get_pod_metrics(region, cluster_id, hours, namespace, top_n, access_key, secret_key, proj_id)
-    node_data = _get_node_metrics(region, cluster_id, hours, top_n, access_key, secret_key, proj_id)
-    elb_data = _get_elb_metrics(region, hours, access_key, secret_key, proj_id)
-    nat_data = _get_nat_gateway_metrics(region, hours, access_key, secret_key, proj_id)
-    eip_data = _get_eip_metrics(region, hours, access_key, secret_key, proj_id)
+    pod_data = _get_pod_metrics(region, cluster_id, hours, namespace, top_n, access_key, secret_key, proj_id, sec_token)
+    node_data = _get_node_metrics(region, cluster_id, hours, top_n, access_key, secret_key, proj_id, sec_token)
+    coredns_data = cce_metrics.get_cce_coredns_metrics(
+        region, cluster_id, access_key, secret_key, proj_id, hours=hours, security_token=sec_token
+    )
+    nginx_ingress_data = cce_metrics.get_cce_nginx_ingress_metrics(
+        region, cluster_id, access_key, secret_key, proj_id, hours=hours, security_token=sec_token
+    )
+    autoscaler_data = cce_metrics.get_cce_autoscaler_metrics(
+        region, cluster_id, access_key, secret_key, proj_id, hours=hours, security_token=sec_token
+    )
+    cluster_network = _get_cluster_network(region, cluster_id, hcloud_ak, hcloud_sk, hcloud_project_id)
     lb_services = _get_loadbalancer_services(region, cluster_id, access_key, secret_key, proj_id)
+    elb_data = _get_elb_metrics(region, hours, hcloud_ak, hcloud_sk, hcloud_project_id, lb_services)
+    nat_data = _get_nat_gateway_metrics(region, hours, hcloud_ak, hcloud_sk, hcloud_project_id, cluster_network)
+    eip_data = _get_eip_metrics(region, hours, hcloud_ak, hcloud_sk, hcloud_project_id, elb_data, nat_data, lb_services)
 
     elb_data = _correlate_elb_with_services(elb_data, lb_services)
+    component_metrics = {
+        "coredns": _component_summary("coredns", coredns_data),
+        "nginx_ingress": _component_summary("nginx_ingress", nginx_ingress_data),
+        "autoscaler": _component_summary("autoscaler", autoscaler_data),
+    }
 
     all_anomalies = []
     all_anomalies.extend(pod_data.get("anomalies", []))
     all_anomalies.extend(node_data.get("anomalies", []))
+    for component_name, component in component_metrics.items():
+        if component.get("status") in ("warning", "critical"):
+            all_anomalies.append({
+                "type": component_name,
+                "name": component_name,
+                "status": component.get("status"),
+                "metrics": component.get("summary", {}),
+            })
 
     for elb_item in elb_data:
         if elb_item.get("status") == "warning":
@@ -629,6 +765,10 @@ def analyze_cce_cluster_monitoring(
     elb_anomaly_count = sum(1 for e in elb_data if e.get("status") == "warning")
     nat_anomaly_count = sum(1 for n in nat_data if n.get("status") == "warning")
     eip_anomaly_count = sum(1 for e in eip_data if e.get("status") == "warning")
+    component_anomaly_count = sum(
+        1 for item in component_metrics.values()
+        if item.get("status") in ("warning", "critical")
+    )
 
     return {
         "success": True,
@@ -646,11 +786,15 @@ def analyze_cce_cluster_monitoring(
             "total_elb": len(elb_data),
             "total_nat_gateway": len(nat_data),
             "total_eip": len(eip_data),
+            "coredns_status": component_metrics["coredns"].get("status"),
+            "nginx_ingress_status": component_metrics["nginx_ingress"].get("status"),
+            "autoscaler_status": component_metrics["autoscaler"].get("status"),
             "pod_anomaly_count": pod_anomaly_count,
             "node_anomaly_count": node_anomaly_count,
             "elb_anomaly_count": elb_anomaly_count,
             "nat_anomaly_count": nat_anomaly_count,
             "eip_anomaly_count": eip_anomaly_count,
+            "component_anomaly_count": component_anomaly_count,
             "total_anomaly_count": len(all_anomalies)
         },
         "pod_metrics": {
@@ -665,6 +809,8 @@ def analyze_cce_cluster_monitoring(
         "nat_gateway_metrics": nat_data,
         "eip_metrics": eip_data,
         "loadbalancer_services": lb_services,
+        "cluster_network": cluster_network,
+        "component_metrics": component_metrics,
         "anomalies": all_anomalies
     }
 
@@ -710,5 +856,6 @@ def cce_cluster_monitoring_aggregation_action(params: Dict[str, str]) -> Dict[st
         top_n=top_n,
         ak=params.get("ak"),
         sk=params.get("sk"),
-        project_id=params.get("project_id")
+        project_id=params.get("project_id"),
+        security_token=params.get("security_token")
     )

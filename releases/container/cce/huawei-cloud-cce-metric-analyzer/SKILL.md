@@ -240,6 +240,8 @@ python3 scripts/huawei-cloud.py huawei_cce_cluster_monitoring_aggregation \
 
 This tool aggregates: Pod TopN CPU/memory, Node TopN CPU/memory/disk, ELB metrics (with LoadBalancer service association), NAT Gateway metrics, EIP metrics (bandwidth, packet loss), and anomaly detection using 80% threshold.
 
+It also includes CoreDNS, nginx-ingress, and autoscaler summaries. Cloud resources are scoped to the current cluster when an association can be proven: ELB is matched through LoadBalancer Service IP/EIP, NAT Gateway is filtered by the cluster VPC, and EIP is limited to associated ELB/NAT/Service IPs.
+
 ## Risk Levels
 
 This skill is read-only. It does not create, update, delete, restart, scale, or modify Huawei Cloud or Kubernetes resources.
@@ -260,7 +262,7 @@ This skill is read-only. It does not create, update, delete, restart, scale, or 
 | `huawei_get_cce_node_gpu_metrics` | Query | R3 | Read single Node GPU and xGPU metrics from AOM Prometheus |
 | `huawei_get_cce_pod_gpu_metrics` | Query | R3 | Read single Pod GPU and xGPU metrics from AOM Prometheus |
 | `huawei_get_cce_coredns_metrics` | Query | R3 | Read CoreDNS QPS, error rate excluding NXDOMAIN, NXDOMAIN rate, P95 latency, replicas, and per-Pod CPU/memory metrics |
-| `huawei_get_cce_nginx_ingress_metrics` | Query | R3 | Read nginx-ingress request-processing metrics and Ingress TLS certificate expiration status |
+| `huawei_get_cce_nginx_ingress_metrics` | Query | R3 | Read nginx-ingress request-processing metrics and Ingress TLS certificate expiration status; QPS falls back to nginx process request counters when request-dimension metrics are absent |
 | `huawei_get_cce_autoscaler_metrics` | Query | R3 | Read Cluster Autoscaler scaling metrics, HPA replica state, and autoscaler Pod CPU/memory metrics |
 | `huawei_get_cce_apiserver_metrics` | Query | R3 | Read kube-apiserver QPS, error rate, latency, and inflight request metrics |
 | `huawei_get_cce_etcd_metrics` | Query | R3 | Read etcd leader, proposal, DB size, disk latency, CPU, and memory metrics |
@@ -317,17 +319,8 @@ This skill is read-only. It does not create, update, delete, restart, scale, or 
 | `namespace` | No | Target Pod namespace | all |
 | `hours` | No | Metrics lookback hours | 1 |
 | `gpu_selector` | No | Custom GPU metric label selector. Use this when GPU metrics do not use the `pod` or `namespace` labels | `pod="<pod_name>",namespace="<namespace>"` |
-| `utilization_query` | No | Custom `cce_gpu_utilization` PromQL | Auto |
-| `memory_utilization_query` | No | Custom `cce_gpu_memory_utilization` PromQL | Auto |
-| `memory_used_query` | No | Custom `cce_gpu_memory_used` PromQL | Auto |
-| `memory_total_query` | No | Custom `cce_gpu_memory_total` PromQL | Auto |
-| `memory_free_query` | No | Custom `cce_gpu_memory_free` PromQL | Auto |
-| `schedule_policy_query` | No | Custom `gpu_schedule_policy` PromQL for xGPU mode detection | Auto |
-| `xgpu_memory_total_query` | No | Custom `xgpu_memory_total` PromQL | Auto |
-| `xgpu_memory_used_query` | No | Custom `xgpu_memory_used` PromQL | Auto |
-| `xgpu_core_total_query` | No | Custom `xgpu_core_percentage_total` PromQL | Auto |
-| `xgpu_core_used_query` | No | Custom `xgpu_core_percentage_used` PromQL | Auto |
-| `xgpu_device_health_query` | No | Custom `xgpu_device_health` PromQL | Auto |
+
+Optional custom PromQL overrides are supported for GPU utilization, memory, schedule policy, xGPU allocation/usage, and xGPU health metrics.
 
 ### `huawei_get_cce_node_metrics_topN` Parameters
 
@@ -350,19 +343,8 @@ This skill is read-only. It does not create, update, delete, restart, scale, or 
 | `node_ip` | Yes | Target Node IP or node name | N/A |
 | `hours` | No | Metrics lookback hours | 1 |
 | `gpu_selector` | No | Custom GPU metric label selector. Use this when GPU metrics do not use the `node` label | `node=~"<node_ip>|<node_name>"` |
-| `utilization_query` | No | Custom `cce_gpu_utilization` PromQL | Auto |
-| `memory_utilization_query` | No | Custom `cce_gpu_memory_utilization` PromQL | Auto |
-| `memory_used_query` | No | Custom `cce_gpu_memory_used` PromQL | Auto |
-| `memory_total_query` | No | Custom `cce_gpu_memory_total` PromQL | Auto |
-| `memory_free_query` | No | Custom `cce_gpu_memory_free` PromQL | Auto |
-| `temperature_query` | No | Custom `cce_gpu_temperature` PromQL | Auto |
-| `power_usage_query` | No | Custom `cce_gpu_power_usage` PromQL | Auto |
-| `schedule_policy_query` | No | Custom `gpu_schedule_policy` PromQL for xGPU mode detection | Auto |
-| `xgpu_memory_total_query` | No | Custom `xgpu_memory_total` PromQL | Auto |
-| `xgpu_memory_used_query` | No | Custom `xgpu_memory_used` PromQL | Auto |
-| `xgpu_core_total_query` | No | Custom `xgpu_core_percentage_total` PromQL | Auto |
-| `xgpu_core_used_query` | No | Custom `xgpu_core_percentage_used` PromQL | Auto |
-| `xgpu_device_health_query` | No | Custom `xgpu_device_health` PromQL | Auto |
+
+Optional custom PromQL overrides are supported for GPU utilization, memory, temperature, power, schedule policy, xGPU allocation/usage, and xGPU health metrics.
 
 ### `huawei_get_cce_coredns_metrics` Parameters
 
@@ -371,13 +353,8 @@ This skill is read-only. It does not create, update, delete, restart, scale, or 
 | `namespace` | No | CoreDNS namespace | `kube-system` |
 | `pod_regex` | No | Regex used to match CoreDNS Pods | `.*coredns.*` |
 | `hours` | No | Metrics lookback hours | 1 |
-| `qps_query` | No | Custom CoreDNS QPS PromQL | Auto |
-| `error_rate_query` | No | Custom CoreDNS error-rate PromQL. The default excludes NXDOMAIN because Kubernetes search domains commonly generate NXDOMAIN responses | Auto |
-| `nxdomain_rate_query` | No | Custom CoreDNS NXDOMAIN-rate PromQL for reference only | Auto |
-| `latency_p95_query` | No | Custom CoreDNS P95 latency PromQL | Auto |
-| `cpu_query` | No | Custom CoreDNS CPU PromQL | Auto |
-| `memory_query` | No | Custom CoreDNS memory PromQL | Auto |
-| `replicas_query` | No | Custom CoreDNS replica-count PromQL | Auto |
+
+Optional custom PromQL overrides are supported for QPS, error rate, NXDOMAIN rate, P95 latency, CPU, memory, and replica count.
 
 ### `huawei_get_cce_nginx_ingress_metrics` Parameters
 
@@ -389,14 +366,8 @@ This skill is read-only. It does not create, update, delete, restart, scale, or 
 | `hours` | No | Metrics lookback hours | 1 |
 | `cert_expire_warning_days` | No | Days before expiry to mark certificates as warning | 30 |
 | `check_certificates` | No | Whether to inspect Ingress TLS Secrets for expiration status | true |
-| `qps_query` | No | Custom nginx-ingress QPS PromQL | Auto |
-| `http_4xx_query` | No | Custom nginx-ingress 4xx QPS PromQL | Auto |
-| `http_5xx_query` | No | Custom nginx-ingress 5xx QPS PromQL | Auto |
-| `success_rate_query` | No | Custom nginx-ingress success-rate PromQL | Auto |
-| `latency_p95_query` | No | Custom nginx-ingress P95 latency PromQL | Auto |
-| `active_connections_query` | No | Custom nginx active-connections PromQL | Auto |
-| `cpu_query` | No | Custom nginx-ingress CPU PromQL | Auto |
-| `memory_query` | No | Custom nginx-ingress memory PromQL | Auto |
+
+Optional custom PromQL overrides are supported for QPS, 4xx/5xx, success rate, P95 latency, active connections, CPU, and memory.
 
 ### `huawei_get_cce_autoscaler_metrics` Parameters
 
@@ -407,16 +378,8 @@ This skill is read-only. It does not create, update, delete, restart, scale, or 
 | `hpa_namespace` | No | Namespace filter for HPA replica metrics | all |
 | `hours` | No | Metrics lookback hours | 1 |
 | `include_hpa` | No | Whether to query HPA current/desired replica metrics | true |
-| `unschedulable_pods_query` | No | Custom unschedulable Pods PromQL | Auto |
-| `nodes_count_query` | No | Custom autoscaler node-state count PromQL | Auto |
-| `scale_up_query` | No | Custom scale-up event PromQL | Auto |
-| `scale_down_query` | No | Custom scale-down event PromQL | Auto |
-| `errors_query` | No | Custom autoscaler error PromQL | Auto |
-| `node_groups_query` | No | Custom autoscaler node-group PromQL | Auto |
-| `hpa_current_replicas_query` | No | Custom HPA current replicas PromQL | Auto |
-| `hpa_desired_replicas_query` | No | Custom HPA desired replicas PromQL | Auto |
-| `cpu_query` | No | Custom autoscaler Pod CPU PromQL | Auto |
-| `memory_query` | No | Custom autoscaler Pod memory PromQL | Auto |
+
+Optional custom PromQL overrides are supported for unschedulable Pods, node states, scale events, errors, node groups, HPA replicas, CPU, and memory.
 
 ### Kubernetes Control Plane Tool Parameters
 
@@ -472,6 +435,7 @@ Controller-manager and scheduler metrics depend on AOM ServiceMonitor collection
 | `end_time`    | Yes      | End time (YYYY-MM-DD HH:MM:SS)  | N/A      |
 | `namespace`   | No       | Namespace filter                | `default`|
 | `top_n`       | No       | Number of top items             | 10       |
+| `security_token` | No    | Temporary security token for AK/SK session credentials | env fallback |
 
 ## Output Format
 
@@ -487,12 +451,6 @@ See [Output Schema](references/output-schema.md) for the complete JSON response 
 - `time_series` — Historical data points with `timestamp`, `time`, `average`, `min`, `max`
 - `status` — Threshold classification: `critical` (>80% CPU, >85% memory/disk), `warning` (>50% CPU/memory, >70% disk), `normal` (below warning), `unknown` (no data)
 
-**Cloud resource metric fields** (ECS/ELB/EIP/NAT):
-- ECS: `cpu_util`, `mem_util`, `disk_util`, `network_incoming/outgoing_bytes_rate`, `disk_read/write_bytes_rate`
-- ELB: `m1_cps`, `m14_l7_rt`, `mb_l7_qps`, `mc-me-mf_l7_http_2xx-5xx`
-- EIP: `upstream/downstream_bandwidth`, `upstream/downstream_bandwidth_usage`, `upstream/downstream_traffic`, `packet_loss_rate`
-- NAT: `snat_connection`, `inbound/outbound_bandwidth`, `snat_connection_ratio`
-
 ## Verification
 
 1. Run `python3 scripts/huawei-cloud.py huawei_get_cce_pod_metrics_topN region=cn-north-4 cluster_id=<cluster-id> namespace=default top_n=5` to verify Pod metric queries
@@ -505,7 +463,7 @@ See [Output Schema](references/output-schema.md) for the complete JSON response 
 2. **Time-bound queries** — keep `hours` small (1-4) for recent analysis; cap at 24 hours for historical reviews
 3. **Use namespace filtering** — always provide `namespace` to reduce noise in Pod TopN results
 4. **Check status classification** — focus on `critical` and `warning` resources first; `normal` resources can be skipped
-5. **Use aggregation for full-cluster health checks** — `huawei_cce_cluster_monitoring_aggregation` gives a one-shot overview of all resource metrics with anomaly detection
+5. **Use aggregation for full-cluster health checks** — `huawei_cce_cluster_monitoring_aggregation` gives a one-shot overview of Pod, Node, CoreDNS, nginx-ingress, autoscaler, and cluster-associated cloud-resource metrics with anomaly detection
 6. **Correlate with events** — if metrics show anomalies, check `huawei-cloud-cce-kubernetes-event-analyzer` for related warning events
 7. **Hand off, don't remediate** — this skill is read-only; hand off to diagnosis skills for root cause analysis
 8. **Sanitize output** — do not expose production pod names, node IPs, or cluster IDs in public summaries; use redacted examples
@@ -522,8 +480,8 @@ See [Output Schema](references/output-schema.md) for the complete JSON response 
 
 - This skill is **strictly read-only** — it only queries and analyzes metrics; no modifications are made to resources or configurations
 - Thresholds (CPU >80%, Memory >85%, Disk >85%) are **predefined baselines** — actual thresholds may vary by workload SLO; recommend users customize thresholds based on their specific requirements
-- AK/SK must **never** be hardcoded — use explicit parameters only for one-off debugging, hcloud profiles for normal hcloud calls, or environment variables as fallback for signed AOM Prometheus/Kubernetes certificate calls
-- The Python dispatcher script (`scripts/huawei-cloud.py`) is still the **only user-facing execution method**; metric cloud service calls inside the dispatcher use hcloud rather than direct Python SDK/API calls
+- AK/SK must **never** be hardcoded; use hcloud profile for normal hcloud calls or environment fallback for signed AOM/Kubernetes calls
+- `scripts/huawei-cloud.py` is the only user-facing execution method
 - AOM Prometheus instance is **auto-discovered** — no need to manually specify `aom_instance_id`
 - Cloud resource metrics (ECS/ELB/EIP/NAT) use CES (Cloud Eye Service), not AOM
 - Do not make automatic scaling or remediation decisions based solely on metric analysis — forward to `huawei-cloud-cce-auto-remediation-runner` only if explicitly requested and validated
@@ -535,8 +493,6 @@ See [Output Schema](references/output-schema.md) for the complete JSON response 
 | Missing `cluster_id`                       | Action fails immediately              | Provide `cluster_id` from cluster listing    |
 | AOM Prometheus instance not found          | Metric queries return empty results   | Ensure AOM Prom instance is created for the cluster; check `aom:instance:list` permission |
 | Large time window without namespace filter | Slow response, too many results       | Narrow `hours` to 1-4 and add `namespace` filter |
-| Cloud resource ID not found                | ECS/ELB/EIP/NAT query returns error   | Verify resource ID exists; check CES IAM permission |
-| Custom PromQL syntax error                 | `cpu_query` / `memory_query` returns empty | Use default auto-generated PromQL; only customize if familiar with AOM PromQL syntax |
-| Permission denied on CES metrics           | Cloud resource metrics fail           | Verify `ces:metricsData:get` IAM permission |
-| Aggregation missing time range             | `start_time` / `end_time` required but not provided | Always specify both time boundaries for aggregation queries |
-| Node IP format mismatch                    | Single Node metrics fail              | Use the exact node IP as shown in cluster node listing (e.g. `10.0.0.1`) |
+| Cloud resource ID not found | ECS/ELB/EIP/NAT query returns error | Verify resource ID and CES IAM permission |
+| Custom PromQL syntax error | Custom query returns empty | Use default PromQL unless familiar with AOM PromQL |
+| Aggregation missing time range | `start_time` / `end_time` missing | Provide both time boundaries |
