@@ -403,6 +403,14 @@ Mutation verification:
 6. **Separate analysis from remediation** - recommend remediation, then hand off to remediation skills.
 7. **Protect observability** - avoid disabling or deleting rules unless impact is understood and confirmed.
 
+## Notes
+
+- Alarm diagnosis must consider both active and historical alarms; do not conclude the cluster is healthy only because there are no active alarms.
+- R2/R1/R0 tools must use preview-first execution and wait for explicit user confirmation before applying changes.
+- Do not automatically select notification rules, SMN topics, clusters, or templates for the user.
+- Do not modify alarm resources outside the tools provided by this skill.
+- Use `cluster_id` for cluster-scoped filtering; cluster names are not accepted by `huawei_list_aom_alarm_rules`.
+
 ## Troubleshooting
 
 | Symptom | Likely Cause | Action |
