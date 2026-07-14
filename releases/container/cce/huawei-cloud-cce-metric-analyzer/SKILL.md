@@ -64,7 +64,7 @@ Query and analyze metrics for CCE clusters (Pod/Node CPU/memory/disk) and cloud 
 - Python 3.8+ for the dispatcher and result processing
 - hcloud (KooCLI) 7.2.2+ for CCE/ECS/ELB/VPC/EIP/NAT/CES/IAM cloud service queries
 - Kubernetes Python client for reading in-cluster Pod/Node/Service details after hcloud creates short-lived CCE cluster credentials
-- AOM Prometheus range queries use signed HTTPS requests with AK/SK because the hcloud AOM Prometheus query path is not compatible with the required query_range API
+- Prometheus-related monitoring data is queried from AOM Prometheus with signed HTTPS requests; the cluster must have the Prometheus add-on integrated with AOM, otherwise these tools may return empty metric series
 - Controller-manager and scheduler metrics require the corresponding ServiceMonitor to be enabled separately in AOM; otherwise these tools may return empty metric series
 - Run environment check before first use (see Verification section)
 
