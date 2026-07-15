@@ -85,7 +85,6 @@ tags: [cce, metrics, aom, observability, analysis]
 ```bash
 hcloud configure list
 
-# 可选环境变量 fallback
 export HUAWEI_AK=<your-ak>
 export HUAWEI_SK=<your-sk>
 export HUAWEI_REGION=cn-north-4
@@ -117,6 +116,16 @@ export HUAWEI_REGION=cn-north-4
 ```bash
 python3 scripts/huawei-cloud.py <action> <key=value>...
 ```
+
+## KooCLI命令格式标准
+
+不要要求用户直接执行原始 `hcloud` 命令，统一使用调度器格式：
+
+```bash
+python3 scripts/huawei-cloud.py <tool-name> key=value key=value
+```
+
+云服务查询由调度器转换为 KooCLI 调用。AOM Prometheus range 查询因路径不兼容 hcloud，使用签名 HTTPS 请求。包含空格、`>`、`<`、`|`、JSON 或 PromQL 的值需要加引号；禁止打印或持久化 AK/SK、security token、kubeconfig 或临时载荷；Kubernetes/AOM PromQL 必须保留 `cluster="<cluster_id>"` 过滤。
 
 ### 1. CCE Pod 指标
 
@@ -398,32 +407,14 @@ controller-manager、scheduler 和 etcd 指标依赖 AOM 对对应的 `kube-cont
 | `metric_selector` | 否 | 自定义 apiserver/etcd/controller-manager/scheduler 指标 label selector | apiserver: `cluster="<cluster_id>",component="apiserver"`；etcd/controller-manager/scheduler: `cluster="<cluster_id>"` |
 | `hours` | 否 | 指标回溯小时数 | 1 |
 
-### `huawei_get_ecs_metrics` 参数
+### 云资源工具参数
 
-| 参数 | 必填 | 说明 | 默认值 |
-| ---- | ---- | ---- | ------ |
-| `instance_id` | 是 | ECS 实例 ID | N/A |
-
-### `huawei_get_elb_metrics` 参数
-
-| 参数 | 必填 | 说明 | 默认值 |
-| ---- | ---- | ---- | ------ |
-| `elb_id` | 是 | ELB 负载均衡 ID | N/A |
-| `hours` | 否 | 指标回溯小时数 | 1 |
-
-### `huawei_get_eip_metrics` 参数
-
-| 参数 | 必填 | 说明 | 默认值 |
-| ---- | ---- | ---- | ------ |
-| `eip_id` | 是 | EIP ID | N/A |
-| `hours` | 否 | 指标回溯小时数 | 1 |
-
-### `huawei_get_nat_gateway_metrics` 参数
-
-| 参数 | 必填 | 说明 | 默认值 |
-| ---- | ---- | ---- | ------ |
-| `nat_gateway_id` | 是 | NAT Gateway ID | N/A |
-| `hours` | 否 | 指标回溯小时数 | 1 |
+| 工具 | 必填 ID 参数 | 可选参数 |
+| ---- | ------------ | -------- |
+| `huawei_get_ecs_metrics` | `instance_id` | 无 |
+| `huawei_get_elb_metrics` | `elb_id` | `hours` |
+| `huawei_get_eip_metrics` | `eip_id` | `hours` |
+| `huawei_get_nat_gateway_metrics` | `nat_gateway_id` | `hours` |
 
 ### `huawei_cce_cluster_monitoring_aggregation` 参数
 
@@ -449,6 +440,14 @@ controller-manager、scheduler 和 etcd 指标依赖 AOM 对对应的 `kube-cont
 - `time_series` - 历史数据点，包含 `timestamp`、`time`、`average`、`min`、`max`
 - `status` - 阈值分类：`critical`、`warning`、`normal`、`unknown`
 
+## 工作流
+
+1. 按文档优先级解析 region、cluster ID 和认证凭据。
+2. 从 CCE 集群插件绑定中发现 AOM Prometheus 实例。
+3. 先使用 Pod/Node TopN 或聚合工具获取概览，再下钻 Pod、Node、组件或云资源。
+4. PromQL 保持 `cluster="<cluster_id>"` 集群过滤；namespace、pod 或资源过滤只用于降噪。
+5. 将状态分类作为排查线索，再结合事件或告警历史做关联分析。
+
 ## 验证
 
 1. 运行 `python3 scripts/huawei-cloud.py huawei_get_cce_pod_metrics_topN region=cn-north-4 cluster_id=<cluster-id> namespace=default top_n=5` 验证 Pod 指标查询
@@ -457,35 +456,25 @@ controller-manager、scheduler 和 etcd 指标依赖 AOM 对对应的 `kube-cont
 
 ## 最佳实践
 
-1. **先用 TopN 获取集群概览** - 先看 Pod/Node TopN，再钻取单个资源。
-2. **限制时间范围** - 最近分析建议 `hours` 保持 1-4；历史回顾最多 24 小时。
-3. **PromQL 保持集群级过滤** - 默认 Kubernetes/AOM PromQL 必须包含 `cluster="<cluster_id>"`，避免共享 AOM Prometheus 实例中多个集群数据互相影响。
-4. **使用命名空间过滤** - Pod TopN 尽量提供 `namespace` 以减少噪声，但不能移除 cluster 过滤。
-5. **关注状态分类** - 优先关注 `critical` 和 `warning` 资源。
-6. **使用聚合工具做集群健康概览** - `huawei_cce_cluster_monitoring_aggregation` 一次性聚合 Pod、Node、CoreDNS、nginx-ingress、autoscaler 和集群关联云资源指标。
-7. **结合事件分析** - 指标异常时，使用 `huawei-cloud-cce-kubernetes-event-analyzer` 查看相关 Warning 事件。
-8. **只分析不修复** - 本技能只读；根因分析或修复交给对应诊断/修复技能。
-9. **输出脱敏** - 对外摘要不要暴露生产 Pod 名、节点 IP 或集群 ID。
-
-## 参考文档
-
-| 文档 | 说明 |
-| ---- | ---- |
-| [Workflow](references/workflow.md) | 指标查询顺序、Pod/Node 工作流、阈值检测和后续交接 |
-| [Risk Rules](references/risk-rules.md) | 只读约束、数据脱敏规则、时间范围约束、阈值注意事项 |
-| [Output Schema](references/output-schema.md) | CCE 指标、云资源指标、时序和状态值的 JSON 响应格式 |
+1. 先看 Pod/Node TopN，再钻取单个资源。
+2. 最近分析建议 `hours` 保持 1-4；历史回顾最多 24 小时。
+3. Pod TopN 尽量提供 `namespace` 以减少噪声，但不能移除 cluster 过滤。
+4. 优先关注 `critical` 和 `warning` 资源。
+5. 使用 `huawei_cce_cluster_monitoring_aggregation` 做集群健康概览。
+6. 指标异常时，结合 `huawei-cloud-cce-kubernetes-event-analyzer` 查看事件。
+7. 对外摘要不要暴露生产 Pod 名、节点 IP 或集群 ID。
 
 ## 注意事项
 
-- 本技能严格只读，只查询和分析指标，不修改资源或配置。
-- 阈值（CPU >80%、Memory >85%、Disk >85%）是预设基线，实际阈值应结合业务 SLO 调整。
+- 本技能严格只读，不修改资源或配置。
+- 阈值是预设基线，实际阈值应结合业务 SLO 调整。
 - AK/SK 禁止硬编码；常规 hcloud 调用优先使用 hcloud profile，AOM/Kubernetes 签名调用可使用环境变量 fallback。
 - `scripts/huawei-cloud.py` 是唯一面向用户的执行入口。
 - AOM Prometheus 实例会自动发现，无需手动指定 `aom_instance_id`。
 - 云资源指标（ECS/ELB/EIP/NAT）使用 CES（Cloud Eye Service），不是 AOM。
-- 不要仅凭指标分析自动做扩缩容或修复决策；如需修复，明确请求并验证后交给 `huawei-cloud-cce-auto-remediation-runner`。
+- 不要仅凭指标分析自动做扩缩容或修复决策。
 
-## 常见问题
+## 排障
 
 | 问题 | 表现 | 处理方式 |
 | ---- | ---- | -------- |
@@ -495,3 +484,17 @@ controller-manager、scheduler 和 etcd 指标依赖 AOM 对对应的 `kube-cont
 | 云资源 ID 不存在 | ECS/ELB/EIP/NAT 查询报错 | 确认资源 ID 存在并具备 CES 权限 |
 | 自定义 PromQL 语法错误 | 查询返回空 | 优先使用默认 PromQL |
 | 聚合缺少时间范围 | 缺少 `start_time` / `end_time` | 聚合查询必须同时提供开始和结束时间 |
+
+## 限制
+
+- AOM Prometheus 数据要求集群普罗插件已对接 AOM。
+- 控制面 ServiceMonitor 和组件 PodMonitor 需要开启后才会有相关指标。
+- 查询结果只反映已采集的监控数据；指标序列缺失不代表工作负载健康。
+- 本技能不修复、扩缩容、重启、创建、更新或删除云资源和 Kubernetes 资源。
+
+## 参考文档
+| 文档 | 说明 |
+| ---- | ---- |
+| [Workflow](references/workflow.md) | 指标查询顺序、阈值检测和后续交接 |
+| [Risk Rules](references/risk-rules.md) | 只读约束、数据脱敏、时间范围约束、阈值注意事项 |
+| [Output Schema](references/output-schema.md) | 指标和状态输出的 JSON 响应结构 |
