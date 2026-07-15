@@ -18,13 +18,7 @@ tags: [cce, metrics, aom, observability, analysis]
 
 > **执行方式**：云服务查询通过本机 `hcloud` CLI 执行。AOM Prometheus `query_range` 是唯一例外，由于所需 Prometheus range-query 路径不兼容 hcloud，因此使用签名 HTTPS 请求。禁止在调度器之外直接调用华为云 SDK、curl IAM、openstack 或手写云 API。
 
-**相关技能**：
-- `huawei-cloud-cce-pod-failure-diagnoser` - Pod CrashLoopBackOff、OOMKilled、重启风暴
-- `huawei-cloud-cce-node-failure-diagnoser` - 节点健康和资源压力诊断
-- `huawei-cloud-cce-kubernetes-event-analyzer` - Warning 事件和失败模式
-- `huawei-cloud-cce-capacity-trend-forecaster` - 容量规划和趋势预测
-- `huawei-cloud-cce-cost-optimization-advisor` - 资源成本优化
-- `huawei-cloud-cce-auto-remediation-runner` - 修复动作（扩缩容、规格调整、drain）
+**相关技能**：后续诊断或用户明确要求修复时，联动 Pod/Node 诊断、Kubernetes 事件分析、容量/成本技能或自动修复技能。
 
 **能力范围**：
 - Pod CPU/内存 TopN 排名和单 Pod 时序指标
@@ -42,20 +36,7 @@ tags: [cce, metrics, aom, observability, analysis]
 - 整集群监控聚合和异常检测（80% 阈值）
 - 阈值状态分类：critical/warning/normal/unknown
 
-**典型场景**：
-- “查询集群 CPU 使用率最高的 Pod”
-- “获取 Node 内存使用率排名”
-- “获取 CCE 节点 GPU 和 xGPU 指标”
-- “检查 CoreDNS QPS、延迟和错误率”
-- “检查 nginx-ingress 请求延迟、5xx 率和 TLS 证书过期”
-- “检查 autoscaler 扩缩容活动和 HPA 副本差异”
-- “检查 apiserver、etcd、controller-manager、scheduler 关键指标”
-- “检查 ECS 实例资源指标”
-- “查看某个 ELB 的 QPS”
-- “查看 EIP 带宽使用”
-- “聚合集群全部监控数据”
-- “哪些资源超过了 critical 阈值”
-- “检测最近一小时资源异常”
+**典型场景**：查询 Pod/Node TopN、GPU/xGPU、CoreDNS、nginx-ingress、autoscaler、控制面、ECS/ELB/EIP/NAT 指标，做整集群聚合和阈值异常检测。
 
 ## 前置条件
 

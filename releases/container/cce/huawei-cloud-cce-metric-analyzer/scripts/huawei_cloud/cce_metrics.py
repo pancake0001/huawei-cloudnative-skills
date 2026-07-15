@@ -1413,7 +1413,7 @@ def _get_cce_control_plane_metrics(
         summary["status"] = "critical"
     elif (
         any((value or 0) > 0 for key, value in scalar_values.items() if key in {"queue_depth", "pending_pods"})
-        or any((value or 0) > 1000 for key, value in scalar_values.items() if key.endswith("_p95_ms") or key == "latency_p95_ms")
+        or any((value or 0) > 1000 for key, value in scalar_values.items() if key.endswith("_p95_ms"))
     ):
         summary["status"] = "warning"
     summary.update(scalar_values)

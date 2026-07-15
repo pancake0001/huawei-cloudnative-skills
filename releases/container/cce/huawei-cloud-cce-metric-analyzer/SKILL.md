@@ -18,13 +18,7 @@ Query and analyze metrics for CCE clusters (Pod/Node CPU/memory/disk) and cloud 
 
 > **Execution method**: Cloud service queries are executed through the local `hcloud` CLI. AOM Prometheus `query_range` calls are the only exception and use signed HTTPS requests because the required Prometheus range-query path is not compatible with hcloud. Do not call Huawei Cloud SDKs, curl IAM flows, openstack, or hand-written cloud APIs outside the bundled dispatcher.
 
-**Related Skills**:
-- `huawei-cloud-cce-pod-failure-diagnoser` - Pod CrashLoopBackOff, OOMKilled, restart storms
-- `huawei-cloud-cce-node-failure-diagnoser` - Node health, resource pressure diagnosis
-- `huawei-cloud-cce-kubernetes-event-analyzer` - Warning events, failure patterns
-- `huawei-cloud-cce-capacity-trend-forecaster` - Capacity planning and trend forecasting
-- `huawei-cloud-cce-cost-optimization-advisor` - Resource cost optimization
-- `huawei-cloud-cce-auto-remediation-runner` - Remediation actions (scale, resize, drain)
+**Related Skills**: use pod/node diagnosers, Kubernetes event analyzer, capacity/cost skills, or auto-remediation runner for follow-up diagnosis or explicitly requested remediation.
 
 **Capabilities**:
 - Pod CPU/memory TopN ranking and single Pod time-series metrics
@@ -41,21 +35,7 @@ Query and analyze metrics for CCE clusters (Pod/Node CPU/memory/disk) and cloud 
 - Full-cluster monitoring aggregation with anomaly detection (80% threshold)
 - Threshold-based status classification (critical/warning/normal/unknown)
 
-**Typical Use Cases**:
-
-- "Show Pods with the highest CPU usage in my cluster"
-- "Get Node memory usage ranking"
-- "Get GPU and xGPU metrics for a CCE node"
-- "Check CoreDNS QPS, latency, and error rate"
-- "Check nginx-ingress request latency, 5xx rate, and TLS certificate expiration"
-- "Check autoscaler scaling activity and HPA replica gaps"
-- "Check apiserver, etcd, controller-manager, and scheduler key metrics"
-- "Check ECS instance resource metrics"
-- "What is the ELB QPS for my load balancer?"
-- "Show EIP bandwidth usage"
-- "Aggregate all monitoring data for the cluster"
-- "Which resources have exceeded critical thresholds?"
-- "Detect resource anomalies in the last hour"
+**Typical Use Cases**: query Pod/Node TopN, GPU/xGPU, CoreDNS, nginx-ingress, autoscaler, control-plane, ECS/ELB/EIP/NAT metrics, full-cluster aggregation, and threshold-based anomaly detection.
 
 ## Prerequisites
 
