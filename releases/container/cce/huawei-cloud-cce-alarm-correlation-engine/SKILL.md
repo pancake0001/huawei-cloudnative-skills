@@ -174,32 +174,32 @@ Never choose a notification rule automatically. If `bind_notification_rule_id` i
 ### 4. Alarm Rule Creation
 
 ```bash
-# Preview creating a metric alarm rule
+# Preview creating a CCE template metric alarm rule
 python3 scripts/huawei-cloud.py huawei_create_aom_alarm_rule \
-  region=cn-north-4 rule_name=my-rule metric_name=cpuUsage \
-  namespace=PAAS.NODE comparison_operator='>' threshold=80 \
-  period=60 evaluation_periods=3 statistic=average alarm_level=2
+  region=cn-north-4 cluster_id=<cluster-id> \
+  alarm_item=NodeCPUUsageHigherThanEightyPercent
 
-# Confirm creating a metric alarm rule
+# Confirm creating a CCE template metric alarm rule
 python3 scripts/huawei-cloud.py huawei_create_aom_alarm_rule \
-  region=cn-north-4 rule_name=my-rule metric_name=cpuUsage \
-  namespace=PAAS.NODE comparison_operator='>' threshold=80 \
-  period=60 evaluation_periods=3 statistic=average alarm_level=2 \
+  region=cn-north-4 cluster_id=<cluster-id> \
+  alarm_item=NodeCPUUsageHigherThanEightyPercent \
+  bind_notification_rule_id=<action-rule-id> \
   confirm=true
 
 # Preview creating an event alarm rule
 python3 scripts/huawei-cloud.py huawei_create_aom_event_alarm_rule \
   region=cn-north-4 cluster_id=<cluster-id> \
-  rule_name=my-event-rule event_name="<event-name>"
+  event_name="<event-name>"
 
 # Confirm creating an event alarm rule
 python3 scripts/huawei-cloud.py huawei_create_aom_event_alarm_rule \
   region=cn-north-4 cluster_id=<cluster-id> \
-  rule_name=my-event-rule event_name="<event-name>" \
+  event_name="<event-name>" \
+  bind_notification_rule_id=<action-rule-id> \
   confirm=true
 ```
 
-Event alarm rule `event_name` should reference `references/cce-event-list.md`. Metric alarm thresholds should reference `references/cce-prometheus-metric-alarms.md`.
+Metric rules with `cluster_id` + `alarm_item` and event rules both use the same CCE template payload path and default naming as batch creation. Pass `rule_name` only when the user explicitly requests a custom name. Single-rule creation requires explicit `bind_notification_rule_id` during confirmed execution, same as batch CCE alarm rule configuration. Event alarm rule `event_name` should reference `references/cce-event-list.md`; metric `alarm_item` should use the CCE template alias or rule name.
 
 ### 5. CCE Template Alarm Rules
 
@@ -331,8 +331,8 @@ This skill includes read-only query tools and mutation tools. Mutation tools mus
 | Tool | Required | Notes |
 | ---- | -------- | ----- |
 | `huawei_list_aom_alarm_rules` | `region` | Optional `cluster_id`; no `cluster_name` filtering |
-| `huawei_create_aom_alarm_rule` | `region`, `rule_name`, `metric_name`, `namespace`, `comparison_operator`, `threshold`, `period`, `evaluation_periods`, `statistic`, `alarm_level` | R2; preview then `confirm=true` |
-| `huawei_create_aom_event_alarm_rule` | `region`, `cluster_id`, `rule_name`, `event_name` | R2; use event names from references |
+| `huawei_create_aom_alarm_rule` | `region` | Template mode: `cluster_id`, `alarm_item`; manual mode: metric fields. Confirmed execution requires `bind_notification_rule_id` |
+| `huawei_create_aom_event_alarm_rule` | `region`, `cluster_id`, `event_name` | R2; confirmed execution requires `bind_notification_rule_id`; optional `rule_name` overrides template naming |
 | `huawei_create_aom_notification_action_rule` | `region`, `rule_name`, `notification_topic_urn`, `notification_topic_name` | R2; user must provide the topic |
 | `huawei_configure_cce_aom_alarm_rules` | `region`, `cluster_id`, `bind_notification_rule_id` | R2; user must explicitly choose the notification rule |
 | `huawei_cleanup_cce_aom_alarm_rules` | `region`, `cluster_id` | R0; optional `delete_auto_notification_rule=true` |
