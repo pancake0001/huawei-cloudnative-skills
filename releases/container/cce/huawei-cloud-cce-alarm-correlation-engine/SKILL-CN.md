@@ -108,6 +108,28 @@ export HUAWEI_SECURITY_TOKEN=<security-token>
 python3 scripts/huawei-cloud.py <action> <key=value>...
 ```
 
+## KooCLI命令格式标准
+
+本技能不要求用户直接运行原始 `hcloud` 命令。所有云侧操作必须使用调度器命令格式：
+
+```bash
+python3 scripts/huawei-cloud.py <tool-name> key=value key=value
+```
+
+调度器会将工具参数转换为标准 KooCLI 调用：
+
+```bash
+hcloud <service> <operation> --cli-region=<region> --cli-output=json [--cli-jsonInput=<file>]
+```
+
+执行命令时遵循以下规则：
+
+- 使用 `key=value` 参数；包含空格、`>`、`<`、`|`、JSON 或 PromQL 的值必须加引号。
+- 不打印、不落盘 AK/SK、security token 或生成的 JSON input 文件内容。
+- R2/R1/R0 工具必须先看预览输出，只有用户明确确认后才添加 `confirm=true`。
+- 优先使用 hcloud profile 凭据；工具入参优先级高于 profile 和环境变量兜底。
+- 安装和验证方式见 [CLI Installation Guide](references/cli-installation-guide.md)。
+
 ### 1. 告警查询与关联
 
 ```bash
@@ -437,5 +459,9 @@ python3 scripts/huawei-cloud.py huawei_aom_alarm_inspection \
 | [Workflow](references/workflow.md) | 告警关联工作流 |
 | [Output Schema](references/output-schema.md) | 输出 JSON 结构 |
 | [Risk Rules](references/risk-rules.md) | 风险边界和确认规则 |
+| [CLI Installation Guide](references/cli-installation-guide.md) | hcloud/KooCLI 安装和 profile 检查 |
+| [IAM Policies](references/iam-policies.md) | AOM、CCE、IAM 所需权限 |
+| [Verification Method](references/verification-method.md) | 功能和变更验证清单 |
+| [Acceptance Criteria](references/acceptance-criteria.md) | 技能验收标准和测试用例 |
 | [CCE Event List](references/cce-event-list.md) | 事件告警规则使用的 CCE 事件名 |
 | [Prometheus Metric Alarms](references/cce-prometheus-metric-alarms.md) | Prometheus 指标告警参考 |

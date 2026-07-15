@@ -108,6 +108,28 @@ All commands use the Python dispatcher script:
 python3 scripts/huawei-cloud.py <action> <key=value>...
 ```
 
+## KooCLI命令格式标准
+
+This skill does not ask users to run raw `hcloud` commands directly. All cloud operations must use the dispatcher command format:
+
+```bash
+python3 scripts/huawei-cloud.py <tool-name> key=value key=value
+```
+
+The dispatcher converts tool parameters into standard KooCLI calls:
+
+```bash
+hcloud <service> <operation> --cli-region=<region> --cli-output=json [--cli-jsonInput=<file>]
+```
+
+Follow these rules for every command:
+
+- Use `key=value` parameters; quote values that contain spaces, `>`, `<`, `|`, JSON, or PromQL.
+- Do not print or persist AK/SK, security tokens, or generated JSON input files.
+- Use dispatcher preview output first for R2/R1/R0 tools; add `confirm=true` only after explicit user confirmation.
+- Prefer hcloud profile credentials; explicit tool parameters override profile and environment fallback.
+- See [CLI Installation Guide](references/cli-installation-guide.md) for setup and validation.
+
 ### 1. Alarm Query And Correlation
 
 ```bash
@@ -437,5 +459,9 @@ Mutation verification:
 | [Workflow](references/workflow.md) | Alarm correlation workflow |
 | [Output Schema](references/output-schema.md) | Output JSON schema |
 | [Risk Rules](references/risk-rules.md) | Risk boundaries and confirmation rules |
+| [CLI Installation Guide](references/cli-installation-guide.md) | hcloud/KooCLI installation and profile checks |
+| [IAM Policies](references/iam-policies.md) | Required AOM, CCE, and IAM permissions |
+| [Verification Method](references/verification-method.md) | Functional and mutation verification checklist |
+| [Acceptance Criteria](references/acceptance-criteria.md) | Skill acceptance criteria and test cases |
 | [CCE Event List](references/cce-event-list.md) | CCE event names for event alarm rules |
 | [Prometheus Metric Alarms](references/cce-prometheus-metric-alarms.md) | Prometheus metric alarm references |
