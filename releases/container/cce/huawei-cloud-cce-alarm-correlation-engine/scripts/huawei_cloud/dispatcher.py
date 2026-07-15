@@ -47,28 +47,39 @@ def _alarm_rule_fields(params: Dict[str, str], json_key: str) -> Dict[str, Any]:
         "alarm_advice",
         "alarm_description",
         "alarm_level",
+        "bind_notification_rule_id",
+        "cluster_id",
         "comparison_operator",
         "dimensions",
         "evaluation_periods",
         "is_turn_on",
         "insufficient_data_actions",
         "metric_name",
+        "metric_labels",
         "namespace",
         "ok_actions",
         "period",
+        "prom_instance_id",
+        "promql",
+        "promql_for",
+        "recovery_timeframe",
+        "severity",
         "statistic",
         "threshold",
+        "threshold_value",
+        "trigger_interval",
+        "trigger_type",
         "unit",
     ):
         if key not in params:
             continue
 
         value: Any = params[key]
-        if key in {"alarm_actions", "dimensions", "insufficient_data_actions", "ok_actions"}:
+        if key in {"alarm_actions", "dimensions", "insufficient_data_actions", "metric_labels", "ok_actions"}:
             value = _parse_json_param(value, key)
         elif key in {"action_enabled", "is_turn_on"}:
             value = value.lower() == "true"
-        elif key in {"alarm_level", "evaluation_periods", "period"}:
+        elif key in {"alarm_level", "evaluation_periods", "period", "recovery_timeframe"}:
             value = _to_int(value, 0)
         fields[key] = value
     return fields
@@ -95,16 +106,20 @@ def _list_aom_alarm_rules(params: Dict[str, str]) -> Dict[str, Any]:
 def _create_aom_alarm_rule(params: Dict[str, str]) -> Dict[str, Any]:
     return aom.create_aom_alarm_rule(
         region=params["region"],
-        rule_name=params["rule_name"],
-        metric_name=params["metric_name"],
-        namespace=params["namespace"],
-        comparison_operator=params["comparison_operator"],
-        threshold=params["threshold"],
-        period=_to_int(params["period"], 0),
-        evaluation_periods=_to_int(params["evaluation_periods"], 0),
-        statistic=params["statistic"],
-        alarm_level=_to_int(params["alarm_level"], 0),
+        rule_name=params.get("rule_name"),
+        metric_name=params.get("metric_name"),
+        namespace=params.get("namespace"),
+        comparison_operator=params.get("comparison_operator"),
+        threshold=params.get("threshold"),
+        period=_to_int(params.get("period"), 0),
+        evaluation_periods=_to_int(params.get("evaluation_periods"), 0),
+        statistic=params.get("statistic"),
+        alarm_level=_to_int(params.get("alarm_level"), 0),
         create_fields=_alarm_rule_fields(params, "fields"),
+        cluster_id=params.get("cluster_id"),
+        alarm_item=params.get("alarm_item") or params.get("template_item") or params.get("alias"),
+        prom_instance_id=params.get("prom_instance_id"),
+        enterprise_project_id=params.get("enterprise_project_id"),
         confirm=params.get("confirm", "").lower() == "true",
         ak=params.get("ak"),
         sk=params.get("sk"),
@@ -117,7 +132,7 @@ def _create_aom_event_alarm_rule(params: Dict[str, str]) -> Dict[str, Any]:
     return aom.create_aom_event_alarm_rule(
         region=params["region"],
         cluster_id=params["cluster_id"],
-        rule_name=params["rule_name"],
+        rule_name=params.get("rule_name"),
         event_name=params["event_name"],
         bind_notification_rule_id=bind_notification_rule_id,
         event_label=params.get("event_label"),
@@ -359,10 +374,10 @@ def _aom_alarm_inspection_action(params: Dict[str, str]) -> Dict[str, Any]:
 ACTION_SPECS: Dict[str, tuple[tuple[str, ...], Handler]] = {
     "huawei_list_aom_alarm_rules": (("region",), _list_aom_alarm_rules),
     "huawei_create_aom_alarm_rule": (
-        ("region", "rule_name", "metric_name", "namespace", "comparison_operator", "threshold", "period", "evaluation_periods", "statistic", "alarm_level"),
+        ("region",),
         _create_aom_alarm_rule,
     ),
-    "huawei_create_aom_event_alarm_rule": (("region", "cluster_id", "rule_name", "event_name"), _create_aom_event_alarm_rule),
+    "huawei_create_aom_event_alarm_rule": (("region", "cluster_id", "event_name"), _create_aom_event_alarm_rule),
     "huawei_configure_cce_aom_alarm_rules": (("region", "cluster_id"), _configure_cce_aom_alarm_rules),
     "huawei_cleanup_cce_aom_alarm_rules": (("region", "cluster_id"), _cleanup_cce_aom_alarm_rules),
     "huawei_create_aom_notification_action_rule": (("region", "rule_name", "notification_topic_urn", "notification_topic_name"), _create_aom_notification_action_rule),

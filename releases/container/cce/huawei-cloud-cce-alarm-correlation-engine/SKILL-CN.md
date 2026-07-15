@@ -174,32 +174,32 @@ python3 scripts/huawei-cloud.py huawei_create_aom_notification_action_rule \
 ### 4. 告警规则创建
 
 ```bash
-# 预览：创建指标告警规则
+# 预览：创建 CCE 模板指标告警规则
 python3 scripts/huawei-cloud.py huawei_create_aom_alarm_rule \
-  region=cn-north-4 rule_name=my-rule metric_name=cpuUsage \
-  namespace=PAAS.NODE comparison_operator='>' threshold=80 \
-  period=60 evaluation_periods=3 statistic=average alarm_level=2
+  region=cn-north-4 cluster_id=<cluster-id> \
+  alarm_item=NodeCPUUsageHigherThanEightyPercent
 
-# 确认：创建指标告警规则
+# 确认：创建 CCE 模板指标告警规则
 python3 scripts/huawei-cloud.py huawei_create_aom_alarm_rule \
-  region=cn-north-4 rule_name=my-rule metric_name=cpuUsage \
-  namespace=PAAS.NODE comparison_operator='>' threshold=80 \
-  period=60 evaluation_periods=3 statistic=average alarm_level=2 \
+  region=cn-north-4 cluster_id=<cluster-id> \
+  alarm_item=NodeCPUUsageHigherThanEightyPercent \
+  bind_notification_rule_id=<action-rule-id> \
   confirm=true
 
 # 预览：创建事件告警规则
 python3 scripts/huawei-cloud.py huawei_create_aom_event_alarm_rule \
   region=cn-north-4 cluster_id=<cluster-id> \
-  rule_name=my-event-rule event_name="<event-name>"
+  event_name="<event-name>"
 
 # 确认：创建事件告警规则
 python3 scripts/huawei-cloud.py huawei_create_aom_event_alarm_rule \
   region=cn-north-4 cluster_id=<cluster-id> \
-  rule_name=my-event-rule event_name="<event-name>" \
+  event_name="<event-name>" \
+  bind_notification_rule_id=<action-rule-id> \
   confirm=true
 ```
 
-事件告警规则的 `event_name` 应参考 `references/cce-event-list.md`。指标告警阈值应参考 `references/cce-prometheus-metric-alarms.md`。
+指标告警使用 `cluster_id` + `alarm_item`、事件告警使用 `event_name` 时，都会走与批量创建一致的 CCE 模板 payload 和默认命名；只有用户明确要求自定义名称时才传 `rule_name`。单条创建确认执行时必须显式传入 `bind_notification_rule_id`，要求与批量配置 CCE 告警规则一致。事件告警规则的 `event_name` 应参考 `references/cce-event-list.md`；指标 `alarm_item` 使用 CCE 模板 alias 或规则名。
 
 ### 5. CCE 模板告警规则
 
@@ -331,8 +331,8 @@ python3 scripts/huawei-cloud.py huawei_aom_alarm_inspection \
 | 工具 | 必填 | 说明 |
 | ---- | ---- | ---- |
 | `huawei_list_aom_alarm_rules` | `region` | 可选 `cluster_id`；不支持 `cluster_name` 过滤 |
-| `huawei_create_aom_alarm_rule` | `region`, `rule_name`, `metric_name`, `namespace`, `comparison_operator`, `threshold`, `period`, `evaluation_periods`, `statistic`, `alarm_level` | R2；先预览再 `confirm=true` |
-| `huawei_create_aom_event_alarm_rule` | `region`, `cluster_id`, `rule_name`, `event_name` | R2；事件名参考 references |
+| `huawei_create_aom_alarm_rule` | `region` | 模板模式传 `cluster_id`, `alarm_item`；手工模式传 metric 字段。确认执行必须传 `bind_notification_rule_id` |
+| `huawei_create_aom_event_alarm_rule` | `region`, `cluster_id`, `event_name` | R2；确认执行必须传 `bind_notification_rule_id`；可选 `rule_name` 会覆盖模板命名 |
 | `huawei_create_aom_notification_action_rule` | `region`, `rule_name`, `notification_topic_urn`, `notification_topic_name` | R2；用户必须提供主题 |
 | `huawei_configure_cce_aom_alarm_rules` | `region`, `cluster_id`, `bind_notification_rule_id` | R2；用户必须明确选择通知规则 |
 | `huawei_cleanup_cce_aom_alarm_rules` | `region`, `cluster_id` | R0；可选 `delete_auto_notification_rule=true` |
