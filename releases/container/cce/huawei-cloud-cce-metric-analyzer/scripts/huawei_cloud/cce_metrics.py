@@ -2,6 +2,20 @@ from .common import *
 from . import aom, cce
 
 
+def _label_selector(*parts: Optional[str]) -> str:
+    return ",".join(part for part in parts if part)
+
+
+def _cluster_label(cluster_id: str) -> str:
+    return f'cluster="{cluster_id}"'
+
+
+def _prom_regex_literal(value: str) -> str:
+    import re
+
+    return re.escape(value).replace(r"\.", "[.]")
+
+
 def _get_aom_instance(region: str, cluster_id: str, ak: Optional[str], sk: Optional[str], project_id: Optional[str]) -> Dict[str, Any]:
     """Resolve the AOM Prometheus instance from the cie-collector addon via hcloud."""
     if not cluster_id:
@@ -214,27 +228,28 @@ def get_cce_pod_metrics_topN(region: str, cluster_id: str, ak: Optional[str] = N
     node_filter_clause = ""
     if node_ip:
         node_filter_clause = f',node="{node_ip}"'
+    cluster_filter_clause = f',cluster="{cluster_id}"'
 
     # 默认 CPU 使用率 PromQL (相对 Limit %)
     if cpu_query is None:
         if namespace:
-            cpu_query = f'topk({top_n}, sum by (pod, namespace) (rate(container_cpu_usage_seconds_total{{image!="",namespace="{namespace}"{pod_filter_clause}{node_filter_clause}}}[5m])) / on (pod, namespace) group_left sum by (pod, namespace) (kube_pod_container_resource_limits{{resource="cpu",namespace="{namespace}"{pod_filter_clause}{node_filter_clause}}}) * 100)'
+            cpu_query = f'topk({top_n}, sum by (pod, namespace) (rate(container_cpu_usage_seconds_total{{image!="",namespace="{namespace}"{cluster_filter_clause}{pod_filter_clause}{node_filter_clause}}}[5m])) / on (pod, namespace) group_left sum by (pod, namespace) (kube_pod_container_resource_limits{{resource="cpu",namespace="{namespace}"{cluster_filter_clause}{pod_filter_clause}{node_filter_clause}}}) * 100)'
         else:
-            cpu_query = f'topk({top_n}, sum by (pod, namespace) (rate(container_cpu_usage_seconds_total{{image!=""{pod_filter_clause}{node_filter_clause}}}[5m])) / on (pod, namespace) group_left sum by (pod, namespace) (kube_pod_container_resource_limits{{resource="cpu"{pod_filter_clause}{node_filter_clause}}}) * 100)'
+            cpu_query = f'topk({top_n}, sum by (pod, namespace) (rate(container_cpu_usage_seconds_total{{image!=""{cluster_filter_clause}{pod_filter_clause}{node_filter_clause}}}[5m])) / on (pod, namespace) group_left sum by (pod, namespace) (kube_pod_container_resource_limits{{resource="cpu"{cluster_filter_clause}{pod_filter_clause}{node_filter_clause}}}) * 100)'
 
     # 默认内存使用率 PromQL (相对 Limit %)
     if memory_query is None:
         if namespace:
-            memory_query = f'topk({top_n}, sum by (pod, namespace) (container_memory_working_set_bytes{{image!="",namespace="{namespace}"{pod_filter_clause}{node_filter_clause}}}) / on (pod, namespace) group_left sum by (pod, namespace) (kube_pod_container_resource_limits{{resource="memory",namespace="{namespace}"{pod_filter_clause}{node_filter_clause}}}) * 100)'
+            memory_query = f'topk({top_n}, sum by (pod, namespace) (container_memory_working_set_bytes{{image!="",namespace="{namespace}"{cluster_filter_clause}{pod_filter_clause}{node_filter_clause}}}) / on (pod, namespace) group_left sum by (pod, namespace) (kube_pod_container_resource_limits{{resource="memory",namespace="{namespace}"{cluster_filter_clause}{pod_filter_clause}{node_filter_clause}}}) * 100)'
         else:
-            memory_query = f'topk({top_n}, sum by (pod, namespace) (container_memory_working_set_bytes{{image!=""{pod_filter_clause}{node_filter_clause}}}) / on (pod, namespace) group_left sum by (pod, namespace) (kube_pod_container_resource_limits{{resource="memory"{pod_filter_clause}{node_filter_clause}}}) * 100)'
+            memory_query = f'topk({top_n}, sum by (pod, namespace) (container_memory_working_set_bytes{{image!=""{cluster_filter_clause}{pod_filter_clause}{node_filter_clause}}}) / on (pod, namespace) group_left sum by (pod, namespace) (kube_pod_container_resource_limits{{resource="memory"{cluster_filter_clause}{pod_filter_clause}{node_filter_clause}}}) * 100)'
 
     # 默认磁盘使用率 PromQL (相对容器文件系统容量 %)
     if disk_query is None:
         if namespace:
-            disk_query = f'topk({top_n}, sum by (pod, namespace) (container_fs_usage_bytes{{image!="",namespace="{namespace}"{pod_filter_clause}{node_filter_clause}}}) / on (pod, namespace) group_left sum by (pod, namespace) (container_fs_limit_bytes{{image!="",namespace="{namespace}"{pod_filter_clause}{node_filter_clause}}}) * 100)'
+            disk_query = f'topk({top_n}, sum by (pod, namespace) (container_fs_usage_bytes{{image!="",namespace="{namespace}"{cluster_filter_clause}{pod_filter_clause}{node_filter_clause}}}) / on (pod, namespace) group_left sum by (pod, namespace) (container_fs_limit_bytes{{image!="",namespace="{namespace}"{cluster_filter_clause}{pod_filter_clause}{node_filter_clause}}}) * 100)'
         else:
-            disk_query = f'topk({top_n}, sum by (pod, namespace) (container_fs_usage_bytes{{image!=""{pod_filter_clause}{node_filter_clause}}}) / on (pod, namespace) group_left sum by (pod, namespace) (container_fs_limit_bytes{{image!=""{pod_filter_clause}{node_filter_clause}}}) * 100)'
+            disk_query = f'topk({top_n}, sum by (pod, namespace) (container_fs_usage_bytes{{image!=""{cluster_filter_clause}{pod_filter_clause}{node_filter_clause}}}) / on (pod, namespace) group_left sum by (pod, namespace) (container_fs_limit_bytes{{image!=""{cluster_filter_clause}{pod_filter_clause}{node_filter_clause}}}) * 100)'
 
     # ========== 5. 执行查询 ==========
     cpu_result = aom.get_aom_prom_metrics_http(region, aom_instance_id, cpu_query, hours=hours, ak=access_key, sk=secret_key, project_id=proj_id, security_token=security_token)
@@ -403,18 +418,19 @@ def get_cce_pod_metrics(region: str, cluster_id: str, pod_name: str, ak: Optiona
     # ========== 4. 构建 PromQL 查询（筛选指定Pod） ==========
     pod_filter = f',pod="{pod_name}"'
     namespace_filter = f',namespace="{namespace}"' if namespace else ""
+    cluster_filter = f',cluster="{cluster_id}"'
 
     # 默认 CPU 使用率 PromQL (相对 Limit %)
     if cpu_query is None:
-        cpu_query = f'sum by (pod, namespace) (rate(container_cpu_usage_seconds_total{{image!=""{namespace_filter}{pod_filter}}}[5m])) / on (pod, namespace) group_left sum by (pod, namespace) (kube_pod_container_resource_limits{{resource="cpu"{namespace_filter}{pod_filter}}}) * 100'
+        cpu_query = f'sum by (pod, namespace) (rate(container_cpu_usage_seconds_total{{image!=""{cluster_filter}{namespace_filter}{pod_filter}}}[5m])) / on (pod, namespace) group_left sum by (pod, namespace) (kube_pod_container_resource_limits{{resource="cpu"{cluster_filter}{namespace_filter}{pod_filter}}}) * 100'
 
     # 默认内存使用率 PromQL (相对 Limit %)
     if memory_query is None:
-        memory_query = f'sum by (pod, namespace) (container_memory_working_set_bytes{{image!=""{namespace_filter}{pod_filter}}}) / on (pod, namespace) group_left sum by (pod, namespace) (kube_pod_container_resource_limits{{resource="memory"{namespace_filter}{pod_filter}}}) * 100'
+        memory_query = f'sum by (pod, namespace) (container_memory_working_set_bytes{{image!=""{cluster_filter}{namespace_filter}{pod_filter}}}) / on (pod, namespace) group_left sum by (pod, namespace) (kube_pod_container_resource_limits{{resource="memory"{cluster_filter}{namespace_filter}{pod_filter}}}) * 100'
 
     # 默认磁盘使用率 PromQL (相对容器文件系统容量 %)
     if disk_query is None:
-        disk_query = f'sum by (pod, namespace) (container_fs_usage_bytes{{image!=""{namespace_filter}{pod_filter}}}) / on (pod, namespace) group_left sum by (pod, namespace) (container_fs_limit_bytes{{image!=""{namespace_filter}{pod_filter}}}) * 100'
+        disk_query = f'sum by (pod, namespace) (container_fs_usage_bytes{{image!=""{cluster_filter}{namespace_filter}{pod_filter}}}) / on (pod, namespace) group_left sum by (pod, namespace) (container_fs_limit_bytes{{image!=""{cluster_filter}{namespace_filter}{pod_filter}}}) * 100'
 
     # ========== 5. 执行查询 ==========
     cpu_result = aom.get_aom_prom_metrics_http(region, aom_instance_id, cpu_query, hours=hours, ak=access_key, sk=secret_key, project_id=proj_id, security_token=security_token)
@@ -524,8 +540,8 @@ def get_cce_coredns_metrics(
         }
     aom_instance_id = aom_result.get("aom_instance_id")
 
-    selector = f'namespace="{namespace}",pod=~"{pod_regex}"'
-    dns_selector = f'namespace="{namespace}",pod=~"{pod_regex}"'
+    selector = _label_selector(_cluster_label(cluster_id), f'namespace="{namespace}"', f'pod=~"{pod_regex}"')
+    dns_selector = selector
     if qps_query is None:
         qps_query = f"sum(rate(coredns_dns_requests_total{{{dns_selector}}}[5m]))"
     if error_rate_query is None:
@@ -739,7 +755,7 @@ def get_cce_nginx_ingress_metrics(
         }
     aom_instance_id = aom_result.get("aom_instance_id")
 
-    selector_parts = []
+    selector_parts = [_cluster_label(cluster_id)]
     if namespace:
         selector_parts.append(f'namespace="{namespace}"')
     if pod_regex:
@@ -1010,14 +1026,14 @@ def get_cce_autoscaler_metrics(
         }
     aom_instance_id = aom_result.get("aom_instance_id")
 
-    selector_parts = []
+    selector_parts = [_cluster_label(cluster_id)]
     if namespace:
         selector_parts.append(f'namespace="{namespace}"')
     if pod_regex:
         selector_parts.append(f'pod=~"{pod_regex}"')
     selector = ",".join(selector_parts)
     container_selector = ",".join(["image!=\"\""] + selector_parts)
-    hpa_selector = f'namespace="{hpa_namespace}"' if hpa_namespace else ""
+    hpa_selector = _label_selector(_cluster_label(cluster_id), f'namespace="{hpa_namespace}"' if hpa_namespace else "")
 
     def _selector(labels: str = "") -> str:
         merged = ",".join(part for part in [selector, labels] if part)
@@ -1397,7 +1413,7 @@ def _get_cce_control_plane_metrics(
         summary["status"] = "critical"
     elif (
         any((value or 0) > 0 for key, value in scalar_values.items() if key in {"queue_depth", "pending_pods"})
-        or any((value or 0) > 1000 for key, value in scalar_values.items() if key.endswith("_p95_ms") or key == "latency_p95_ms")
+        or any((value or 0) > 1000 for key, value in scalar_values.items() if key.endswith("_p95_ms"))
     ):
         summary["status"] = "warning"
     summary.update(scalar_values)
@@ -1453,11 +1469,13 @@ def get_cce_etcd_metrics(
     ak: Optional[str] = None,
     sk: Optional[str] = None,
     project_id: Optional[str] = None,
-    namespace: Optional[str] = "kube-system",
-    pod_regex: str = ".*etcd.*",
+    namespace: Optional[str] = None,
+    pod_regex: str = "",
     hours: int = 1,
     security_token: Optional[str] = None,
+    metric_selector: Optional[str] = None,
 ) -> Dict[str, Any]:
+    metric_selector = metric_selector or f'cluster="{cluster_id}"'
     queries = {
         "has_leader": "max(etcd_server_has_leader{selector})",
         "leader_changes": "sum(increase(etcd_server_leader_changes_seen_total{selector}[1h]))",
@@ -1465,13 +1483,11 @@ def get_cce_etcd_metrics(
         "db_size_bytes": "max(etcd_mvcc_db_total_size_in_bytes{selector} or etcd_debugging_mvcc_db_total_size_in_bytes{selector})",
         "wal_fsync_p95_ms": "histogram_quantile(0.95, sum by (le) (rate(etcd_disk_wal_fsync_duration_seconds_bucket{selector}[5m]))) * 1000",
         "backend_commit_p95_ms": "histogram_quantile(0.95, sum by (le) (rate(etcd_disk_backend_commit_duration_seconds_bucket{selector}[5m]))) * 1000",
-        "cpu_by_pod": "sum by (namespace, pod) (rate(container_cpu_usage_seconds_total{{container_selector}}[5m]))",
-        "memory_by_pod": "sum by (namespace, pod) (container_memory_working_set_bytes{{container_selector}})",
     }
     return _get_cce_control_plane_metrics(
-        region, cluster_id, "etcd", namespace, pod_regex, queries,
-        {"cpu_by_pod": ["namespace", "pod"], "memory_by_pod": ["namespace", "pod"]},
-        ak, sk, project_id, namespace, pod_regex, hours, security_token,
+        region, cluster_id, "etcd", None, "", queries,
+        {},
+        ak, sk, project_id, None, None, hours, security_token, metric_selector,
     )
 
 
@@ -1619,8 +1635,8 @@ def get_cce_node_gpu_metrics(
     aom_instance_id = aom_result.get("aom_instance_id")
 
     if gpu_selector is None:
-        node_regex = "|".join(re.escape(value) for value in sorted({node_ip, node_name}) if value)
-        gpu_selector = f'node=~"{node_regex}"'
+        node_regex = "|".join(_prom_regex_literal(value) for value in sorted({node_ip, node_name}) if value)
+        gpu_selector = _label_selector(_cluster_label(cluster_id), f'node=~"{node_regex}"')
     selector = "{" + gpu_selector + "}" if gpu_selector else ""
 
     if utilization_query is None:
@@ -1861,7 +1877,7 @@ def get_cce_pod_gpu_metrics(
     aom_instance_id = aom_result.get("aom_instance_id")
 
     if gpu_selector is None:
-        selector_parts = [f'pod="{pod_name}"']
+        selector_parts = [_cluster_label(cluster_id), f'pod="{pod_name}"']
         if namespace:
             selector_parts.append(f'namespace="{namespace}"')
         gpu_selector = ",".join(selector_parts)
@@ -2115,15 +2131,15 @@ def get_cce_node_metrics_topN(region: str, cluster_id: str, ak: Optional[str] = 
     # ========== 4. 构建 PromQL 查询 ==========
     # 默认 CPU 使用率 PromQL
     if cpu_query is None:
-        cpu_query = f"topk({top_n}, 100 - (avg by (instance) (irate(node_cpu_seconds_total{{mode='idle',cluster_name='{cluster_name}'}}[5m])) * 100))"
+        cpu_query = f"topk({top_n}, 100 - (avg by (instance) (irate(node_cpu_seconds_total{{mode='idle',cluster='{cluster_id}',cluster_name='{cluster_name}'}}[5m])) * 100))"
 
     # 默认内存使用率 PromQL
     if memory_query is None:
-        memory_query = f"topk({top_n}, avg by (instance) ((1 - node_memory_MemAvailable_bytes{{cluster_name='{cluster_name}'}} / node_memory_MemTotal_bytes{{cluster_name='{cluster_name}'}})) * 100)"
+        memory_query = f"topk({top_n}, avg by (instance) ((1 - node_memory_MemAvailable_bytes{{cluster='{cluster_id}',cluster_name='{cluster_name}'}} / node_memory_MemTotal_bytes{{cluster='{cluster_id}',cluster_name='{cluster_name}'}})) * 100)"
 
     # 默认磁盘使用率 PromQL
     if disk_query is None:
-        disk_query = f"topk({top_n}, avg by (instance) ((1 - node_filesystem_avail_bytes{{mountpoint='/',fstype!~'tmpfs|fuse.lxcfs',cluster_name='{cluster_name}'}} / node_filesystem_size_bytes{{mountpoint='/',fstype!~'tmpfs|fuse.lxcfs',cluster_name='{cluster_name}'}})) * 100)"
+        disk_query = f"topk({top_n}, avg by (instance) ((1 - node_filesystem_avail_bytes{{mountpoint='/',fstype!~'tmpfs|fuse.lxcfs',cluster='{cluster_id}',cluster_name='{cluster_name}'}} / node_filesystem_size_bytes{{mountpoint='/',fstype!~'tmpfs|fuse.lxcfs',cluster='{cluster_id}',cluster_name='{cluster_name}'}})) * 100)"
 
     # ========== 5. 执行查询 ==========
     cpu_result = aom.get_aom_prom_metrics_http(region, aom_instance_id, cpu_query, hours=hours, ak=access_key, sk=secret_key, project_id=proj_id, security_token=security_token)
@@ -2326,15 +2342,15 @@ def get_cce_node_metrics(region: str, cluster_id: str, node_ip: str, ak: Optiona
     # ========== 4. 构建 PromQL 查询（筛选指定节点IP） ==========
     # 默认 CPU 使用率 PromQL
     if cpu_query is None:
-        cpu_query = f"100 - (avg by (instance) (irate(node_cpu_seconds_total{{mode='idle',cluster_name='{cluster_name}',instance=~'{node_ip}.*'}}[5m])) * 100)"
+        cpu_query = f"100 - (avg by (instance) (irate(node_cpu_seconds_total{{mode='idle',cluster='{cluster_id}',cluster_name='{cluster_name}',instance=~'{node_ip}.*'}}[5m])) * 100)"
 
     # 默认内存使用率 PromQL
     if memory_query is None:
-        memory_query = f"avg by (instance) ((1 - node_memory_MemAvailable_bytes{{cluster_name='{cluster_name}',instance=~'{node_ip}.*'}} / node_memory_MemTotal_bytes{{cluster_name='{cluster_name}',instance=~'{node_ip}.*'}})) * 100"
+        memory_query = f"avg by (instance) ((1 - node_memory_MemAvailable_bytes{{cluster='{cluster_id}',cluster_name='{cluster_name}',instance=~'{node_ip}.*'}} / node_memory_MemTotal_bytes{{cluster='{cluster_id}',cluster_name='{cluster_name}',instance=~'{node_ip}.*'}})) * 100"
 
     # 默认磁盘使用率 PromQL
     if disk_query is None:
-        disk_query = f"avg by (instance) ((1 - node_filesystem_avail_bytes{{mountpoint='/',fstype!~'tmpfs|fuse.lxcfs',cluster_name='{cluster_name}',instance=~'{node_ip}.*'}} / node_filesystem_size_bytes{{mountpoint='/',fstype!~'tmpfs|fuse.lxcfs',cluster_name='{cluster_name}',instance=~'{node_ip}.*'}})) * 100"
+        disk_query = f"avg by (instance) ((1 - node_filesystem_avail_bytes{{mountpoint='/',fstype!~'tmpfs|fuse.lxcfs',cluster='{cluster_id}',cluster_name='{cluster_name}',instance=~'{node_ip}.*'}} / node_filesystem_size_bytes{{mountpoint='/',fstype!~'tmpfs|fuse.lxcfs',cluster='{cluster_id}',cluster_name='{cluster_name}',instance=~'{node_ip}.*'}})) * 100"
 
     # ========== 5. 执行查询 ==========
     cpu_result = aom.get_aom_prom_metrics_http(region, aom_instance_id, cpu_query, hours=hours, ak=access_key, sk=secret_key, project_id=proj_id, security_token=security_token)

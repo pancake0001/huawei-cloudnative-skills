@@ -18,13 +18,7 @@ Query and analyze metrics for CCE clusters (Pod/Node CPU/memory/disk) and cloud 
 
 > **Execution method**: Cloud service queries are executed through the local `hcloud` CLI. AOM Prometheus `query_range` calls are the only exception and use signed HTTPS requests because the required Prometheus range-query path is not compatible with hcloud. Do not call Huawei Cloud SDKs, curl IAM flows, openstack, or hand-written cloud APIs outside the bundled dispatcher.
 
-**Related Skills**:
-- `huawei-cloud-cce-pod-failure-diagnoser` - Pod CrashLoopBackOff, OOMKilled, restart storms
-- `huawei-cloud-cce-node-failure-diagnoser` - Node health, resource pressure diagnosis
-- `huawei-cloud-cce-kubernetes-event-analyzer` - Warning events, failure patterns
-- `huawei-cloud-cce-capacity-trend-forecaster` - Capacity planning and trend forecasting
-- `huawei-cloud-cce-cost-optimization-advisor` - Resource cost optimization
-- `huawei-cloud-cce-auto-remediation-runner` - Remediation actions (scale, resize, drain)
+**Related Skills**: use pod/node diagnosers, Kubernetes event analyzer, capacity/cost skills, or auto-remediation runner for follow-up diagnosis or explicitly requested remediation.
 
 **Capabilities**:
 - Pod CPU/memory TopN ranking and single Pod time-series metrics
@@ -41,21 +35,7 @@ Query and analyze metrics for CCE clusters (Pod/Node CPU/memory/disk) and cloud 
 - Full-cluster monitoring aggregation with anomaly detection (80% threshold)
 - Threshold-based status classification (critical/warning/normal/unknown)
 
-**Typical Use Cases**:
-
-- "Show Pods with the highest CPU usage in my cluster"
-- "Get Node memory usage ranking"
-- "Get GPU and xGPU metrics for a CCE node"
-- "Check CoreDNS QPS, latency, and error rate"
-- "Check nginx-ingress request latency, 5xx rate, and TLS certificate expiration"
-- "Check autoscaler scaling activity and HPA replica gaps"
-- "Check apiserver, etcd, controller-manager, and scheduler key metrics"
-- "Check ECS instance resource metrics"
-- "What is the ELB QPS for my load balancer?"
-- "Show EIP bandwidth usage"
-- "Aggregate all monitoring data for the cluster"
-- "Which resources have exceeded critical thresholds?"
-- "Detect resource anomalies in the last hour"
+**Typical Use Cases**: query Pod/Node TopN, GPU/xGPU, CoreDNS, nginx-ingress, autoscaler, control-plane, ECS/ELB/EIP/NAT metrics, full-cluster aggregation, and threshold-based anomaly detection.
 
 ## Prerequisites
 
@@ -65,7 +45,8 @@ Query and analyze metrics for CCE clusters (Pod/Node CPU/memory/disk) and cloud 
 - hcloud (KooCLI) 7.2.2+ for CCE/ECS/ELB/VPC/EIP/NAT/CES/IAM cloud service queries
 - Kubernetes Python client for reading in-cluster Pod/Node/Service details after hcloud creates short-lived CCE cluster credentials
 - Prometheus-related monitoring data is queried from AOM Prometheus with signed HTTPS requests; the cluster must have the Prometheus add-on integrated with AOM, otherwise these tools may return empty metric series
-- Controller-manager and scheduler metrics require the corresponding ServiceMonitor to be enabled separately in AOM; otherwise these tools may return empty metric series
+- Controller-manager, scheduler, and etcd metrics require the `kube-controller-manager`, `kube-scheduler`, and `etcd-server` ServiceMonitors to be enabled separately in AOM; otherwise these tools may return empty metric series
+- Autoscaler, ingress-controller, and NVIDIA GPU metrics require the corresponding `autoscaler`, `ingress-controller`, and `nvidia-gpu-device-plugin` PodMonitors to be enabled separately in AOM; ingress request metrics also require `nginx_ingress_controller_requests` to be explicitly allowed in the ingress-controller PodMonitor
 - Run environment check before first use (see Verification section)
 
 ### 2. Credential Configuration
@@ -84,18 +65,10 @@ Query and analyze metrics for CCE clusters (Pod/Node CPU/memory/disk) and cloud 
 ```bash
 hcloud configure list
 
-# Optional environment variable fallback
 export HUAWEI_AK=<your-ak>
 export HUAWEI_SK=<your-sk>
 export HUAWEI_REGION=cn-north-4
 ```
-
-**⚠️ Important Security Notes**:
-
-- Never commit credentials to version control
-- Use IAM users with minimal required permissions
-- Enable MFA for sensitive operations
-- Rotate AK/SK regularly
 
 ### 3. IAM Permission Requirements
 
@@ -119,6 +92,16 @@ export HUAWEI_REGION=cn-north-4
 ## Core Commands
 
 All commands use the Python dispatcher script: `python3 scripts/huawei-cloud.py <action> <key=value>...`
+
+## KooCLI命令格式标准
+
+Do not ask users to run raw `hcloud` commands directly. Use the dispatcher format:
+
+```bash
+python3 scripts/huawei-cloud.py <tool-name> key=value key=value
+```
+
+The dispatcher converts cloud service queries to KooCLI calls. AOM Prometheus range queries use signed HTTPS requests because that path is not compatible with hcloud. Quote values containing spaces, `>`, `<`, `|`, JSON, or PromQL; never print or persist AK/SK, security tokens, kubeconfig files, or temporary payloads; keep Kubernetes/AOM PromQL scoped with `cluster="<cluster_id>"`.
 
 ### 1. CCE Pod Metrics
 
@@ -199,7 +182,7 @@ python3 scripts/huawei-cloud.py huawei_get_cce_apiserver_metrics \
   region=cn-north-4 cluster_id=<cluster-id> hours=1
 
 python3 scripts/huawei-cloud.py huawei_get_cce_etcd_metrics \
-  region=cn-north-4 cluster_id=<cluster-id> namespace=kube-system hours=1
+  region=cn-north-4 cluster_id=<cluster-id> hours=1
 
 python3 scripts/huawei-cloud.py huawei_get_cce_controller_manager_metrics \
   region=cn-north-4 cluster_id=<cluster-id> namespace=kube-system hours=1
@@ -367,6 +350,8 @@ Optional custom PromQL overrides are supported for QPS, error rate, NXDOMAIN rat
 | `cert_expire_warning_days` | No | Days before expiry to mark certificates as warning | 30 |
 | `check_certificates` | No | Whether to inspect Ingress TLS Secrets for expiration status | true |
 
+Ingress-controller metrics depend on the corresponding AOM PodMonitor. The `nginx_ingress_controller_requests` metric must be explicitly allowed in the ingress-controller PodMonitor; otherwise request-dimension metrics such as 4xx/5xx QPS, success rate, and latency may be empty, and QPS may only use the `nginx_ingress_controller_nginx_process_requests_total` fallback when available.
+
 Optional custom PromQL overrides are supported for QPS, 4xx/5xx, success rate, P95 latency, active connections, CPU, and memory.
 
 ### `huawei_get_cce_autoscaler_metrics` Parameters
@@ -387,45 +372,29 @@ Applies to `huawei_get_cce_apiserver_metrics`, `huawei_get_cce_etcd_metrics`, `h
 
 `huawei_get_cce_apiserver_metrics` defaults to `cluster="<cluster_id>",component="apiserver"` and does not add namespace or Pod labels. Its default P95 latency excludes `WATCH|CONNECT` requests and also returns `latency_p95_by_verb_ms` for diagnosis. Use `metric_selector` only when the Prometheus labels differ.
 
+`huawei_get_cce_etcd_metrics` defaults to `cluster="<cluster_id>"` and does not add namespace or Pod labels. Use `metric_selector` only when the Prometheus labels differ.
+
 `huawei_get_cce_controller_manager_metrics` defaults to `cluster="<cluster_id>"` because CCE AOM workqueue metrics may not expose stable controller-manager Pod labels. It returns both aggregate workqueue metrics and per-queue `name` breakdowns.
 
 `huawei_get_cce_scheduler_metrics` defaults to `cluster="<cluster_id>"` and returns aggregate metrics plus `result`, `profile/result`, and `queue` breakdowns.
 
-Controller-manager and scheduler metrics depend on AOM ServiceMonitor collection being enabled for those control-plane endpoints. If ServiceMonitor is not enabled, the tools can run successfully but return empty series.
+Controller-manager, scheduler, and etcd metrics depend on AOM ServiceMonitor collection being enabled for the corresponding `kube-controller-manager`, `kube-scheduler`, and `etcd-server` endpoints. If ServiceMonitor is not enabled, the tools can run successfully but return empty series.
 
 | Parameter | Required | Description | Default |
 | --------- | -------- | ----------- | ------- |
 | `namespace` | No | Namespace of control-plane Pods. Use an empty value to query all namespaces | `kube-system` |
 | `pod_regex` | No | Regex used to match target component Pods | component-specific |
-| `metric_selector` | No | Custom apiserver/controller-manager/scheduler metric label selector | apiserver: `cluster="<cluster_id>",component="apiserver"`; controller-manager/scheduler: `cluster="<cluster_id>"` |
+| `metric_selector` | No | Custom apiserver/etcd/controller-manager/scheduler metric label selector | apiserver: `cluster="<cluster_id>",component="apiserver"`; etcd/controller-manager/scheduler: `cluster="<cluster_id>"` |
 | `hours` | No | Metrics lookback hours | 1 |
 
-### `huawei_get_ecs_metrics` Parameters
+### Cloud Resource Tool Parameters
 
-| Parameter     | Required | Description                | Default  |
-| ------------- | -------- | -------------------------- | -------- |
-| `instance_id` | Yes      | ECS instance ID            | N/A      |
-
-### `huawei_get_elb_metrics` Parameters
-
-| Parameter | Required | Description                | Default  |
-| --------- | -------- | -------------------------- | -------- |
-| `elb_id`  | Yes      | ELB loadbalancer ID        | N/A      |
-| `hours`   | No       | Metrics lookback hours     | 1        |
-
-### `huawei_get_eip_metrics` Parameters
-
-| Parameter | Required | Description                | Default  |
-| --------- | -------- | -------------------------- | -------- |
-| `eip_id`  | Yes      | EIP ID                     | N/A      |
-| `hours`   | No       | Metrics lookback hours     | 1        |
-
-### `huawei_get_nat_gateway_metrics` Parameters
-
-| Parameter        | Required | Description                | Default  |
-| ---------------- | -------- | -------------------------- | -------- |
-| `nat_gateway_id` | Yes      | NAT Gateway ID             | N/A      |
-| `hours`          | No       | Metrics lookback hours     | 1        |
+| Tool | Required ID Parameter | Optional Parameters |
+| ---- | --------------------- | ------------------- |
+| `huawei_get_ecs_metrics` | `instance_id` | none |
+| `huawei_get_elb_metrics` | `elb_id` | `hours` |
+| `huawei_get_eip_metrics` | `eip_id` | `hours` |
+| `huawei_get_nat_gateway_metrics` | `nat_gateway_id` | `hours` |
 
 ### `huawei_cce_cluster_monitoring_aggregation` Parameters
 
@@ -451,6 +420,14 @@ See [Output Schema](references/output-schema.md) for the complete JSON response 
 - `time_series` — Historical data points with `timestamp`, `time`, `average`, `min`, `max`
 - `status` — Threshold classification: `critical` (>80% CPU, >85% memory/disk), `warning` (>50% CPU/memory, >70% disk), `normal` (below warning), `unknown` (no data)
 
+## Workflow
+
+1. Resolve region, cluster ID, and credentials using the documented priority.
+2. Discover the AOM Prometheus instance from the CCE cluster add-on binding.
+3. Start with Pod/Node TopN or aggregation, then drill into a Pod, Node, component, or cloud resource.
+4. Keep PromQL scoped by `cluster="<cluster_id>"`; add namespace, pod, or resource filters only to reduce noise.
+5. Use status classification as an investigation lead, then correlate anomalies with events or alarm history.
+
 ## Verification
 
 1. Run `python3 scripts/huawei-cloud.py huawei_get_cce_pod_metrics_topN region=cn-north-4 cluster_id=<cluster-id> namespace=default top_n=5` to verify Pod metric queries
@@ -459,34 +436,25 @@ See [Output Schema](references/output-schema.md) for the complete JSON response 
 
 ## Best Practices
 
-1. **Start with TopN for cluster-wide overview** — use Pod/Node TopN before drilling into individual resources
-2. **Time-bound queries** — keep `hours` small (1-4) for recent analysis; cap at 24 hours for historical reviews
-3. **Use namespace filtering** — always provide `namespace` to reduce noise in Pod TopN results
-4. **Check status classification** — focus on `critical` and `warning` resources first; `normal` resources can be skipped
-5. **Use aggregation for full-cluster health checks** — `huawei_cce_cluster_monitoring_aggregation` gives a one-shot overview of Pod, Node, CoreDNS, nginx-ingress, autoscaler, and cluster-associated cloud-resource metrics with anomaly detection
-6. **Correlate with events** — if metrics show anomalies, check `huawei-cloud-cce-kubernetes-event-analyzer` for related warning events
-7. **Hand off, don't remediate** — this skill is read-only; hand off to diagnosis skills for root cause analysis
-8. **Sanitize output** — do not expose production pod names, node IPs, or cluster IDs in public summaries; use redacted examples
-
-## Reference Documents
-
-| Document                                | Description                              |
-| --------------------------------------- | ---------------------------------------- |
-| [Workflow](references/workflow.md)      | Metric query sequence, Pod/Node workflows, threshold detection, next-step handoff |
-| [Risk Rules](references/risk-rules.md)  | Read-only constraints, data redaction rules, time-bounding, threshold caveats |
-| [Output Schema](references/output-schema.md) | JSON response format for CCE metrics, cloud resource metrics, time-series, status values |
+1. Start with Pod/Node TopN before drilling into individual resources.
+2. Keep `hours` small (1-4) for recent analysis; cap historical reviews at 24 hours.
+3. Provide `namespace` to reduce Pod noise while preserving the cluster filter.
+4. Focus on `critical` and `warning` resources first.
+5. Use `huawei_cce_cluster_monitoring_aggregation` for full-cluster health checks.
+6. Correlate metric anomalies with `huawei-cloud-cce-kubernetes-event-analyzer`.
+7. Do not expose production Pod names, node IPs, or cluster IDs in public summaries.
 
 ## Notes
 
-- This skill is **strictly read-only** — it only queries and analyzes metrics; no modifications are made to resources or configurations
-- Thresholds (CPU >80%, Memory >85%, Disk >85%) are **predefined baselines** — actual thresholds may vary by workload SLO; recommend users customize thresholds based on their specific requirements
-- AK/SK must **never** be hardcoded; use hcloud profile for normal hcloud calls or environment fallback for signed AOM/Kubernetes calls
+- This skill is strictly read-only and never modifies resources or configurations.
+- Thresholds are predefined baselines; tune them against workload SLOs before making operational decisions.
+- AK/SK must never be hardcoded; use hcloud profile for normal hcloud calls or environment fallback for signed AOM/Kubernetes calls.
 - `scripts/huawei-cloud.py` is the only user-facing execution method
-- AOM Prometheus instance is **auto-discovered** — no need to manually specify `aom_instance_id`
+- AOM Prometheus instance is auto-discovered; no need to manually specify `aom_instance_id`
 - Cloud resource metrics (ECS/ELB/EIP/NAT) use CES (Cloud Eye Service), not AOM
-- Do not make automatic scaling or remediation decisions based solely on metric analysis — forward to `huawei-cloud-cce-auto-remediation-runner` only if explicitly requested and validated
+- Do not make automatic scaling or remediation decisions based solely on metric analysis.
 
-## Common Pitfalls
+## Troubleshooting
 
 | Pitfall                                    | Symptom                               | Quick Fix                                    |
 | ------------------------------------------ | ------------------------------------- | -------------------------------------------- |
@@ -496,3 +464,17 @@ See [Output Schema](references/output-schema.md) for the complete JSON response 
 | Cloud resource ID not found | ECS/ELB/EIP/NAT query returns error | Verify resource ID and CES IAM permission |
 | Custom PromQL syntax error | Custom query returns empty | Use default PromQL unless familiar with AOM PromQL |
 | Aggregation missing time range | `start_time` / `end_time` missing | Provide both time boundaries |
+
+## Limitations
+
+- AOM Prometheus data requires the cluster Prometheus add-on to be integrated with AOM.
+- Control-plane ServiceMonitors and component PodMonitors must be enabled before related metrics appear.
+- Query results reflect collected monitoring data only; missing series are not proof that the workload is healthy.
+- This skill does not remediate, scale, restart, create, update, or delete cloud or Kubernetes resources.
+
+## References
+| Document | Description |
+| -------- | ----------- |
+| [Workflow](references/workflow.md) | Metric query sequence, threshold detection, next-step handoff |
+| [Risk Rules](references/risk-rules.md) | Read-only constraints, data redaction, time-bounding, threshold caveats |
+| [Output Schema](references/output-schema.md) | JSON response schema for metric and status output |

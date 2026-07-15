@@ -319,6 +319,7 @@ ACTION_SPECS: Dict[str, tuple[tuple[str, ...], Handler]] = {
             params.get("pod_regex", ".*etcd.*"),
             _to_int(params.get("hours"), 1),
             params.get("security_token"),
+            params.get("metric_selector"),
         ),
     ),
     "huawei_get_cce_controller_manager_metrics": (
