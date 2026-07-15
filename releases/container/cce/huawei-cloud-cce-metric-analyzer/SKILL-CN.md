@@ -193,7 +193,7 @@ python3 scripts/huawei-cloud.py huawei_get_cce_apiserver_metrics \
   region=cn-north-4 cluster_id=<cluster-id> hours=1
 
 python3 scripts/huawei-cloud.py huawei_get_cce_etcd_metrics \
-  region=cn-north-4 cluster_id=<cluster-id> namespace=kube-system hours=1
+  region=cn-north-4 cluster_id=<cluster-id> hours=1
 
 python3 scripts/huawei-cloud.py huawei_get_cce_controller_manager_metrics \
   region=cn-north-4 cluster_id=<cluster-id> namespace=kube-system hours=1
@@ -380,6 +380,8 @@ python3 scripts/huawei-cloud.py huawei_cce_cluster_monitoring_aggregation \
 
 `huawei_get_cce_apiserver_metrics` 默认使用 `cluster="<cluster_id>",component="apiserver"`，不追加 namespace 或 Pod 标签。默认 P95 延迟排除 `WATCH|CONNECT` 请求，并返回 `latency_p95_by_verb_ms` 用于诊断。Prometheus 标签不一致时再使用 `metric_selector`。
 
+`huawei_get_cce_etcd_metrics` 默认使用 `cluster="<cluster_id>"`，不附加 namespace 或 Pod 标签。只有 Prometheus 标签和默认假设不一致时才使用 `metric_selector`。
+
 `huawei_get_cce_controller_manager_metrics` 默认使用 `cluster="<cluster_id>"`，因为 CCE AOM workqueue 指标可能没有稳定的 controller-manager Pod 标签。它返回聚合 workqueue 指标和按 queue `name` 拆分的指标。
 
 `huawei_get_cce_scheduler_metrics` 默认使用 `cluster="<cluster_id>"`，返回聚合指标以及按 `result`、`profile/result` 和 `queue` 拆分的指标。
@@ -390,7 +392,7 @@ controller-manager 和 scheduler 指标依赖 AOM 对这些控制面端点启用
 | ---- | ---- | ---- | ------ |
 | `namespace` | 否 | 控制面 Pod 命名空间；传空值可查全部命名空间 | `kube-system` |
 | `pod_regex` | 否 | 匹配目标组件 Pod 的正则 | 组件相关 |
-| `metric_selector` | 否 | 自定义 apiserver/controller-manager/scheduler 指标 label selector | apiserver: `cluster="<cluster_id>",component="apiserver"`；controller-manager/scheduler: `cluster="<cluster_id>"` |
+| `metric_selector` | 否 | 自定义 apiserver/etcd/controller-manager/scheduler 指标 label selector | apiserver: `cluster="<cluster_id>",component="apiserver"`；etcd/controller-manager/scheduler: `cluster="<cluster_id>"` |
 | `hours` | 否 | 指标回溯小时数 | 1 |
 
 ### `huawei_get_ecs_metrics` 参数
@@ -454,12 +456,13 @@ controller-manager 和 scheduler 指标依赖 AOM 对这些控制面端点启用
 
 1. **先用 TopN 获取集群概览** - 先看 Pod/Node TopN，再钻取单个资源。
 2. **限制时间范围** - 最近分析建议 `hours` 保持 1-4；历史回顾最多 24 小时。
-3. **使用命名空间过滤** - Pod TopN 尽量提供 `namespace` 以减少噪声。
-4. **关注状态分类** - 优先关注 `critical` 和 `warning` 资源。
-5. **使用聚合工具做集群健康概览** - `huawei_cce_cluster_monitoring_aggregation` 一次性聚合 Pod、Node、CoreDNS、nginx-ingress、autoscaler 和集群关联云资源指标。
-6. **结合事件分析** - 指标异常时，使用 `huawei-cloud-cce-kubernetes-event-analyzer` 查看相关 Warning 事件。
-7. **只分析不修复** - 本技能只读；根因分析或修复交给对应诊断/修复技能。
-8. **输出脱敏** - 对外摘要不要暴露生产 Pod 名、节点 IP 或集群 ID。
+3. **PromQL 保持集群级过滤** - 默认 Kubernetes/AOM PromQL 必须包含 `cluster="<cluster_id>"`，避免共享 AOM Prometheus 实例中多个集群数据互相影响。
+4. **使用命名空间过滤** - Pod TopN 尽量提供 `namespace` 以减少噪声，但不能移除 cluster 过滤。
+5. **关注状态分类** - 优先关注 `critical` 和 `warning` 资源。
+6. **使用聚合工具做集群健康概览** - `huawei_cce_cluster_monitoring_aggregation` 一次性聚合 Pod、Node、CoreDNS、nginx-ingress、autoscaler 和集群关联云资源指标。
+7. **结合事件分析** - 指标异常时，使用 `huawei-cloud-cce-kubernetes-event-analyzer` 查看相关 Warning 事件。
+8. **只分析不修复** - 本技能只读；根因分析或修复交给对应诊断/修复技能。
+9. **输出脱敏** - 对外摘要不要暴露生产 Pod 名、节点 IP 或集群 ID。
 
 ## 参考文档
 

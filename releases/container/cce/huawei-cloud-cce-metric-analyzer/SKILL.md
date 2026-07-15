@@ -199,7 +199,7 @@ python3 scripts/huawei-cloud.py huawei_get_cce_apiserver_metrics \
   region=cn-north-4 cluster_id=<cluster-id> hours=1
 
 python3 scripts/huawei-cloud.py huawei_get_cce_etcd_metrics \
-  region=cn-north-4 cluster_id=<cluster-id> namespace=kube-system hours=1
+  region=cn-north-4 cluster_id=<cluster-id> hours=1
 
 python3 scripts/huawei-cloud.py huawei_get_cce_controller_manager_metrics \
   region=cn-north-4 cluster_id=<cluster-id> namespace=kube-system hours=1
@@ -387,6 +387,8 @@ Applies to `huawei_get_cce_apiserver_metrics`, `huawei_get_cce_etcd_metrics`, `h
 
 `huawei_get_cce_apiserver_metrics` defaults to `cluster="<cluster_id>",component="apiserver"` and does not add namespace or Pod labels. Its default P95 latency excludes `WATCH|CONNECT` requests and also returns `latency_p95_by_verb_ms` for diagnosis. Use `metric_selector` only when the Prometheus labels differ.
 
+`huawei_get_cce_etcd_metrics` defaults to `cluster="<cluster_id>"` and does not add namespace or Pod labels. Use `metric_selector` only when the Prometheus labels differ.
+
 `huawei_get_cce_controller_manager_metrics` defaults to `cluster="<cluster_id>"` because CCE AOM workqueue metrics may not expose stable controller-manager Pod labels. It returns both aggregate workqueue metrics and per-queue `name` breakdowns.
 
 `huawei_get_cce_scheduler_metrics` defaults to `cluster="<cluster_id>"` and returns aggregate metrics plus `result`, `profile/result`, and `queue` breakdowns.
@@ -397,7 +399,7 @@ Controller-manager and scheduler metrics depend on AOM ServiceMonitor collection
 | --------- | -------- | ----------- | ------- |
 | `namespace` | No | Namespace of control-plane Pods. Use an empty value to query all namespaces | `kube-system` |
 | `pod_regex` | No | Regex used to match target component Pods | component-specific |
-| `metric_selector` | No | Custom apiserver/controller-manager/scheduler metric label selector | apiserver: `cluster="<cluster_id>",component="apiserver"`; controller-manager/scheduler: `cluster="<cluster_id>"` |
+| `metric_selector` | No | Custom apiserver/etcd/controller-manager/scheduler metric label selector | apiserver: `cluster="<cluster_id>",component="apiserver"`; etcd/controller-manager/scheduler: `cluster="<cluster_id>"` |
 | `hours` | No | Metrics lookback hours | 1 |
 
 ### `huawei_get_ecs_metrics` Parameters
@@ -461,12 +463,13 @@ See [Output Schema](references/output-schema.md) for the complete JSON response 
 
 1. **Start with TopN for cluster-wide overview** — use Pod/Node TopN before drilling into individual resources
 2. **Time-bound queries** — keep `hours` small (1-4) for recent analysis; cap at 24 hours for historical reviews
-3. **Use namespace filtering** — always provide `namespace` to reduce noise in Pod TopN results
-4. **Check status classification** — focus on `critical` and `warning` resources first; `normal` resources can be skipped
-5. **Use aggregation for full-cluster health checks** — `huawei_cce_cluster_monitoring_aggregation` gives a one-shot overview of Pod, Node, CoreDNS, nginx-ingress, autoscaler, and cluster-associated cloud-resource metrics with anomaly detection
-6. **Correlate with events** — if metrics show anomalies, check `huawei-cloud-cce-kubernetes-event-analyzer` for related warning events
-7. **Hand off, don't remediate** — this skill is read-only; hand off to diagnosis skills for root cause analysis
-8. **Sanitize output** — do not expose production pod names, node IPs, or cluster IDs in public summaries; use redacted examples
+3. **Keep PromQL cluster-scoped** — default Kubernetes/AOM PromQL must include `cluster="<cluster_id>"` to avoid cross-cluster data mixing in shared AOM Prometheus instances
+4. **Use namespace filtering** — provide `namespace` to reduce noise in Pod TopN results while keeping the cluster filter
+5. **Check status classification** — focus on `critical` and `warning` resources first; `normal` resources can be skipped
+6. **Use aggregation for full-cluster health checks** — `huawei_cce_cluster_monitoring_aggregation` gives a one-shot overview of Pod, Node, CoreDNS, nginx-ingress, autoscaler, and cluster-associated cloud-resource metrics with anomaly detection
+7. **Correlate with events** — if metrics show anomalies, check `huawei-cloud-cce-kubernetes-event-analyzer` for related warning events
+8. **Hand off, don't remediate** — this skill is read-only; hand off to diagnosis skills for root cause analysis
+9. **Sanitize output** — do not expose production pod names, node IPs, or cluster IDs in public summaries; use redacted examples
 
 ## Reference Documents
 
