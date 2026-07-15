@@ -65,7 +65,8 @@ tags: [cce, metrics, aom, observability, analysis]
 - hcloud (KooCLI) 7.2.2+，用于 CCE/ECS/ELB/VPC/EIP/NAT/CES/IAM 云服务查询
 - Kubernetes Python client，用于 hcloud 创建短期 CCE 集群凭据后读取集群内 Pod/Node/Service 详情
 - 普罗相关监控数据从 AOM Prometheus 获取，使用 AK/SK 签名 HTTPS 请求；目标集群必须已安装普罗插件并对接 AOM，否则相关工具可能返回空指标序列
-- controller-manager 和 scheduler 指标需要在 AOM 中单独开启对应 ServiceMonitor，否则工具可能返回空指标序列
+- controller-manager、scheduler 和 etcd 指标需要在 AOM 中单独开启 `kube-controller-manager`、`kube-scheduler`、`etcd-server` ServiceMonitor，否则工具可能返回空指标序列
+- autoscaler、ingress-controller 和 NVIDIA GPU 指标需要在 AOM 中单独开启对应的 `autoscaler`、`ingress-controller`、`nvidia-gpu-device-plugin` PodMonitor；ingress 请求指标还需要在 ingress-controller PodMonitor 中单独放通 `nginx_ingress_controller_requests`
 - 首次使用前请运行验证章节中的检查命令
 
 ### 2. 认证配置
@@ -360,6 +361,8 @@ python3 scripts/huawei-cloud.py huawei_cce_cluster_monitoring_aggregation \
 | `cert_expire_warning_days` | 否 | 证书到期前多少天标记为 warning | 30 |
 | `check_certificates` | 否 | 是否检查 Ingress TLS Secret 证书过期状态 | true |
 
+ingress-controller 指标依赖对应的 AOM PodMonitor。`nginx_ingress_controller_requests` 指标需要在 ingress-controller PodMonitor 中单独放通；否则 4xx/5xx QPS、成功率、延迟等请求维度指标可能为空，QPS 只能在存在 `nginx_ingress_controller_nginx_process_requests_total` 时使用该指标兜底。
+
 支持可选自定义 PromQL 覆盖 QPS、4xx/5xx、成功率、P95 延迟、活跃连接、CPU 和内存。
 
 ### `huawei_get_cce_autoscaler_metrics` 参数
@@ -386,7 +389,7 @@ python3 scripts/huawei-cloud.py huawei_cce_cluster_monitoring_aggregation \
 
 `huawei_get_cce_scheduler_metrics` 默认使用 `cluster="<cluster_id>"`，返回聚合指标以及按 `result`、`profile/result` 和 `queue` 拆分的指标。
 
-controller-manager 和 scheduler 指标依赖 AOM 对这些控制面端点启用 ServiceMonitor。如果未启用，工具可以执行成功但可能返回空序列。
+controller-manager、scheduler 和 etcd 指标依赖 AOM 对对应的 `kube-controller-manager`、`kube-scheduler`、`etcd-server` 端点启用 ServiceMonitor。如果未启用，工具可以执行成功但可能返回空序列。
 
 | 参数 | 必填 | 说明 | 默认值 |
 | ---- | ---- | ---- | ------ |

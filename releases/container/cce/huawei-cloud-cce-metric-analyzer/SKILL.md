@@ -65,7 +65,8 @@ Query and analyze metrics for CCE clusters (Pod/Node CPU/memory/disk) and cloud 
 - hcloud (KooCLI) 7.2.2+ for CCE/ECS/ELB/VPC/EIP/NAT/CES/IAM cloud service queries
 - Kubernetes Python client for reading in-cluster Pod/Node/Service details after hcloud creates short-lived CCE cluster credentials
 - Prometheus-related monitoring data is queried from AOM Prometheus with signed HTTPS requests; the cluster must have the Prometheus add-on integrated with AOM, otherwise these tools may return empty metric series
-- Controller-manager and scheduler metrics require the corresponding ServiceMonitor to be enabled separately in AOM; otherwise these tools may return empty metric series
+- Controller-manager, scheduler, and etcd metrics require the `kube-controller-manager`, `kube-scheduler`, and `etcd-server` ServiceMonitors to be enabled separately in AOM; otherwise these tools may return empty metric series
+- Autoscaler, ingress-controller, and NVIDIA GPU metrics require the corresponding `autoscaler`, `ingress-controller`, and `nvidia-gpu-device-plugin` PodMonitors to be enabled separately in AOM; ingress request metrics also require `nginx_ingress_controller_requests` to be explicitly allowed in the ingress-controller PodMonitor
 - Run environment check before first use (see Verification section)
 
 ### 2. Credential Configuration
@@ -367,6 +368,8 @@ Optional custom PromQL overrides are supported for QPS, error rate, NXDOMAIN rat
 | `cert_expire_warning_days` | No | Days before expiry to mark certificates as warning | 30 |
 | `check_certificates` | No | Whether to inspect Ingress TLS Secrets for expiration status | true |
 
+Ingress-controller metrics depend on the corresponding AOM PodMonitor. The `nginx_ingress_controller_requests` metric must be explicitly allowed in the ingress-controller PodMonitor; otherwise request-dimension metrics such as 4xx/5xx QPS, success rate, and latency may be empty, and QPS may only use the `nginx_ingress_controller_nginx_process_requests_total` fallback when available.
+
 Optional custom PromQL overrides are supported for QPS, 4xx/5xx, success rate, P95 latency, active connections, CPU, and memory.
 
 ### `huawei_get_cce_autoscaler_metrics` Parameters
@@ -393,7 +396,7 @@ Applies to `huawei_get_cce_apiserver_metrics`, `huawei_get_cce_etcd_metrics`, `h
 
 `huawei_get_cce_scheduler_metrics` defaults to `cluster="<cluster_id>"` and returns aggregate metrics plus `result`, `profile/result`, and `queue` breakdowns.
 
-Controller-manager and scheduler metrics depend on AOM ServiceMonitor collection being enabled for those control-plane endpoints. If ServiceMonitor is not enabled, the tools can run successfully but return empty series.
+Controller-manager, scheduler, and etcd metrics depend on AOM ServiceMonitor collection being enabled for the corresponding `kube-controller-manager`, `kube-scheduler`, and `etcd-server` endpoints. If ServiceMonitor is not enabled, the tools can run successfully but return empty series.
 
 | Parameter | Required | Description | Default |
 | --------- | -------- | ----------- | ------- |
