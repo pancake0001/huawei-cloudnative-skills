@@ -222,9 +222,9 @@ python3 scripts/huawei-cloud.py huawei_cce_cluster_monitoring_aggregation \
   namespace=default top_n=10
 ```
 
-该工具聚合 Pod TopN CPU/内存、Node TopN CPU/内存/磁盘、ELB 指标（带 LoadBalancer Service 关联）、NAT Gateway 指标、EIP 指标（带宽、丢包率），并基于 80% 阈值做异常检测。
+该工具聚合 Pod TopN CPU/内存、Node TopN CPU/内存/磁盘、ELB 指标（通过 listener description 中的 `cluster_id` 关联）、NAT Gateway 指标、EIP 指标（带宽、丢包率），并基于 80% 阈值做异常检测。
 
-它也包含 CoreDNS、nginx-ingress 和 autoscaler 摘要。云资源仅在可证明与当前集群有关时纳入：ELB 通过 LoadBalancer Service IP/EIP 匹配，NAT Gateway 通过集群 VPC 过滤，EIP 限定为关联 ELB/NAT/Service IP 的地址。
+它也包含 CoreDNS、nginx-ingress 和 autoscaler 摘要。云资源仅在可证明与当前集群有关时纳入：ELB 通过 listener `description` 中的 `"cluster_id":"<cluster_id>"` 匹配，NAT Gateway 通过集群 VPC 过滤，EIP 限定为关联 ELB/NAT 的地址。
 
 ## 风险等级
 

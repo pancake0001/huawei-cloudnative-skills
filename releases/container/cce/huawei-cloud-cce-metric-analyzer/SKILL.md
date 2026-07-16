@@ -221,9 +221,9 @@ python3 scripts/huawei-cloud.py huawei_cce_cluster_monitoring_aggregation \
   namespace=default top_n=10
 ```
 
-This tool aggregates: Pod TopN CPU/memory, Node TopN CPU/memory/disk, ELB metrics (with LoadBalancer service association), NAT Gateway metrics, EIP metrics (bandwidth, packet loss), and anomaly detection using 80% threshold.
+This tool aggregates: Pod TopN CPU/memory, Node TopN CPU/memory/disk, ELB metrics (matched by listener descriptions carrying `cluster_id`), NAT Gateway metrics, EIP metrics (bandwidth, packet loss), and anomaly detection using 80% threshold.
 
-It also includes CoreDNS, nginx-ingress, and autoscaler summaries. Cloud resources are scoped to the current cluster when an association can be proven: ELB is matched through LoadBalancer Service IP/EIP, NAT Gateway is filtered by the cluster VPC, and EIP is limited to associated ELB/NAT/Service IPs.
+It also includes CoreDNS, nginx-ingress, and autoscaler summaries. Cloud resources are scoped to the current cluster when an association can be proven: ELB is matched through listener `description` containing `"cluster_id":"<cluster_id>"`, NAT Gateway is filtered by the cluster VPC, and EIP is limited to associated ELB/NAT addresses.
 
 ## Risk Levels
 

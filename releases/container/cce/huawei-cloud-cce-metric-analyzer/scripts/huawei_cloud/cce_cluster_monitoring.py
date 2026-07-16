@@ -4,7 +4,7 @@ CCE Cluster Monitoring Aggregation Tool
 Aggregates monitoring data from CCE cluster including:
 - Pod metrics (CPU, memory TopN)
 - Node metrics (CPU, memory, disk TopN)
-- ELB metrics (associated with LoadBalancer services)
+- ELB metrics (associated through listener descriptions carrying cluster_id)
 - NAT Gateway metrics
 - EIP metrics (associated with ELB and NAT gateways)
 
@@ -16,14 +16,13 @@ from datetime import datetime, timedelta
 from typing import Dict, Any, Optional, List
 
 try:
-    from . import cce, cce_metrics, cce_k8s, elb, network
+    from . import cce, cce_metrics, elb, network
     from .common import get_credentials, get_credentials_with_region, get_security_token
     _AVAILABLE = True
 except ImportError:
     _AVAILABLE = False
     cce = None
     cce_metrics = None
-    cce_k8s = None
     elb = None
     network = None
     get_credentials = None
@@ -377,19 +376,19 @@ def _get_node_metrics(region: str, cluster_id: str, hours: int, top_n: int, ak: 
     return {"items": items, "anomalies": anomalies}
 
 
-def _get_elb_metrics(region: str, hours: int, ak: str, sk: str, project_id: str, lb_services: Optional[List[Dict[str, Any]]] = None) -> List[Dict[str, Any]]:
-    """Get ELB metrics for load balancers associated with current cluster services."""
+def _get_elb_metrics(region: str, hours: int, ak: str, sk: str, project_id: str, listener_associations: Optional[List[Dict[str, Any]]] = None) -> List[Dict[str, Any]]:
+    """Get ELB metrics for load balancers associated with the current cluster."""
     lb_result = elb.list_elb_loadbalancers(region=region, ak=ak, sk=sk, project_id=project_id)
 
     if not lb_result.get("success"):
         return []
 
-    service_ips = {
-        svc.get("load_balancer_ip")
-        for svc in (lb_services or [])
-        if svc.get("load_balancer_ip")
+    associated_elb_ids = {
+        item.get("elb_id")
+        for item in (listener_associations or [])
+        if item.get("elb_id")
     }
-    if not service_ips:
+    if not associated_elb_ids:
         return []
 
     items = []
@@ -398,7 +397,7 @@ def _get_elb_metrics(region: str, hours: int, ak: str, sk: str, project_id: str,
         elb_name = lb.get("name", elb_id)
         vip = lb.get("vip_address", "")
         eip = lb.get("eip_address", "")
-        if service_ips and vip not in service_ips and eip not in service_ips:
+        if elb_id not in associated_elb_ids:
             continue
 
         metrics_result = elb.get_elb_metrics(
@@ -520,7 +519,7 @@ def _get_nat_gateway_metrics(region: str, hours: int, ak: str, sk: str, project_
     return items
 
 
-def _get_eip_metrics(region: str, hours: int, ak: str, sk: str, project_id: str, elb_metrics: Optional[List[Dict[str, Any]]] = None, nat_metrics: Optional[List[Dict[str, Any]]] = None, lb_services: Optional[List[Dict[str, Any]]] = None) -> List[Dict[str, Any]]:
+def _get_eip_metrics(region: str, hours: int, ak: str, sk: str, project_id: str, elb_metrics: Optional[List[Dict[str, Any]]] = None, nat_metrics: Optional[List[Dict[str, Any]]] = None) -> List[Dict[str, Any]]:
     """Get EIP metrics only for EIPs associated with current cluster ELB/NAT resources."""
     eip_result = network.list_eip_addresses(region=region, ak=ak, sk=sk, project_id=project_id)
 
@@ -532,11 +531,6 @@ def _get_eip_metrics(region: str, hours: int, ak: str, sk: str, project_id: str,
         for item in (elb_metrics or [])
         if item.get("eip")
     }
-    associated_ips.update(
-        svc.get("load_balancer_ip")
-        for svc in (lb_services or [])
-        if svc.get("load_balancer_ip")
-    )
     associated_instance_ids = {
         item.get("elb_id")
         for item in (elb_metrics or [])
@@ -617,45 +611,49 @@ def _get_eip_metrics(region: str, hours: int, ak: str, sk: str, project_id: str,
     return items
 
 
-def _get_loadbalancer_services(region: str, cluster_id: str, ak: str, sk: str, project_id: str) -> List[Dict[str, Any]]:
-    """Get LoadBalancer type services in cluster."""
-    result = cce_k8s.get_cce_services(
-        region=region,
-        cluster_id=cluster_id,
-        ak=ak,
-        sk=sk,
-        project_id=project_id
-    )
+def _listener_description_matches_cluster(description: str, cluster_id: str) -> bool:
+    """Return true when an ELB listener description carries the target CCE cluster ID."""
+    if not description or not cluster_id:
+        return False
+    normalized = "".join(str(description).split())
+    return f'"cluster_id":"{cluster_id}"' in normalized or f"'cluster_id':'{cluster_id}'" in normalized
 
+
+def _get_cluster_elb_listener_associations(region: str, cluster_id: str, ak: str, sk: str, project_id: str) -> List[Dict[str, Any]]:
+    """Get ELB listeners whose description references the current cluster ID."""
+    result = elb.list_elb_listeners(region=region, ak=ak, sk=sk, project_id=project_id)
     if not result.get("success"):
         return []
 
-    services = []
-    for svc in result.get("services", []):
-        if svc.get("type") == "LoadBalancer":
-            lb_ip = svc.get("load_balancer_ip", "")
-            lb_ingress = svc.get("load_balancer_ingress", [])
-            if not lb_ip and lb_ingress:
-                lb_ip = lb_ingress[0].get("ip", "") if lb_ingress else ""
-
-            services.append({
-                "name": svc.get("name"),
-                "namespace": svc.get("namespace"),
-                "load_balancer_ip": lb_ip
+    associations = []
+    for listener in result.get("listeners", []):
+        if not _listener_description_matches_cluster(listener.get("description", ""), cluster_id):
+            continue
+        for elb_id in listener.get("loadbalancer_ids", []):
+            associations.append({
+                "elb_id": elb_id,
+                "listener_id": listener.get("id"),
+                "listener_name": listener.get("name"),
+                "protocol": listener.get("protocol"),
+                "protocol_port": listener.get("protocol_port"),
             })
 
-    return services
+    return associations
 
 
-def _correlate_elb_with_services(elb_metrics: List[Dict], lb_services: List[Dict]) -> List[Dict]:
-    """Correlate ELB metrics with LoadBalancer services via EIP."""
-    eip_to_service = {svc.get("load_balancer_ip"): svc for svc in lb_services}
+def _correlate_elb_with_listener_associations(elb_metrics: List[Dict], listener_associations: List[Dict]) -> List[Dict]:
+    """Attach matched ELB listener metadata to ELB metric items."""
+    listeners_by_elb = {}
+    for item in listener_associations:
+        listeners_by_elb.setdefault(item.get("elb_id"), []).append({
+            "listener_id": item.get("listener_id"),
+            "listener_name": item.get("listener_name"),
+            "protocol": item.get("protocol"),
+            "protocol_port": item.get("protocol_port"),
+        })
 
     for elb_item in elb_metrics:
-        eip = elb_item.get("eip", "")
-        service = eip_to_service.get(eip, {})
-        elb_item["associated_service"] = service.get("name", "")
-        elb_item["service_namespace"] = service.get("namespace", "")
+        elb_item["associated_listeners"] = listeners_by_elb.get(elb_item.get("elb_id"), [])
 
     return elb_metrics
 
@@ -712,12 +710,12 @@ def analyze_cce_cluster_monitoring(
         region, cluster_id, access_key, secret_key, proj_id, hours=hours, security_token=sec_token
     )
     cluster_network = _get_cluster_network(region, cluster_id, hcloud_ak, hcloud_sk, hcloud_project_id)
-    lb_services = _get_loadbalancer_services(region, cluster_id, access_key, secret_key, proj_id)
-    elb_data = _get_elb_metrics(region, hours, hcloud_ak, hcloud_sk, hcloud_project_id, lb_services)
+    elb_listener_associations = _get_cluster_elb_listener_associations(region, cluster_id, hcloud_ak, hcloud_sk, hcloud_project_id)
+    elb_data = _get_elb_metrics(region, hours, hcloud_ak, hcloud_sk, hcloud_project_id, elb_listener_associations)
     nat_data = _get_nat_gateway_metrics(region, hours, hcloud_ak, hcloud_sk, hcloud_project_id, cluster_network)
-    eip_data = _get_eip_metrics(region, hours, hcloud_ak, hcloud_sk, hcloud_project_id, elb_data, nat_data, lb_services)
+    eip_data = _get_eip_metrics(region, hours, hcloud_ak, hcloud_sk, hcloud_project_id, elb_data, nat_data)
 
-    elb_data = _correlate_elb_with_services(elb_data, lb_services)
+    elb_data = _correlate_elb_with_listener_associations(elb_data, elb_listener_associations)
     component_metrics = {
         "coredns": _component_summary("coredns", coredns_data),
         "nginx_ingress": _component_summary("nginx_ingress", nginx_ingress_data),
@@ -782,7 +780,7 @@ def analyze_cce_cluster_monitoring(
         "summary": {
             "total_pods": len(pod_data.get("items", [])),
             "total_nodes": len(node_data.get("items", [])),
-            "total_loadbalancer_services": len(lb_services),
+            "total_associated_elb_listeners": len(elb_listener_associations),
             "total_elb": len(elb_data),
             "total_nat_gateway": len(nat_data),
             "total_eip": len(eip_data),
@@ -808,7 +806,7 @@ def analyze_cce_cluster_monitoring(
         "elb_metrics": elb_data,
         "nat_gateway_metrics": nat_data,
         "eip_metrics": eip_data,
-        "loadbalancer_services": lb_services,
+        "elb_listener_associations": elb_listener_associations,
         "cluster_network": cluster_network,
         "component_metrics": component_metrics,
         "anomalies": all_anomalies
