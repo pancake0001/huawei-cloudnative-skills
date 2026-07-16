@@ -14,7 +14,7 @@ tags: [cce, metrics, aom, observability, analysis]
 
 Query and analyze metrics for CCE clusters (Pod/Node CPU/memory/disk) and cloud resources (ECS, ELB, EIP, NAT). Supports threshold-based anomaly detection, status classification (critical/warning/normal), and full-cluster monitoring aggregation.
 
-**Architecture**: `python3 scripts/huawei-cloud.py` dispatcher → hcloud (KooCLI) cloud service queries + signed AOM Prometheus HTTP queries + Kubernetes client → Pod/Node metrics, ECS/ELB/EIP/NAT metrics → Threshold classification → Anomaly detection
+**Architecture**: `python3 scripts/huawei-cloud.py` dispatcher → hcloud (KooCLI) cloud service queries + signed AOM Prometheus HTTP queries + limited kubectl reads only when Kubernetes resource relationships are required → Pod/Node metrics, ECS/ELB/EIP/NAT metrics → Threshold classification → Anomaly detection
 
 > **Execution method**: Cloud service queries are executed through the local `hcloud` CLI. AOM Prometheus `query_range` calls are the only exception and use signed HTTPS requests because the required Prometheus range-query path is not compatible with hcloud. Do not call Huawei Cloud SDKs, curl IAM flows, openstack, or hand-written cloud APIs outside the bundled dispatcher.
 
@@ -43,7 +43,7 @@ Query and analyze metrics for CCE clusters (Pod/Node CPU/memory/disk) and cloud 
 
 - Python 3.8+ for the dispatcher and result processing
 - hcloud (KooCLI) 7.2.2+ for CCE/ECS/ELB/VPC/EIP/NAT/CES/IAM cloud service queries
-- Kubernetes Python client for reading in-cluster Pod/Node/Service details after hcloud creates short-lived CCE cluster credentials
+- `kubectl` only for Kubernetes resource reads that cannot be derived from AOM/hcloud, such as Pod `label_selector` filtering, Ingress TLS certificate checks, and LoadBalancer Service discovery for ELB/EIP association; clusters without external EIP require the `kubectl cce` plugin from `kubectl-cce-plugin/README.md`
 - Prometheus-related monitoring data is queried from AOM Prometheus with signed HTTPS requests; the cluster must have the Prometheus add-on integrated with AOM, otherwise these tools may return empty metric series
 - Controller-manager, scheduler, and etcd metrics require the `kube-controller-manager`, `kube-scheduler`, and `etcd-server` ServiceMonitors to be enabled separately in AOM; otherwise these tools may return empty metric series
 - Autoscaler, ingress-controller, and NVIDIA GPU metrics require the corresponding `autoscaler`, `ingress-controller`, and `nvidia-gpu-device-plugin` PodMonitors to be enabled separately in AOM; ingress request metrics also require `nginx_ingress_controller_requests` to be explicitly allowed in the ingress-controller PodMonitor
@@ -101,7 +101,7 @@ Do not ask users to run raw `hcloud` commands directly. Use the dispatcher forma
 python3 scripts/huawei-cloud.py <tool-name> key=value key=value
 ```
 
-The dispatcher converts cloud service queries to KooCLI calls. AOM Prometheus range queries use signed HTTPS requests because that path is not compatible with hcloud. Quote values containing spaces, `>`, `<`, `|`, JSON, or PromQL; never print or persist AK/SK, security tokens, kubeconfig files, or temporary payloads; keep Kubernetes/AOM PromQL scoped with `cluster="<cluster_id>"`.
+The dispatcher converts cloud service queries to KooCLI calls. AOM Prometheus range queries use signed HTTPS requests because that path is not compatible with hcloud. Avoid Kubernetes resource reads unless the tool explicitly needs Pod labels, Ingress TLS Secrets, or LoadBalancer Services. Quote values containing spaces, `>`, `<`, `|`, JSON, or PromQL; never print or persist AK/SK, security tokens, kubeconfig files, or temporary payloads; keep Kubernetes/AOM PromQL scoped with `cluster="<cluster_id>"`.
 
 ### 1. CCE Pod Metrics
 
@@ -221,9 +221,11 @@ python3 scripts/huawei-cloud.py huawei_cce_cluster_monitoring_aggregation \
   namespace=default top_n=10
 ```
 
-This tool aggregates: Pod TopN CPU/memory, Node TopN CPU/memory/disk, ELB metrics (matched by listener descriptions carrying `cluster_id`), NAT Gateway metrics, EIP metrics (bandwidth, packet loss), and anomaly detection using 80% threshold.
+This tool aggregates: Pod TopN CPU/memory, Node TopN CPU/memory/disk, ELB metrics (matched through LoadBalancer Services fetched by `kubectl`), NAT Gateway metrics, EIP metrics (bandwidth, packet loss), and anomaly detection using 80% threshold.
 
-It also includes CoreDNS, nginx-ingress, and autoscaler summaries. Cloud resources are scoped to the current cluster when an association can be proven: ELB is matched through listener `description` containing `"cluster_id":"<cluster_id>"`, NAT Gateway is filtered by the cluster VPC, and EIP is limited to associated ELB/NAT addresses.
+It also includes CoreDNS, nginx-ingress, and autoscaler summaries. Cloud resources are scoped to the current cluster when an association can be proven: ELB is matched through LoadBalancer Service IP/EIP, NAT Gateway is filtered by the cluster VPC, and EIP is limited to associated ELB/NAT/Service IPs.
+
+LoadBalancer Service discovery uses `kubectl` with generated kubeconfig through the cluster EIP when external access is available. If the cluster has no EIP, it uses the `kubectl cce` plugin. If neither path works, aggregation fails.
 
 ## Risk Levels
 

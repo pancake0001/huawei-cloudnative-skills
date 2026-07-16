@@ -14,7 +14,7 @@ tags: [cce, metrics, aom, observability, analysis]
 
 查询并分析 CCE 集群指标（Pod/Node CPU、内存、磁盘）和云资源指标（ECS、ELB、EIP、NAT）。支持基于阈值的异常检测、状态分类（critical/warning/normal）和整集群监控聚合。
 
-**架构**：`python3 scripts/huawei-cloud.py` 调度器 -> hcloud (KooCLI) 云服务查询 + AOM Prometheus 签名 HTTP 查询 + Kubernetes client -> Pod/Node 指标、ECS/ELB/EIP/NAT 指标 -> 阈值分类 -> 异常检测。
+**架构**：`python3 scripts/huawei-cloud.py` 调度器 -> hcloud (KooCLI) 云服务查询 + AOM Prometheus 签名 HTTP 查询 + 仅在确实需要 Kubernetes 资源关系时使用 kubectl 读取 -> Pod/Node 指标、ECS/ELB/EIP/NAT 指标 -> 阈值分类 -> 异常检测。
 
 > **执行方式**：云服务查询通过本机 `hcloud` CLI 执行。AOM Prometheus `query_range` 是唯一例外，由于所需 Prometheus range-query 路径不兼容 hcloud，因此使用签名 HTTPS 请求。禁止在调度器之外直接调用华为云 SDK、curl IAM、openstack 或手写云 API。
 
@@ -44,7 +44,7 @@ tags: [cce, metrics, aom, observability, analysis]
 
 - Python 3.8+，用于调度器和结果处理
 - hcloud (KooCLI) 7.2.2+，用于 CCE/ECS/ELB/VPC/EIP/NAT/CES/IAM 云服务查询
-- Kubernetes Python client，用于 hcloud 创建短期 CCE 集群凭据后读取集群内 Pod/Node/Service 详情
+- `kubectl` 仅用于 AOM/hcloud 无法直接推导的 Kubernetes 资源读取，例如 Pod `label_selector` 过滤、Ingress TLS 证书检查、用于 ELB/EIP 关联的 LoadBalancer Service 发现；未绑定外网 EIP 的集群需要安装 `kubectl-cce-plugin/README.md` 中的 `kubectl cce` 插件
 - 普罗相关监控数据从 AOM Prometheus 获取，使用 AK/SK 签名 HTTPS 请求；目标集群必须已安装普罗插件并对接 AOM，否则相关工具可能返回空指标序列
 - controller-manager、scheduler 和 etcd 指标需要在 AOM 中单独开启 `kube-controller-manager`、`kube-scheduler`、`etcd-server` ServiceMonitor，否则工具可能返回空指标序列
 - autoscaler、ingress-controller 和 NVIDIA GPU 指标需要在 AOM 中单独开启对应的 `autoscaler`、`ingress-controller`、`nvidia-gpu-device-plugin` PodMonitor；ingress 请求指标还需要在 ingress-controller PodMonitor 中单独放通 `nginx_ingress_controller_requests`
@@ -106,7 +106,7 @@ python3 scripts/huawei-cloud.py <action> <key=value>...
 python3 scripts/huawei-cloud.py <tool-name> key=value key=value
 ```
 
-云服务查询由调度器转换为 KooCLI 调用。AOM Prometheus range 查询因路径不兼容 hcloud，使用签名 HTTPS 请求。包含空格、`>`、`<`、`|`、JSON 或 PromQL 的值需要加引号；禁止打印或持久化 AK/SK、security token、kubeconfig 或临时载荷；Kubernetes/AOM PromQL 必须保留 `cluster="<cluster_id>"` 过滤。
+云服务查询由调度器转换为 KooCLI 调用。AOM Prometheus range 查询因路径不兼容 hcloud，使用签名 HTTPS 请求。除非工具明确需要 Pod 标签、Ingress TLS Secret 或 LoadBalancer Service，否则避免读取 Kubernetes 资源。包含空格、`>`、`<`、`|`、JSON 或 PromQL 的值需要加引号；禁止打印或持久化 AK/SK、security token、kubeconfig 或临时载荷；Kubernetes/AOM PromQL 必须保留 `cluster="<cluster_id>"` 过滤。
 
 ### 1. CCE Pod 指标
 
@@ -222,9 +222,11 @@ python3 scripts/huawei-cloud.py huawei_cce_cluster_monitoring_aggregation \
   namespace=default top_n=10
 ```
 
-该工具聚合 Pod TopN CPU/内存、Node TopN CPU/内存/磁盘、ELB 指标（通过 listener description 中的 `cluster_id` 关联）、NAT Gateway 指标、EIP 指标（带宽、丢包率），并基于 80% 阈值做异常检测。
+该工具聚合 Pod TopN CPU/内存、Node TopN CPU/内存/磁盘、ELB 指标（通过 `kubectl` 获取 LoadBalancer Service 后关联）、NAT Gateway 指标、EIP 指标（带宽、丢包率），并基于 80% 阈值做异常检测。
 
-它也包含 CoreDNS、nginx-ingress 和 autoscaler 摘要。云资源仅在可证明与当前集群有关时纳入：ELB 通过 listener `description` 中的 `"cluster_id":"<cluster_id>"` 匹配，NAT Gateway 通过集群 VPC 过滤，EIP 限定为关联 ELB/NAT 的地址。
+它也包含 CoreDNS、nginx-ingress 和 autoscaler 摘要。云资源仅在可证明与当前集群有关时纳入：ELB 通过 LoadBalancer Service IP/EIP 匹配，NAT Gateway 通过集群 VPC 过滤，EIP 限定为关联 ELB/NAT/Service IP 的地址。
+
+LoadBalancer Service 发现优先使用 `kubectl` 和生成的 kubeconfig 通过集群 EIP 接入；集群没有 EIP 时使用 `kubectl cce` 插件；两种方式都不可用时聚合失败。
 
 ## 风险等级
 

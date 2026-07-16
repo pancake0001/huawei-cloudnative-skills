@@ -392,16 +392,7 @@ def get_cce_pod_metrics(region: str, cluster_id: str, pod_name: str, ak: Optiona
     except Exception:
         pass
 
-    # ========== 2. 获取Pod详细信息 ==========
-    pod_info = {}
-    pods_result = cce.get_kubernetes_pods(region, cluster_id, access_key, secret_key, proj_id, namespace)
-    if pods_result.get("success"):
-        for pod in pods_result.get("pods", []):
-            if pod.get("name") == pod_name:
-                pod_info = pod
-                break
-
-    # ========== 3. 获取 AOM 实例 ==========
+    # ========== 2. 获取 AOM 实例 ==========
     aom_result = _get_aom_instance(region, cluster_id, ak, sk, project_id)
     if not aom_result.get("success"):
         return {
@@ -415,7 +406,7 @@ def get_cce_pod_metrics(region: str, cluster_id: str, pod_name: str, ak: Optiona
         }
     aom_instance_id = aom_result.get("aom_instance_id")
 
-    # ========== 4. 构建 PromQL 查询（筛选指定Pod） ==========
+    # ========== 3. 构建 PromQL 查询（筛选指定Pod） ==========
     pod_filter = f',pod="{pod_name}"'
     namespace_filter = f',namespace="{namespace}"' if namespace else ""
     cluster_filter = f',cluster="{cluster_id}"'
@@ -432,12 +423,12 @@ def get_cce_pod_metrics(region: str, cluster_id: str, pod_name: str, ak: Optiona
     if disk_query is None:
         disk_query = f'sum by (pod, namespace) (container_fs_usage_bytes{{image!=""{cluster_filter}{namespace_filter}{pod_filter}}}) / on (pod, namespace) group_left sum by (pod, namespace) (container_fs_limit_bytes{{image!=""{cluster_filter}{namespace_filter}{pod_filter}}}) * 100'
 
-    # ========== 5. 执行查询 ==========
+    # ========== 4. 执行查询 ==========
     cpu_result = aom.get_aom_prom_metrics_http(region, aom_instance_id, cpu_query, hours=hours, ak=access_key, sk=secret_key, project_id=proj_id, security_token=security_token)
     memory_result = aom.get_aom_prom_metrics_http(region, aom_instance_id, memory_query, hours=hours, ak=access_key, sk=secret_key, project_id=proj_id, security_token=security_token)
     disk_result = aom.get_aom_prom_metrics_http(region, aom_instance_id, disk_query, hours=hours, ak=access_key, sk=secret_key, project_id=proj_id, security_token=security_token)
 
-    # ========== 6. 解析结果 ==========
+    # ========== 5. 解析结果 ==========
     def parse_metric_result(result, metric_name):
         """解析监控结果，返回时序数据"""
         if result.get("success") and result.get("result", {}).get("data", {}).get("result"):
@@ -467,15 +458,14 @@ def get_cce_pod_metrics(region: str, cluster_id: str, pod_name: str, ak: Optiona
     memory_data = parse_metric_result(memory_result, "memory_usage_percent")
     disk_data = parse_metric_result(disk_result, "disk_usage_percent")
 
-    # ========== 7. 返回结果 ==========
+    # ========== 6. 返回结果 ==========
     return {
         "success": True,
         "region": region,
         "cluster_id": cluster_id,
         "cluster_name": cluster_name,
         "pod_name": pod_name,
-        "namespace": pod_info.get("namespace", namespace),
-        "pod_info": pod_info,
+        "namespace": namespace,
         "aom_instance_id": aom_instance_id,
         "query_time": time_module.strftime('%Y-%m-%d %H:%M:%S', time_module.localtime()),
         "query_params": {
@@ -1121,12 +1111,16 @@ def get_cce_autoscaler_metrics(
         }
 
     def _series_from_values(values):
+        import math
+
         series = []
         for ts, val in values or []:
             try:
                 timestamp = int(float(ts))
                 value = float(val)
             except (TypeError, ValueError):
+                continue
+            if not math.isfinite(value):
                 continue
             series.append({
                 "timestamp": timestamp,
@@ -1356,12 +1350,16 @@ def _get_cce_control_plane_metrics(
         }
 
     def _series_from_values(values):
+        import math
+
         series = []
         for ts, val in values or []:
             try:
                 timestamp = int(float(ts))
                 value = float(val)
             except (TypeError, ValueError):
+                continue
+            if not math.isfinite(value):
                 continue
             series.append({
                 "timestamp": timestamp,
@@ -1592,7 +1590,6 @@ def get_cce_node_gpu_metrics(
     security_token: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Query NVIDIA GPU and xGPU metrics for a single CCE node."""
-    import re
     import time as time_module
 
     access_key, secret_key, proj_id = get_credentials_with_region(region, ak, sk, project_id)
@@ -1609,16 +1606,6 @@ def get_cce_node_gpu_metrics(
             for cluster in clusters_result.get("clusters", []):
                 if cluster.get("id") == cluster_id:
                     cluster_name = cluster.get("name", cluster_id)
-                    break
-    except Exception:
-        pass
-
-    try:
-        nodes_result = cce.get_kubernetes_nodes(region, cluster_id, access_key, secret_key, proj_id)
-        if nodes_result.get("success"):
-            for node in nodes_result.get("nodes", []):
-                if node.get("ip") == node_ip or node.get("internal_ip") == node_ip or node.get("name") == node_ip:
-                    node_name = node.get("name") or node_ip
                     break
     except Exception:
         pass
@@ -1715,12 +1702,16 @@ def get_cce_node_gpu_metrics(
         }
 
     def _series_from_values(values):
+        import math
+
         series = []
         for ts, val in values or []:
             try:
                 timestamp = int(float(ts))
                 value = float(val)
             except (TypeError, ValueError):
+                continue
+            if not math.isfinite(value):
                 continue
             series.append({
                 "timestamp": timestamp,
@@ -1851,18 +1842,6 @@ def get_cce_pod_gpu_metrics(
     except Exception:
         pass
 
-    pod_info = {}
-    try:
-        pods_result = cce.get_kubernetes_pods(region, cluster_id, access_key, secret_key, proj_id, namespace)
-        if pods_result.get("success"):
-            for pod in pods_result.get("pods", []):
-                if pod.get("name") == pod_name and (not namespace or pod.get("namespace") == namespace):
-                    pod_info = pod
-                    namespace = pod.get("namespace") or namespace
-                    break
-    except Exception:
-        pass
-
     aom_result = _get_aom_instance(region, cluster_id, ak, sk, project_id)
     if not aom_result.get("success"):
         return {
@@ -1953,12 +1932,16 @@ def get_cce_pod_gpu_metrics(
         }
 
     def _series_from_values(values):
+        import math
+
         series = []
         for ts, val in values or []:
             try:
                 timestamp = int(float(ts))
                 value = float(val)
             except (TypeError, ValueError):
+                continue
+            if not math.isfinite(value):
                 continue
             series.append({
                 "timestamp": timestamp,
@@ -2023,7 +2006,6 @@ def get_cce_pod_gpu_metrics(
         "cluster_name": cluster_name,
         "pod_name": pod_name,
         "namespace": namespace,
-        "pod_info": pod_info,
         "gpu_selector": gpu_selector,
         "aom_instance_id": aom_instance_id,
         "query_time": time_module.strftime("%Y-%m-%d %H:%M:%S", time_module.localtime()),
@@ -2085,36 +2067,19 @@ def get_cce_node_metrics_topN(region: str, cluster_id: str, ak: Optional[str] = 
         pass
 
     # ========== 2. 获取节点信息映射 ==========
-    node_info_map = {}  # IP -> 节点信息
-
-    # 从 Kubernetes API 获取节点信息（节点名称即 IP）
-    k8s_nodes_result = cce.get_kubernetes_nodes(region, cluster_id, access_key, secret_key, proj_id)
-    if k8s_nodes_result.get("success"):
-        for node in k8s_nodes_result.get("nodes", []):
-            node_name = node.get("name", "")  # Kubernetes 节点名即 IP
-            if node_name:
-                node_info_map[node_name] = {
-                    "name": node_name,
-                    "ip": node_name,
-                    "status": node.get("status", "Unknown"),
-                    "kubelet_version": node.get("kubelet_version", ""),
-                    "os": node.get("os", ""),
-                    "container_runtime": node.get("container_runtime", "")
-                }
-
-    # 从 CCE API 获取节点规格等信息（按名称匹配）
+    node_info_map = {}  # best-effort CCE node metadata, no Kubernetes API required
     cce_nodes_result = cce.list_cce_cluster_nodes(region, cluster_id, ak, sk, project_id)
     if cce_nodes_result.get("success"):
         for cce_node in cce_nodes_result.get("nodes", []):
             cce_node_name = cce_node.get("name", "")
-            # 尝试通过名称匹配
-            for ip, node_info in node_info_map.items():
-                if ip in cce_node_name or cce_node_name.endswith(ip.replace(".", "")):
-                    node_info["cce_name"] = cce_node_name
-                    node_info["id"] = cce_node.get("id", "")
-                    node_info["flavor"] = cce_node.get("flavor", "")
-                    node_info["cce_status"] = cce_node.get("status", "")
-                    break
+            if cce_node_name:
+                node_info_map[cce_node_name] = {
+                    "name": cce_node_name,
+                    "cce_name": cce_node_name,
+                    "id": cce_node.get("id", ""),
+                    "flavor": cce_node.get("flavor", ""),
+                    "cce_status": cce_node.get("status", ""),
+                }
 
     # ========== 3. 获取 AOM 实例 ==========
     aom_result = _get_aom_instance(region, cluster_id, ak, sk, project_id)
@@ -2181,8 +2146,13 @@ def get_cce_node_metrics_topN(region: str, cluster_id: str, ak: Optional[str] = 
                         # 提取 IP 地址
                         instance_ip = instance.split(":")[0] if ":" in instance else instance
 
-                        # 获取节点信息
+                        # 获取节点信息，优先使用 hcloud CCE 节点列表做 best-effort 匹配
                         node_info = node_info_map.get(instance_ip, {})
+                        if not node_info:
+                            for cce_node_name, cce_node_info in node_info_map.items():
+                                if instance_ip in cce_node_name or cce_node_name.endswith(instance_ip.replace(".", "")):
+                                    node_info = cce_node_info
+                                    break
                         # 优先使用节点名称，否则使用 IP
                         node_name = node_info.get("name", instance_ip)
 
@@ -2305,26 +2275,16 @@ def get_cce_node_metrics(region: str, cluster_id: str, node_ip: str, ak: Optiona
 
     # ========== 2. 获取节点信息 ==========
     node_info = {}
-    # 从 Kubernetes API 获取节点信息
-    k8s_nodes_result = cce.get_kubernetes_nodes(region, cluster_id, access_key, secret_key, proj_id)
-    if k8s_nodes_result.get("success"):
-        for node in k8s_nodes_result.get("nodes", []):
-            if node.get("ip") == node_ip:
-                node_info = node
+    cce_nodes_result = cce.list_cce_cluster_nodes(region, cluster_id, ak, sk, project_id)
+    if cce_nodes_result.get("success"):
+        for cce_node in cce_nodes_result.get("nodes", []):
+            cce_node_name = cce_node.get("name", "")
+            if node_ip in cce_node_name or cce_node_name.endswith(node_ip.replace(".", "")):
+                node_info["cce_name"] = cce_node_name
+                node_info["id"] = cce_node.get("id", "")
+                node_info["flavor"] = cce_node.get("flavor", "")
+                node_info["cce_status"] = cce_node.get("status", "")
                 break
-
-    # 从 CCE API 获取节点规格等信息
-    if not node_info:
-        cce_nodes_result = cce.list_cce_cluster_nodes(region, cluster_id, ak, sk, project_id)
-        if cce_nodes_result.get("success"):
-            for cce_node in cce_nodes_result.get("nodes", []):
-                cce_node_name = cce_node.get("name", "")
-                if node_ip in cce_node_name or cce_node_name.endswith(node_ip.replace(".", "")):
-                    node_info["cce_name"] = cce_node_name
-                    node_info["id"] = cce_node.get("id", "")
-                    node_info["flavor"] = cce_node.get("flavor", "")
-                    node_info["cce_status"] = cce_node.get("status", "")
-                    break
 
     # ========== 3. 获取 AOM 实例 ==========
     aom_result = _get_aom_instance(region, cluster_id, ak, sk, project_id)

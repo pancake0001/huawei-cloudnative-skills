@@ -52,9 +52,9 @@
 
 | Resource | Association rule |
 |----------|------------------|
-| ELB | ELB listener `description` contains `"cluster_id":"<cluster_id>"` |
+| ELB | LoadBalancer Service IP or EIP matches the ELB VIP/EIP |
 | NAT Gateway | NAT router/VPC matches the CCE cluster VPC |
-| EIP | EIP is associated with matched ELB/NAT resources |
+| EIP | EIP is associated with matched ELB/NAT or a LoadBalancer Service IP |
 
 The aggregation result also includes `component_metrics` for CoreDNS, nginx-ingress, and autoscaler. Component outputs are compact summaries with verbose `time_series` arrays removed.
 
