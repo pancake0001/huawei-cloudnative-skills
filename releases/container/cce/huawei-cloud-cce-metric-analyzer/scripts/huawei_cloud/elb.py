@@ -72,6 +72,54 @@ def list_elb_loadbalancers(region: str, ak: Optional[str] = None, sk: Optional[s
         response["page_info"] = data["page_info"]
     return response
 
+
+def list_elb_listeners(region: str, ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None, limit: int = 200, marker: str = None) -> Dict[str, Any]:
+    """List ELB listeners in the specified region using hcloud."""
+    result = run_hcloud(
+        "ELB",
+        "ListListeners",
+        region,
+        {"limit": limit, "marker": marker, "project_id": project_id},
+        ak=ak,
+        sk=sk,
+        project_id=project_id,
+    )
+    if not result.get("success"):
+        return result
+
+    data = result.get("data") or {}
+    listeners = []
+    for listener in data.get("listeners", []) or []:
+        lb_ids = []
+        for lb_ref in listener.get("loadbalancers", []) or []:
+            lb_id = lb_ref.get("id") if isinstance(lb_ref, dict) else lb_ref
+            if lb_id:
+                lb_ids.append(lb_id)
+        if listener.get("loadbalancer_id"):
+            lb_ids.append(listener.get("loadbalancer_id"))
+
+        listeners.append({
+            "id": listener.get("id"),
+            "name": listener.get("name"),
+            "description": listener.get("description") or "",
+            "protocol": listener.get("protocol"),
+            "protocol_port": listener.get("protocol_port"),
+            "loadbalancer_ids": sorted(set(lb_ids)),
+        })
+
+    response = {
+        "success": True,
+        "region": region,
+        "action": "list_elb_listeners",
+        "source": "hcloud",
+        "count": len(listeners),
+        "listeners": listeners,
+    }
+    if data.get("page_info"):
+        response["page_info"] = data["page_info"]
+    return response
+
+
 def get_elb_metrics(region: str, elb_id: str, hours: int = 1, period: int = 300, ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None) -> Dict[str, Any]:
     """获取指定ELB负载均衡的监控指标（自动识别ELB类型，查询对应的四层/七层指标）"""
     _, _, proj_id = get_credentials(ak, sk, project_id)

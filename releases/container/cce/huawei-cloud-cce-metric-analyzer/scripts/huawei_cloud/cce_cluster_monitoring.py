@@ -16,14 +16,14 @@ from datetime import datetime, timedelta
 from typing import Dict, Any, Optional, List
 
 try:
-    from . import cce, cce_metrics, cce_k8s, elb, network
+    from . import cce, cce_metrics, kubectl_client, elb, network
     from .common import get_credentials, get_credentials_with_region, get_security_token
     _AVAILABLE = True
 except ImportError:
     _AVAILABLE = False
     cce = None
     cce_metrics = None
-    cce_k8s = None
+    kubectl_client = None
     elb = None
     network = None
     get_credentials = None
@@ -617,18 +617,18 @@ def _get_eip_metrics(region: str, hours: int, ak: str, sk: str, project_id: str,
     return items
 
 
-def _get_loadbalancer_services(region: str, cluster_id: str, ak: str, sk: str, project_id: str) -> List[Dict[str, Any]]:
-    """Get LoadBalancer type services in cluster."""
-    result = cce_k8s.get_cce_services(
+def _get_loadbalancer_services(region: str, cluster_id: str, ak: str, sk: str, project_id: str, security_token: Optional[str] = None) -> Dict[str, Any]:
+    """Get LoadBalancer type services in the cluster via kubectl."""
+    result = kubectl_client.get_cce_services_with_kubectl(
         region=region,
         cluster_id=cluster_id,
         ak=ak,
         sk=sk,
-        project_id=project_id
+        project_id=project_id,
+        security_token=security_token,
     )
-
     if not result.get("success"):
-        return []
+        return result
 
     services = []
     for svc in result.get("services", []):
@@ -641,10 +641,11 @@ def _get_loadbalancer_services(region: str, cluster_id: str, ak: str, sk: str, p
             services.append({
                 "name": svc.get("name"),
                 "namespace": svc.get("namespace"),
-                "load_balancer_ip": lb_ip
+                "load_balancer_ip": lb_ip,
+                "source": result.get("source", "kubectl"),
             })
 
-    return services
+    return {"success": True, "services": services, "source": result.get("source", "kubectl")}
 
 
 def _correlate_elb_with_services(elb_metrics: List[Dict], lb_services: List[Dict]) -> List[Dict]:
@@ -712,7 +713,16 @@ def analyze_cce_cluster_monitoring(
         region, cluster_id, access_key, secret_key, proj_id, hours=hours, security_token=sec_token
     )
     cluster_network = _get_cluster_network(region, cluster_id, hcloud_ak, hcloud_sk, hcloud_project_id)
-    lb_services = _get_loadbalancer_services(region, cluster_id, access_key, secret_key, proj_id)
+    lb_services_result = _get_loadbalancer_services(region, cluster_id, access_key, secret_key, proj_id, sec_token)
+    if not lb_services_result.get("success"):
+        return {
+            "success": False,
+            "error": "failed to get Kubernetes LoadBalancer Services for ELB/EIP association",
+            "details": lb_services_result,
+            "cluster_id": cluster_id,
+            "region": region,
+        }
+    lb_services = lb_services_result.get("services", [])
     elb_data = _get_elb_metrics(region, hours, hcloud_ak, hcloud_sk, hcloud_project_id, lb_services)
     nat_data = _get_nat_gateway_metrics(region, hours, hcloud_ak, hcloud_sk, hcloud_project_id, cluster_network)
     eip_data = _get_eip_metrics(region, hours, hcloud_ak, hcloud_sk, hcloud_project_id, elb_data, nat_data, lb_services)

@@ -9,34 +9,13 @@ import subprocess
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
-try:
-    import kubernetes
-    from kubernetes import client as k8s_client
-
-    K8S_AVAILABLE = True
-    K8S_IMPORT_ERROR = None
-except ImportError as exc:
-    kubernetes = None
-    k8s_client = None
-    K8S_AVAILABLE = False
-    K8S_IMPORT_ERROR = str(exc)
-
 _PROJECT_ID_CACHE = {}
-_TEMP_CERT_FILES = set()
-
-def _register_cert_file(filepath: Optional[str]) -> None:
-    if filepath:
-        _TEMP_CERT_FILES.add(filepath)
-
 
 def _safe_delete_file(filepath: Optional[str]) -> None:
     if not filepath:
         return
-    try:
-        if os.path.exists(filepath):
-            os.remove(filepath)
-    finally:
-        _TEMP_CERT_FILES.discard(filepath)
+    if os.path.exists(filepath):
+        os.remove(filepath)
 
 def _has_hcloud_profile() -> bool:
     """Return whether local hcloud profile configuration appears to exist."""
