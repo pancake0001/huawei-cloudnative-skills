@@ -67,12 +67,21 @@ func run(args []string) error {
 	fs.SetOutput(os.Stderr)
 	printProxyURL := fs.Bool("print-proxy-url", false, "print a temporary local proxy URL and exit")
 	insecureTLS := fs.Bool("cce-insecure-upstream-tls", false, "skip TLS verification for the upstream CCE endpoint")
+	clusterID := fs.String("cluster-id", "", "CCE cluster ID; overrides CCE_CLUSTER_ID")
+	clusterAlias := fs.String("cluster", "", "alias of --cluster-id")
+	region := fs.String("region", "", "Huawei Cloud region; overrides CCE_REGION")
+	endpoint := fs.String("endpoint", "", "CCE API Gateway endpoint host; overrides CCE_ENDPOINT")
+	projectID := fs.String("project-id", "", "Huawei Cloud project ID; overrides CCE_PROJECT_ID")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 
 	cfg := loadConfig()
 	cfg.insecureTLS = *insecureTLS
+	if *clusterID == "" {
+		*clusterID = *clusterAlias
+	}
+	cfg.applyCLIOverrides(*clusterID, *region, *endpoint, *projectID)
 	if err := cfg.validate(); err != nil {
 		return err
 	}
@@ -143,6 +152,21 @@ func (c config) upstreamHost() string {
 
 func (c config) useAKSK() bool {
 	return c.ak != "" && c.sk != ""
+}
+
+func (c *config) applyCLIOverrides(clusterID, region, endpoint, projectID string) {
+	if clusterID != "" {
+		c.clusterID = cleanEnvValue(clusterID)
+	}
+	if region != "" {
+		c.region = cleanEnvValue(region)
+	}
+	if endpoint != "" {
+		c.endpoint = cleanEnvValue(endpoint)
+	}
+	if projectID != "" {
+		c.projectID = cleanEnvValue(projectID)
+	}
 }
 
 type localProxy struct {

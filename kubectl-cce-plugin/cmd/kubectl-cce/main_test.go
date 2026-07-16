@@ -42,6 +42,29 @@ func TestCleanEnvValueRemovesSmartQuotes(t *testing.T) {
 	}
 }
 
+func TestApplyCLIOverrides(t *testing.T) {
+	cfg := config{
+		clusterID: "env-cluster",
+		region:    "cn-north-4",
+		endpoint:  "",
+		projectID: "env-project",
+	}
+	cfg.applyCLIOverrides(" cli-cluster ", "cn-east-3", " ‘example.com’ ", "cli-project")
+
+	if cfg.clusterID != "cli-cluster" {
+		t.Fatalf("clusterID = %q", cfg.clusterID)
+	}
+	if cfg.region != "cn-east-3" {
+		t.Fatalf("region = %q", cfg.region)
+	}
+	if cfg.endpoint != "example.com" {
+		t.Fatalf("endpoint = %q", cfg.endpoint)
+	}
+	if cfg.projectID != "cli-project" {
+		t.Fatalf("projectID = %q", cfg.projectID)
+	}
+}
+
 func TestExecIsBlocked(t *testing.T) {
 	if command := findUnsupportedStreamingCommand([]string{"exec", "pod/nginx", "--", "date"}); command != "exec" {
 		t.Fatalf("findUnsupportedStreamingCommand() = %q, want exec", command)
