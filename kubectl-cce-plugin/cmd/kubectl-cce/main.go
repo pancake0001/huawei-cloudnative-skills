@@ -25,6 +25,10 @@ import (
 
 const (
 	defaultRegion = "cn-north-4"
+	signAlgorithm = "SDK-HMAC-SHA256"
+	headerXDate   = "X-Sdk-Date"
+	headerHost    = "host"
+	headerPayload = "X-Sdk-Content-Sha256"
 )
 
 var unsupportedStreamingCommands = map[string]bool{
@@ -37,6 +41,7 @@ type config struct {
 	clusterID     string
 	region        string
 	endpoint      string
+	projectID     string
 	ak            string
 	sk            string
 	securityToken string
@@ -96,9 +101,10 @@ func run(args []string) error {
 
 func loadConfig() config {
 	cfg := config{
-		clusterID:     os.Getenv("CCE_CLUSTER_ID"),
+		clusterID:     cleanEnvValue(os.Getenv("CCE_CLUSTER_ID")),
 		region:        envDefault("CCE_REGION", defaultRegion),
-		endpoint:      os.Getenv("CCE_ENDPOINT"),
+		endpoint:      cleanEnvValue(os.Getenv("CCE_ENDPOINT")),
+		projectID:     firstEnv("CCE_PROJECT_ID", "HUAWEICLOUD_PROJECT_ID", "HUAWEI_CLOUD_PROJECT_ID", "HW_PROJECT_ID", "OS_PROJECT_ID"),
 		ak:            firstEnv("HUAWEICLOUD_SDK_AK", "HUAWEI_CLOUD_AK", "HW_ACCESS_KEY"),
 		sk:            firstEnv("HUAWEICLOUD_SDK_SK", "HUAWEI_CLOUD_SK", "HW_SECRET_KEY"),
 		securityToken: firstEnv("HUAWEICLOUD_SECURITY_TOKEN", "HUAWEI_CLOUD_SECURITY_TOKEN", "HW_SECURITY_TOKEN"),
@@ -213,6 +219,7 @@ func proxyHandler(cfg config) http.Handler {
 		}
 		copyHeaders(req.Header, r.Header)
 		removeHopByHopHeaders(req.Header)
+		normalizeDiscoveryHeaders(req)
 		req.Host = upstreamHost
 		req.Header.Set("Host", upstreamHost)
 
@@ -243,40 +250,67 @@ func proxyHandler(cfg config) http.Handler {
 	})
 }
 
+func normalizeDiscoveryHeaders(req *http.Request) {
+	if os.Getenv("CCE_PRESERVE_ACCEPT") != "" {
+		return
+	}
+	if req.URL.Path == "/api" || req.URL.Path == "/apis" {
+		req.Header.Set("Accept", "application/json")
+	}
+}
+
 func applyAKSKSignature(req *http.Request, body []byte, cfg config) {
 	req.Header.Del("Authorization")
 	req.Header.Del("X-Auth-Token")
-	req.Header.Set("X-Sdk-Date", time.Now().UTC().Format("20060102T150405Z"))
-	req.Header.Set("Content-Sha256", hexSHA256(body))
+	req.Header.Set(headerXDate, time.Now().UTC().Format("20060102T150405Z"))
 	if cfg.securityToken != "" {
 		req.Header.Set("X-Security-Token", cfg.securityToken)
 	}
-	if req.Header.Get("Content-Type") == "" && len(body) > 0 {
+	if cfg.projectID != "" {
+		req.Header.Set("X-Project-Id", cfg.projectID)
+	}
+	if req.Header.Get("Content-Type") == "" {
 		req.Header.Set("Content-Type", "application/json")
 	}
+	if contentType := req.Header.Get("Content-Type"); contentType != "" &&
+		!strings.Contains(contentType, "application/json") &&
+		!strings.Contains(contentType, "application/bson") {
+		req.Header.Set(headerPayload, "UNSIGNED-PAYLOAD")
+	}
 
-	signedHeaders, canonicalHeaders := canonicalHeaders(req)
+	signedHeaders := signedHeaders(req.Header)
+	canonicalHeaders := canonicalHeaders(req, signedHeaders)
+	payloadHash := hexSHA256(body)
+	if value := req.Header.Get(headerPayload); value != "" {
+		payloadHash = value
+	}
 	canonicalRequest := strings.Join([]string{
 		req.Method,
-		canonicalURI(req.URL.EscapedPath()),
+		canonicalURI(req.URL.Path),
 		canonicalQuery(req.URL.Query()),
 		canonicalHeaders,
 		signedHeaders,
-		hexSHA256(body),
+		payloadHash,
 	}, "\n")
 
 	stringToSign := strings.Join([]string{
-		"SDK-HMAC-SHA256",
-		req.Header.Get("X-Sdk-Date"),
+		signAlgorithm,
+		req.Header.Get(headerXDate),
 		hexSHA256([]byte(canonicalRequest)),
 	}, "\n")
 	signature := hmacSHA256Hex([]byte(cfg.sk), []byte(stringToSign))
 	req.Header.Set("Authorization", fmt.Sprintf(
-		"SDK-HMAC-SHA256 Access=%s, SignedHeaders=%s, Signature=%s",
+		"%s Access=%s, SignedHeaders=%s, Signature=%s",
+		signAlgorithm,
 		cfg.ak,
 		signedHeaders,
 		signature,
 	))
+	if cfg.debug {
+		fmt.Fprintf(os.Stderr, "kubectl-cce signer: canonical request:\n%s\n", canonicalRequest)
+		fmt.Fprintf(os.Stderr, "kubectl-cce signer: string to sign:\n%s\n", stringToSign)
+		fmt.Fprintf(os.Stderr, "kubectl-cce signer: signed headers: %s\n", signedHeaders)
+	}
 }
 
 func canonicalURI(path string) string {
@@ -288,14 +322,13 @@ func canonicalURI(path string) string {
 	}
 	segments := strings.Split(path, "/")
 	for i, segment := range segments {
-		decoded, err := url.PathUnescape(segment)
-		if err == nil {
-			segment = decoded
-		}
-		segments[i] = strings.ReplaceAll(url.PathEscape(segment), "+", "%20")
+		segments[i] = sdkEscape(segment)
 	}
 	result := strings.Join(segments, "/")
 	if strings.HasSuffix(path, "/") && !strings.HasSuffix(result, "/") {
+		result += "/"
+	}
+	if !strings.HasSuffix(result, "/") {
 		result += "/"
 	}
 	return result
@@ -313,54 +346,52 @@ func canonicalQuery(values url.Values) string {
 
 	parts := make([]string, 0)
 	for _, key := range keys {
-		escapedKey := escapeQuery(key)
+		escapedKey := sdkEscape(key)
 		vals := append([]string(nil), values[key]...)
 		sort.Strings(vals)
 		for _, value := range vals {
-			parts = append(parts, escapedKey+"="+escapeQuery(value))
+			parts = append(parts, escapedKey+"="+sdkEscape(value))
 		}
 	}
 	return strings.Join(parts, "&")
 }
 
-func canonicalHeaders(req *http.Request) (string, string) {
-	headers := map[string][]string{}
-	headers["host"] = []string{req.Host}
-	for key, values := range req.Header {
-		lowerKey := strings.ToLower(strings.TrimSpace(key))
-		if lowerKey == "" || shouldSkipSignedHeader(lowerKey) {
-			continue
+func signedHeaders(headers http.Header) string {
+	names := []string{headerHost, strings.ToLower(headerXDate)}
+	for _, key := range []string{"X-Project-Id", "X-Security-Token", headerPayload} {
+		if headers.Get(key) != "" {
+			names = append(names, strings.ToLower(key))
 		}
-		headers[lowerKey] = append(headers[lowerKey], values...)
-	}
-
-	names := make([]string, 0, len(headers))
-	for name := range headers {
-		names = append(names, name)
 	}
 	sort.Strings(names)
-
-	var b strings.Builder
-	for _, name := range names {
-		normalizedValues := make([]string, 0, len(headers[name]))
-		for _, value := range headers[name] {
-			normalizedValues = append(normalizedValues, strings.Join(strings.Fields(value), " "))
-		}
-		b.WriteString(name)
-		b.WriteByte(':')
-		b.WriteString(strings.Join(normalizedValues, ","))
-		b.WriteByte('\n')
-	}
-	return strings.Join(names, ";"), b.String()
+	return strings.Join(names, ";")
 }
 
-func shouldSkipSignedHeader(name string) bool {
-	switch name {
-	case "authorization", "connection", "content-length", "expect", "transfer-encoding":
-		return true
-	default:
-		return false
+func canonicalHeaders(req *http.Request, signerHeaders string) string {
+	header := make(map[string][]string)
+	for key, values := range req.Header {
+		lowerKey := strings.ToLower(key)
+		header[lowerKey] = append(header[lowerKey], values...)
 	}
+
+	var b strings.Builder
+	for _, name := range strings.Split(signerHeaders, ";") {
+		if name == "" {
+			continue
+		}
+		values := header[name]
+		if strings.EqualFold(name, headerHost) {
+			values = []string{req.Host}
+		}
+		sort.Strings(values)
+		for _, value := range values {
+			b.WriteString(name)
+			b.WriteByte(':')
+			b.WriteString(strings.TrimSpace(value))
+			b.WriteByte('\n')
+		}
+	}
+	return b.String()
 }
 
 func runKubectlThroughProxy(proxy *localProxy, cfg config, kubectlArgs []string) error {
@@ -435,14 +466,16 @@ func envDefault(key, fallback string) string {
 func firstEnv(keys ...string) string {
 	for _, key := range keys {
 		if value := os.Getenv(key); value != "" {
-			return value
+			return cleanEnvValue(value)
 		}
 	}
 	return ""
 }
 
-func escapeQuery(value string) string {
-	return strings.ReplaceAll(url.QueryEscape(value), "+", "%20")
+func cleanEnvValue(value string) string {
+	value = strings.TrimSpace(value)
+	value = strings.Trim(value, "\"'`“”‘’")
+	return strings.TrimSpace(value)
 }
 
 func hexSHA256(data []byte) string {
@@ -454,4 +487,42 @@ func hmacSHA256Hex(key, data []byte) string {
 	mac := hmac.New(sha256.New, key)
 	mac.Write(data)
 	return hex.EncodeToString(mac.Sum(nil))
+}
+
+func sdkEscape(value string) string {
+	hexCount := 0
+	for i := 0; i < len(value); i++ {
+		if shouldEscape(value[i]) {
+			hexCount++
+		}
+	}
+	if hexCount == 0 {
+		return value
+	}
+
+	escaped := make([]byte, len(value)+2*hexCount)
+	j := 0
+	for i := 0; i < len(value); i++ {
+		c := value[i]
+		if shouldEscape(c) {
+			escaped[j] = '%'
+			escaped[j+1] = "0123456789ABCDEF"[c>>4]
+			escaped[j+2] = "0123456789ABCDEF"[c&15]
+			j += 3
+		} else {
+			escaped[j] = c
+			j++
+		}
+	}
+	return string(escaped)
+}
+
+func shouldEscape(c byte) bool {
+	return !(('A' <= c && c <= 'Z') ||
+		('a' <= c && c <= 'z') ||
+		('0' <= c && c <= '9') ||
+		c == '_' ||
+		c == '-' ||
+		c == '~' ||
+		c == '.')
 }

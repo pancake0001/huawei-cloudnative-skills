@@ -27,6 +27,7 @@ AK/SK is preferred when both AK and SK are present:
 ```bash
 export CCE_CLUSTER_ID="your-cluster-id"
 export CCE_REGION="cn-north-4"
+export CCE_PROJECT_ID="your-project-id" # optional, but recommended for AK/SK
 export HUAWEICLOUD_SDK_AK="your-ak"
 export HUAWEICLOUD_SDK_SK="your-sk"
 ```
@@ -35,6 +36,14 @@ For a temporary AK/SK, also set:
 
 ```bash
 export HUAWEICLOUD_SECURITY_TOKEN="your-security-token"
+```
+
+If Huawei Cloud returns an AK/SK authentication or signature error, enable
+debug output to inspect the canonical request and string-to-sign:
+
+```bash
+export CCE_PROXY_DEBUG=1
+kubectl cce get ns
 ```
 
 If AK/SK is not set, the plugin can fall back to an IAM token:
@@ -79,8 +88,9 @@ kubectl \
 ## Current Limitations
 
 This MVP targets normal REST-style kubectl calls. Streaming commands such as
-`exec`, `attach`, and `port-forward` are intentionally blocked for now because
-they need websocket/SPDY handling in the proxy.
+`exec`, `attach`, and `port-forward` are intentionally blocked because CCE API
+Gateway does not reliably pass the websocket/SPDY upgrade required by these
+commands.
 
 `logs -f` and `watch` may work depending on the CCE API gateway behavior, but
 they have not been hardened yet.
