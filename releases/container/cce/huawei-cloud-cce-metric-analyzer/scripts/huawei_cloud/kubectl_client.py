@@ -123,21 +123,26 @@ def _kubectl_get_with_kubeconfig(region: str, cluster_id: str, resource_args: Li
 def _kubectl_get_with_cce_plugin(region: str, cluster_id: str, resource_args: List[str], ak: Optional[str], sk: Optional[str], project_id: Optional[str], security_token: Optional[str]) -> Dict[str, Any]:
     access_key = ak or os.environ.get("HUAWEI_AK") or os.environ.get("HUAWEICLOUD_SDK_AK") or os.environ.get("HW_ACCESS_KEY")
     secret_key = sk or os.environ.get("HUAWEI_SK") or os.environ.get("HUAWEICLOUD_SDK_SK") or os.environ.get("HW_SECRET_KEY")
-    proj_id = project_id or os.environ.get("HUAWEI_PROJECT_ID") or os.environ.get("HUAWEICLOUD_SDK_PROJECT_ID")
+    proj_id = project_id or os.environ.get("HUAWEI_PROJECT_ID") or os.environ.get("HUAWEICLOUD_SDK_PROJECT_ID") or os.environ.get("HW_PROJECT_ID")
     env = os.environ.copy()
     env["CCE_CLUSTER_ID"] = cluster_id
     env["CCE_REGION"] = region
+    env["HW_REGION"] = region
     if proj_id:
         env["CCE_PROJECT_ID"] = proj_id
+        env["HW_PROJECT_ID"] = proj_id
     if access_key:
+        env["HW_ACCESS_KEY"] = access_key
         env["HUAWEICLOUD_SDK_AK"] = access_key
     if secret_key:
+        env["HW_SECRET_KEY"] = secret_key
         env["HUAWEICLOUD_SDK_SK"] = secret_key
     sec_token = get_security_token(security_token)
     if sec_token:
+        env["HW_SECURITY_TOKEN"] = sec_token
         env["HUAWEICLOUD_SECURITY_TOKEN"] = sec_token
 
-    result = _run_json_command(["kubectl", "cce", "--cluster", cluster_id, "--region", region, "get", *resource_args, "-o", "json"], env=env)
+    result = _run_json_command(["kubectl", "cce", "--cluster-id", cluster_id, "--region", region, "get", *resource_args, "-o", "json"], env=env)
     if result.get("success"):
         result["access_method"] = "kubectl_cce_plugin"
     return result
@@ -316,4 +321,3 @@ def _normalize_pods(result: Dict[str, Any], region: str, cluster_id: str, namesp
         "count": len(pods),
         "pods": pods,
     }
-

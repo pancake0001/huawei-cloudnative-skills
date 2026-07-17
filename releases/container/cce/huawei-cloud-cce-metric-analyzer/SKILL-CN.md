@@ -49,6 +49,7 @@ tags: [cce, metrics, aom, observability, analysis]
 - controller-manager、scheduler 和 etcd 指标需要在 AOM 中单独开启 `kube-controller-manager`、`kube-scheduler`、`etcd-server` ServiceMonitor，否则工具可能返回空指标序列
 - autoscaler、ingress-controller 和 NVIDIA GPU 指标需要在 AOM 中单独开启对应的 `autoscaler`、`ingress-controller`、`nvidia-gpu-device-plugin` PodMonitor；ingress 请求指标还需要在 ingress-controller PodMonitor 中单独放通 `nginx_ingress_controller_requests`
 - 首次使用前请运行验证章节中的检查命令
+- `kubectl-cce` 的安装和使用方式见 [references/kubectl-cce.md](references/kubectl-cce.md)
 
 ### 2. 认证配置
 

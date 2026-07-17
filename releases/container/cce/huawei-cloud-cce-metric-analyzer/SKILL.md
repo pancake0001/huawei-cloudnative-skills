@@ -48,6 +48,7 @@ Query and analyze metrics for CCE clusters (Pod/Node CPU/memory/disk) and cloud 
 - Controller-manager, scheduler, and etcd metrics require the `kube-controller-manager`, `kube-scheduler`, and `etcd-server` ServiceMonitors to be enabled separately in AOM; otherwise these tools may return empty metric series
 - Autoscaler, ingress-controller, and NVIDIA GPU metrics require the corresponding `autoscaler`, `ingress-controller`, and `nvidia-gpu-device-plugin` PodMonitors to be enabled separately in AOM; ingress request metrics also require `nginx_ingress_controller_requests` to be explicitly allowed in the ingress-controller PodMonitor
 - Run environment check before first use (see Verification section)
+- Install and use `kubectl-cce` according to [references/kubectl-cce.md](references/kubectl-cce.md)
 
 ### 2. Credential Configuration
 
