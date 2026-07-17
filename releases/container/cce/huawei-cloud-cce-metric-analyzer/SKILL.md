@@ -48,24 +48,7 @@ Query and analyze metrics for CCE clusters (Pod/Node CPU/memory/disk) and cloud 
 - Controller-manager, scheduler, and etcd metrics require the `kube-controller-manager`, `kube-scheduler`, and `etcd-server` ServiceMonitors to be enabled separately in AOM; otherwise these tools may return empty metric series
 - Autoscaler, ingress-controller, and NVIDIA GPU metrics require the corresponding `autoscaler`, `ingress-controller`, and `nvidia-gpu-device-plugin` PodMonitors to be enabled separately in AOM; ingress request metrics also require `nginx_ingress_controller_requests` to be explicitly allowed in the ingress-controller PodMonitor
 - Run environment check before first use (see Verification section)
-
-**kubectl and kubectl-cce installation**:
-
-```bash
-# Install kubectl with your system package manager, then verify:
-kubectl version --client
-# Install kubectl-cce v0.1.0 from GitHub Releases; choose the archive for your OS/arch.
-curl -LO https://github.com/pancake0001/kubectl-cce-plugin/releases/download/v0.1.0/kubectl-cce_0.1.0_linux_amd64.tar.gz
-tar -xzf kubectl-cce_0.1.0_linux_amd64.tar.gz
-chmod +x kubectl-cce && mv kubectl-cce /usr/local/bin/
-kubectl plugin list
-```
-
-The executable must be named `kubectl-cce` so kubectl discovers it as `kubectl cce`. Configure plugin credentials with `HW_ACCESS_KEY`/`HW_SECRET_KEY` or `HUAWEI_IAM_TOKEN`; for temporary credentials also set `HW_SECURITY_TOKEN`. Example:
-
-```bash
-kubectl cce --cluster-id <cluster-id> --region cn-north-4 get pods -A
-```
+- Install and use `kubectl-cce` according to [references/kubectl-cce.md](references/kubectl-cce.md)
 
 ### 2. Credential Configuration
 
