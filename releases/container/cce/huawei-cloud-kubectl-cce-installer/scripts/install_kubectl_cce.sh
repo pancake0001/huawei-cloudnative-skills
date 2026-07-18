@@ -7,6 +7,8 @@ KUBERNETES_REPOSITORY="https://github.com/kubernetes/kubernetes.git"
 PLUGIN_SOURCE_REPOSITORY="https://github.com/${PLUGIN_REPOSITORY}.git"
 BIN_DIR="/usr/local/bin"
 MODE="plan"
+CLUSTER_VERSION=""
+OBS_BASE_URL="https://cce-north-4.obs.cn-north-4.myhuaweicloud.com"
 CONNECT_TIMEOUT="${KUBECTL_CCE_CONNECT_TIMEOUT:-10}"
 DOWNLOAD_TIMEOUT="${KUBECTL_CCE_DOWNLOAD_TIMEOUT:-300}"
 SOURCE_CLONE_TIMEOUT="${KUBECTL_CCE_SOURCE_CLONE_TIMEOUT:-600}"
@@ -14,7 +16,7 @@ SOURCE_BUILD_TIMEOUT="${KUBECTL_CCE_SOURCE_BUILD_TIMEOUT:-900}"
 
 usage() {
   cat <<'EOF'
-Usage: install_kubectl_cce.sh [--check] [--execute] [--bin-dir <directory>]
+Usage: install_kubectl_cce.sh [--check] [--execute] [--bin-dir <directory>] [--cluster-version <v1.X.Y>]
 
 Without --execute, print the installation plan only. --execute installs missing
 executables and must be used only after user confirmation.
@@ -27,6 +29,10 @@ while [[ $# -gt 0 ]]; do
     --execute) MODE="execute" ;;
     --bin-dir)
       BIN_DIR="${2:?--bin-dir requires a directory}"
+      shift
+      ;;
+    --cluster-version)
+      CLUSTER_VERSION="${2:?--cluster-version requires v1.X.Y}"
       shift
       ;;
     --help|-h) usage; exit 0 ;;
@@ -107,6 +113,70 @@ install_file() {
   install -m 0755 "$source" "$destination"
 }
 
+obs_kubectl_version() {
+  local object_key="$1"
+  local package_file="$WORK_DIR/obs-kubectl.tgz"
+  local extract_dir="$WORK_DIR/obs-kubectl-extract"
+  local binary
+  rm -rf "$extract_dir"
+  mkdir -p "$extract_dir"
+  download_file "${OBS_BASE_URL}/${object_key}" "$package_file"
+  tar -xzf "$package_file" -C "$extract_dir"
+  binary="$(find "$extract_dir" -type f -name kubectl -print -quit)"
+  [[ -n "$binary" ]] || return 1
+  chmod +x "$binary"
+  "$binary" version --client --output=json | python3 -c 'import json,sys; print(json.load(sys.stdin)["clientVersion"]["gitVersion"])'
+}
+
+install_kubectl_from_obs() {
+  local listing="$WORK_DIR/obs-kubectl-list.xml"
+  local target_minor="${CLUSTER_VERSION#v}"
+  local package_keys=()
+  local low=0 high mid actual_version actual_minor actual_minor_number target_minor_number selected_key=""
+  target_minor="${target_minor%.*}"
+  target_minor_number="${target_minor#1.}"
+  [[ "$OS" == "Linux" ]] || return 1
+  download_file "${OBS_BASE_URL}/?list-type=2&prefix=package/kubectl/" "$listing"
+  mapfile -t package_keys < <(python3 - "$listing" "$ARCH" <<'PY'
+import re, sys, xml.etree.ElementTree as ET
+root = ET.parse(sys.argv[1]).getroot()
+arch = sys.argv[2]
+items = []
+for node in root.findall('{*}Contents/{*}Key'):
+    key = node.text or ''
+    match = re.fullmatch(r'package/kubectl/kubectl-(\d+)\.(\d+)\.(\d+)(-arm64)?\.tgz', key)
+    if not match:
+        continue
+    if (arch == 'arm64') != bool(match.group(4)):
+        continue
+    items.append((tuple(map(int, match.group(1, 2, 3))), key))
+for _, key in sorted(items):
+    print(key)
+PY
+)
+  [[ ${#package_keys[@]} -gt 0 ]] || return 1
+  low=0
+  high=$((${#package_keys[@]} - 1))
+  while [[ $low -le $high ]]; do
+    mid=$(((low + high) / 2))
+    actual_version="$(obs_kubectl_version "${package_keys[$mid]}")" || return 1
+    actual_minor="${actual_version#v}"
+    actual_minor="${actual_minor%.*}"
+    actual_minor_number="${actual_minor#1.}"
+    if [[ "$actual_minor" == "$target_minor" ]]; then
+      selected_key="${package_keys[$mid]}"
+      break
+    elif ((10#$actual_minor_number < 10#$target_minor_number)); then
+      low=$((mid + 1))
+    else
+      high=$((mid - 1))
+    fi
+  done
+  [[ -n "$selected_key" ]] || return 1
+  echo "Selected OBS package ${selected_key}; verified client version ${actual_version}."
+  install_file "$(find "$WORK_DIR/obs-kubectl-extract" -type f -name kubectl -print -quit)" "$BIN_DIR/kubectl"
+}
+
 build_kubectl_from_source() {
   local version="$1"
   local source_dir="$WORK_DIR/kubernetes"
@@ -172,7 +242,7 @@ if [[ "$OS" != "Linux" && "$OS" != "Darwin" ]]; then
 fi
 
 if [[ "$KUBECTL_PRESENT" == false ]]; then
-  echo "PLAN: install kubectl into ${BIN_DIR} from the official stable ${OS} ${ARCH} binary; build the same stable tag from source if the download fails."
+  echo "PLAN: use --cluster-version to binary-search public OBS kubectl packages by their verified client version, then install into ${BIN_DIR}."
 fi
 if [[ "$PLUGIN_PRESENT" == false ]]; then
   echo "PLAN: download kubectl-cce v${PLUGIN_VERSION} for ${OS} ${ARCH} from GitHub Release when available; otherwise build tag v${PLUGIN_VERSION} from source."
@@ -189,14 +259,18 @@ fi
 require_command curl
 require_command install
 require_command tar
+require_command python3
 mkdir -p "$BIN_DIR"
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "$WORK_DIR"' EXIT
 
 if [[ "$KUBECTL_PRESENT" == false ]]; then
-  KUBECTL_VERSION="$(download_stdout https://dl.k8s.io/release/stable.txt)"
+  [[ "$CLUSTER_VERSION" =~ ^v?1\.[0-9]+\.[0-9]+$ ]] || { echo "--cluster-version must use v1.X.Y" >&2; exit 2; }
+  KUBECTL_VERSION="v${CLUSTER_VERSION#v}"
   KUBECTL_OS="$(tr '[:upper:]' '[:lower:]' <<< "$OS")"
-  if download_file "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/${KUBECTL_OS}/${ARCH}/kubectl" "$WORK_DIR/kubectl"; then
+  if install_kubectl_from_obs; then
+    :
+  elif download_file "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/${KUBECTL_OS}/${ARCH}/kubectl" "$WORK_DIR/kubectl"; then
     install_file "$WORK_DIR/kubectl" "$BIN_DIR/kubectl"
   else
     build_kubectl_from_source "$KUBECTL_VERSION"

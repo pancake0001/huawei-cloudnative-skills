@@ -20,8 +20,8 @@ Install and verify the local `kubectl` and `kubectl-cce` prerequisites used for 
 **Capabilities**:
 - Detect the local OS, architecture, executable availability, and plugin discovery state
 - Show a no-change installation plan before execution
-- Install a missing `kubectl` binary from the official Kubernetes stable release
-- Build the same Kubernetes stable tag from source when binary download fails
+- Select a missing Linux `kubectl` package from the public Beijing 4 CCE OBS repository using the verified client version
+- Fall back to the exact requested official Kubernetes version, then build the same source tag when download fails
 - Install `kubectl-cce` v0.1.0 from its GitHub Release on Linux when available
 - Build the fixed `kubectl-cce` v0.1.0 source tag when a Release asset is unavailable or download fails
 - Verify `kubectl` and `kubectl-cce` plugin discovery after installation
@@ -67,7 +67,7 @@ After installation, `kubectl cce` requires credentials only when it accesses a C
 All commands use the bundled installer script:
 
 ```bash
-bash scripts/install_kubectl_cce.sh [--check] [--execute] [--bin-dir <directory>]
+bash scripts/install_kubectl_cce.sh [--check] [--execute] [--bin-dir <directory>] [--cluster-version <v1.X.Y>]
 ```
 
 ### 1. Local State Check
@@ -81,7 +81,7 @@ This is read-only. It reports the OS, architecture, installed binaries, `kubectl
 ### 2. Installation Plan
 
 ```bash
-bash scripts/install_kubectl_cce.sh --bin-dir /usr/local/bin
+bash scripts/install_kubectl_cce.sh --cluster-version v1.31.2 --bin-dir /usr/local/bin
 ```
 
 This is read-only. It shows which executables are missing and the exact download or source-build fallback without changing the machine.
@@ -89,14 +89,15 @@ This is read-only. It shows which executables are missing and the exact download
 ### 3. Confirmed Installation
 
 ```bash
-sudo bash scripts/install_kubectl_cce.sh --execute --bin-dir /usr/local/bin
+sudo bash scripts/install_kubectl_cce.sh --execute --cluster-version v1.31.2 --bin-dir /usr/local/bin
 ```
 
 Run only after the user confirms the previewed installation path and actions. The script does not overwrite existing `kubectl` or `kubectl-cce` executables.
 
 ### 4. Source-Build Fallback
 
-- When the Kubernetes stable binary download fails, build `cmd/kubectl` from the same stable tag.
+- For Linux, list the public OBS package repository and binary-search its release sequence by running extracted `kubectl version --client` on candidates. The package name is used only for ordering; the client `major.minor` must match `--cluster-version` before installation.
+- If OBS lookup, download, extraction, or version verification fails, download the exact `--cluster-version` from the official Kubernetes release; build the same source tag only if that download fails.
 - When the Linux `kubectl-cce` v0.1.0 asset is unavailable or download fails, build the fixed `v0.1.0` source tag.
 - On macOS, build `kubectl-cce` v0.1.0 from source because the Release has no macOS asset.
 
@@ -125,6 +126,7 @@ This skill modifies only local binaries and does not operate on cloud resources.
 | `--check` | Optional | Run only local inspection and verification | Disabled |
 | `--execute` | Required for mutation | Install missing binaries after explicit confirmation | Disabled |
 | `--bin-dir <directory>` | Optional | Target directory for newly installed executables | `/usr/local/bin` |
+| `--cluster-version <v1.X.Y>` | Required when kubectl is missing | Target CCE Kubernetes version used to select and verify kubectl | N/A |
 | `--help` | Optional | Display script usage | N/A |
 
 Set `KUBECTL_CCE_CONNECT_TIMEOUT`, `KUBECTL_CCE_DOWNLOAD_TIMEOUT`, `KUBECTL_CCE_SOURCE_CLONE_TIMEOUT`, or `KUBECTL_CCE_SOURCE_BUILD_TIMEOUT` to positive integer seconds only when the default timeout is unsuitable.
@@ -174,7 +176,7 @@ The plugin is ready when `kubectl plugin list` contains `kubectl-cce`. Do not re
 1. **Inspect before installing** - always run `--check` and the no-change plan first.
 2. **Use an explicit target directory** - show `--bin-dir` before asking for confirmation.
 3. **Preserve existing binaries** - do not request `--execute` as an upgrade mechanism unless the user explicitly asks for replacement support.
-4. **Pin source fallback versions** - use the Kubernetes stable tag and plugin `v0.1.0` tag selected by the script.
+4. **Match the target cluster** - provide the exact cluster version and accept an OBS package only after its extracted client `major.minor` matches.
 5. **Separate installation from cluster access** - do not validate the plugin by mutating a cluster; use a read-only request only when requested.
 
 ## Notes
