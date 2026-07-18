@@ -1,307 +1,289 @@
 ---
-id: huawei-cloud-cce-kubernetes-event-analyzer
 name: huawei-cloud-cce-kubernetes-event-analyzer
-description: Use this skill when the user wants to query and analyze Kubernetes events in Huawei Cloud CCE clusters. Trigger: user mentions Kubernetes events, "Kubernetes 事件", CCE events, "CCE 事件", event analysis, "事件分析", "FailedScheduling", "FailedMount", event query, "事件查询", cluster events, "集群事件"
-tags: [cce, kubernetes, events, observability, analysis]
+description: Query and analyze Kubernetes Events in Huawei Cloud CCE clusters. Use when users ask about CCE events, Kubernetes warning events, FailedScheduling, FailedMount, ImagePullBackOff, event patterns, historical events in LTS, or event-based diagnosis for a CCE cluster or namespace.
 ---
 
-# Kubernetes Event Analyzer
+# Huawei Cloud CCE Kubernetes Event Analyzer
 
 ## Overview
 
-Analyze Kubernetes events in Huawei Cloud CCE clusters to find warning events, anomalies, and failure patterns. Queries events via K8s API or LTS log streams, applies client-side filtering, groups patterns, and hands off to diagnosis skills for remediation.
+Query and analyze Kubernetes Events in Huawei Cloud CCE clusters to identify warnings, repeated failure patterns, affected resources, and useful diagnosis handoffs. The skill supports a current Event view through `kubectl` and a historical Event view through LTS.
 
-**Architecture**: MCP Tool → CCE K8s API / LTS Log Streams → Events → Client-side Filter & Group → Pattern Summary → Diagnosis Handoff
+**Architecture**: `python3 scripts/huawei-cloud.py` dispatcher -> `kubectl` through external kubeconfig or `kubectl cce` / CCE Event-to-LTS LogConfig -> Kubernetes Events -> client-side filtering and grouping -> diagnosis handoff.
 
-**Standard workflow**:
-```
-1. Identify region, cluster_id, and optional namespace from user query
-2. Fetch events using huawei_get_cce_events (K8s API) or huawei_query_k8s_events_from_lts (LTS)
-3. Apply client-side filters (type, reason, involved_object, time window)
-4. Group and aggregate by reason, namespace, or pattern
-5. Summarize top reasons, repeated patterns, and affected resources
-6. Hand off to diagnosis skill if specific failures identified
-```
+**Execution Method**: Invoke only the bundled dispatcher. Do not query Kubernetes Events with raw Python Kubernetes SDK calls, direct Kubernetes API calls, or ad hoc cloud commands. The `huawei_get_cce_events` implementation invokes `kubectl` internally: external kubeconfig access first, then the `kubectl cce` plugin fallback.
 
-**Related Skills** (handoff targets):
-- Pod failures -> `huawei-cloud-cce-pod-failure-diagnoser`
-- Workload rollout issues -> `huawei-cloud-cce-workload-failure-diagnoser`
-- Node issues -> `huawei-cloud-cce-node-failure-diagnoser`
-- Storage issues -> `huawei-cloud-cce-storage-failure-diagnoser`
-- Service/Network issues -> `huawei-cloud-cce-network-failure-diagnoser`
-- Action requested -> `huawei-cloud-cce-auto-remediation-runner`
+**Related Skills**:
+- `huawei-cloud-cce-metric-analyzer` - CCE and cloud-resource metrics
+- `huawei-cloud-cce-pod-failure-diagnoser` - Pod failure diagnosis
+- `huawei-cloud-cce-workload-failure-diagnoser` - Workload rollout diagnosis
+- `huawei-cloud-cce-node-failure-diagnoser` - Node failure diagnosis
+- `huawei-cloud-cce-storage-failure-diagnoser` - Storage failure diagnosis
+- `huawei-cloud-cce-network-failure-diagnoser` - Network failure diagnosis
+- `huawei-cloud-cce-auto-remediation-runner` - Explicit remediation workflow
+
+**Capabilities**:
+- Query current Kubernetes Events across a cluster or in a namespace
+- Read Events through external `kubectl` kubeconfig access or `kubectl cce`
+- Query historical Event records from LTS within an explicit time window
+- Filter and group Events by type, reason, namespace, resource, and timestamps
+- Identify repeated warning patterns and hand off evidence to diagnosis skills
+
+**Typical Use Cases**:
+- "List Warning events for this CCE cluster"
+- "Find repeated FailedScheduling events in namespace default"
+- "Query historical ImagePullBackOff events from LTS"
+- "Analyze the top Kubernetes event reasons during an incident"
 
 ## Prerequisites
 
-### 1. Python Dependencies
+### 1. Runtime Dependencies
 
-- Python 3.8+ with `huaweicloudsdkcce`, `huaweicloudsdkcore`, `kubernetes` packages
-- Run environment check before first use (see Verification section)
+- Python 3.8+ for the dispatcher and result processing
+- `hcloud` (KooCLI) for cluster lookup and temporary external kubeconfig generation
+- `kubectl` for current Event reads
+- `kubectl-cce` when the cluster has no usable external endpoint; see [kubectl-cce.md](references/kubectl-cce.md)
+- LTS SDK support and an Event-to-LTS LogConfig for historical Event queries
 
 ### 2. Credential Configuration
 
-- Valid Huawei Cloud credentials (AK/SK mode)
-- **Security Rules**:
-  - 🚫 Never expose AK/SK values in code, conversation, or commands
-  - 🚫 Never use `echo $HUAWEI_AK` or `echo $HUAWEI_SK` to check credentials
-  - ✅ Use environment variables: `HUAWEI_AK`, `HUAWEI_SK`, `HUAWEI_REGION`
-  - ✅ Prefer IAM users over root account for cloud operations
-  - ✅ Enable MFA for sensitive operations
+- External kubeconfig access uses hcloud credential priority: explicit tool parameters > local hcloud profile > environment variables.
+- The `kubectl cce` fallback requires AK/SK from explicit tool parameters or environment variables; encrypted hcloud profile credentials cannot be reused by the plugin.
+- LTS queries require valid Huawei Cloud credentials and an authorized project.
 
-**Configuration Method** (Environment Variables Only):
+**Security Rules**:
+- Never print, persist, or hardcode AK/SK, security tokens, kubeconfig content, or temporary client credentials.
+- Never use `echo $HUAWEI_AK` or `echo $HUAWEI_SK` to inspect credentials.
+- Prefer a local hcloud profile for external kubeconfig access.
+- Use least-privilege IAM identities and read-only Kubernetes RBAC permissions.
+
+**Optional Environment Fallback**:
 
 ```bash
 export HUAWEI_AK=<your-ak>
 export HUAWEI_SK=<your-sk>
 export HUAWEI_REGION=cn-north-4
+export HUAWEI_PROJECT_ID=<project-id>
+export HUAWEI_SECURITY_TOKEN=<security-token>
 ```
-
-**⚠️ Important Security Notes**:
-
-- Never commit credentials to version control
-- Use IAM users with minimal required permissions
-- Enable MFA for sensitive operations
-- Rotate AK/SK regularly
 
 ### 3. IAM Permission Requirements
 
-| API Action | Permission | Purpose |
-|------------|-----------|---------|
-| `cce:cluster:get` | Get cluster | View CCE cluster details |
-| `cce:cluster:createCert` | Create certificate | Obtain kubeconfig for kubectl access |
-| `cce:node:list` | List nodes | Query CCE cluster nodes |
-| `lte:logStream:list` | List LTS log streams | Discover LTS log streams for event queries |
-| `lte:logs:search` | Search LTS logs | Query K8s events from LTS log streams |
+| Permission | Purpose |
+| ---------- | ------- |
+| `cce:cluster:get` | Inspect cluster external endpoint availability |
+| `cce:cluster:createCert` | Generate temporary kubeconfig for external `kubectl` access |
+| `cce:logConfig:list` | Discover CCE Event-to-LTS LogConfig |
+| `lts:logStream:list` | Discover LTS Event streams |
+| `lts:logs:search` | Query historical Event records in LTS |
+
+The effective Kubernetes identity also needs read-only `get` and `list` permission for Events in the target namespace or cluster.
 
 **Permission Failure Handling**:
 
-1. When any command fails due to IAM permission errors, display the required permission list
-2. Guide the user to create a custom policy in the IAM console and grant authorization
-3. Pause execution and wait for user confirmation that permissions have been granted
-
-## Security Constraints
-
-### Read-Only Skill
-
-> **This skill is strictly read-only.** It only queries Kubernetes events and lists related resources. No modifications are made to the cluster.
-
-- **No write operations**: Never modify, delete, or create any Kubernetes resources
-- **Redact sensitive data**: Do not expose node names, pod names, or workload names that could identify production systems. Use redacted or fictional examples in summaries
-- **Hand off remediation**: If event analysis reveals a clear remediation path, provide evidence and hand off to the appropriate diagnosis or remediation skill instead of executing recovery actions here
-- **Time-bounded queries**: Keep event queries time-bounded. Prefer recent windows (1-24 hours) to avoid overwhelming results
-- **Redirect action requests**: If the user asks to take action based on event findings, redirect to `huawei-cloud-cce-auto-remediation-runner` with the evidence summarized
-
-## Tools
-
-| Tool | Purpose | Required Parameters | Optional Parameters |
-|------|---------|---------------------|---------------------|
-| `huawei_get_cce_events` | Query CCE Kubernetes events via K8s API Server | `region`, `cluster_id` | `namespace`, `limit` |
-| `huawei_query_k8s_events_from_lts` | Query K8s events from LTS log streams (Event→LTS LogConfig required) | `region`, `cluster_id`, `start_time`, `end_time` | `keywords` |
-
-## Scenario Routing
-
-| User Intent | Reference Document |
-|---|---|
-| Full event query workflow (5-step) | [references/workflow.md](references/workflow.md) |
-| Event pattern recognition table | [references/workflow.md](references/workflow.md) |
-| Time-window analysis guidance | [references/workflow.md](references/workflow.md) |
-| Risk constraints & guardrails | [references/risk-rules.md](references/risk-rules.md) |
-| Output schema (query & analysis) | [references/output-schema.md](references/output-schema.md) |
+1. Report the failed operation and required permission.
+2. Ask the user to grant the missing IAM or Kubernetes RBAC permission.
+3. Do not retry until the user confirms the permission is ready.
 
 ## Core Commands
 
-### Step 1: Query Events via K8s API (huawei_get_cce_events)
-
-Fetches raw Kubernetes events from the cluster API Server. All filtering beyond `namespace` and `limit` is done client-side after fetching.
+All commands use the bundled dispatcher:
 
 ```bash
-# Query all events in a cluster
-python3 scripts/huawei-cloud.py huawei_get_cce_events \
-  region=cn-north-4 \
-  cluster_id=<cluster-id>
-
-# Query events in a specific namespace
-python3 scripts/huawei-cloud.py huawei_get_cce_events \
-  region=cn-north-4 \
-  cluster_id=<cluster-id> \
-  namespace=default
-
-# Limit event count
-python3 scripts/huawei-cloud.py huawei_get_cce_events \
-  region=cn-north-4 \
-  cluster_id=<cluster-id> \
-  limit=100
+python3 scripts/huawei-cloud.py <tool-name> key=value key=value
 ```
 
-**Supported API filters**: `namespace`, `limit` (default 500)
+## KooCLI Command Format Standard
 
-**Unsupported filters (apply client-side)**: `event_type`, `reason`, `involved_object_kind`, `involved_object_name`, `hours`, `start_time`, `end_time`
-
-### Step 2: Query Events via LTS (huawei_query_k8s_events_from_lts)
-
-Queries K8s events collected to LTS via Event→LTS LogConfig. Requires a LogConfig with event collection enabled and pointing to LTS output.
+Users invoke the dispatcher rather than raw `hcloud` commands. For current Event queries, the dispatcher internally uses hcloud only to inspect the CCE cluster and generate a temporary external kubeconfig when appropriate.
 
 ```bash
-# Query events from LTS in a time window
+python3 scripts/huawei-cloud.py huawei_get_cce_events \
+  region=cn-north-4 cluster_id=<cluster-id>
+```
+
+Follow these rules:
+
+- Use `key=value` parameters and quote values containing spaces or special shell characters.
+- Do not print or persist credentials, security tokens, or temporary kubeconfig files.
+- Use exact `cluster_id` values for cluster-scoped queries.
+- Keep LTS queries time-bounded with both `start_time` and `end_time`.
+
+### 1. Current Kubernetes Events
+
+```bash
+# Query all current Events in a cluster
+python3 scripts/huawei-cloud.py huawei_get_cce_events \
+  region=cn-north-4 cluster_id=<cluster-id>
+
+# Query Events in a namespace
+python3 scripts/huawei-cloud.py huawei_get_cce_events \
+  region=cn-north-4 cluster_id=<cluster-id> namespace=default
+
+# Limit returned Event records
+python3 scripts/huawei-cloud.py huawei_get_cce_events \
+  region=cn-north-4 cluster_id=<cluster-id> limit=100
+```
+
+The tool reads Events through `kubectl`. It first uses the external endpoint with a temporary kubeconfig; it then falls back to `kubectl cce`. If both paths fail, it returns both access errors. Only `namespace` and `limit` are tool parameters; reason, type, resource, and time filtering are applied after retrieval.
+
+### 2. Historical Events From LTS
+
+```bash
+# Query an explicit historical window
 python3 scripts/huawei-cloud.py huawei_query_k8s_events_from_lts \
-  region=cn-north-4 \
-  cluster_id=<cluster-id> \
+  region=cn-north-4 cluster_id=<cluster-id> \
   start_time="2026-05-30 06:00:00" \
   end_time="2026-05-30 08:00:00"
 
-# Query with keyword filter
+# Query with an LTS keyword filter
 python3 scripts/huawei-cloud.py huawei_query_k8s_events_from_lts \
-  region=cn-north-4 \
-  cluster_id=<cluster-id> \
+  region=cn-north-4 cluster_id=<cluster-id> \
   start_time="2026-05-30 00:00:00" \
   end_time="2026-05-30 23:59:59" \
   keywords=FailedScheduling
 ```
 
-**LTS time format**: `YYYY-MM-DD HH:MM:SS`
+LTS time format is `YYYY-MM-DD HH:MM:SS`. The cluster must have an Event-to-LTS LogConfig whose output type is `LTS` and whose `normalEvents` or `warningEvents` collection is enabled. The CCE logging collector must be installed and healthy; installation alone is insufficient without the Event-to-LTS configuration.
 
-**Fallback**: If no Event→LTS LogConfig is found with events enabled, returns an error. Use `huawei_get_cce_events` instead.
+## Risk Levels
 
-### Step 3: Apply Client-Side Filters
+This skill is read-only. It never changes cloud resources, Kubernetes resources, LTS configuration, or local cluster access configuration.
 
-After fetching events, apply filters based on user needs:
+| Level | Meaning | Execution Guidance |
+| ----- | ------- | ------------------ |
+| R3 | Read-only Event query or local Event analysis | May run automatically |
 
-- `type == "Warning"` — warning events only
-- `reason` — specific patterns (FailedScheduling, ImagePullBackOff, FailedMount, etc.)
-- `involved_object.kind` + `involved_object.name` — specific resources
-- `namespace` — namespace-specific analysis
-- `first_timestamp` / `last_timestamp` — time-window analysis
-
-### Step 4: Group and Aggregate
-
-- Group by `reason` to find top event patterns
-- Group by `namespace` to find high-noise namespaces
-- Flag events with `count > 1` as repeated patterns
-- Calculate `warning_count` vs `normal_count` for quick health signal
-
-### Step 5: Summarize and Hand Off
-
-Summarize findings with counts, timestamps, and affected objects. If events point to specific failures, hand off to the appropriate diagnosis skill with evidence.
+| Tool | Operation Type | Risk Level | Description |
+| ---- | -------------- | ---------- | ----------- |
+| `huawei_get_cce_events` | Query | R3 | Query current cluster or namespace Events through `kubectl` |
+| `huawei_query_k8s_events_from_lts` | Query | R3 | Query historical Event records from configured LTS collection |
 
 ## Parameter Reference
 
 ### Common Parameters
 
 | Parameter | Required/Optional | Description | Default |
-|-----------|-------------------|-------------|---------|
+| --------- | ----------------- | ----------- | ------- |
 | `region` | Required | Huawei Cloud region | `HUAWEI_REGION` |
-| `cluster_id` | Required | CCE cluster ID | N/A |
-| `namespace` | Optional | Kubernetes namespace filter | N/A (all namespaces) |
-| `ak` | Optional | Override AK | `HUAWEI_AK` |
-| `sk` | Optional | Override SK | `HUAWEI_SK` |
-| `project_id` | Optional | Project ID | Auto from IAM |
+| `cluster_id` | Required | Exact CCE cluster ID | N/A |
+| `ak` | Optional | Explicit AK for access paths that support it | profile/environment fallback |
+| `sk` | Optional | Explicit SK for access paths that support it | profile/environment fallback |
+| `project_id` | Optional | Explicit Huawei Cloud project ID | profile/IAM/environment fallback |
 
-### `huawei_get_cce_events` Parameters
+### Current Event Query Parameters
 
-| Parameter | Required | Description | Default |
-|-----------|----------|-------------|---------|
-| `region` | Yes | Huawei Cloud region | `HUAWEI_REGION` |
-| `cluster_id` | Yes | CCE cluster ID | N/A |
-| `namespace` | No | Kubernetes namespace filter | N/A (all namespaces) |
-| `limit` | No | Maximum number of events to return | 500 |
+| Tool | Required | Optional |
+| ---- | -------- | -------- |
+| `huawei_get_cce_events` | `region`, `cluster_id` | `namespace`, `limit`, `ak`, `sk`, `project_id` |
 
-### `huawei_query_k8s_events_from_lts` Parameters
+### Historical Event Query Parameters
 
-| Parameter | Required | Description | Default |
-|-----------|----------|-------------|---------|
-| `region` | Yes | Huawei Cloud region | `HUAWEI_REGION` |
-| `cluster_id` | Yes | CCE cluster ID | N/A |
-| `start_time` | Yes | Query start time (YYYY-MM-DD HH:MM:SS) | N/A |
-| `end_time` | Yes | Query end time (YYYY-MM-DD HH:MM:SS) | N/A |
-| `keywords` | No | Keyword filter for LTS search | N/A |
-
-## Event Pattern Quick Reference
-
-| Pattern | Likely Cause | Handoff Target |
-|---------|-------------|---------------|
-| `ImagePullBackOff` repeated | Wrong image or pull secret missing | `huawei-cloud-cce-pod-failure-diagnoser` |
-| `FailedScheduling` + `insufficient` | Resource pressure or node not ready | `huawei-cloud-cce-workload-failure-diagnoser` |
-| `FailedMount` | Volume attach or PVC issue | `huawei-cloud-cce-storage-failure-diagnoser` |
-| `Evicted` pods | Budget disruption or node pressure | `huawei-cloud-cce-pod-failure-diagnoser` |
-| `NodeNotReady` | Node agent or network issue | `huawei-cloud-cce-node-failure-diagnoser` |
-| `Unhealthy` + Readiness probe | Application issue or startup failure | `huawei-cloud-cce-pod-failure-diagnoser` |
-| `FailedCreatePodSandBox` | CNI or network issue | `huawei-cloud-cce-network-failure-diagnoser` |
-| `OOMKilled` | Memory limit exceeded | `huawei-cloud-cce-pod-failure-diagnoser` |
+| Tool | Required | Optional |
+| ---- | -------- | -------- |
+| `huawei_query_k8s_events_from_lts` | `region`, `cluster_id`, `start_time`, `end_time` | `keywords`, `ak`, `sk`, `project_id` |
 
 ## Output Format
 
-### From huawei_get_cce_events (K8s API)
+### `huawei_get_cce_events`
 
 | Field | Description |
-|------|-------------|
+| ----- | ----------- |
+| `success` | Query success status |
 | `region` | Huawei Cloud region |
 | `cluster_id` | CCE cluster ID |
-| `namespace` | Kubernetes namespace filter (if applied) |
-| `total_fetched` | Number of events returned by the API |
-| `events` | Raw event list (apply filters client-side) |
-| `warning_count` | Number of Warning events (calculated) |
-| `top_reasons` | Top event reasons with counts (calculated) |
-| `repeated_patterns` | Events with count > 1 grouped by reason |
-| `namespace_breakdown` | Event counts by namespace |
-| `next_steps` | Suggested follow-up query or diagnosis skill |
+| `namespace` | Requested namespace or `all` |
+| `access_method` | `kubectl_kubeconfig_external` or `kubectl_cce_plugin` |
+| `count` | Number of returned Event records |
+| `limit` | Requested maximum Event records |
+| `events` | Normalized Event records |
+| `error`, `kubeconfig_error`, `plugin_error` | Failure details when access fails |
 
-### From huawei_query_k8s_events_from_lts (LTS)
+### `huawei_query_k8s_events_from_lts`
 
 | Field | Description |
-|------|-------------|
-| `region` | Huawei Cloud region |
+| ----- | ----------- |
+| `success` | Query success status |
 | `cluster_id` | CCE cluster ID |
-| `log_group_id` | LTS log group ID |
-| `log_stream_id` | LTS log stream ID |
-| `keywords` | Keywords used for filtering |
-| `event_count` | Number of events returned |
-| `events` | Parsed event list with normalized structure |
-| `time_range` | Start/end time of the query |
-| `log_config` | LogConfig info (name, events enabled, etc.) |
+| `log_group_id`, `log_stream_id` | LTS source identifiers |
+| `event_count` | Number of historical Event records returned |
+| `events` | Parsed Event records |
+| `time_range` | Effective start and end time |
+| `log_config` | Matched Event-to-LTS LogConfig information |
+
+See [output-schema.md](references/output-schema.md) for detailed analysis and Event field definitions.
+
+## Workflow
+
+1. Identify `region`, exact `cluster_id`, optional namespace, and incident time window.
+2. Use `huawei_get_cce_events` for current Event inspection.
+3. Use `huawei_query_k8s_events_from_lts` when historical coverage, a precise time window, or LTS keyword filtering is required.
+4. Filter warnings first, then group records by `reason`, namespace, and involved resource.
+5. Flag repeated records where `count > 1` and summarize first/last timestamps.
+6. Hand off evidence to the relevant Pod, Workload, Node, Storage, or Network diagnosis skill.
+
+See [workflow.md](references/workflow.md) for pattern recognition and time-window analysis guidance.
 
 ## Verification
 
-1. Run environment check script
-2. Query CCE events with huawei_get_cce_events
-3. Verify event filtering and pattern grouping
-4. Confirm handoff to diagnosis skills works correctly
+Run a current Event query first:
+
+```bash
+python3 scripts/huawei-cloud.py huawei_get_cce_events \
+  region=cn-north-4 cluster_id=<cluster-id> limit=10
+```
+
+When Event-to-LTS collection is configured, verify a bounded historical query:
+
+```bash
+python3 scripts/huawei-cloud.py huawei_query_k8s_events_from_lts \
+  region=cn-north-4 cluster_id=<cluster-id> \
+  start_time="2026-05-30 06:00:00" \
+  end_time="2026-05-30 07:00:00"
+```
+
+Verify that the current Event response includes `access_method`, and that the LTS response identifies the Event LogConfig and LTS stream. Do not create or change logging configuration as part of verification.
 
 ## Best Practices
 
-1. **Start with K8s API** — use `huawei_get_cce_events` for quick queries; fall back to LTS only when time-range precision is needed
-2. **Filter Warning first** — Warning events are the primary signal; filter `type == "Warning"` before deep analysis
-3. **Group by reason** — event reason grouping reveals systemic issues faster than per-event analysis
-4. **Time-bound queries** — prefer recent windows (1-24 hours) to avoid overwhelming results
-5. **Hand off, don't remediate** — this skill is read-only; always hand off to diagnosis skills with evidence
-6. **Redact sensitive names** — use generic labels in summaries; do not expose production pod/node/workload names
-
-## Common Pitfalls
-
-| Pitfall | Symptom | Quick Fix |
-|---------|---------|-----------|
-| Missing `cluster_id` | Action fails immediately | Provide `cluster_id` from `huawei_get_cce_clusters` |
-| No Event→LTS LogConfig configured | LTS query returns error | Use `huawei_get_cce_events` (K8s API) instead |
-| Unbounded time query | Overwhelming results, slow response | Always provide `start_time`/`end_time` or limit scope to 1-24 hours |
-| LTS time format mismatch | LTS query fails or returns no results | Use exact format `YYYY-MM-DD HH:MM:SS` for `start_time` and `end_time` |
-| Large namespace scan with no filter | Too many events, hard to analyze | Narrow with `namespace` or client-side filters (`type`, `reason`) |
-| Permission denied on kubeconfig | Cannot access cluster | Verify `cce:cluster:createCert` IAM permission |
-| LTS permission denied | Cannot query LTS log streams | Verify `lte:logStream:list` and `lte:logs:search` IAM permissions |
-| Ignoring `count > 1` events | Missing systemic patterns | Always group by `reason` and flag repeated events first |
+1. **Start with warnings** - filter `type == "Warning"` before detailed inspection.
+2. **Group by reason** - repeated reasons reveal systemic issues faster than individual records.
+3. **Use exact cluster IDs** - do not infer a cluster from its name.
+4. **Keep LTS windows bounded** - use the smallest incident window that answers the question.
+5. **Use LTS for history** - current Kubernetes Events have limited retention.
+6. **Hand off rather than remediate** - this skill provides evidence only.
 
 ## Notes
 
-- This skill does **not** modify, delete, or create any Kubernetes or LTS resources — all actions are **read-only**
-- Event summaries must **redact** production pod/node/workload names; use generic labels in public outputs
-- AK/SK must **never** be hardcoded — use environment variables only
-- The Python dispatcher script (`scripts/huawei-cloud.py`) is the **only execution method** — do not use hcloud CLI or direct API calls for event queries
-- For LTS queries, the cluster must have an **Event→LTS LogConfig** configured; otherwise fall back to K8s API
-- Hand off remediation requests to `huawei-cloud-cce-auto-remediation-runner` with evidence summarized — this skill never executes recovery actions
-- All event data is **point-in-time** — K8s API events have a retention limit; use LTS for historical analysis beyond the API retention window
+- No active warning does not prove a cluster is healthy; inspect historical LTS Events for recent or recovered incidents when available.
+- The Event-to-LTS path depends on both CCE log collection and an enabled Event-to-LTS LogConfig.
+- Event summaries should redact sensitive production workload, Pod, and node identifiers where the audience does not need them.
+- Do not modify Kubernetes, CCE logging, LTS, or cloud resources through this skill.
 
-## Reference Documents
+## Troubleshooting
 
-| Document | Description |
-|----------|-------------|
-| [workflow.md](references/workflow.md) | Full event query workflow, pattern recognition, time-window analysis, aggregation guidance, LTS vs K8s API selection guide |
-| [risk-rules.md](references/risk-rules.md) | Read-only constraints, data redaction rules, handoff policies, guardrails |
-| [output-schema.md](references/output-schema.md) | Event query summary, analysis summary, and per-event detail schema |
+| Symptom | Likely Cause | Action |
+| ------- | ------------ | ------ |
+| External kubeconfig access fails | No external endpoint, invalid profile, or missing CCE permission | Verify `cce:cluster:get` and `cce:cluster:createCert`; the tool then tries `kubectl cce` |
+| `kubectl cce` fallback fails | Plugin missing or plugin credentials unavailable | Install/configure the plugin using [kubectl-cce.md](references/kubectl-cce.md) |
+| LTS query finds no Event LogConfig | Event collection is not configured | Enable Event-to-LTS collection outside this read-only skill, then retry |
+| LTS query returns no records | Time window, keywords, retention, or event collection does not match | Narrow or correct the window and verify the LogConfig and LTS stream |
+| Too many current Events | Broad cluster query | Provide `namespace` and lower `limit`, then filter by type/reason locally |
+| Permission denied | Missing IAM or Kubernetes RBAC permission | Grant the reported least-privilege permission, then retry |
+
+## Limitations
+
+- The skill provides only the two documented read-only Event tools.
+- Current Event queries cannot apply server-side filters beyond namespace and limit.
+- Historical queries require Event-to-LTS collection configured before the incident; the skill cannot recover uncollected history.
+- The skill cannot create, modify, or delete LogConfigs, LTS streams, Kubernetes resources, or CCE resources.
+- The skill does not automatically select a cluster, namespace, event filter, or diagnosis/remediation action for the user.
+
+## References
+
+| Document | Use |
+| -------- | --- |
+| [Workflow](references/workflow.md) | Event query sequence, grouping, patterns, and time-window analysis |
+| [Risk Rules](references/risk-rules.md) | Read-only boundaries, redaction, and handoff constraints |
+| [Output Schema](references/output-schema.md) | Query, analysis, and Event record fields |
+| [kubectl-cce](references/kubectl-cce.md) | kubectl-cce installation, credentials, and access fallback |
