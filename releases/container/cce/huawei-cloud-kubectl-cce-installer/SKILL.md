@@ -40,6 +40,7 @@ Install and verify the local `kubectl` and `kubectl-cce` prerequisites used for 
 - `git` and Go only when source-build fallback is needed
 - Write access to the selected `--bin-dir`; `/usr/local/bin` normally requires elevation
 - Internet access to Kubernetes and GitHub release/source endpoints
+- Network steps use timeouts by default: 10 seconds to connect, 300 seconds to download, 600 seconds to clone sources, and 900 seconds to build sources
 
 ### 2. Credential Configuration
 
@@ -126,6 +127,8 @@ This skill modifies only local binaries and does not operate on cloud resources.
 | `--bin-dir <directory>` | Optional | Target directory for newly installed executables | `/usr/local/bin` |
 | `--help` | Optional | Display script usage | N/A |
 
+Set `KUBECTL_CCE_CONNECT_TIMEOUT`, `KUBECTL_CCE_DOWNLOAD_TIMEOUT`, `KUBECTL_CCE_SOURCE_CLONE_TIMEOUT`, or `KUBECTL_CCE_SOURCE_BUILD_TIMEOUT` to positive integer seconds only when the default timeout is unsuitable.
+
 ## Output Format
 
 The script writes human-readable output to standard output and exits nonzero when it cannot complete the requested operation.
@@ -187,6 +190,7 @@ The plugin is ready when `kubectl plugin list` contains `kubectl-cce`. Do not re
 | ------- | ------------ | ------ |
 | `curl`, `tar`, or `install` is missing | Local prerequisite is absent | Install the missing local prerequisite through the user-approved system method, then retry |
 | Download fails | Network restriction or unavailable Release asset | Allow the script to use its fixed-tag source-build fallback after confirmation |
+| Network step times out | Endpoint, proxy, or connection is slow or unavailable | Check connectivity, then increase the relevant `KUBECTL_CCE_*_TIMEOUT` value if the user approves |
 | Source build fails | `git`/Go missing or source build dependency failure | Install the reported build prerequisite, then rerun the plan and confirmed installation |
 | Permission denied in `--bin-dir` | Protected target directory | Select a writable directory or run an explicitly approved elevated command |
 | Plugin not listed | Target directory is not in `PATH` | Add the selected `--bin-dir` to `PATH`, then rerun `kubectl plugin list` |

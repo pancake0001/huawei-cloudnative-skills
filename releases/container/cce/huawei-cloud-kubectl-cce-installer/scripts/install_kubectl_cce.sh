@@ -7,6 +7,10 @@ KUBERNETES_REPOSITORY="https://github.com/kubernetes/kubernetes.git"
 PLUGIN_SOURCE_REPOSITORY="https://github.com/${PLUGIN_REPOSITORY}.git"
 BIN_DIR="/usr/local/bin"
 MODE="plan"
+CONNECT_TIMEOUT="${KUBECTL_CCE_CONNECT_TIMEOUT:-10}"
+DOWNLOAD_TIMEOUT="${KUBECTL_CCE_DOWNLOAD_TIMEOUT:-300}"
+SOURCE_CLONE_TIMEOUT="${KUBECTL_CCE_SOURCE_CLONE_TIMEOUT:-600}"
+SOURCE_BUILD_TIMEOUT="${KUBECTL_CCE_SOURCE_BUILD_TIMEOUT:-900}"
 
 usage() {
   cat <<'EOF'
@@ -38,6 +42,57 @@ require_command() {
   }
 }
 
+validate_timeout() {
+  local name="$1"
+  local value="$2"
+  [[ "$value" =~ ^[1-9][0-9]*$ ]] || {
+    echo "${name} must be a positive integer in seconds" >&2
+    exit 2
+  }
+}
+
+download_file() {
+  local url="$1"
+  local output="$2"
+  curl --fail --show-error --location \
+    --connect-timeout "$CONNECT_TIMEOUT" \
+    --max-time "$DOWNLOAD_TIMEOUT" \
+    "$url" -o "$output"
+}
+
+download_stdout() {
+  curl --fail --show-error --location --silent \
+    --connect-timeout "$CONNECT_TIMEOUT" \
+    --max-time "$DOWNLOAD_TIMEOUT" \
+    "$1"
+}
+
+run_with_timeout() {
+  local timeout_seconds="$1"
+  shift
+  "$@" &
+  local command_pid=$!
+  (
+    sleep "$timeout_seconds"
+    if kill -0 "$command_pid" 2>/dev/null; then
+      echo "Command timed out after ${timeout_seconds}s: $1" >&2
+      kill -TERM "$command_pid" 2>/dev/null || true
+      sleep 5
+      kill -KILL "$command_pid" 2>/dev/null || true
+    fi
+  ) &
+  local watchdog_pid=$!
+  local status=0
+  if wait "$command_pid"; then
+    :
+  else
+    status=$?
+  fi
+  kill "$watchdog_pid" 2>/dev/null || true
+  wait "$watchdog_pid" 2>/dev/null || true
+  return "$status"
+}
+
 detect_arch() {
   case "$(uname -m)" in
     x86_64|amd64) echo "amd64" ;;
@@ -58,11 +113,13 @@ build_kubectl_from_source() {
   require_command git
   require_command go
   echo "Official kubectl download failed; building kubectl ${version} from the Kubernetes source tag."
-  git clone --depth 1 --branch "$version" "$KUBERNETES_REPOSITORY" "$source_dir"
-  (
+  run_with_timeout "$SOURCE_CLONE_TIMEOUT" git clone --depth 1 --branch "$version" "$KUBERNETES_REPOSITORY" "$source_dir"
+  run_with_timeout "$SOURCE_BUILD_TIMEOUT" bash -c '
+    source_dir="$1"
+    output="$2"
     cd "$source_dir"
-    go build -o "$WORK_DIR/kubectl" ./cmd/kubectl
-  )
+    go build -o "$output" ./cmd/kubectl
+  ' _ "$source_dir" "$WORK_DIR/kubectl"
   install_file "$WORK_DIR/kubectl" "$BIN_DIR/kubectl"
 }
 
@@ -71,11 +128,13 @@ build_plugin_from_source() {
   require_command git
   require_command go
   echo "kubectl-cce Release asset is unavailable; building plugin v${PLUGIN_VERSION} from source."
-  git clone --depth 1 --branch "v${PLUGIN_VERSION}" "$PLUGIN_SOURCE_REPOSITORY" "$source_dir"
-  (
+  run_with_timeout "$SOURCE_CLONE_TIMEOUT" git clone --depth 1 --branch "v${PLUGIN_VERSION}" "$PLUGIN_SOURCE_REPOSITORY" "$source_dir"
+  run_with_timeout "$SOURCE_BUILD_TIMEOUT" bash -c '
+    source_dir="$1"
+    output="$2"
     cd "$source_dir"
-    go build -o "$WORK_DIR/kubectl-cce" ./cmd/kubectl-cce
-  )
+    go build -o "$output" ./cmd/kubectl-cce
+  ' _ "$source_dir" "$WORK_DIR/kubectl-cce"
   install_file "$WORK_DIR/kubectl-cce" "$BIN_DIR/kubectl-cce"
 }
 
@@ -85,6 +144,11 @@ KUBECTL_PRESENT=false
 PLUGIN_PRESENT=false
 command -v kubectl >/dev/null 2>&1 && KUBECTL_PRESENT=true
 command -v kubectl-cce >/dev/null 2>&1 && PLUGIN_PRESENT=true
+
+validate_timeout "KUBECTL_CCE_CONNECT_TIMEOUT" "$CONNECT_TIMEOUT"
+validate_timeout "KUBECTL_CCE_DOWNLOAD_TIMEOUT" "$DOWNLOAD_TIMEOUT"
+validate_timeout "KUBECTL_CCE_SOURCE_CLONE_TIMEOUT" "$SOURCE_CLONE_TIMEOUT"
+validate_timeout "KUBECTL_CCE_SOURCE_BUILD_TIMEOUT" "$SOURCE_BUILD_TIMEOUT"
 
 echo "platform=${OS} arch=${ARCH}"
 echo "kubectl_present=${KUBECTL_PRESENT}"
@@ -130,9 +194,9 @@ WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "$WORK_DIR"' EXIT
 
 if [[ "$KUBECTL_PRESENT" == false ]]; then
-  KUBECTL_VERSION="$(curl -fsSL https://dl.k8s.io/release/stable.txt)"
+  KUBECTL_VERSION="$(download_stdout https://dl.k8s.io/release/stable.txt)"
   KUBECTL_OS="$(tr '[:upper:]' '[:lower:]' <<< "$OS")"
-  if curl -fsSL "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/${KUBECTL_OS}/${ARCH}/kubectl" -o "$WORK_DIR/kubectl"; then
+  if download_file "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/${KUBECTL_OS}/${ARCH}/kubectl" "$WORK_DIR/kubectl"; then
     install_file "$WORK_DIR/kubectl" "$BIN_DIR/kubectl"
   else
     build_kubectl_from_source "$KUBECTL_VERSION"
@@ -143,7 +207,7 @@ if [[ "$PLUGIN_PRESENT" == false ]]; then
   if [[ "$OS" == "Linux" ]]; then
     ASSET_NAME="kubectl-cce_${PLUGIN_VERSION}_linux_${ARCH}.tar.gz"
     ASSET_URL="https://github.com/${PLUGIN_REPOSITORY}/releases/download/v${PLUGIN_VERSION}/${ASSET_NAME}"
-    if curl -fsSL "$ASSET_URL" -o "$WORK_DIR/$ASSET_NAME" && tar -xzf "$WORK_DIR/$ASSET_NAME" -C "$WORK_DIR" && [[ -f "$WORK_DIR/kubectl-cce" ]]; then
+    if download_file "$ASSET_URL" "$WORK_DIR/$ASSET_NAME" && tar -xzf "$WORK_DIR/$ASSET_NAME" -C "$WORK_DIR" && [[ -f "$WORK_DIR/kubectl-cce" ]]; then
       install_file "$WORK_DIR/kubectl-cce" "$BIN_DIR/kubectl-cce"
     else
       build_plugin_from_source
