@@ -1,0 +1,15 @@
+name: huawei-cloud-kubectl-cce-installer
+level: L1
+domain: tooling
+description: Install and verify local kubectl and kubectl-cce prerequisites for CCE access.
+tools:
+  - scripts/install_kubectl_cce.sh
+dependencies:
+  - type: cli
+    name: curl
+    required: true
+  - type: cli
+    name: tar
+    required: true
+guardrails:
+  max_auto_risk: R2

@@ -1,0 +1,4 @@
+interface:
+  display_name: "CCE kubectl Installer"
+  short_description: "Install and verify kubectl plus kubectl-cce safely"
+  default_prompt: "Use $huawei-cloud-kubectl-cce-installer to check and install kubectl and kubectl-cce on this machine."
