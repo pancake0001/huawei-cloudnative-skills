@@ -61,6 +61,7 @@ Correlate Huawei Cloud AOM active and historical alarms for CCE operations, then
 - Valid Huawei Cloud credentials via explicit tool parameters, local hcloud profile, or environment variable fallback
 - Credential priority for hcloud calls is: explicit tool parameters > local hcloud profile > environment variables
 - Tools that need `project_id` resolve it internally where possible: explicit `project_id` parameter first, then active hcloud profile/IAM project lookup for the target region, then environment fallback
+- When a required resource identifier such as `project_id`, `cluster_id`, AOM instance ID, alarm rule ID, or notification rule ID is not supplied, first use an available skill query tool that can discover the resource. If no suitable skill query tool exists, query it with hcloud for the selected region and resource context before asking the user for the exact ID. Do not guess an identifier or select an ambiguous match.
 
 **Security Rules**:
 - Never expose AK/SK, tokens, or credential-derived secrets in code, commands, logs, or responses

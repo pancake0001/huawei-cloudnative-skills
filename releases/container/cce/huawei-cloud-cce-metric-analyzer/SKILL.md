@@ -53,6 +53,7 @@ Query and analyze metrics for CCE clusters (Pod/Node CPU/memory/disk) and cloud 
 ### 2. Credential Configuration
 
 - Valid Huawei Cloud credentials via hcloud profile or AK/SK mode
+- When a required resource identifier such as `project_id`, `cluster_id`, AOM instance ID, ECS ID, ELB ID, NAT gateway ID, or EIP ID is not supplied, first use an available skill query tool that can discover the resource. If no suitable skill query tool exists, query it with hcloud for the selected region and resource context before asking the user for the exact ID. Do not guess an identifier or select an ambiguous match.
 - **Security Rules**:
   - 🚫 Never expose AK/SK values in code, conversation, or commands
   - 🚫 Never use `echo $HUAWEI_AK` or `echo $HUAWEI_SK` to check credentials
@@ -425,7 +426,7 @@ See [Output Schema](references/output-schema.md) for the complete JSON response 
 
 ## Workflow
 
-1. Resolve region, cluster ID, and credentials using the documented priority.
+1. Resolve region and credentials using the documented priority. When a required project, cluster, or cloud-resource ID is missing, discover it with an available skill query tool first, then hcloud if no suitable tool exists; ask the user to disambiguate multiple matches.
 2. Discover the AOM Prometheus instance from the CCE cluster add-on binding.
 3. Start with Pod/Node TopN or aggregation, then drill into a Pod, Node, component, or cloud resource.
 4. Keep PromQL scoped by `cluster="<cluster_id>"`; add namespace, pod, or resource filters only to reduce noise.
