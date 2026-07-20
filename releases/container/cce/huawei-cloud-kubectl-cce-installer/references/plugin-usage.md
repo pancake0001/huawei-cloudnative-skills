@@ -2,7 +2,7 @@
 
 ## Release Source
 
-Use `pancake0001/kubectl-cce-plugin` Release `v0.1.0` when an asset exists. Its published assets support Linux and Windows amd64/arm64; it does not publish a macOS asset. The installer falls back to building the fixed `v0.1.0` source tag with Go when the asset is unavailable or its download fails.
+Use the [Gitee `pancake0001/kubectl-cce-plugin` Release `v0.1.0`](https://gitee.com/pancake0001/kubectl-cce-plugin/releases/tag/v0.1.0) when an asset exists. Its published assets support Linux and Windows amd64/arm64; it does not publish a macOS asset. The installer falls back to building the fixed `v0.1.0` source tag with Go when the asset is unavailable or its download fails.
 
 ## Plugin Credentials
 

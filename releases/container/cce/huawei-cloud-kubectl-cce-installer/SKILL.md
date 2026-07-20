@@ -22,7 +22,7 @@ Install and verify the local `kubectl` and `kubectl-cce` prerequisites used for 
 - Show a no-change installation plan before execution
 - Select the latest missing Linux `kubectl` package from the public Beijing 4 CCE OBS repository for the local architecture
 - Fall back to the official Kubernetes stable release, then build the same stable tag when download fails
-- Install `kubectl-cce` v0.1.0 from its GitHub Release on Linux when available
+- Install `kubectl-cce` v0.1.0 from its Gitee Release on Linux when available
 - Build the fixed `kubectl-cce` v0.1.0 source tag when a Release asset is unavailable or download fails
 - Verify `kubectl` and `kubectl-cce` plugin discovery after installation
 
@@ -39,7 +39,7 @@ Install and verify the local `kubectl` and `kubectl-cce` prerequisites used for 
 - Bash, `curl`, `tar`, and `install` for Linux/macOS installation
 - `git` and Go only when source-build fallback is needed
 - Write access to the selected `--bin-dir`; `/usr/local/bin` normally requires elevation
-- Internet access to Kubernetes and GitHub release/source endpoints
+- Internet access to Kubernetes and Gitee release/source endpoints
 - Network steps use timeouts by default: 10 seconds to connect, 300 seconds to download, 600 seconds to clone sources, and 900 seconds to build sources
 
 ### 2. Credential Configuration

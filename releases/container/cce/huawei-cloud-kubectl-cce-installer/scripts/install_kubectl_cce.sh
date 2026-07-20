@@ -3,8 +3,9 @@ set -euo pipefail
 
 PLUGIN_VERSION="0.1.0"
 PLUGIN_REPOSITORY="pancake0001/kubectl-cce-plugin"
+PLUGIN_RELEASE_BASE_URL="https://gitee.com/${PLUGIN_REPOSITORY}/releases/download"
 KUBERNETES_REPOSITORY="https://github.com/kubernetes/kubernetes.git"
-PLUGIN_SOURCE_REPOSITORY="https://github.com/${PLUGIN_REPOSITORY}.git"
+PLUGIN_SOURCE_REPOSITORY="https://gitee.com/${PLUGIN_REPOSITORY}.git"
 BIN_DIR="/usr/local/bin"
 MODE="plan"
 OBS_BASE_URL="https://cce-north-4.obs.cn-north-4.myhuaweicloud.com"
@@ -209,7 +210,7 @@ if [[ "$KUBECTL_PRESENT" == false ]]; then
   echo "PLAN: install the latest public OBS kubectl package for Linux ${ARCH} into ${BIN_DIR}."
 fi
 if [[ "$PLUGIN_PRESENT" == false ]]; then
-  echo "PLAN: download kubectl-cce v${PLUGIN_VERSION} for ${OS} ${ARCH} from GitHub Release when available; otherwise build tag v${PLUGIN_VERSION} from source."
+  echo "PLAN: download kubectl-cce v${PLUGIN_VERSION} for ${OS} ${ARCH} from Gitee Release when available; otherwise build tag v${PLUGIN_VERSION} from source."
 fi
 if [[ "$KUBECTL_PRESENT" == true && "$PLUGIN_PRESENT" == true ]]; then
   echo "Nothing to install. Run with --check to verify versions and plugin discovery."
@@ -243,7 +244,7 @@ fi
 if [[ "$PLUGIN_PRESENT" == false ]]; then
   if [[ "$OS" == "Linux" ]]; then
     ASSET_NAME="kubectl-cce_${PLUGIN_VERSION}_linux_${ARCH}.tar.gz"
-    ASSET_URL="https://github.com/${PLUGIN_REPOSITORY}/releases/download/v${PLUGIN_VERSION}/${ASSET_NAME}"
+    ASSET_URL="${PLUGIN_RELEASE_BASE_URL}/v${PLUGIN_VERSION}/${ASSET_NAME}"
     if download_file "$ASSET_URL" "$WORK_DIR/$ASSET_NAME" && tar -xzf "$WORK_DIR/$ASSET_NAME" -C "$WORK_DIR" && [[ -f "$WORK_DIR/kubectl-cce" ]]; then
       install_file "$WORK_DIR/kubectl-cce" "$BIN_DIR/kubectl-cce"
     else
