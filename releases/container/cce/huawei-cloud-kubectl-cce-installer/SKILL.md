@@ -1,6 +1,7 @@
 ---
 name: huawei-cloud-kubectl-cce-installer
 description: Install, upgrade, verify, or troubleshoot local kubectl and the Huawei Cloud kubectl-cce plugin. Use when a user asks to install kubectl, install kubectl-cce, configure the CCE kubectl plugin, verify kubectl-cce availability, or repair local command prerequisites for CCE Kubernetes resource access.
+tags: [kubectl, kubectl-cce, cce, huawei-cloud, kubernetes]
 ---
 
 # Huawei Cloud CCE kubectl Installer
