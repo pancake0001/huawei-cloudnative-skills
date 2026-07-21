@@ -1,6 +1,6 @@
 ---
 name: huawei-cloud-kubectl-cce-installer
-description: Install, upgrade, verify, or troubleshoot local kubectl and the Huawei Cloud kubectl-cce plugin. Use when a user asks to install kubectl, install kubectl-cce, configure the CCE kubectl plugin, verify kubectl-cce availability, or repair local command prerequisites for CCE Kubernetes resource access.
+description: Install, upgrade, verify, or troubleshoot local kubectl and the Huawei Cloud kubectl-cce plugin. Trigger when a user asks to install kubectl, install kubectl-cce, configure the CCE kubectl plugin, verify kubectl-cce availability, or repair local command prerequisites for CCE Kubernetes resource access.
 tags: [kubectl, kubectl-cce, cce, huawei-cloud, kubernetes]
 ---
 
@@ -131,6 +131,19 @@ This skill modifies only local binaries and does not operate on cloud resources.
 
 Set `KUBECTL_CCE_CONNECT_TIMEOUT`, `KUBECTL_CCE_DOWNLOAD_TIMEOUT`, `KUBECTL_CCE_SOURCE_CLONE_TIMEOUT`, or `KUBECTL_CCE_SOURCE_BUILD_TIMEOUT` to positive integer seconds only when the default timeout is unsuitable.
 
+## 参数确认
+
+The installer may inspect the local machine without confirmation, but installation is an R1 local-system change. Confirm the following values with the user before running `--execute`.
+
+| Parameter | Resolution | Confirmation Requirement |
+| --------- | ---------- | ------------------------ |
+| Installation mode | `--check` and the default plan are read-only; `--execute` installs missing binaries | Explicit confirmation required for `--execute` |
+| `--bin-dir` | Defaults to `/usr/local/bin`; may be changed to a writable user-selected directory | Confirm the target directory before installation |
+| Existing executables | Detected from `PATH`; the script does not overwrite them | Report the detected state; do not replace an executable without a separately approved workflow |
+| Network timeouts | Use defaults unless the user provides positive integer overrides | Confirm non-default values when they materially extend the wait time |
+
+Never infer a writable installation directory, use `sudo` automatically, or install a missing build dependency without the user's explicit approval.
+
 ## Output Format
 
 The script writes human-readable output to standard output and exits nonzero when it cannot complete the requested operation.
@@ -211,3 +224,4 @@ The plugin is ready when `kubectl plugin list` contains `kubectl-cce`. Do not re
 | Document | Use |
 | -------- | --- |
 | [Plugin Usage](references/plugin-usage.md) | kubectl-cce credentials, read-only CCE connectivity test, and Windows installation |
+| [Acceptance Criteria](references/acceptance-criteria.md) | Installation, verification, safety, and documentation acceptance gates |

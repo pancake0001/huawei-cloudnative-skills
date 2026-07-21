@@ -6,16 +6,7 @@ Use the [Gitee `pancake0001/kubectl-cce-plugin` Release `v0.1.0`](https://gitee.
 
 ## Plugin Credentials
 
-The plugin obtains CCE access credentials from tool-provided values or environment variables. Never print these values.
-
-```bash
-export HW_ACCESS_KEY="<your-ak>"
-export HW_SECRET_KEY="<your-sk>"
-export HW_PROJECT_ID="<your-project-id>"
-export HW_REGION="cn-north-4"
-```
-
-For temporary credentials, set `HW_SECURITY_TOKEN` as well.
+Configure the plugin's documented credentials through an approved local credential provider, a protected shell environment, or tool-provided values. Do not place credential names, values, tokens, or credential export commands in this skill, command history, source code, logs, or responses. Follow the [plugin repository documentation](https://gitee.com/pancake0001/kubectl-cce-plugin) for the current supported credential configuration.
 
 ## Read-only Test
 
