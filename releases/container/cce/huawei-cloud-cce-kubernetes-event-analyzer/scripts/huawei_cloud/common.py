@@ -5,33 +5,10 @@ from __future__ import annotations
 import os
 from typing import Optional
 
-from huaweicloudsdkcore.auth.credentials import BasicCredentials, GlobalCredentials
-from huaweicloudsdkcce.v3 import CceClient
+from huaweicloudsdkcore.auth.credentials import GlobalCredentials
 from huaweicloudsdkiam.v3 import IamClient, KeystoneListProjectsRequest
 
-try:
-    from kubernetes import client as k8s_client
-except ImportError:
-    k8s_client = None
-
-
 _PROJECT_ID_CACHE: dict[str, str] = {}
-_TEMP_CERT_FILES: set[str] = set()
-
-
-def _register_cert_file(filepath: Optional[str]) -> None:
-    if filepath:
-        _TEMP_CERT_FILES.add(filepath)
-
-
-def _safe_delete_file(filepath: Optional[str]) -> None:
-    if not filepath:
-        return
-    try:
-        if os.path.exists(filepath):
-            os.remove(filepath)
-    finally:
-        _TEMP_CERT_FILES.discard(filepath)
 
 
 def get_credentials(
@@ -76,8 +53,3 @@ def get_credentials_with_region(
     if not resolved_project_id and access_key and secret_key:
         resolved_project_id = get_project_id_for_region(region, access_key, secret_key)
     return access_key, secret_key, resolved_project_id
-
-
-def create_cce_client(region: str, ak: str, sk: str, project_id: Optional[str] = None) -> CceClient:
-    credentials = BasicCredentials(ak=ak, sk=sk, project_id=project_id) if project_id else BasicCredentials(ak=ak, sk=sk)
-    return CceClient.new_builder().with_credentials(credentials).with_endpoint(f"cce.{region}.myhuaweicloud.com").build()

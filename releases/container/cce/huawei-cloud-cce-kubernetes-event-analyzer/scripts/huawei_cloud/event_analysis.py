@@ -36,11 +36,54 @@ def _range(values: Iterable[Optional[str]]) -> Dict[str, Optional[str]]:
     return {"first": timestamps[0] if timestamps else None, "last": timestamps[-1] if timestamps else None}
 
 
+def _query_events(params: Dict[str, str]) -> tuple[List[Dict[str, Any]], str, Dict[str, Any]]:
+    """Query a supported Event source before local aggregation."""
+    source = (params.get("event_source") or "current").lower()
+    region = params.get("region")
+    cluster_id = params.get("cluster_id")
+    if source not in {"current", "lts"}:
+        raise ValueError("event_source must be current or lts")
+    if not region or not cluster_id:
+        raise ValueError("region and cluster_id are required when events is not provided")
+
+    if source == "current":
+        from . import cce
+
+        try:
+            limit = int(params.get("limit", "500"))
+        except ValueError:
+            raise ValueError("limit must be an integer")
+        result = cce.get_kubernetes_events(
+            region=region,
+            cluster_id=cluster_id,
+            namespace=params.get("namespace"),
+            limit=max(1, min(limit, 1000)),
+            ak=params.get("ak"),
+            sk=params.get("sk"),
+            project_id=params.get("project_id"),
+        )
+    else:
+        from . import cce_events_lts
+
+        if not params.get("start_time") or not params.get("end_time"):
+            raise ValueError("start_time and end_time are required when event_source=lts")
+        result = cce_events_lts.query_k8s_events_from_lts_action(params)
+
+    if not result.get("success"):
+        raise RuntimeError(result.get("error") or f"failed to query {source} events")
+    return result.get("events") or [], source, result
+
+
 def analyze_cce_events_action(params: Dict[str, str]) -> Dict[str, Any]:
-    """Aggregate current or historical Event records without a cloud request."""
+    """Query an Event source when needed, then aggregate its Event records locally."""
+    query_result: Optional[Dict[str, Any]] = None
     try:
-        events = _parse_events(params.get("events"))
-    except (ValueError, json.JSONDecodeError) as exc:
+        if params.get("events"):
+            events = _parse_events(params.get("events"))
+            source = params.get("event_source") or "provided_events"
+        else:
+            events, source, query_result = _query_events(params)
+    except (ValueError, json.JSONDecodeError, RuntimeError) as exc:
         return {"success": False, "error": str(exc)}
 
     try:
@@ -106,9 +149,9 @@ def analyze_cce_events_action(params: Dict[str, str]) -> Dict[str, Any]:
     ]
     repeated_patterns.sort(key=lambda item: item["count"], reverse=True)
 
-    return {
+    response = {
         "success": True,
-        "source": params.get("source") or "provided_events",
+        "source": source,
         "event_records": len(events),
         "total_occurrences": sum(type_counts.values()),
         "event_type_breakdown": dict(type_counts.most_common()),
@@ -126,3 +169,14 @@ def analyze_cce_events_action(params: Dict[str, str]) -> Dict[str, Any]:
         ],
         "repeated_patterns": repeated_patterns[:max_groups],
     }
+    if query_result is not None:
+        response["query"] = {
+            "source": source,
+            "region": query_result.get("region"),
+            "cluster_id": query_result.get("cluster_id"),
+            "event_count": len(events),
+            "access_method": query_result.get("access_method"),
+            "time_range": query_result.get("time_range"),
+            "log_config": query_result.get("log_config"),
+        }
+    return response

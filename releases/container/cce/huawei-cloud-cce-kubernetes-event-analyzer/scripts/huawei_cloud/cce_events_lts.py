@@ -71,7 +71,7 @@ def _parse_event_content(log_content: str) -> Optional[Dict[str, Any]]:
         'InvolvedObject': 'involved_object',
     }
 
-    # Determine which format we're dealing with
+    # Determine which format we're dealing with.
     if 'reason' in data:
         # Format A (lowercase)
         for k, v in data.items():
@@ -88,6 +88,28 @@ def _parse_event_content(log_content: str) -> Optional[Dict[str, Any]]:
         # Unknown format, just lowercase everything
         for k, v in data.items():
             normalized[k.lower()] = v
+
+    # Cloud Native Log Collection writes Event records with this compact schema:
+    # `name` is the Kubernetes Event reason and `reason` contains the message.
+    if data.get("resource_kind") and data.get("name"):
+        if not normalized.get("message") and data.get("reason"):
+            normalized["message"] = data["reason"]
+        normalized["reason"] = data["name"]
+    elif not normalized.get("reason") and data.get("name"):
+        normalized["reason"] = data["name"]
+    if not normalized.get("first_timestamp") and data.get("start_time"):
+        normalized["first_timestamp"] = data["start_time"]
+        normalized["last_timestamp"] = data["start_time"]
+    if not normalized.get("involved_object") and (data.get("resource_kind") or data.get("resource_name")):
+        normalized["involved_object"] = {
+            "kind": data.get("resource_kind"),
+            "name": data.get("resource_name"),
+        }
+    try:
+        if int(normalized.get("count", 1)) <= 0:
+            normalized["count"] = 1
+    except (TypeError, ValueError):
+        normalized["count"] = 1
 
     return normalized
 

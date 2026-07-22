@@ -41,7 +41,7 @@ ACTION_SPECS: Dict[str, tuple[tuple[str, ...], Handler]] = {
         ("region", "cluster_id", "start_time", "end_time"),
         cce_events_lts.query_k8s_events_from_lts_action,
     ),
-    "huawei_analyze_cce_events": (("events",), event_analysis.analyze_cce_events_action),
+    "huawei_analyze_cce_events": ((), event_analysis.analyze_cce_events_action),
 }
 
 

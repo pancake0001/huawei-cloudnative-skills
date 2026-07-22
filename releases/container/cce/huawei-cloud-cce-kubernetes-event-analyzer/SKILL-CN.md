@@ -52,6 +52,7 @@ version: 1.0.0
 - 没有公网入口时，工具回退到 `kubectl cce` 插件；两种方式都不可用时直接返回失败。
 - hcloud 凭证优先级：工具入参 > hcloud profile > 环境变量。`kubectl cce` 需要通过工具入参或环境变量提供 AK/SK；加密的 hcloud profile 不能被插件读取。
 - `kubectl-cce` 的安装和使用参见 [references/kubectl-cce.md](references/kubectl-cce.md)。
+- 使用 `huawei_query_k8s_events_from_lts` 查询事件历史时，必须安装并正常运行云原生日志采集插件（`log-agent`），并配置 Event→LTS LogConfig；只安装插件不能直接查询事件历史。
 
 ## 工具
 
@@ -59,6 +60,7 @@ version: 1.0.0
 |------|------|---------|---------|
 | `huawei_get_cce_events` | 通过 `kubectl` 查询 CCE Kubernetes 事件 | `region`, `cluster_id` | `namespace`, `limit` |
 | `huawei_query_k8s_events_from_lts` | 通过 LTS 日志流查询 K8s 事件（需 Event→LTS LogConfig） | `region`, `cluster_id`, `start_time`, `end_time` | `keywords` |
+| `huawei_analyze_cce_events` | 先查询事件再聚合分析；不传 `events` 时默认查询当前事件 | `events`，或 `region` + `cluster_id` | `event_source=current\|lts`、`start_time`/`end_time`（LTS 必需）、`namespace`、`keywords`、`limit`、`max_groups` |
 
 ## 场景路由
 
@@ -101,7 +103,7 @@ python3 scripts/huawei-cloud.py huawei_get_cce_events \
 
 ### 步骤2：通过 LTS 查询事件 (huawei_query_k8s_events_from_lts)
 
-查询通过 Event→LTS LogConfig 收集到 LTS 的 K8s 事件。需已启用事件收集并指向 LTS 输出的 LogConfig。
+查询通过 Event→LTS LogConfig 收集到 LTS 的 K8s 事件。必须安装并正常运行云原生日志采集插件（`log-agent`），且已启用事件收集并指向 LTS 输出的 LogConfig。
 
 ```bash
 # 在时间窗口内查询 LTS 事件

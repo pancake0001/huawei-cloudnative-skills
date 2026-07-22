@@ -44,7 +44,7 @@ Query and analyze Kubernetes Events in Huawei Cloud CCE clusters to identify war
 - `hcloud` (KooCLI) for cluster lookup and temporary external kubeconfig generation
 - `kubectl` for current Event reads
 - `kubectl-cce` when the cluster has no usable external endpoint; see [kubectl-cce.md](references/kubectl-cce.md)
-- LTS SDK support and an Event-to-LTS LogConfig for historical Event queries
+- LTS SDK support, the Cloud Native Log Collection add-on (`log-agent`), and an Event-to-LTS LogConfig for historical Event queries. `huawei_query_k8s_events_from_lts` cannot query Event history from LTS unless the add-on is installed and healthy.
 
 ### 2. Credential Configuration
 
@@ -145,16 +145,26 @@ python3 scripts/huawei-cloud.py huawei_query_k8s_events_from_lts \
   keywords=FailedScheduling
 ```
 
-LTS time format is `YYYY-MM-DD HH:MM:SS`. The cluster must have an Event-to-LTS LogConfig whose output type is `LTS` and whose `normalEvents` or `warningEvents` collection is enabled. The CCE logging collector must be installed and healthy; installation alone is insufficient without the Event-to-LTS configuration.
+LTS time format is `YYYY-MM-DD HH:MM:SS`. The cluster must have the Cloud Native Log Collection add-on (`log-agent`) installed and healthy, plus an Event-to-LTS LogConfig whose output type is `LTS` and whose `normalEvents` or `warningEvents` collection is enabled. Installing the add-on alone is insufficient without the Event-to-LTS configuration.
 
-### 3. Analyze Event Results
+### 3. Query and Analyze Event Results
 
-Pass the `events` array from either query response, or pass the complete response object containing that array. This tool is local-only and does not make a cloud request.
+Without `events`, the tool queries and analyzes current cluster Events by default. Set `event_source=lts` with a bounded time window to query and analyze historical LTS Events. Passing an `events` array (or a complete response object containing it) retains offline analysis behavior.
 
 ```bash
+# Query and analyze current Events
+python3 scripts/huawei-cloud.py huawei_analyze_cce_events \
+  region=cn-north-4 cluster_id=<cluster-id>
+
+# Query and analyze historical LTS Events
+python3 scripts/huawei-cloud.py huawei_analyze_cce_events \
+  region=cn-north-4 cluster_id=<cluster-id> event_source=lts \
+  start_time="2026-05-30 06:00:00" end_time="2026-05-30 08:00:00"
+
+# Analyze supplied Events without a cloud query
 python3 scripts/huawei-cloud.py huawei_analyze_cce_events \
   events='[{"type":"Warning","reason":"FailedScheduling","namespace":"default","count":3}]' \
-  source=current_events max_groups=10
+  max_groups=10
 ```
 
 ## Risk Levels
@@ -169,7 +179,7 @@ This skill is read-only. It never changes cloud resources, Kubernetes resources,
 | ---- | -------------- | ---------- | ----------- |
 | `huawei_get_cce_events` | Query | R3 | Query current cluster or namespace Events through `kubectl` |
 | `huawei_query_k8s_events_from_lts` | Query | R3 | Query historical Event records from configured LTS collection |
-| `huawei_analyze_cce_events` | Analyze | R3 | Aggregate supplied Event results locally by type, reason, namespace, and resource |
+| `huawei_analyze_cce_events` | Query and analyze | R3 | Query current or LTS Events when needed, then aggregate by type, reason, namespace, and resource |
 
 ## Parameter Reference
 
@@ -199,7 +209,7 @@ This skill is read-only. It never changes cloud resources, Kubernetes resources,
 
 | Tool | Required | Optional |
 | ---- | -------- | -------- |
-| `huawei_analyze_cce_events` | `events` (JSON Event array or query response object) | `source`, `max_groups` (1-100, default 10) |
+| `huawei_analyze_cce_events` | Either `events`, or `region` + `cluster_id` | `event_source` (`current` default or `lts`), `start_time`/`end_time` (required for `lts`), `namespace`, `keywords`, `limit`, `max_groups` (1-100, default 10), credentials |
 
 ## Output Format
 
