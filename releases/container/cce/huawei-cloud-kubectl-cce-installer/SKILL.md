@@ -14,14 +14,10 @@ Install and verify the local `kubectl` and `kubectl-cce` prerequisites used for 
 
 **Execution Method**: Run the bundled shell script only. Do not replace its download URLs, build tags, installation paths, or verification steps with ad hoc commands unless the user explicitly asks for a different method.
 
-**Related Skills**:
-- `huawei-cloud-cce-metric-analyzer` - Uses `kubectl` and `kubectl cce` for limited Kubernetes resource reads
-- `huawei-cloud-cce-kubernetes-event-analyzer` - Uses `kubectl` to read cluster Events
-
 **Capabilities**:
 - Detect the local OS, architecture, executable availability, and plugin discovery state
 - Show a no-change installation plan before execution
-- Select the latest missing Linux `kubectl` package from the public Beijing 4 CCE OBS repository for the local architecture
+- Select the latest missing Linux `kubectl` package from Huawei Cloud OBS for the local architecture
 - Fall back to the official Kubernetes stable release, then build the same stable tag when download fails
 - Install `kubectl-cce` v0.1.0 from its Gitee Release on Linux when available
 - Build the fixed `kubectl-cce` v0.1.0 source tag when a Release asset is unavailable or download fails
@@ -37,7 +33,7 @@ Install and verify the local `kubectl` and `kubectl-cce` prerequisites used for 
 
 ### 1. Runtime Dependencies
 
-- Bash, `curl`, `tar`, and `install` for Linux/macOS installation
+- Bash, `curl`, `tar`, `cp`, and `chmod` for Linux/macOS installation
 - `git` and Go only when source-build fallback is needed
 - Write access to the selected `--bin-dir`; `/usr/local/bin` normally requires elevation
 - Internet access to Kubernetes and Gitee release/source endpoints
@@ -103,6 +99,10 @@ Run only after the user confirms the previewed installation path and actions. Th
 - On macOS, build `kubectl-cce` v0.1.0 from source because the Release has no macOS asset.
 
 The fallback requires `git` and Go. If either is absent, return the missing dependency rather than installing it automatically.
+
+### 5. Windows Manual Installation
+
+The bundled script does not run on Windows. Download the matching Windows `kubectl` binary from the [official Kubernetes release site](https://kubernetes.io/releases/download/) and the matching `kubectl-cce` ZIP from the [Gitee `v0.1.0` Release](https://gitee.com/pancake0001/kubectl-cce-plugin/releases/tag/v0.1.0). Extract the files, place them in a user-selected directory on `PATH`, and verify with `kubectl version --client` and `kubectl plugin list`. See [plugin-usage.md](references/plugin-usage.md) for the plugin-specific steps.
 
 ## Risk Levels
 
@@ -197,13 +197,13 @@ The plugin is ready when `kubectl plugin list` contains `kubectl-cce`. Do not re
 - Installation and source compilation are R1 local-system actions and require explicit confirmation.
 - The script never writes Huawei Cloud credentials, tokens, or kubeconfig files.
 - `kubectl-cce` must be named exactly `kubectl-cce` for Kubernetes plugin discovery.
-- On Windows, use the matching Release ZIP and the manual instructions in [plugin-usage.md](references/plugin-usage.md).
+- On Windows, do not run the bundled script; use the official Kubernetes download and matching Gitee Release ZIP as described in [plugin-usage.md](references/plugin-usage.md).
 
 ## Troubleshooting
 
 | Symptom | Likely Cause | Action |
 | ------- | ------------ | ------ |
-| `curl`, `tar`, or `install` is missing | Local prerequisite is absent | Install the missing local prerequisite through the user-approved system method, then retry |
+| `curl`, `tar`, `cp`, or `chmod` is missing | Local prerequisite is absent | Install the missing local prerequisite through the user-approved system method, then retry |
 | Download fails | Network restriction or unavailable Release asset | Allow the script to use its fixed-tag source-build fallback after confirmation |
 | Network step times out | Endpoint, proxy, or connection is slow or unavailable | Check connectivity, then increase the relevant `KUBECTL_CCE_*_TIMEOUT` value if the user approves |
 | Source build fails | `git`/Go missing or source build dependency failure | Install the reported build prerequisite, then rerun the plan and confirmed installation |
@@ -213,7 +213,7 @@ The plugin is ready when `kubectl plugin list` contains `kubectl-cce`. Do not re
 
 ## Limitations
 
-- The bundled script executes only on Linux and macOS; Windows installation is documented for manual execution.
+- The bundled script executes only on Linux and macOS. Windows uses manual downloads from the official Kubernetes release site and Gitee; the script must not be used.
 - The script installs missing binaries only; it does not upgrade or replace existing binaries.
 - The skill does not configure Huawei Cloud credentials or retrieve kubeconfig files.
 - The skill does not test cluster connectivity unless the user explicitly requests a separate read-only CCE command.

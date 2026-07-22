@@ -10,17 +10,17 @@ Configure the plugin's documented credentials through an approved local credenti
 
 ## Read-only Test
 
-Use a specific cluster ID and a read-only request:
+Use a specific cluster ID, the configured `HW_REGION` environment variable, and a read-only request:
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region cn-north-4 get namespaces
+kubectl cce --cluster-id <cluster-id> --region "${HW_REGION}" get namespaces
 ```
 
 Do not run write operations during installation verification.
 
 ## Windows Installation
 
-Download the matching v0.1.0 ZIP asset, extract `kubectl-cce.exe`, place it in a directory on `PATH`, then verify:
+Do not run `install_kubectl_cce.sh` on Windows. Download the matching Windows `kubectl.exe` from the [official Kubernetes release site](https://kubernetes.io/releases/download/), then download the matching `kubectl-cce` v0.1.0 ZIP asset from the [Gitee Release](https://gitee.com/pancake0001/kubectl-cce-plugin/releases/tag/v0.1.0). Extract both executables, place them in a user-selected directory on `PATH`, then verify:
 
 ```powershell
 kubectl plugin list
