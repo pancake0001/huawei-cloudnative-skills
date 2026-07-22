@@ -27,6 +27,7 @@ Query and analyze Kubernetes Events in Huawei Cloud CCE clusters to identify war
 - Read Events through external `kubectl` kubeconfig access or `kubectl cce`
 - Query historical Event records from LTS within an explicit time window
 - Filter and group Events by type, reason, namespace, resource, and timestamps
+- Analyze a supplied current or historical Event result locally without another cloud request
 - Identify repeated warning patterns and hand off evidence to diagnosis skills
 
 **Typical Use Cases**:
@@ -146,6 +147,16 @@ python3 scripts/huawei-cloud.py huawei_query_k8s_events_from_lts \
 
 LTS time format is `YYYY-MM-DD HH:MM:SS`. The cluster must have an Event-to-LTS LogConfig whose output type is `LTS` and whose `normalEvents` or `warningEvents` collection is enabled. The CCE logging collector must be installed and healthy; installation alone is insufficient without the Event-to-LTS configuration.
 
+### 3. Analyze Event Results
+
+Pass the `events` array from either query response, or pass the complete response object containing that array. This tool is local-only and does not make a cloud request.
+
+```bash
+python3 scripts/huawei-cloud.py huawei_analyze_cce_events \
+  events='[{"type":"Warning","reason":"FailedScheduling","namespace":"default","count":3}]' \
+  source=current_events max_groups=10
+```
+
 ## Risk Levels
 
 This skill is read-only. It never changes cloud resources, Kubernetes resources, LTS configuration, or local cluster access configuration.
@@ -158,6 +169,7 @@ This skill is read-only. It never changes cloud resources, Kubernetes resources,
 | ---- | -------------- | ---------- | ----------- |
 | `huawei_get_cce_events` | Query | R3 | Query current cluster or namespace Events through `kubectl` |
 | `huawei_query_k8s_events_from_lts` | Query | R3 | Query historical Event records from configured LTS collection |
+| `huawei_analyze_cce_events` | Analyze | R3 | Aggregate supplied Event results locally by type, reason, namespace, and resource |
 
 ## Parameter Reference
 
@@ -182,6 +194,12 @@ This skill is read-only. It never changes cloud resources, Kubernetes resources,
 | Tool | Required | Optional |
 | ---- | -------- | -------- |
 | `huawei_query_k8s_events_from_lts` | `region`, `cluster_id`, `start_time`, `end_time` | `keywords`, `ak`, `sk`, `project_id` |
+
+### Event Analysis Parameters
+
+| Tool | Required | Optional |
+| ---- | -------- | -------- |
+| `huawei_analyze_cce_events` | `events` (JSON Event array or query response object) | `source`, `max_groups` (1-100, default 10) |
 
 ## Output Format
 
@@ -213,14 +231,25 @@ This skill is read-only. It never changes cloud resources, Kubernetes resources,
 
 See [output-schema.md](references/output-schema.md) for detailed analysis and Event field definitions.
 
+### `huawei_analyze_cce_events`
+
+| Field | Description |
+| ----- | ----------- |
+| `event_records`, `total_occurrences` | Input record count and sum of Event occurrence counts |
+| `event_type_breakdown` | Occurrence totals by Event type |
+| `warning_count`, `normal_count` | Warning and Normal occurrence totals |
+| `time_range` | First and last observed Event timestamps when available |
+| `top_reasons` | Most frequent reasons with warning count and per-reason time range |
+| `namespace_breakdown`, `affected_objects` | Most affected namespaces and resources |
+| `repeated_patterns` | Input Event records whose `count` is greater than one |
+
 ## Workflow
 
 1. Identify `region`, exact `cluster_id`, optional namespace, and incident time window.
 2. Use `huawei_get_cce_events` for current Event inspection.
 3. Use `huawei_query_k8s_events_from_lts` when historical coverage, a precise time window, or LTS keyword filtering is required.
-4. Filter warnings first, then group records by `reason`, namespace, and involved resource.
-5. Flag repeated records where `count > 1` and summarize first/last timestamps.
-6. Hand off evidence to the relevant Pod, Workload, Node, Storage, or Network diagnosis skill.
+4. Pass the returned `events` to `huawei_analyze_cce_events` to aggregate reasons, namespaces, resources, and repeated patterns.
+5. Hand off evidence to the relevant Pod, Workload, Node, Storage, or Network diagnosis skill.
 
 See [workflow.md](references/workflow.md) for pattern recognition and time-window analysis guidance.
 

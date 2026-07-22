@@ -12,14 +12,14 @@ version: 1.0.0
 
 ## 概述
 
-在华为云 CCE 集群中查询和分析 Kubernetes 事件，发现 Warning 事件、异常和故障模式。通过 K8s API 或 LTS 日志流查询事件，客户端过滤和分组，汇总模式并移交至诊断技能。
+在华为云 CCE 集群中查询和分析 Kubernetes 事件，发现 Warning 事件、异常和故障模式。通过 `kubectl` 或 LTS 日志流查询事件，客户端过滤和分组，汇总模式并移交至诊断技能。
 
-**架构**: MCP 工具 → CCE K8s API / LTS 日志流 → 事件 → 客户端过滤与分组 → 模式汇总 → 诊断移交
+**架构**: MCP 工具 → `kubectl`（公网 kubeconfig 或 `kubectl cce`）/ LTS 日志流 → 事件 → 客户端过滤与分组 → 模式汇总 → 诊断移交
 
 **标准流程**:
 ```
 1. 从用户查询中识别 region、cluster_id 和可选 namespace
-2. 使用 huawei_get_cce_events (K8s API) 或 huawei_query_k8s_events_from_lts (LTS) 获取事件
+2. 使用 huawei_get_cce_events（`kubectl`）或 huawei_query_k8s_events_from_lts（LTS）获取事件
 3. 客户端过滤（type、reason、involved_object、时间窗口）
 4. 按 reason、namespace 或模式分组聚合
 5. 汇总有高频原因、重复模式和受影响资源
@@ -45,11 +45,19 @@ version: 1.0.0
 - **时间有界查询**: 保持事件查询时间有界，优先使用近1-24小时窗口以避免结果过大
 - **重定向操作请求**: 若用户要求基于事件结果执行操作，汇总证据后重定向至 `auto-remediation-runner`
 
+## 前置依赖
+
+- 安装 Python 3.8+、`hcloud` 和 `kubectl`。
+- 集群绑定 EIP 或具有公网 API 地址时，工具通过 hcloud 获取临时 kubeconfig 后执行 `kubectl`。
+- 没有公网入口时，工具回退到 `kubectl cce` 插件；两种方式都不可用时直接返回失败。
+- hcloud 凭证优先级：工具入参 > hcloud profile > 环境变量。`kubectl cce` 需要通过工具入参或环境变量提供 AK/SK；加密的 hcloud profile 不能被插件读取。
+- `kubectl-cce` 的安装和使用参见 [references/kubectl-cce.md](references/kubectl-cce.md)。
+
 ## 工具
 
 | 工具 | 用途 | 必需参数 | 可选参数 |
 |------|------|---------|---------|
-| `huawei_get_cce_events` | 通过 K8s API Server 查询 CCE Kubernetes 事件 | `region`, `cluster_id` | `namespace`, `limit` |
+| `huawei_get_cce_events` | 通过 `kubectl` 查询 CCE Kubernetes 事件 | `region`, `cluster_id` | `namespace`, `limit` |
 | `huawei_query_k8s_events_from_lts` | 通过 LTS 日志流查询 K8s 事件（需 Event→LTS LogConfig） | `region`, `cluster_id`, `start_time`, `end_time` | `keywords` |
 
 ## 场景路由
@@ -64,9 +72,9 @@ version: 1.0.0
 
 ## 核心命令
 
-### 步骤1：通过 K8s API 查询事件 (huawei_get_cce_events)
+### 步骤1：通过 kubectl 查询事件 (huawei_get_cce_events)
 
-从集群 API Server 获取原始 Kubernetes 事件。除 `namespace` 和 `limit` 外的所有过滤均在获取后客户端执行。
+优先通过公网 API 地址和临时 kubeconfig 执行 `kubectl`，失败后回退为 `kubectl cce` 插件。两种方式都不可用时返回失败。除 `namespace` 和 `limit` 外的所有过滤均在获取后客户端执行。
 
 ```bash
 # 查询集群所有事件

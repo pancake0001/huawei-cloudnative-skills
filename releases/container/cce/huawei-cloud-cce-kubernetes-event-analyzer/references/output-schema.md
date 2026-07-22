@@ -25,6 +25,19 @@
 | `affected_objects` | Count of unique involved objects with Warning events |
 | `next_steps` | Suggested follow-up query or diagnosis skill |
 
+## Local Event Analysis Response (`huawei_analyze_cce_events`)
+
+| Field | Description |
+|------|-------------|
+| `source` | Caller-provided label for the supplied Event result |
+| `event_records` | Number of input Event records |
+| `total_occurrences` | Sum of Event `count` values across input records |
+| `event_type_breakdown` | Occurrence totals grouped by Event type |
+| `top_reasons` | Most frequent reasons with warning totals and time ranges |
+| `namespace_breakdown` | Most affected namespaces, sorted by occurrences |
+| `affected_objects` | Most affected namespace/kind/name resource identities |
+| `repeated_patterns` | Event records with `count > 1` |
+
 ## Event Detail (per event)
 
 | Field | Description |
@@ -46,6 +59,7 @@
 | `region` | Huawei Cloud region |
 | `cluster_id` | CCE cluster ID |
 | `namespace` | Kubernetes namespace filter (if applied) |
+| `access_method` | `kubectl_kubeconfig_external` or `kubectl_cce_plugin` |
 | `total_fetched` | Number of events returned by the API |
 | `events` | Raw event list (apply filters client-side) |
 | `warning_count` | Number of Warning events (calculated) |

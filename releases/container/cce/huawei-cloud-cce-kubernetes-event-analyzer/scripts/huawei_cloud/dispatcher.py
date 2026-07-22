@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Callable, Dict
 
-from . import cce, cce_events_lts
+from . import cce, cce_events_lts, event_analysis
 
 Handler = Callable[[Dict[str, str]], Dict[str, Any]]
 
@@ -41,6 +41,7 @@ ACTION_SPECS: Dict[str, tuple[tuple[str, ...], Handler]] = {
         ("region", "cluster_id", "start_time", "end_time"),
         cce_events_lts.query_k8s_events_from_lts_action,
     ),
+    "huawei_analyze_cce_events": (("events",), event_analysis.analyze_cce_events_action),
 }
 
 
