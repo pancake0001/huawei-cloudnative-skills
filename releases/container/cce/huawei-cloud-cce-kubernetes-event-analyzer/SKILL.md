@@ -51,7 +51,7 @@ Query and analyze Kubernetes Events in Huawei Cloud CCE clusters to identify war
 ### 2. Credential Configuration
 
 - External kubeconfig access uses hcloud credential priority: explicit tool parameters > local hcloud profile > environment variables.
-- The `kubectl cce` fallback requires AK/SK from explicit tool parameters or environment variables; encrypted hcloud profile credentials cannot be reused by the plugin.
+- The `kubectl cce` fallback requires AK/SK and the target cluster's `project_id` from explicit tool parameters or environment variables; encrypted hcloud profile credentials cannot be reused by the plugin. When `project_id` is available, the implementation passes it explicitly as `kubectl cce --project-id <project-id>`.
 - LTS queries require valid Huawei Cloud credentials and an authorized project.
 
 **Security Rules**:
@@ -195,19 +195,19 @@ This skill is read-only. It never changes cloud resources, Kubernetes resources,
 | `cluster_id` | Required | Exact CCE cluster ID | N/A |
 | `ak` | Optional | Explicit AK for access paths that support it | profile/environment fallback |
 | `sk` | Optional | Explicit SK for access paths that support it | profile/environment fallback |
-| `project_id` | Optional | Explicit Huawei Cloud project ID | profile/IAM/environment fallback |
+| `project_id` | Required for `kubectl cce`; optional otherwise | Target cluster's Huawei Cloud project ID | hcloud profile/IAM/environment fallback for external kubeconfig access |
 
 ### Current Event Query Parameters
 
 | Tool | Required | Optional |
 | ---- | -------- | -------- |
-| `huawei_get_cce_events` | `region`, `cluster_id` | `namespace`, `event_type` (`Warning` default, `Normal`, or `all`), `limit`, `ak`, `sk`, `project_id`, `security_token` |
+| `huawei_get_cce_events` | `region`, `cluster_id` | `namespace`, `event_type` (`Warning` default, `Normal`, or `all`), `limit`, `ak`, `sk`, `project_id` (required for `kubectl cce`), `security_token` |
 
 ### Historical Event Query Parameters
 
 | Tool | Required | Optional |
 | ---- | -------- | -------- |
-| `huawei_query_k8s_events_from_lts` | `region`, `cluster_id`, `start_time`, `end_time` | `event_type` (`Warning` default, `Normal`, or `all`), `keywords` (requires `event_type=all`), `ak`, `sk`, `project_id` |
+| `huawei_query_k8s_events_from_lts` | `region`, `cluster_id`, `start_time`, `end_time`, `project_id` | `event_type` (`Warning` default, `Normal`, or `all`), `keywords` (requires `event_type=all`), `ak`, `sk` |
 
 ### Event Analysis Parameters
 

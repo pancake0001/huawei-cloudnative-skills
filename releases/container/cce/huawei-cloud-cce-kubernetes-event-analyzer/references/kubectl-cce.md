@@ -23,12 +23,12 @@ The executable must be named `kubectl-cce` so that kubectl discovers it as `kube
 
 ## Plugin Credentials
 
-The plugin reads credentials from tool parameters or its credential environment variables: `HW_ACCESS_KEY`, `HW_SECRET_KEY`, `HW_PROJECT_ID`, and `HW_REGION`. Temporary credentials also require `HW_SECURITY_TOKEN`.
+The plugin requires AK, SK, and the target cluster's project ID. The skill supplies compatible credential environment variables internally and passes the project ID explicitly with `--project-id`. Temporary credentials also require a security token.
 
 Set these values through an approved local credential provider before invoking the plugin. Never place credential values in this document, shell history, source control, or command output.
 
 ## Example
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region cn-north-4 get events -A
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -A
 ```
