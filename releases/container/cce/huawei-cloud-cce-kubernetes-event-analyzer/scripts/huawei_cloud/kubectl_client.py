@@ -148,7 +148,11 @@ def _get_events_with_cce_plugin(
         env.update({"HW_SECRET_KEY": secret_key, "HUAWEICLOUD_SDK_SK": secret_key})
     if security_token:
         env.update({"HW_SECURITY_TOKEN": security_token, "HUAWEICLOUD_SECURITY_TOKEN": security_token})
-    result = _run_command(["kubectl", "cce", "--cluster-id", cluster_id, "--region", region, "get", *args, "-o", "json"], env=env)
+    command = ["kubectl", "cce", "--cluster-id", cluster_id, "--region", region]
+    if resolved_project_id:
+        command.extend(["--project-id", resolved_project_id])
+    command.extend(["get", *args, "-o", "json"])
+    result = _run_command(command, env=env)
     if result.get("success"):
         result["access_method"] = "kubectl_cce_plugin"
     return result
