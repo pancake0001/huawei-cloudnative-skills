@@ -1,25 +1,14 @@
-"""Minimal LTS log query helper used by historical Kubernetes Event queries."""
+"""LTS log queries through hcloud for historical Kubernetes Event queries."""
 
 from __future__ import annotations
 
+import json
+import os
+import subprocess
 from datetime import datetime, timedelta
 from typing import Any, Dict, Optional
 
-from huaweicloudsdkcore.auth.credentials import BasicCredentials
-from huaweicloudsdkcore.exceptions.exceptions import ClientRequestException
-from huaweicloudsdkcore.region.region import Region
-from huaweicloudsdklts.v2 import LtsClient
-
-from .common import get_credentials, get_project_id_for_region
-
-
-def _create_lts_client(region: str, ak: str, sk: str, project_id: Optional[str]) -> LtsClient:
-    resolved_project_id = project_id or get_project_id_for_region(region, ak, sk)
-    if not resolved_project_id:
-        raise RuntimeError(f"unable to resolve project_id for {region}")
-    endpoint = f"lts.{region}.myhuaweicloud.com"
-    credentials = BasicCredentials(ak=ak, sk=sk, project_id=resolved_project_id)
-    return LtsClient.new_builder().with_credentials(credentials).with_region(Region(id=region, endpoint=endpoint)).build()
+from .common import get_credentials
 
 
 def _timestamp(value: Optional[str], default: datetime) -> int:
@@ -28,6 +17,38 @@ def _timestamp(value: Optional[str], default: datetime) -> int:
     if "-" in value:
         return int(datetime.strptime(value, "%Y-%m-%d %H:%M:%S").timestamp() * 1000)
     return int(value)
+
+
+def _has_hcloud_profile() -> bool:
+    config_dir = os.environ.get("HCLOUD_CONFIG_DIR")
+    candidates = [os.path.join(config_dir, "config.json")] if config_dir else []
+    candidates.extend(
+        [
+            os.path.expanduser("~/.hcloud/config.json"),
+            os.path.expanduser("~/.hcloud/config.yaml"),
+            os.path.expanduser("~/.hcloud/config.yml"),
+        ]
+    )
+    return any(os.path.isfile(path) and os.path.getsize(path) > 0 for path in candidates)
+
+
+def _hcloud_credentials(
+    ak: Optional[str], sk: Optional[str], project_id: Optional[str]
+) -> tuple[Optional[str], Optional[str], Optional[str]]:
+    """Resolve credentials in tool-parameter, profile, then environment order."""
+    if ak or sk or project_id:
+        return ak, sk, project_id
+    if _has_hcloud_profile():
+        return None, None, None
+    return get_credentials()
+
+
+def _parse_hcloud_json(output: str) -> Dict[str, Any]:
+    text = (output or "").strip()
+    start = text.find("{")
+    if start < 0:
+        raise ValueError("hcloud returned non-JSON output")
+    return json.loads(text[start:])
 
 
 def query_logs(
@@ -44,47 +65,70 @@ def query_logs(
     project_id: Optional[str] = None,
     **_: Any,
 ) -> Dict[str, Any]:
-    """Query one LTS stream and return normalized log records."""
-    access_key, secret_key, resolved_project_id = get_credentials(ak, sk, project_id)
-    if not access_key or not secret_key:
-        return {"success": False, "error": "credentials are required"}
-    try:
-        from huaweicloudsdklts.v2 import ListLogsRequest, QueryLtsLogParams
+    """Query one LTS stream through ``hcloud LTS ListLogs``."""
+    now = datetime.now()
+    access_key, secret_key, resolved_project_id = _hcloud_credentials(ak, sk, project_id)
+    cmd = [
+        "hcloud",
+        "LTS",
+        "ListLogs",
+        f"--cli-region={region}",
+        f"--log_group_id={log_group_id}",
+        f"--log_stream_id={log_stream_id}",
+        f"--start_time={_timestamp(start_time, now - timedelta(hours=1))}",
+        f"--end_time={_timestamp(end_time, now)}",
+        f"--limit={max(1, min(limit, 1000))}",
+        "--is_desc=true",
+        "--cli-output=json",
+        "--cli-connect-timeout=10",
+        "--cli-read-timeout=60",
+    ]
+    if resolved_project_id:
+        cmd.append(f"--project_id={resolved_project_id}")
+    if access_key:
+        cmd.append(f"--cli-access-key={access_key}")
+    if secret_key:
+        cmd.append(f"--cli-secret-key={secret_key}")
+    if keywords:
+        cmd.append(f"--keywords={keywords}")
+    if scroll_id:
+        cmd.append(f"--scroll_id={scroll_id}")
 
-        now = datetime.now()
-        body = QueryLtsLogParams(
-            start_time=_timestamp(start_time, now - timedelta(hours=1)),
-            end_time=_timestamp(end_time, now),
-            limit=limit,
-            is_desc=True,
-        )
-        if keywords:
-            body.keywords = keywords
-        if scroll_id:
-            body.scroll_id = scroll_id
-        response = _create_lts_client(region, access_key, secret_key, resolved_project_id).list_logs(
-            ListLogsRequest(log_group_id=log_group_id, log_stream_id=log_stream_id, body=body)
-        )
-        logs = [
-            {
-                "content": getattr(log, "content", str(log)),
-                "timestamp": getattr(log, "timestamp", None),
-                "log_group_id": log_group_id,
-                "log_stream_id": log_stream_id,
-            }
-            for log in (response.logs or [])
-        ]
-        next_scroll_id = getattr(response, "scroll_id", None)
+    try:
+        completed = subprocess.run(cmd, text=True, capture_output=True, timeout=75, check=False)
+    except FileNotFoundError:
+        return {"success": False, "error": "hcloud not found in PATH"}
+    except subprocess.TimeoutExpired:
+        return {"success": False, "error": "hcloud LTS ListLogs timed out after 75 seconds"}
+
+    if completed.returncode:
         return {
-            "success": True,
+            "success": False,
+            "error": (completed.stderr or completed.stdout or f"hcloud exited with code {completed.returncode}")[:2000],
+        }
+
+    try:
+        response = _parse_hcloud_json(completed.stdout)
+    except (ValueError, json.JSONDecodeError) as exc:
+        return {"success": False, "error": f"hcloud LTS ListLogs response parsing failed: {exc}"}
+
+    logs = [
+        {
+            "content": item.get("content", ""),
+            "timestamp": item.get("timestamp"),
             "log_group_id": log_group_id,
             "log_stream_id": log_stream_id,
-            "total": len(logs),
-            "scroll_id": next_scroll_id,
-            "has_more": bool(next_scroll_id),
-            "logs": logs,
         }
-    except ClientRequestException as exc:
-        return {"success": False, "error": exc.error_msg, "error_code": exc.error_code, "status_code": exc.status_code}
-    except Exception as exc:
-        return {"success": False, "error": str(exc), "error_type": type(exc).__name__}
+        for item in (response.get("logs") or [])
+        if isinstance(item, dict)
+    ]
+    next_scroll_id = response.get("scroll_id")
+    return {
+        "success": True,
+        "log_group_id": log_group_id,
+        "log_stream_id": log_stream_id,
+        "total": len(logs),
+        "scroll_id": next_scroll_id,
+        "has_more": bool(next_scroll_id),
+        "logs": logs,
+    }

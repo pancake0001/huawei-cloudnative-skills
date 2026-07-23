@@ -183,7 +183,7 @@ def _query_k8s_events_from_lts(
     if not _lts_available:
         return {
             "success": False,
-            "error": "LTS module not available. Install huaweicloudsdklts."
+            "error": "LTS query module is not available."
         }
 
     effective_event_type = event_type or "Warning"

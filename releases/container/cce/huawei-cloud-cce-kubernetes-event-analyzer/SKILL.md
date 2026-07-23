@@ -45,7 +45,7 @@ Query and analyze Kubernetes Events in Huawei Cloud CCE clusters to identify war
 - `hcloud` (KooCLI) for cluster lookup and temporary external kubeconfig generation
 - `kubectl` for current Event reads
 - `kubectl-cce` when the cluster has no usable external endpoint; see [kubectl-cce.md](references/kubectl-cce.md)
-- LTS SDK support, the Cloud Native Log Collection add-on (`log-agent`), and an Event-to-LTS LogConfig for historical Event queries. `huawei_query_k8s_events_from_lts` cannot query Event history from LTS unless the add-on is installed and healthy.
+- `hcloud` LTS command support, the Cloud Native Log Collection add-on (`log-agent`), and an Event-to-LTS LogConfig for historical Event queries. `huawei_query_k8s_events_from_lts` invokes `hcloud LTS ListLogs` and cannot query Event history unless the add-on is installed and healthy.
 
 ### 2. Credential Configuration
 
