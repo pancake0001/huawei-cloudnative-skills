@@ -154,7 +154,7 @@ LTS time format is `YYYY-MM-DD HH:MM:SS`. The cluster must have the Cloud Native
 
 ### 3. Query and Analyze Event Results
 
-Without `events`, the tool queries and analyzes current cluster Events by default. Set `event_source=lts` with a bounded time window to query and analyze historical LTS Events. Passing an `events` array (or a complete response object containing it) retains offline analysis behavior.
+Without `events`, the tool queries and analyzes current cluster Events by default. For historical requests spanning more than one hour, use LTS with a bounded time window. Providing `start_time` or `end_time` automatically selects LTS; `event_source=lts` may also be set explicitly. Passing an `events` array (or a complete response object containing it) retains offline analysis behavior.
 
 ```bash
 # Query and analyze current Events
@@ -262,7 +262,7 @@ See [output-schema.md](references/output-schema.md) for detailed analysis and Ev
 
 1. Identify `region`, exact `cluster_id`, optional namespace, and incident time window.
 2. Use `huawei_get_cce_events` for current Event inspection.
-3. Use `huawei_query_k8s_events_from_lts` when historical coverage, a precise time window, or LTS keyword filtering is required.
+3. Use `huawei_query_k8s_events_from_lts` for historical Event windows longer than one hour, or when a precise LTS time range or keyword filtering is required.
 4. Pass the returned `events` to `huawei_analyze_cce_events` to aggregate reasons, namespaces, resources, and repeated patterns.
 5. Hand off evidence to the relevant Pod, Workload, Node, Storage, or Network diagnosis skill.
 

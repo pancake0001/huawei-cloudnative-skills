@@ -38,7 +38,10 @@ def _range(values: Iterable[Optional[str]]) -> Dict[str, Optional[str]]:
 
 def _query_events(params: Dict[str, str]) -> tuple[List[Dict[str, Any]], str, Dict[str, Any]]:
     """Query a supported Event source before local aggregation."""
-    source = (params.get("event_source") or "current").lower()
+    source = (
+        params.get("event_source")
+        or ("lts" if params.get("start_time") or params.get("end_time") else "current")
+    ).lower()
     region = params.get("region")
     cluster_id = params.get("cluster_id")
     if source not in {"current", "lts"}:
