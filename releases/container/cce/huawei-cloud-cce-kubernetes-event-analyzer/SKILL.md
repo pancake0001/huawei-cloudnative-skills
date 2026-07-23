@@ -114,7 +114,7 @@ Follow these rules:
 ### 1. Current Kubernetes Events
 
 ```bash
-# Query all current Events in a cluster
+# Query Warning Events (default)
 python3 scripts/huawei-cloud.py huawei_get_cce_events \
   region=cn-north-4 cluster_id=<cluster-id>
 
@@ -126,12 +126,12 @@ python3 scripts/huawei-cloud.py huawei_get_cce_events \
 python3 scripts/huawei-cloud.py huawei_get_cce_events \
   region=cn-north-4 cluster_id=<cluster-id> limit=100
 
-# Fetch only Warning Events with Kubernetes API server-side filtering
+# Query all Event types only when explicitly needed
 python3 scripts/huawei-cloud.py huawei_get_cce_events \
-  region=cn-north-4 cluster_id=<cluster-id> event_type=Warning limit=100
+  region=cn-north-4 cluster_id=<cluster-id> event_type=all limit=100
 ```
 
-The tool reads Events through `kubectl`. It first uses the external endpoint with a temporary kubeconfig; it then falls back to `kubectl cce`. If both paths fail, it returns both access errors. Set `event_type=Warning` to use the Kubernetes API server-side field selector and return only Warning Events.
+The tool returns only Warning Events by default, using the Kubernetes API server-side field selector. It first uses the external endpoint with a temporary kubeconfig; it then falls back to `kubectl cce`. For large clusters, full Event history can be substantial; query all types only after the user explicitly requests it with `event_type=all`.
 
 ### 2. Historical Events From LTS
 
@@ -150,7 +150,7 @@ python3 scripts/huawei-cloud.py huawei_query_k8s_events_from_lts \
   keywords=FailedScheduling
 ```
 
-LTS time format is `YYYY-MM-DD HH:MM:SS`. The cluster must have the Cloud Native Log Collection add-on (`log-agent`) installed and healthy, plus an Event-to-LTS LogConfig whose output type is `LTS` and whose `normalEvents` or `warningEvents` collection is enabled. Installing the add-on alone is insufficient without the Event-to-LTS configuration. Set `event_type=Warning` to use `Warning` as the LTS server-side keyword filter; this reduces returned data but is keyword matching, not an LTS structured-field selector.
+LTS time format is `YYYY-MM-DD HH:MM:SS`. The cluster must have the Cloud Native Log Collection add-on (`log-agent`) installed and healthy, plus an Event-to-LTS LogConfig whose output type is `LTS` and whose `normalEvents` or `warningEvents` collection is enabled. Installing the add-on alone is insufficient without the Event-to-LTS configuration. LTS queries also default to `event_type=Warning`, using `Warning` as a server-side keyword filter. For large clusters, request full Event history only after user confirmation with `event_type=all`; this removes the type keyword filter. LTS filtering is keyword matching, not a structured-field selector.
 
 ### 3. Query and Analyze Event Results
 
@@ -202,13 +202,13 @@ This skill is read-only. It never changes cloud resources, Kubernetes resources,
 
 | Tool | Required | Optional |
 | ---- | -------- | -------- |
-| `huawei_get_cce_events` | `region`, `cluster_id` | `namespace`, `event_type` (`Warning` or `Normal`), `limit`, `ak`, `sk`, `project_id` |
+| `huawei_get_cce_events` | `region`, `cluster_id` | `namespace`, `event_type` (`Warning` default, `Normal`, or `all`), `limit`, `ak`, `sk`, `project_id` |
 
 ### Historical Event Query Parameters
 
 | Tool | Required | Optional |
 | ---- | -------- | -------- |
-| `huawei_query_k8s_events_from_lts` | `region`, `cluster_id`, `start_time`, `end_time` | `keywords` or `event_type` (`Warning` or `Normal`), `ak`, `sk`, `project_id` |
+| `huawei_query_k8s_events_from_lts` | `region`, `cluster_id`, `start_time`, `end_time` | `event_type` (`Warning` default, `Normal`, or `all`), `keywords` (requires `event_type=all`), `ak`, `sk`, `project_id` |
 
 ### Event Analysis Parameters
 
@@ -312,13 +312,13 @@ Verify that the current Event response includes `access_method`, and that the LT
 | `kubectl cce` fallback fails | Plugin missing or plugin credentials unavailable | Install/configure the plugin using [kubectl-cce.md](references/kubectl-cce.md) |
 | LTS query finds no Event LogConfig | Event collection is not configured | Enable Event-to-LTS collection outside this read-only skill, then retry |
 | LTS query returns no records | Time window, keywords, retention, or event collection does not match | Narrow or correct the window and verify the LogConfig and LTS stream |
-| Too many current Events | Broad cluster query | Provide `namespace`, `event_type=Warning`, and a lower `limit` to reduce data at the source |
+| Too many current Events | Broad cluster query | Warning is the default; provide `namespace` and a lower `limit` to further reduce data at the source |
 | Permission denied | Missing IAM or Kubernetes RBAC permission | Grant the reported least-privilege permission, then retry |
 
 ## Limitations
 
 - The skill provides only the two documented read-only Event tools.
-- Current Event queries support only namespace and Event type (`Warning` or `Normal`) server-side filtering.
+- Current Event queries support only namespace and Event type (`Warning`, `Normal`, or `all`) server-side selection.
 - Historical queries require Event-to-LTS collection configured before the incident; the skill cannot recover uncollected history.
 - The skill cannot create, modify, or delete LogConfigs, LTS streams, Kubernetes resources, or CCE resources.
 - The skill does not automatically select a cluster, namespace, event filter, or diagnosis/remediation action for the user.

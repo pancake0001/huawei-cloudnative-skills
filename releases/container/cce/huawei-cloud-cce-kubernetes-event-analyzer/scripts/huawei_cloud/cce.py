@@ -18,11 +18,12 @@ def get_kubernetes_events(
     limit: int = 500,
 ) -> Dict[str, Any]:
     """Read and normalize CCE Events through the kubectl access strategy."""
+    effective_event_type = event_type or "Warning"
     result = kubectl_client.get_cce_events_with_kubectl(
         region=region,
         cluster_id=cluster_id,
         namespace=namespace,
-        event_type=event_type,
+        event_type=effective_event_type,
         limit=limit,
         ak=ak,
         sk=sk,
@@ -62,7 +63,7 @@ def get_kubernetes_events(
         "cluster_id": cluster_id,
         "action": "get_cce_events",
         "namespace": namespace or "all",
-        "event_type": event_type,
+        "event_type": effective_event_type,
         "access_method": result.get("access_method"),
         "count": len(events),
         "limit": limit,
