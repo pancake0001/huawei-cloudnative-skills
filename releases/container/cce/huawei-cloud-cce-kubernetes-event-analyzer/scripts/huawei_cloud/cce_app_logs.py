@@ -1,4 +1,4 @@
-"""Read CCE Event-to-LTS LogConfig custom resources through kubectl."""
+"""Read CCE Event-to-LTS LogConfig custom resources through kubectl-cce."""
 
 from __future__ import annotations
 
@@ -9,11 +9,9 @@ from . import kubectl_client
 
 def get_cce_logconfigs_action(params: Dict[str, str]) -> Dict[str, Any]:
     """Return LogConfig resources needed to locate CCE Event LTS streams."""
-    result = kubectl_client.get_cce_resources_with_kubectl(
+    result = kubectl_client.get_cce_logconfigs_with_cce_plugin(
         region=params["region"],
         cluster_id=params["cluster_id"],
-        resource="logconfigs.logging.openvessel.io",
-        namespace=params.get("namespace"),
         ak=params.get("ak"),
         sk=params.get("sk"),
         project_id=params.get("project_id"),
@@ -35,7 +33,6 @@ def get_cce_logconfigs_action(params: Dict[str, str]) -> Dict[str, Any]:
                 "input_type": input_detail.get("type"),
                 "output_type": output_detail.get("type"),
                 "spec": spec,
-                "status": item.get("status") or {},
                 "api_version": item.get("apiVersion"),
             }
         )
@@ -43,7 +40,6 @@ def get_cce_logconfigs_action(params: Dict[str, str]) -> Dict[str, Any]:
     return {
         "success": True,
         "cluster_id": params["cluster_id"],
-        "namespace": params.get("namespace") or "all",
         "access_method": result.get("access_method"),
         "count": len(logconfigs),
         "logconfigs": logconfigs,

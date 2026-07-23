@@ -232,44 +232,38 @@ def get_cce_events_with_kubectl(
     }
 
 
-def get_cce_resources_with_kubectl(
+def get_cce_logconfigs_with_cce_plugin(
     region: str,
     cluster_id: str,
-    resource: str,
-    namespace: Optional[str] = None,
     ak: Optional[str] = None,
     sk: Optional[str] = None,
     project_id: Optional[str] = None,
     security_token: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Read a Kubernetes resource through external kubeconfig, then kubectl-cce."""
+    """Read LogConfig CRs through the kubectl-cce plugin."""
     if not cluster_id:
         return {"success": False, "error": "cluster_id is required"}
-    if not resource:
-        return {"success": False, "error": "resource is required"}
 
-    args = [resource, "-n", namespace] if namespace else [resource, "-A"]
-    external_result = _get_events_with_external_kubeconfig(region, cluster_id, args, ak, sk, project_id)
-    if external_result.get("success"):
-        result = external_result
-    else:
-        token = security_token or os.environ.get("HUAWEI_SECURITY_TOKEN") or os.environ.get("HW_SECURITY_TOKEN")
-        plugin_result = _get_events_with_cce_plugin(region, cluster_id, args, ak, sk, project_id, token)
-        if not plugin_result.get("success"):
-            return {
-                "success": False,
-                "error": f"failed to get Kubernetes resource {resource} via external kubeconfig or kubectl cce plugin",
-                "kubeconfig_error": external_result.get("error"),
-                "plugin_error": plugin_result.get("error"),
-            }
-        result = plugin_result
-
+    token = security_token or os.environ.get("HUAWEI_SECURITY_TOKEN") or os.environ.get("HW_SECURITY_TOKEN")
+    result = _get_events_with_cce_plugin(
+        region,
+        cluster_id,
+        ["logconfigs.logging.openvessel.io", "-A"],
+        ak,
+        sk,
+        project_id,
+        token,
+    )
+    if not result.get("success"):
+        return {
+            "success": False,
+            "error": "failed to get LogConfigs through kubectl cce plugin",
+            "plugin_error": result.get("error"),
+        }
     return {
         "success": True,
         "region": region,
         "cluster_id": cluster_id,
-        "namespace": namespace or "all",
-        "resource": resource,
         "access_method": result.get("access_method"),
         "items": (result.get("data") or {}).get("items") or [],
     }

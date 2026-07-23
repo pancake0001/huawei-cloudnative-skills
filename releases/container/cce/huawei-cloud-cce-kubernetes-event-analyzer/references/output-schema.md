@@ -80,4 +80,4 @@
 | `event_count` | Number of events returned |
 | `events` | Parsed event list with normalized structure |
 | `time_range` | Start/end time of the query |
-| `log_config` | LogConfig info (name, events enabled, etc.) |
+| `log_config` | `default-event` LogConfig metadata and `kubectl_cce_logconfig` discovery method |

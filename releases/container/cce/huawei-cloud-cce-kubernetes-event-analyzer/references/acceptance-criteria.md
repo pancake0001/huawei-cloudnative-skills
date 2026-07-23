@@ -7,7 +7,7 @@
 
 ## Historical LTS Events
 
-- `huawei_query_k8s_events_from_lts` returns the matched Event-to-LTS LogConfig and its LTS group and stream IDs.
+- `huawei_query_k8s_events_from_lts` reads the cluster `default-event` LogConfig through `kubectl cce` and returns its configured LTS group and stream IDs.
 - A bounded query that has collected Events returns normalized records with `type`, `reason`, timestamp, and affected-object fields when available.
 - `huawei_analyze_cce_events event_source=lts` returns `source: lts`, query time-range metadata, and aggregate counters.
 

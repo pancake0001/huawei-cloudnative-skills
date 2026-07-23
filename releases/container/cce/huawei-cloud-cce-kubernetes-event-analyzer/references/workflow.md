@@ -47,5 +47,5 @@
 | Precise time range | No (client-side only) | Yes (server-side filter) |
 | Keyword search | No (client-side only) | Yes (keywords parameter) |
 | Historical Events over one hour | No | Yes |
-| Requires LogConfig | No | Yes (Event→LTS must be configured) |
+| Requires Kubernetes LogConfig | No | Yes (`default-event` with LTS output) |
 | Default route | Primary for current Events | Primary for historical windows over one hour |

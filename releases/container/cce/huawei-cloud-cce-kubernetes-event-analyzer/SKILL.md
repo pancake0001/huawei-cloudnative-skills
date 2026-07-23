@@ -9,7 +9,7 @@ description: Query and analyze Kubernetes Events in Huawei Cloud CCE clusters. T
 
 Query and analyze Kubernetes Events in Huawei Cloud CCE clusters to identify warnings, repeated failure patterns, affected resources, and useful diagnosis handoffs. The skill supports a current Event view through `kubectl` and a historical Event view through LTS.
 
-**Architecture**: `python3 scripts/huawei-cloud.py` dispatcher -> `kubectl` through external kubeconfig or `kubectl cce` / CCE Event-to-LTS LogConfig -> Kubernetes Events -> client-side filtering and grouping -> diagnosis handoff.
+**Architecture**: `python3 scripts/huawei-cloud.py` dispatcher -> `kubectl` through external kubeconfig or `kubectl cce` for current Events / `kubectl cce` LogConfig discovery plus `hcloud LTS ListLogs` for historical Events -> filtering and grouping -> diagnosis handoff.
 
 **Execution Method**: Invoke only the bundled dispatcher. Do not query Kubernetes Events with raw Python Kubernetes SDK calls, direct Kubernetes API calls, or ad hoc cloud commands. The `huawei_get_cce_events` implementation invokes `kubectl` internally: external kubeconfig access first, then the `kubectl cce` plugin fallback.
 
@@ -45,7 +45,7 @@ Query and analyze Kubernetes Events in Huawei Cloud CCE clusters to identify war
 - `hcloud` (KooCLI) for cluster lookup and temporary external kubeconfig generation
 - `kubectl` for current Event reads
 - `kubectl-cce` when the cluster has no usable external endpoint; see [kubectl-cce.md](references/kubectl-cce.md)
-- `hcloud` LTS command support, the Cloud Native Log Collection add-on (`log-agent`), and an Event-to-LTS LogConfig for historical Event queries. `huawei_query_k8s_events_from_lts` invokes `hcloud LTS ListLogs` and cannot query Event history unless the add-on is installed and healthy.
+- `hcloud` LTS command support and the Cloud Native Log Collection add-on (`log-agent`) with a `default-event` Event-to-LTS `LogConfig`. `huawei_query_k8s_events_from_lts` reads `logconfigs.logging.openvessel.io` through `kubectl cce`, then invokes `hcloud LTS ListLogs` using the configured LTS IDs.
 
 ### 2. Credential Configuration
 
@@ -75,8 +75,6 @@ export HUAWEI_SECURITY_TOKEN=<security-token>
 | ---------- | ------- |
 | `cce:cluster:get` | Inspect cluster external endpoint availability |
 | `cce:cluster:createCert` | Generate temporary kubeconfig for external `kubectl` access |
-| `cce:logConfig:list` | Discover CCE Event-to-LTS LogConfig |
-| `lts:logStream:list` | Discover LTS Event streams |
 | `lts:logs:search` | Query historical Event records in LTS |
 
 The effective Kubernetes identity also needs read-only `get` and `list` permission for Events in the target namespace or cluster.
@@ -150,7 +148,7 @@ python3 scripts/huawei-cloud.py huawei_query_k8s_events_from_lts \
   keywords=FailedScheduling
 ```
 
-LTS time format is `YYYY-MM-DD HH:MM:SS`. The cluster must have the Cloud Native Log Collection add-on (`log-agent`) installed and healthy, plus an Event-to-LTS LogConfig whose output type is `LTS` and whose `normalEvents` or `warningEvents` collection is enabled. Installing the add-on alone is insufficient without the Event-to-LTS configuration. LTS queries also default to `event_type=Warning`, using `Warning` as a server-side keyword filter. For large clusters, request full Event history only after user confirmation with `event_type=all`; this removes the type keyword filter. LTS filtering is keyword matching, not a structured-field selector.
+LTS time format is `YYYY-MM-DD HH:MM:SS`. The cluster must have the Cloud Native Log Collection add-on (`log-agent`) installed and healthy with the `default-event` Event-to-LTS `LogConfig`. The tool uses `kubectl cce --cluster-id <cluster-id> --region <region> get logconfigs.logging.openvessel.io -A -o json`, selects `default-event`, and reads `outputDetail.LTS.ltsGroupID` and `ltsStreamID`. LTS queries default to `event_type=Warning`, using `Warning` as a server-side keyword filter. For large clusters, request full Event history only after user confirmation with `event_type=all`; this removes the type keyword filter. LTS filtering is keyword matching, not a structured-field selector.
 
 ### 3. Query and Analyze Event Results
 
@@ -242,7 +240,7 @@ This skill is read-only. It never changes cloud resources, Kubernetes resources,
 | `event_count` | Number of historical Event records returned |
 | `events` | Parsed Event records |
 | `time_range` | Effective start and end time |
-| `log_config` | Matched Event-to-LTS LogConfig information |
+| `log_config` | Default Event LTS stream discovery metadata |
 
 See [output-schema.md](references/output-schema.md) for detailed analysis and Event field definitions.
 
@@ -277,7 +275,7 @@ python3 scripts/huawei-cloud.py huawei_get_cce_events \
   region=cn-north-4 cluster_id=<cluster-id> limit=10
 ```
 
-When Event-to-LTS collection is configured, verify a bounded historical query:
+When default Event-to-LTS collection is enabled, verify a bounded historical query:
 
 ```bash
 python3 scripts/huawei-cloud.py huawei_query_k8s_events_from_lts \
@@ -286,7 +284,7 @@ python3 scripts/huawei-cloud.py huawei_query_k8s_events_from_lts \
   end_time="2026-05-30 07:00:00"
 ```
 
-Verify that the current Event response includes `access_method`, and that the LTS response identifies the Event LogConfig and LTS stream. Do not create or change logging configuration as part of verification.
+Verify that the current Event response includes `access_method`, and that the LTS response identifies the default LTS group and stream. Do not create or change logging configuration as part of verification.
 
 ## Best Practices
 
@@ -300,7 +298,7 @@ Verify that the current Event response includes `access_method`, and that the LT
 ## Notes
 
 - No active warning does not prove a cluster is healthy; inspect historical LTS Events for recent or recovered incidents when available.
-- The Event-to-LTS path depends on both CCE log collection and an enabled Event-to-LTS LogConfig.
+- The Event-to-LTS path depends on a healthy log-agent add-on with default Event collection enabled.
 - Event summaries should redact sensitive production workload, Pod, and node identifiers where the audience does not need them.
 - Do not modify Kubernetes, CCE logging, LTS, or cloud resources through this skill.
 
@@ -310,8 +308,8 @@ Verify that the current Event response includes `access_method`, and that the LT
 | ------- | ------------ | ------ |
 | External kubeconfig access fails | No external endpoint, invalid profile, or missing CCE permission | Verify `cce:cluster:get` and `cce:cluster:createCert`; the tool then tries `kubectl cce` |
 | `kubectl cce` fallback fails | Plugin missing or plugin credentials unavailable | Install/configure the plugin using [kubectl-cce.md](references/kubectl-cce.md) |
-| LTS query finds no Event LogConfig | Event collection is not configured | Enable Event-to-LTS collection outside this read-only skill, then retry |
-| LTS query returns no records | Time window, keywords, retention, or event collection does not match | Narrow or correct the window and verify the LogConfig and LTS stream |
+| LTS query finds no default Event stream | Default Event collection is not enabled or has not finished provisioning | Enable default Event collection through the log-agent add-on, then retry |
+| LTS query returns no records | Time window, keywords, retention, or event collection does not match | Narrow or correct the window and verify the default LTS group and stream |
 | Too many current Events | Broad cluster query | Warning is the default; provide `namespace` and a lower `limit` to further reduce data at the source |
 | Permission denied | Missing IAM or Kubernetes RBAC permission | Grant the reported least-privilege permission, then retry |
 
@@ -319,8 +317,8 @@ Verify that the current Event response includes `access_method`, and that the LT
 
 - The skill provides only the two documented read-only Event tools.
 - Current Event queries support only namespace and Event type (`Warning`, `Normal`, or `all`) server-side selection.
-- Historical queries require Event-to-LTS collection configured before the incident; the skill cannot recover uncollected history.
-- The skill cannot create, modify, or delete LogConfigs, LTS streams, Kubernetes resources, or CCE resources.
+- Historical queries require default Event-to-LTS collection enabled before the incident; the skill cannot recover uncollected history.
+- The skill cannot create, modify, or delete LTS streams, Kubernetes resources, or CCE resources.
 - The skill does not automatically select a cluster, namespace, event filter, or diagnosis/remediation action for the user.
 
 ## References

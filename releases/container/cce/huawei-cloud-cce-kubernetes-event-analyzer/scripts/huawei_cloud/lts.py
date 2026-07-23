@@ -51,6 +51,46 @@ def _parse_hcloud_json(output: str) -> Dict[str, Any]:
     return json.loads(text[start:])
 
 
+def _run_hcloud(cmd: list[str]) -> Dict[str, Any]:
+    try:
+        completed = subprocess.run(cmd, text=True, capture_output=True, timeout=75, check=False)
+    except FileNotFoundError:
+        return {"success": False, "error": "hcloud not found in PATH"}
+    except subprocess.TimeoutExpired:
+        return {"success": False, "error": "hcloud command timed out after 75 seconds"}
+    if completed.returncode:
+        return {
+            "success": False,
+            "error": (completed.stderr or completed.stdout or f"hcloud exited with code {completed.returncode}")[:2000],
+        }
+    try:
+        return {"success": True, "data": _parse_hcloud_json(completed.stdout)}
+    except (ValueError, json.JSONDecodeError) as exc:
+        return {"success": False, "error": f"hcloud response parsing failed: {exc}"}
+
+
+def _hcloud_base_command(
+    service: str,
+    operation: str,
+    region: str,
+    ak: Optional[str],
+    sk: Optional[str],
+    project_id: Optional[str],
+) -> list[str]:
+    access_key, secret_key, resolved_project_id = _hcloud_credentials(ak, sk, project_id)
+    cmd = [
+        "hcloud", service, operation, f"--cli-region={region}", "--cli-output=json",
+        "--cli-connect-timeout=10", "--cli-read-timeout=60",
+    ]
+    if resolved_project_id:
+        cmd.append(f"--project_id={resolved_project_id}")
+    if access_key:
+        cmd.append(f"--cli-access-key={access_key}")
+    if secret_key:
+        cmd.append(f"--cli-secret-key={secret_key}")
+    return cmd
+
+
 def query_logs(
     region: str,
     log_group_id: str,
@@ -67,50 +107,26 @@ def query_logs(
 ) -> Dict[str, Any]:
     """Query one LTS stream through ``hcloud LTS ListLogs``."""
     now = datetime.now()
-    access_key, secret_key, resolved_project_id = _hcloud_credentials(ak, sk, project_id)
-    cmd = [
-        "hcloud",
-        "LTS",
-        "ListLogs",
-        f"--cli-region={region}",
+    cmd = _hcloud_base_command("LTS", "ListLogs", region, ak, sk, project_id)
+    cmd.extend(
+        [
         f"--log_group_id={log_group_id}",
         f"--log_stream_id={log_stream_id}",
         f"--start_time={_timestamp(start_time, now - timedelta(hours=1))}",
         f"--end_time={_timestamp(end_time, now)}",
         f"--limit={max(1, min(limit, 1000))}",
         "--is_desc=true",
-        "--cli-output=json",
-        "--cli-connect-timeout=10",
-        "--cli-read-timeout=60",
-    ]
-    if resolved_project_id:
-        cmd.append(f"--project_id={resolved_project_id}")
-    if access_key:
-        cmd.append(f"--cli-access-key={access_key}")
-    if secret_key:
-        cmd.append(f"--cli-secret-key={secret_key}")
+        ]
+    )
     if keywords:
         cmd.append(f"--keywords={keywords}")
     if scroll_id:
         cmd.append(f"--scroll_id={scroll_id}")
 
-    try:
-        completed = subprocess.run(cmd, text=True, capture_output=True, timeout=75, check=False)
-    except FileNotFoundError:
-        return {"success": False, "error": "hcloud not found in PATH"}
-    except subprocess.TimeoutExpired:
-        return {"success": False, "error": "hcloud LTS ListLogs timed out after 75 seconds"}
-
-    if completed.returncode:
-        return {
-            "success": False,
-            "error": (completed.stderr or completed.stdout or f"hcloud exited with code {completed.returncode}")[:2000],
-        }
-
-    try:
-        response = _parse_hcloud_json(completed.stdout)
-    except (ValueError, json.JSONDecodeError) as exc:
-        return {"success": False, "error": f"hcloud LTS ListLogs response parsing failed: {exc}"}
+    query_result = _run_hcloud(cmd)
+    if not query_result.get("success"):
+        return query_result
+    response = query_result["data"]
 
     logs = [
         {
