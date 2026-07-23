@@ -29,6 +29,7 @@ Query and analyze Kubernetes Events in Huawei Cloud CCE clusters to identify war
 - Read Events through external `kubectl` kubeconfig access or `kubectl cce`
 - Query historical Event records from LTS within an explicit time window
 - Filter and group Events by type, reason, namespace, resource, and timestamps
+- Check the current status of supported resources referenced by Events
 - Analyze a supplied current or historical Event result locally without another cloud request
 - Identify repeated warning patterns and hand off evidence to diagnosis skills
 
@@ -213,7 +214,7 @@ This skill is read-only. It never changes cloud resources, Kubernetes resources,
 
 | Tool | Required | Optional |
 | ---- | -------- | -------- |
-| `huawei_analyze_cce_events` | Either `events`, or `region` + `cluster_id` | `event_source` (`current` default or `lts`), `start_time`/`end_time` (required for `lts`), `namespace`, `event_type`, `keywords`, `limit`, `max_groups` (1-100, default 10), `ak`, `sk`, `project_id`, `security_token` |
+| `huawei_analyze_cce_events` | Either `events`, or `region` + `cluster_id` | `event_source` (`current` default or `lts`), `start_time`/`end_time` (required for `lts`), `namespace`, `event_type`, `keywords`, `limit`, `max_groups` (1-100, default 10), `check_resource_status` (default true when `region` and `cluster_id` are present), `ak`, `sk`, `project_id`, `security_token` |
 
 ## Output Format
 
@@ -256,6 +257,7 @@ See [output-schema.md](references/output-schema.md) for detailed analysis and Ev
 | `top_reasons` | Most frequent reasons with warning count and per-reason time range |
 | `namespace_breakdown`, `affected_objects` | Most affected namespaces and resources |
 | `repeated_patterns` | Input Event records whose `count` is greater than one |
+| `resource_status` | Current state of up to `max_groups` distinct Event resources. Supported kinds: Pod, Node, Deployment, StatefulSet, DaemonSet, ReplicaSet, Job, CronJob, PVC, PV, and Service. States are `normal`, `abnormal`, `unknown`, `not_found`, `unsupported`, or `query_failed`. |
 
 ## Workflow
 

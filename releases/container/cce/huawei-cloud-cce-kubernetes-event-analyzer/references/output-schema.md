@@ -37,6 +37,7 @@
 | `namespace_breakdown` | Most affected namespaces, sorted by occurrences |
 | `affected_objects` | Most affected namespace/kind/name resource identities |
 | `repeated_patterns` | Event records with `count > 1` |
+| `resource_status` | Current-state checks for distinct resources referenced by Events, including a per-state summary and resource-level messages |
 
 ## Event Detail (per event)
 

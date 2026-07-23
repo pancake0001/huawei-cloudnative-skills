@@ -36,6 +36,12 @@ def _range(values: Iterable[Optional[str]]) -> Dict[str, Optional[str]]:
     return {"first": timestamps[0] if timestamps else None, "last": timestamps[-1] if timestamps else None}
 
 
+def _as_bool(value: Optional[str], default: bool) -> bool:
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
 def _query_events(params: Dict[str, str]) -> tuple[List[Dict[str, Any]], str, Dict[str, Any]]:
     """Query a supported Event source before local aggregation."""
     source = (
@@ -174,6 +180,37 @@ def analyze_cce_events_action(params: Dict[str, str]) -> Dict[str, Any]:
         ],
         "repeated_patterns": repeated_patterns[:max_groups],
     }
+    region = params.get("region") or (query_result or {}).get("region")
+    cluster_id = params.get("cluster_id") or (query_result or {}).get("cluster_id")
+    should_check_resources = _as_bool(params.get("check_resource_status"), bool(region and cluster_id))
+    if should_check_resources and region and cluster_id:
+        from . import resource_status
+
+        try:
+            response["resource_status"] = resource_status.check_event_resource_statuses(
+                events=events,
+                region=region,
+                cluster_id=cluster_id,
+                max_resources=max_groups,
+                ak=params.get("ak"),
+                sk=params.get("sk"),
+                project_id=params.get("project_id"),
+                security_token=params.get("security_token"),
+            )
+        except Exception as exc:
+            response["resource_status"] = {
+                "checked": 0,
+                "summary": {"query_failed": 1},
+                "resources": [],
+                "message": f"Resource status checks failed: {exc}",
+            }
+    else:
+        response["resource_status"] = {
+            "checked": 0,
+            "summary": {},
+            "resources": [],
+            "message": "Resource status checks require region and cluster_id, or can be disabled with check_resource_status=false",
+        }
     if query_result is not None:
         response["query"] = {
             "source": source,

@@ -8,6 +8,7 @@ This module implements huawei_query_k8s_events_from_lts tool which:
 """
 
 import json
+import re
 import time
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional, List
@@ -108,6 +109,10 @@ def _parse_event_content(log_content: str) -> Optional[Dict[str, Any]]:
             normalized["count"] = 1
     except (TypeError, ValueError):
         normalized["count"] = 1
+
+    for field in ("type", "reason", "message"):
+        if isinstance(normalized.get(field), str):
+            normalized[field] = re.sub(r"<[^>]+>", "", normalized[field])
 
     return normalized
 
