@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 import json
-import os
 import subprocess
 from datetime import datetime, timedelta
 from typing import Any, Dict, Optional
 
-from .common import get_credentials
+from . import common
 
 
 def _timestamp(value: Optional[str], default: datetime) -> int:
@@ -19,54 +18,33 @@ def _timestamp(value: Optional[str], default: datetime) -> int:
     return int(value)
 
 
-def _has_hcloud_profile() -> bool:
-    config_dir = os.environ.get("HCLOUD_CONFIG_DIR")
-    candidates = [os.path.join(config_dir, "config.json")] if config_dir else []
-    candidates.extend(
-        [
-            os.path.expanduser("~/.hcloud/config.json"),
-            os.path.expanduser("~/.hcloud/config.yaml"),
-            os.path.expanduser("~/.hcloud/config.yml"),
-        ]
-    )
-    return any(os.path.isfile(path) and os.path.getsize(path) > 0 for path in candidates)
-
-
-def _hcloud_credentials(
-    ak: Optional[str], sk: Optional[str], project_id: Optional[str]
-) -> tuple[Optional[str], Optional[str], Optional[str]]:
-    """Resolve credentials in tool-parameter, profile, then environment order."""
-    if ak or sk or project_id:
-        return ak, sk, project_id
-    if _has_hcloud_profile():
-        return None, None, None
-    return get_credentials()
-
-
 def _parse_hcloud_json(output: str) -> Dict[str, Any]:
     text = (output or "").strip()
-    start = text.find("{")
-    if start < 0:
-        raise ValueError("hcloud returned non-JSON output")
-    return json.loads(text[start:])
+    return json.loads(text or "{}")
 
 
 def _run_hcloud(cmd: list[str]) -> Dict[str, Any]:
+    safe_cmd = common.redact_command(cmd)
     try:
         completed = subprocess.run(cmd, text=True, capture_output=True, timeout=75, check=False)
     except FileNotFoundError:
-        return {"success": False, "error": "hcloud not found in PATH"}
+        return {"success": False, "error": "hcloud not found in PATH", "command": safe_cmd}
     except subprocess.TimeoutExpired:
-        return {"success": False, "error": "hcloud command timed out after 75 seconds"}
+        return {"success": False, "error": "hcloud command timed out after 75 seconds", "command": safe_cmd}
     if completed.returncode:
         return {
             "success": False,
             "error": (completed.stderr or completed.stdout or f"hcloud exited with code {completed.returncode}")[:2000],
+            "command": safe_cmd,
         }
     try:
         return {"success": True, "data": _parse_hcloud_json(completed.stdout)}
     except (ValueError, json.JSONDecodeError) as exc:
-        return {"success": False, "error": f"hcloud response parsing failed: {exc}"}
+        return {
+            "success": False,
+            "error": f"hcloud response parsing failed: {exc}",
+            "command": safe_cmd,
+        }
 
 
 def _hcloud_base_command(
@@ -77,13 +55,13 @@ def _hcloud_base_command(
     sk: Optional[str],
     project_id: Optional[str],
 ) -> list[str]:
-    access_key, secret_key, resolved_project_id = _hcloud_credentials(ak, sk, project_id)
+    access_key, secret_key, resolved_project_id = common.resolve_hcloud_credentials(ak, sk, project_id)
     cmd = [
         "hcloud", service, operation, f"--cli-region={region}", "--cli-output=json",
         "--cli-connect-timeout=10", "--cli-read-timeout=60",
     ]
     if resolved_project_id:
-        cmd.append(f"--project_id={resolved_project_id}")
+        cmd.append(f"--cli-project-id={resolved_project_id}")
     if access_key:
         cmd.append(f"--cli-access-key={access_key}")
     if secret_key:

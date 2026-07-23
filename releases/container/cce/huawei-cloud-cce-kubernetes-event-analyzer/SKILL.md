@@ -148,7 +148,7 @@ python3 scripts/huawei-cloud.py huawei_query_k8s_events_from_lts \
   keywords=FailedScheduling
 ```
 
-LTS time format is `YYYY-MM-DD HH:MM:SS`. The cluster must have the Cloud Native Log Collection add-on (`log-agent`) installed and healthy with the `default-event` Event-to-LTS `LogConfig`. The tool uses `kubectl cce --cluster-id <cluster-id> --region <region> get logconfigs.logging.openvessel.io -A -o json`, selects `default-event`, and reads `outputDetail.LTS.ltsGroupID` and `ltsStreamID`. LTS queries default to `event_type=Warning`, using `Warning` as a server-side keyword filter. For large clusters, request full Event history only after user confirmation with `event_type=all`; this removes the type keyword filter. LTS filtering is keyword matching, not a structured-field selector.
+LTS time format is UTC `YYYY-MM-DD HH:MM:SS`; the tool always interprets input values as UTC, not the local time zone of the host. The cluster must have the Cloud Native Log Collection add-on (`log-agent`) installed and healthy with the `default-event` Event-to-LTS `LogConfig`. The tool uses `kubectl cce --cluster-id <cluster-id> --region <region> get logconfigs.logging.openvessel.io -A -o json`, selects `default-event`, and reads `outputDetail.LTS.ltsGroupID` and `ltsStreamID`. LTS queries default to `event_type=Warning`, using `Warning` as a server-side keyword filter. For large clusters, request full Event history only after user confirmation with `event_type=all`; this removes the type keyword filter. LTS filtering is keyword matching, not a structured-field selector.
 
 ### 3. Query and Analyze Event Results
 
@@ -200,7 +200,7 @@ This skill is read-only. It never changes cloud resources, Kubernetes resources,
 
 | Tool | Required | Optional |
 | ---- | -------- | -------- |
-| `huawei_get_cce_events` | `region`, `cluster_id` | `namespace`, `event_type` (`Warning` default, `Normal`, or `all`), `limit`, `ak`, `sk`, `project_id` |
+| `huawei_get_cce_events` | `region`, `cluster_id` | `namespace`, `event_type` (`Warning` default, `Normal`, or `all`), `limit`, `ak`, `sk`, `project_id`, `security_token` |
 
 ### Historical Event Query Parameters
 
@@ -212,7 +212,7 @@ This skill is read-only. It never changes cloud resources, Kubernetes resources,
 
 | Tool | Required | Optional |
 | ---- | -------- | -------- |
-| `huawei_analyze_cce_events` | Either `events`, or `region` + `cluster_id` | `event_source` (`current` default or `lts`), `start_time`/`end_time` (required for `lts`), `namespace`, `event_type`, `keywords`, `limit`, `max_groups` (1-100, default 10), credentials |
+| `huawei_analyze_cce_events` | Either `events`, or `region` + `cluster_id` | `event_source` (`current` default or `lts`), `start_time`/`end_time` (required for `lts`), `namespace`, `event_type`, `keywords`, `limit`, `max_groups` (1-100, default 10), `ak`, `sk`, `project_id`, `security_token` |
 
 ## Output Format
 

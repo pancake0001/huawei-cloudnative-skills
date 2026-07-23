@@ -65,6 +65,7 @@ def _query_events(params: Dict[str, str]) -> tuple[List[Dict[str, Any]], str, Di
             ak=params.get("ak"),
             sk=params.get("sk"),
             project_id=params.get("project_id"),
+            security_token=params.get("security_token"),
         )
     else:
         from . import cce_events_lts

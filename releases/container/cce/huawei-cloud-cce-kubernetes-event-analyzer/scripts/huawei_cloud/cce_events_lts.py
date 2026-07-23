@@ -8,7 +8,8 @@ This module implements huawei_query_k8s_events_from_lts tool which:
 """
 
 import json
-from datetime import datetime
+import time
+from datetime import datetime, timezone
 from typing import Dict, Any, Optional, List
 
 try:
@@ -21,8 +22,8 @@ except ImportError:
 
 
 def _convert_timestamp_to_ms(time_str: str) -> int:
-    """Convert 'YYYY-MM-DD HH:MM:SS' to milliseconds timestamp."""
-    dt = datetime.strptime(time_str, "%Y-%m-%d %H:%M:%S")
+    """Convert a UTC 'YYYY-MM-DD HH:MM:SS' timestamp to milliseconds."""
+    dt = datetime.strptime(time_str, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
     return int(dt.timestamp() * 1000)
 
 
@@ -219,7 +220,7 @@ def _query_k8s_events_from_lts(
     except ValueError as e:
         return {
             "success": False,
-            "error": f"时间格式错误，应为 'YYYY-MM-DD HH:MM:SS': {str(e)}"
+            "error": f"Invalid UTC time format; expected 'YYYY-MM-DD HH:MM:SS': {e}",
         }
 
     # Step 5: Query LTS with pagination
@@ -228,6 +229,7 @@ def _query_k8s_events_from_lts(
     total_fetched = 0
     page_count = 0
     page_limit = 1000  # LTS API page size
+    page_request_delay_seconds = 0.1
 
     while total_fetched < limit:
         page_count += 1
@@ -251,7 +253,7 @@ def _query_k8s_events_from_lts(
         if not lts_result.get("success"):
             return {
                 "success": False,
-                "error": f"LTS查询失败: {lts_result.get('error', 'Unknown error')}",
+                "error": f"LTS query failed: {lts_result.get('error', 'Unknown error')}",
                 "log_group_id": log_group_id,
                 "log_stream_id": log_stream_id,
                 "events_fetched": total_fetched,
@@ -284,6 +286,8 @@ def _query_k8s_events_from_lts(
         scroll_id = lts_result.get("scroll_id")
         if not scroll_id:
             break
+        if total_fetched < limit:
+            time.sleep(page_request_delay_seconds)
 
     # Step 7: Build response
     return {

@@ -13,6 +13,7 @@ def get_kubernetes_events(
     ak: Optional[str] = None,
     sk: Optional[str] = None,
     project_id: Optional[str] = None,
+    security_token: Optional[str] = None,
     namespace: Optional[str] = None,
     event_type: Optional[str] = None,
     limit: int = 500,
@@ -28,6 +29,7 @@ def get_kubernetes_events(
         ak=ak,
         sk=sk,
         project_id=project_id,
+        security_token=security_token,
     )
     if not result.get("success"):
         return result

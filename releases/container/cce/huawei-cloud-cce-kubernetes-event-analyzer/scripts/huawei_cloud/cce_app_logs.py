@@ -9,9 +9,16 @@ from . import kubectl_client
 
 def get_cce_logconfigs_action(params: Dict[str, str]) -> Dict[str, Any]:
     """Return LogConfig resources needed to locate CCE Event LTS streams."""
+    region = params.get("region")
+    cluster_id = params.get("cluster_id")
+    if not region:
+        return {"success": False, "error": "region is required"}
+    if not cluster_id:
+        return {"success": False, "error": "cluster_id is required"}
+
     result = kubectl_client.get_cce_logconfigs_with_cce_plugin(
-        region=params["region"],
-        cluster_id=params["cluster_id"],
+        region=region,
+        cluster_id=cluster_id,
         ak=params.get("ak"),
         sk=params.get("sk"),
         project_id=params.get("project_id"),
@@ -39,7 +46,7 @@ def get_cce_logconfigs_action(params: Dict[str, str]) -> Dict[str, Any]:
 
     return {
         "success": True,
-        "cluster_id": params["cluster_id"],
+        "cluster_id": cluster_id,
         "access_method": result.get("access_method"),
         "count": len(logconfigs),
         "logconfigs": logconfigs,

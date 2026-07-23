@@ -33,6 +33,7 @@ def _get_cce_events(params: Dict[str, str]) -> Dict[str, Any]:
         ak=params.get("ak"),
         sk=params.get("sk"),
         project_id=params.get("project_id"),
+        security_token=params.get("security_token"),
     )
 
 

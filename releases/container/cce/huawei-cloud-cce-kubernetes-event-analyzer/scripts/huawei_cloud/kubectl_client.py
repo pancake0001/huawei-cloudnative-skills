@@ -9,40 +9,10 @@ import subprocess
 import tempfile
 from typing import Any, Dict, List, Optional
 
-
-def _redact_command(cmd: List[str]) -> List[str]:
-    return [
-        re.sub(r"(--cli-(?:access|secret)-key=).*", r"\1***", part)
-        for part in cmd
-    ]
+from . import common
 
 
-def _has_hcloud_profile() -> bool:
-    config_dir = os.environ.get("HCLOUD_CONFIG_DIR")
-    candidates = [os.path.join(config_dir, "config.json")] if config_dir else []
-    candidates.extend([
-        os.path.expanduser("~/.hcloud/config.json"),
-        os.path.expanduser("~/.hcloud/config.yaml"),
-        os.path.expanduser("~/.hcloud/config.yml"),
-    ])
-    return any(os.path.isfile(path) and os.path.getsize(path) > 0 for path in candidates)
-
-
-def _environment_credentials() -> tuple[Optional[str], Optional[str], Optional[str]]:
-    return (
-        os.environ.get("HUAWEI_AK") or os.environ.get("HUAWEICLOUD_SDK_AK") or os.environ.get("HW_ACCESS_KEY"),
-        os.environ.get("HUAWEI_SK") or os.environ.get("HUAWEICLOUD_SDK_SK") or os.environ.get("HW_SECRET_KEY"),
-        os.environ.get("HUAWEI_PROJECT_ID") or os.environ.get("HUAWEICLOUD_SDK_PROJECT_ID") or os.environ.get("HW_PROJECT_ID"),
-    )
-
-
-def _hcloud_credentials(ak: Optional[str], sk: Optional[str], project_id: Optional[str]) -> tuple[Optional[str], Optional[str], Optional[str]]:
-    """Use tool arguments first, then hcloud profile, then environment variables."""
-    if ak or sk or project_id:
-        return ak, sk, project_id
-    if _has_hcloud_profile():
-        return None, None, None
-    return _environment_credentials()
+_NAMESPACE_PATTERN = re.compile(r"^[a-z0-9](?:[-a-z0-9]*[a-z0-9])?$")
 
 
 def _parse_json_output(output: str, source: str) -> Dict[str, Any]:
@@ -54,7 +24,7 @@ def _parse_json_output(output: str, source: str) -> Dict[str, Any]:
 
 
 def _run_command(cmd: List[str], env: Optional[Dict[str, str]] = None, timeout: int = 60) -> Dict[str, Any]:
-    safe_cmd = _redact_command(cmd)
+    safe_cmd = common.redact_command(cmd)
     try:
         proc = subprocess.run(cmd, text=True, capture_output=True, timeout=timeout, env=env)
     except FileNotFoundError:
@@ -84,7 +54,7 @@ def _run_hcloud(
     sk: Optional[str],
     project_id: Optional[str],
 ) -> Dict[str, Any]:
-    access_key, secret_key, resolved_project_id = _hcloud_credentials(ak, sk, project_id)
+    access_key, secret_key, resolved_project_id = common.resolve_hcloud_credentials(ak, sk, project_id)
     cmd = [
         "hcloud", service, operation, f"--cli-region={region}", "--cli-output=json",
         "--cli-connect-timeout=10", "--cli-read-timeout=60",
@@ -164,7 +134,7 @@ def _get_events_with_external_kubeconfig(
 def _get_events_with_cce_plugin(
     region: str, cluster_id: str, args: List[str], ak: Optional[str], sk: Optional[str], project_id: Optional[str], security_token: Optional[str]
 ) -> Dict[str, Any]:
-    env_ak, env_sk, env_project_id = _environment_credentials()
+    env_ak, env_sk, env_project_id = common.get_credentials()
     access_key = ak or env_ak
     secret_key = sk or env_sk
     resolved_project_id = project_id or env_project_id
@@ -198,6 +168,11 @@ def get_cce_events_with_kubectl(
     """Read Kubernetes Events through external kubeconfig, then kubectl-cce."""
     if not cluster_id:
         return {"success": False, "error": "cluster_id is required"}
+    if namespace and (len(namespace) > 63 or not _NAMESPACE_PATTERN.fullmatch(namespace)):
+        return {
+            "success": False,
+            "error": "namespace must be a Kubernetes DNS label (lowercase letters, digits, and hyphens; max 63 characters)",
+        }
 
     effective_event_type = event_type or "Warning"
     if effective_event_type not in {"Warning", "Normal", "all"}:
