@@ -188,6 +188,7 @@ def get_cce_events_with_kubectl(
     region: str,
     cluster_id: str,
     namespace: Optional[str] = None,
+    event_type: Optional[str] = None,
     limit: int = 500,
     ak: Optional[str] = None,
     sk: Optional[str] = None,
@@ -198,7 +199,12 @@ def get_cce_events_with_kubectl(
     if not cluster_id:
         return {"success": False, "error": "cluster_id is required"}
 
+    if event_type and event_type not in {"Warning", "Normal"}:
+        return {"success": False, "error": "event_type must be Warning or Normal"}
+
     args = ["events", "-n", namespace] if namespace else ["events", "-A"]
+    if event_type:
+        args.extend(["--field-selector", f"type={event_type}"])
     external_result = _get_events_with_external_kubeconfig(region, cluster_id, args, ak, sk, project_id)
     if external_result.get("success"):
         result = external_result
@@ -219,6 +225,7 @@ def get_cce_events_with_kubectl(
         "region": region,
         "cluster_id": cluster_id,
         "namespace": namespace or "all",
+        "event_type": event_type,
         "access_method": result.get("access_method"),
         "items": ((result.get("data") or {}).get("items") or [])[:limit],
     }

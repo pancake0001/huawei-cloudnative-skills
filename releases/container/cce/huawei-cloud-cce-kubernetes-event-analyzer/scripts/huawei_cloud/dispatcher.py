@@ -28,6 +28,7 @@ def _get_cce_events(params: Dict[str, str]) -> Dict[str, Any]:
         region=params["region"],
         cluster_id=params["cluster_id"],
         namespace=params.get("namespace"),
+        event_type=params.get("event_type"),
         limit=_to_int(params.get("limit"), 500),
         ak=params.get("ak"),
         sk=params.get("sk"),

@@ -57,6 +57,7 @@ def _query_events(params: Dict[str, str]) -> tuple[List[Dict[str, Any]], str, Di
             region=region,
             cluster_id=cluster_id,
             namespace=params.get("namespace"),
+            event_type=params.get("event_type"),
             limit=max(1, min(limit, 1000)),
             ak=params.get("ak"),
             sk=params.get("sk"),

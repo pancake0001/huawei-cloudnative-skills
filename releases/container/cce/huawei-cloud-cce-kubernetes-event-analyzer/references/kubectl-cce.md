@@ -23,15 +23,9 @@ The executable must be named `kubectl-cce` so that kubectl discovers it as `kube
 
 ## Plugin Credentials
 
-The plugin requires AK/SK as tool parameters or environment variables. For temporary credentials, also provide a security token.
+The plugin reads credentials from tool parameters or its credential environment variables: `HW_ACCESS_KEY`, `HW_SECRET_KEY`, `HW_PROJECT_ID`, and `HW_REGION`. Temporary credentials also require `HW_SECURITY_TOKEN`.
 
-```bash
-export HW_ACCESS_KEY="<your-ak>"
-export HW_SECRET_KEY="<your-sk>"
-export HW_PROJECT_ID="<your-project-id>"
-export HW_REGION="cn-north-4"
-export HW_SECURITY_TOKEN="<your-security-token>"
-```
+Set these values through an approved local credential provider before invoking the plugin. Never place credential values in this document, shell history, source control, or command output.
 
 ## Example
 

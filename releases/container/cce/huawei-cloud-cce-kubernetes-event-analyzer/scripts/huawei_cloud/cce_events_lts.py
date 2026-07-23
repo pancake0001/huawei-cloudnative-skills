@@ -156,6 +156,7 @@ def _query_k8s_events_from_lts(
     start_time: str,
     end_time: str,
     keywords: Optional[str] = None,
+    event_type: Optional[str] = None,
     limit: int = 500,
     ak: Optional[str] = None,
     sk: Optional[str] = None,
@@ -170,6 +171,7 @@ def _query_k8s_events_from_lts(
         start_time: Start time 'YYYY-MM-DD HH:MM:SS'
         end_time: End time 'YYYY-MM-DD HH:MM:SS'
         keywords: Optional keywords to filter events
+        event_type: Optional Event type (`Warning` or `Normal`) to filter server-side
         limit: Maximum number of events to return (default 500)
         ak: Access key (optional, uses env if not provided)
         sk: Secret key (optional, uses env if not provided)
@@ -183,6 +185,16 @@ def _query_k8s_events_from_lts(
             "success": False,
             "error": "LTS module not available. Install huaweicloudsdklts."
         }
+
+    if event_type and event_type not in {"Warning", "Normal"}:
+        return {"success": False, "error": "event_type must be Warning or Normal"}
+    if event_type:
+        if keywords and keywords != event_type:
+            return {
+                "success": False,
+                "error": "LTS supports one server-side keyword filter; use either keywords or event_type",
+            }
+        keywords = event_type
 
     access_key, secret_key, proj_id = get_credentials(ak, sk, project_id)
 
@@ -328,6 +340,7 @@ def _query_k8s_events_from_lts(
         "log_group_id": log_group_id,
         "log_stream_id": log_stream_id,
         "keywords": keywords,
+        "event_type": event_type,
         "event_count": len(all_events),
         "events": all_events,
         "time_range": {
@@ -359,6 +372,7 @@ def query_k8s_events_from_lts_action(params: Dict[str, str]) -> Dict[str, Any]:
     - start_time: Start time 'YYYY-MM-DD HH:MM:SS' (required)
     - end_time: End time 'YYYY-MM-DD HH:MM:SS' (required)
     - keywords: Optional keywords to filter events
+    - event_type: Optional Event type (`Warning` or `Normal`) for server-side filtering
     - limit: Maximum number of events to return (default 500)
     """
     region = params.get("region")
@@ -366,6 +380,7 @@ def query_k8s_events_from_lts_action(params: Dict[str, str]) -> Dict[str, Any]:
     start_time = params.get("start_time")
     end_time = params.get("end_time")
     keywords = params.get("keywords")
+    event_type = params.get("event_type")
 
     # Validate required parameters
     if not region:
@@ -389,6 +404,7 @@ def query_k8s_events_from_lts_action(params: Dict[str, str]) -> Dict[str, Any]:
         start_time=start_time,
         end_time=end_time,
         keywords=keywords,
+        event_type=event_type,
         limit=limit,
         ak=params.get("ak"),
         sk=params.get("sk"),
