@@ -22,25 +22,26 @@ kubectl discovers the plugin because the executable is named `kubectl-cce`.
 
 ## Configure
 
-AK/SK is preferred when both AK and SK are present:
+When using AK/SK, provide AK, SK, and the target region project ID:
 
 ```bash
 export HUAWEICLOUD_SDK_AK="your-ak"
 export HUAWEICLOUD_SDK_SK="your-sk"
+export CCE_PROJECT_ID="your-project-id"
 ```
 
-You can pass the cluster and region directly:
+Pass the cluster, region, and project ID explicitly when invoking the plugin. This is the most reliable method:
 
 ```bash
-kubectl cce --cluster your-cluster-id --region cn-north-4 get ns
+kubectl cce --cluster-id your-cluster-id --region cn-north-4 --project-id your-project-id get ns
 ```
 
-Or keep them in environment variables:
+You can keep the cluster, region, and project ID in environment variables instead:
 
 ```bash
 export CCE_CLUSTER_ID="your-cluster-id"
 export CCE_REGION="cn-north-4"
-export CCE_PROJECT_ID="your-project-id" # optional, but recommended for AK/SK
+export CCE_PROJECT_ID="your-project-id" # required when using AK/SK
 ```
 
 For a temporary AK/SK, also set:
@@ -73,7 +74,7 @@ export CCE_ENDPOINT="your-cluster-id.cce.cn-north-4.myhuaweicloud.com"
 
 ```bash
 kubectl cce get pods -n default
-kubectl cce --cluster your-cluster-id --region cn-north-4 get ns
+kubectl cce --cluster-id your-cluster-id --region cn-north-4 --project-id your-project-id get ns
 kubectl cce get pods -A
 kubectl cce get ns
 kubectl cce get nodes

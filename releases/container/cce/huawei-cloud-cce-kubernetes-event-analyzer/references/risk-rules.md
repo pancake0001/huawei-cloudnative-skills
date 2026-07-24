@@ -32,7 +32,7 @@ Keep event queries time-bounded. Prefer recent windows (1-24 hours) to avoid ove
 
 Use `huawei_get_cce_events` as the primary query method. Fall back to `huawei_query_k8s_events_from_lts` only when precise time-range filtering or keyword search is needed.
 
-**Rationale**: K8s API is simpler and requires no LogConfig setup. LTS provides server-side filtering but requires Event→LTS configuration.
+**Rationale**: K8s API is simpler. LTS provides server-side filtering and requires the log-agent default Event-to-LTS collection to be enabled.
 
 ### S2: Filter Warning First
 

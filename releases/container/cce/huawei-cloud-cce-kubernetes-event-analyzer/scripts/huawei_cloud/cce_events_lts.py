@@ -2,30 +2,29 @@
 Query Kubernetes events from LTS log streams.
 
 This module implements huawei_query_k8s_events_from_lts tool which:
-1. Gets LogConfigs from a CCE cluster
-2. Finds Event->LTS LogConfig with events enabled
-3. Queries LTS for K8s events in the specified time range
-4. Parses and returns structured event data
+1. Reads Event-to-LTS LogConfig resources through kubectl-cce
+2. Queries LTS for K8s events in the specified time range
+3. Parses and returns structured event data
 """
 
 import json
-from datetime import datetime
+import re
+import time
+from datetime import datetime, timezone
 from typing import Dict, Any, Optional, List
 
 try:
-    from . import lts as lts_mod
-    from . import cce_app_logs
-    from .common import get_credentials
+    from . import cce_app_logs, lts as lts_mod
     _lts_available = True
 except ImportError:
     _lts_available = False
-    lts_mod = None
     cce_app_logs = None
+    lts_mod = None
 
 
 def _convert_timestamp_to_ms(time_str: str) -> int:
-    """Convert 'YYYY-MM-DD HH:MM:SS' to milliseconds timestamp."""
-    dt = datetime.strptime(time_str, "%Y-%m-%d %H:%M:%S")
+    """Convert a UTC 'YYYY-MM-DD HH:MM:SS' timestamp to milliseconds."""
+    dt = datetime.strptime(time_str, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
     return int(dt.timestamp() * 1000)
 
 
@@ -71,7 +70,7 @@ def _parse_event_content(log_content: str) -> Optional[Dict[str, Any]]:
         'InvolvedObject': 'involved_object',
     }
 
-    # Determine which format we're dealing with
+    # Determine which format we're dealing with.
     if 'reason' in data:
         # Format A (lowercase)
         for k, v in data.items():
@@ -88,6 +87,32 @@ def _parse_event_content(log_content: str) -> Optional[Dict[str, Any]]:
         # Unknown format, just lowercase everything
         for k, v in data.items():
             normalized[k.lower()] = v
+
+    # Cloud Native Log Collection writes Event records with this compact schema:
+    # `name` is the Kubernetes Event reason and `reason` contains the message.
+    if data.get("resource_kind") and data.get("name"):
+        if not normalized.get("message") and data.get("reason"):
+            normalized["message"] = data["reason"]
+        normalized["reason"] = data["name"]
+    elif not normalized.get("reason") and data.get("name"):
+        normalized["reason"] = data["name"]
+    if not normalized.get("first_timestamp") and data.get("start_time"):
+        normalized["first_timestamp"] = data["start_time"]
+        normalized["last_timestamp"] = data["start_time"]
+    if not normalized.get("involved_object") and (data.get("resource_kind") or data.get("resource_name")):
+        normalized["involved_object"] = {
+            "kind": data.get("resource_kind"),
+            "name": data.get("resource_name"),
+        }
+    try:
+        if int(normalized.get("count", 1)) <= 0:
+            normalized["count"] = 1
+    except (TypeError, ValueError):
+        normalized["count"] = 1
+
+    for field in ("type", "reason", "message"):
+        if isinstance(normalized.get(field), str):
+            normalized[field] = re.sub(r"<[^>]+>", "", normalized[field])
 
     return normalized
 
@@ -109,31 +134,13 @@ def _normalize_involved_object(obj: Any) -> Optional[Dict[str, Any]]:
     return None
 
 
-def _get_cce_logconfigs(region, cluster_id, ak=None, sk=None, project_id=None):
-    """Wrapper to get CCE logconfigs via cce_app_logs module."""
-    if not _lts_available or cce_app_logs is None:
-        return {"success": False, "error": "cce_app_logs module not available"}
-    
-    params = {
-        "region": region,
-        "cluster_id": cluster_id,
-    }
-    if ak:
-        params["ak"] = ak
-    if sk:
-        params["sk"] = sk
-    if project_id:
-        params["project_id"] = project_id
-    
-    return cce_app_logs.get_cce_logconfigs_action(params)
-
-
 def _query_k8s_events_from_lts(
     region: str,
     cluster_id: str,
     start_time: str,
     end_time: str,
     keywords: Optional[str] = None,
+    event_type: Optional[str] = None,
     limit: int = 500,
     ak: Optional[str] = None,
     sk: Optional[str] = None,
@@ -148,6 +155,7 @@ def _query_k8s_events_from_lts(
         start_time: Start time 'YYYY-MM-DD HH:MM:SS'
         end_time: End time 'YYYY-MM-DD HH:MM:SS'
         keywords: Optional keywords to filter events
+        event_type: Optional Event type (`Warning`, `Normal`, or `all`) to filter server-side
         limit: Maximum number of events to return (default 500)
         ak: Access key (optional, uses env if not provided)
         sk: Secret key (optional, uses env if not provided)
@@ -159,70 +167,55 @@ def _query_k8s_events_from_lts(
     if not _lts_available:
         return {
             "success": False,
-            "error": "LTS module not available. Install huaweicloudsdklts."
+            "error": "LTS query module is not available."
         }
 
-    access_key, secret_key, proj_id = get_credentials(ak, sk, project_id)
+    effective_event_type = event_type or "Warning"
+    if effective_event_type not in {"Warning", "Normal", "all"}:
+        return {"success": False, "error": "event_type must be Warning, Normal, or all"}
+    if effective_event_type != "all":
+        if keywords and keywords != effective_event_type:
+            return {
+                "success": False,
+                "error": "LTS supports one server-side keyword filter; use event_type=all before providing keywords",
+            }
+        keywords = effective_event_type
 
-    if not access_key or not secret_key:
-        return {
-            "success": False,
-            "error": "Credentials not provided. Set HUAWEI_AK and HUAWEI_SK environment variables or pass as parameters."
-        }
-
-    # Step 1: Get LogConfigs using cce_app_logs module (which has correct CRD discovery)
-    logconfigs_result = _get_cce_logconfigs(region, cluster_id, access_key, secret_key, proj_id)
-
+    # Step 1: Read LogConfig CRs through kubectl-cce and find the Event-to-LTS rule.
+    logconfigs_result = cce_app_logs.get_cce_logconfigs_action({
+        "region": region,
+        "cluster_id": cluster_id,
+        "ak": ak,
+        "sk": sk,
+        "project_id": project_id,
+    })
     if not logconfigs_result.get("success"):
         return {
             "success": False,
-            "error": f"Failed to get LogConfigs: {logconfigs_result.get('error', 'Unknown error')}"
+            "error": f"Failed to get LogConfigs: {logconfigs_result.get('error', 'Unknown error')}",
         }
-
-    logconfigs = logconfigs_result.get("logconfigs", [])
-
-    # Step 2: Find Event->LTS LogConfig with events enabled
-    event_config = None
-    for config in logconfigs:
-        spec = config.get("spec", {})
-        input_detail = spec.get("inputDetail", {})
-        output_detail = spec.get("outputDetail", {})
-
-        # Check if it's event type and LTS output
-        if input_detail.get("type") != "event":
-            continue
-        if output_detail.get("type") != "LTS":
-            continue
-
-        # Check if events are enabled
-        event_cfg = input_detail.get("event", {})
-        normal_enabled = event_cfg.get("normalEvents", {}).get("enable", False)
-        warning_enabled = event_cfg.get("warningEvents", {}).get("enable", False)
-
-        if normal_enabled or warning_enabled:
-            event_config = config
-            break
-
+    event_config = next(
+        (
+            config for config in logconfigs_result.get("logconfigs") or []
+            if config.get("name") == "default-event"
+            and config.get("input_type") == "event"
+            and config.get("output_type") == "LTS"
+        ),
+        None,
+    )
     if not event_config:
         return {
             "success": False,
-            "error": "未在集群中找到开启K8s事件LTS采集的LogConfig。请检查default-event配置或确认事件采集已开启。",
-            "cluster_id": cluster_id,
-            "region": region,
-            "checked_logconfigs": len(logconfigs),
-            "available_configs": [{"name": lc.get("name"), "input_type": lc.get("input_type"), "output_type": lc.get("output_type")} for lc in logconfigs]
+            "error": "No default-event LogConfig with LTS output was found in the cluster.",
+            "checked_logconfigs": logconfigs_result.get("count", 0),
         }
-
-    # Step 3: Extract LTS config
-    lts_config = event_config.get("spec", {}).get("outputDetail", {}).get("LTS", {})
+    lts_config = (event_config.get("spec") or {}).get("outputDetail", {}).get("LTS", {})
     log_group_id = lts_config.get("ltsGroupID")
     log_stream_id = lts_config.get("ltsStreamID")
-
     if not log_group_id or not log_stream_id:
         return {
             "success": False,
-            "error": "LogConfig中未找到LTS Group/Stream ID配置",
-            "config_name": event_config.get("name", "unknown")
+            "error": "The default-event LogConfig does not contain LTS group and stream IDs.",
         }
 
     # Step 4: Convert time to milliseconds
@@ -232,7 +225,7 @@ def _query_k8s_events_from_lts(
     except ValueError as e:
         return {
             "success": False,
-            "error": f"时间格式错误，应为 'YYYY-MM-DD HH:MM:SS': {str(e)}"
+            "error": f"Invalid UTC time format; expected 'YYYY-MM-DD HH:MM:SS': {e}",
         }
 
     # Step 5: Query LTS with pagination
@@ -241,6 +234,7 @@ def _query_k8s_events_from_lts(
     total_fetched = 0
     page_count = 0
     page_limit = 1000  # LTS API page size
+    page_request_delay_seconds = 0.1
 
     while total_fetched < limit:
         page_count += 1
@@ -256,15 +250,15 @@ def _query_k8s_events_from_lts(
             keywords=keywords,
             limit=current_page_limit,
             scroll_id=scroll_id,
-            ak=access_key,
-            sk=secret_key,
-            project_id=proj_id
+            ak=ak,
+            sk=sk,
+            project_id=project_id
         )
 
         if not lts_result.get("success"):
             return {
                 "success": False,
-                "error": f"LTS查询失败: {lts_result.get('error', 'Unknown error')}",
+                "error": f"LTS query failed: {lts_result.get('error', 'Unknown error')}",
                 "log_group_id": log_group_id,
                 "log_stream_id": log_stream_id,
                 "events_fetched": total_fetched,
@@ -297,6 +291,8 @@ def _query_k8s_events_from_lts(
         scroll_id = lts_result.get("scroll_id")
         if not scroll_id:
             break
+        if total_fetched < limit:
+            time.sleep(page_request_delay_seconds)
 
     # Step 7: Build response
     return {
@@ -306,6 +302,7 @@ def _query_k8s_events_from_lts(
         "log_group_id": log_group_id,
         "log_stream_id": log_stream_id,
         "keywords": keywords,
+        "event_type": effective_event_type,
         "event_count": len(all_events),
         "events": all_events,
         "time_range": {
@@ -313,11 +310,11 @@ def _query_k8s_events_from_lts(
             "end": end_time
         },
         "log_config": {
-            "name": event_config.get("name", "unknown"),
-            "namespace": event_config.get("namespace", "unknown"),
+            "name": event_config.get("name"),
+            "namespace": event_config.get("namespace"),
             "input_type": "event",
-            "warning_events_enabled": event_config.get("spec", {}).get("inputDetail", {}).get("event", {}).get("warningEvents", {}).get("enable", False),
-            "normal_events_enabled": event_config.get("spec", {}).get("inputDetail", {}).get("event", {}).get("normalEvents", {}).get("enable", False)
+            "discovery_method": "kubectl_cce_logconfig",
+            "access_method": logconfigs_result.get("access_method"),
         },
         "pagination": {
             "pages_fetched": page_count,
@@ -337,6 +334,7 @@ def query_k8s_events_from_lts_action(params: Dict[str, str]) -> Dict[str, Any]:
     - start_time: Start time 'YYYY-MM-DD HH:MM:SS' (required)
     - end_time: End time 'YYYY-MM-DD HH:MM:SS' (required)
     - keywords: Optional keywords to filter events
+    - event_type: Optional Event type (`Warning`, `Normal`, or `all`) for server-side filtering
     - limit: Maximum number of events to return (default 500)
     """
     region = params.get("region")
@@ -344,6 +342,7 @@ def query_k8s_events_from_lts_action(params: Dict[str, str]) -> Dict[str, Any]:
     start_time = params.get("start_time")
     end_time = params.get("end_time")
     keywords = params.get("keywords")
+    event_type = params.get("event_type")
 
     # Validate required parameters
     if not region:
@@ -367,6 +366,7 @@ def query_k8s_events_from_lts_action(params: Dict[str, str]) -> Dict[str, Any]:
         start_time=start_time,
         end_time=end_time,
         keywords=keywords,
+        event_type=event_type,
         limit=limit,
         ak=params.get("ak"),
         sk=params.get("sk"),

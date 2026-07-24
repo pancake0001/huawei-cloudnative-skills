@@ -106,7 +106,8 @@ detect_arch() {
 install_file() {
   local source="$1"
   local destination="$2"
-  install -m 0755 "$source" "$destination"
+  cp "$source" "$destination"
+  chmod 0755 "$destination"
 }
 
 install_latest_kubectl_from_obs() {
@@ -222,7 +223,8 @@ if [[ "$MODE" != "execute" ]]; then
 fi
 
 require_command curl
-require_command install
+require_command cp
+require_command chmod
 require_command tar
 require_command python3
 mkdir -p "$BIN_DIR"

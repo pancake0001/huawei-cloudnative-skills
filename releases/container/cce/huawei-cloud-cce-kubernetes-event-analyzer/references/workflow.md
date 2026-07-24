@@ -3,9 +3,8 @@
 ## Event Query Sequence
 
 1. Identify `region`, `cluster_id`, and optional `namespace` from the user query.
-2. Fetch events using `huawei_get_cce_events` (K8s API) or `huawei_query_k8s_events_from_lts` (LTS).
-3. Apply client-side filters based on user needs:
-   - `type == "Warning"` for warning events
+2. Use `huawei_get_cce_events` for current Events. Use `huawei_query_k8s_events_from_lts` for historical windows longer than one hour.
+3. Apply follow-up filters based on user needs:
    - `reason` patterns (FailedScheduling, ImagePullBackOff, FailedMount, etc.)
    - `involved_object.kind` / `involved_object.name` for specific resources
    - `first_timestamp` / `last_timestamp` for time-window analysis
@@ -44,9 +43,9 @@
 
 | Criteria | Use K8s API (`huawei_get_cce_events`) | Use LTS (`huawei_query_k8s_events_from_lts`) |
 |----------|---------------------------------------|---------------------------------------------|
-| Quick recent check | Yes | No (needs time range) |
+| Current Events or a recent check within one hour | Yes | No (needs time range) |
 | Precise time range | No (client-side only) | Yes (server-side filter) |
 | Keyword search | No (client-side only) | Yes (keywords parameter) |
-| Historical events | Limited (recent only) | Yes (any time range) |
-| Requires LogConfig | No | Yes (Event→LTS must be configured) |
-| Default fallback | Primary method | Fallback when time precision needed |
+| Historical Events over one hour | No | Yes |
+| Requires Kubernetes LogConfig | No | Yes (`default-event` with LTS output) |
+| Default route | Primary for current Events | Primary for historical windows over one hour |

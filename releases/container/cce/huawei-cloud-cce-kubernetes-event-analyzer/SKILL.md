@@ -1,6 +1,7 @@
 ---
 name: huawei-cloud-cce-kubernetes-event-analyzer
-description: Query and analyze Kubernetes Events in Huawei Cloud CCE clusters. Use when users ask about CCE events, Kubernetes warning events, FailedScheduling, FailedMount, ImagePullBackOff, event patterns, historical events in LTS, or event-based diagnosis for a CCE cluster or namespace.
+description: Query and analyze Kubernetes Events in Huawei Cloud CCE clusters. Trigger when users ask about CCE events, Kubernetes warning events, FailedScheduling, FailedMount, ImagePullBackOff, event patterns, historical events in LTS, or event-based diagnosis for a CCE cluster or namespace.
+tags: [CCE, Kubernetes, events, observability]
 ---
 
 # Huawei Cloud CCE Kubernetes Event Analyzer
@@ -9,11 +10,12 @@ description: Query and analyze Kubernetes Events in Huawei Cloud CCE clusters. U
 
 Query and analyze Kubernetes Events in Huawei Cloud CCE clusters to identify warnings, repeated failure patterns, affected resources, and useful diagnosis handoffs. The skill supports a current Event view through `kubectl` and a historical Event view through LTS.
 
-**Architecture**: `python3 scripts/huawei-cloud.py` dispatcher -> `kubectl` through external kubeconfig or `kubectl cce` / CCE Event-to-LTS LogConfig -> Kubernetes Events -> client-side filtering and grouping -> diagnosis handoff.
+**Architecture**: `python3 scripts/huawei-cloud.py` dispatcher -> `kubectl` through external kubeconfig or `kubectl cce` for current Events / `kubectl cce` LogConfig discovery plus `hcloud LTS ListLogs` for historical Events -> filtering and grouping -> diagnosis handoff.
 
 **Execution Method**: Invoke only the bundled dispatcher. Do not query Kubernetes Events with raw Python Kubernetes SDK calls, direct Kubernetes API calls, or ad hoc cloud commands. The `huawei_get_cce_events` implementation invokes `kubectl` internally: external kubeconfig access first, then the `kubectl cce` plugin fallback.
 
 **Related Skills**:
+- `huawei-cloud-kubectl-cce-installer` - Install `kubectl` and the `kubectl-cce` plugin required for cluster access
 - `huawei-cloud-cce-metric-analyzer` - CCE and cloud-resource metrics
 - `huawei-cloud-cce-pod-failure-diagnoser` - Pod failure diagnosis
 - `huawei-cloud-cce-workload-failure-diagnoser` - Workload rollout diagnosis
@@ -27,6 +29,8 @@ Query and analyze Kubernetes Events in Huawei Cloud CCE clusters to identify war
 - Read Events through external `kubectl` kubeconfig access or `kubectl cce`
 - Query historical Event records from LTS within an explicit time window
 - Filter and group Events by type, reason, namespace, resource, and timestamps
+- Check the current status of supported resources referenced by Events
+- Analyze a supplied current or historical Event result locally without another cloud request
 - Identify repeated warning patterns and hand off evidence to diagnosis skills
 
 **Typical Use Cases**:
@@ -43,12 +47,12 @@ Query and analyze Kubernetes Events in Huawei Cloud CCE clusters to identify war
 - `hcloud` (KooCLI) for cluster lookup and temporary external kubeconfig generation
 - `kubectl` for current Event reads
 - `kubectl-cce` when the cluster has no usable external endpoint; see [kubectl-cce.md](references/kubectl-cce.md)
-- LTS SDK support and an Event-to-LTS LogConfig for historical Event queries
+- `hcloud` LTS command support and the Cloud Native Log Collection add-on (`log-agent`) with a `default-event` Event-to-LTS `LogConfig`. `huawei_query_k8s_events_from_lts` reads `logconfigs.logging.openvessel.io` through `kubectl cce`, then invokes `hcloud LTS ListLogs` using the configured LTS IDs.
 
 ### 2. Credential Configuration
 
 - External kubeconfig access uses hcloud credential priority: explicit tool parameters > local hcloud profile > environment variables.
-- The `kubectl cce` fallback requires AK/SK from explicit tool parameters or environment variables; encrypted hcloud profile credentials cannot be reused by the plugin.
+- The `kubectl cce` fallback requires AK/SK and the target cluster's `project_id` from explicit tool parameters or environment variables; encrypted hcloud profile credentials cannot be reused by the plugin. When `project_id` is available, the implementation passes it explicitly as `kubectl cce --project-id <project-id>`.
 - LTS queries require valid Huawei Cloud credentials and an authorized project.
 
 **Security Rules**:
@@ -73,8 +77,6 @@ export HUAWEI_SECURITY_TOKEN=<security-token>
 | ---------- | ------- |
 | `cce:cluster:get` | Inspect cluster external endpoint availability |
 | `cce:cluster:createCert` | Generate temporary kubeconfig for external `kubectl` access |
-| `cce:logConfig:list` | Discover CCE Event-to-LTS LogConfig |
-| `lts:logStream:list` | Discover LTS Event streams |
 | `lts:logs:search` | Query historical Event records in LTS |
 
 The effective Kubernetes identity also needs read-only `get` and `list` permission for Events in the target namespace or cluster.
@@ -112,7 +114,7 @@ Follow these rules:
 ### 1. Current Kubernetes Events
 
 ```bash
-# Query all current Events in a cluster
+# Query Warning Events (default)
 python3 scripts/huawei-cloud.py huawei_get_cce_events \
   region=cn-north-4 cluster_id=<cluster-id>
 
@@ -123,9 +125,13 @@ python3 scripts/huawei-cloud.py huawei_get_cce_events \
 # Limit returned Event records
 python3 scripts/huawei-cloud.py huawei_get_cce_events \
   region=cn-north-4 cluster_id=<cluster-id> limit=100
+
+# Query all Event types only when explicitly needed
+python3 scripts/huawei-cloud.py huawei_get_cce_events \
+  region=cn-north-4 cluster_id=<cluster-id> event_type=all limit=100
 ```
 
-The tool reads Events through `kubectl`. It first uses the external endpoint with a temporary kubeconfig; it then falls back to `kubectl cce`. If both paths fail, it returns both access errors. Only `namespace` and `limit` are tool parameters; reason, type, resource, and time filtering are applied after retrieval.
+The tool returns only Warning Events by default, using the Kubernetes API server-side field selector. It first uses the external endpoint with a temporary kubeconfig; it then falls back to `kubectl cce`. For large clusters, full Event history can be substantial; query all types only after the user explicitly requests it with `event_type=all`.
 
 ### 2. Historical Events From LTS
 
@@ -144,7 +150,27 @@ python3 scripts/huawei-cloud.py huawei_query_k8s_events_from_lts \
   keywords=FailedScheduling
 ```
 
-LTS time format is `YYYY-MM-DD HH:MM:SS`. The cluster must have an Event-to-LTS LogConfig whose output type is `LTS` and whose `normalEvents` or `warningEvents` collection is enabled. The CCE logging collector must be installed and healthy; installation alone is insufficient without the Event-to-LTS configuration.
+LTS time format is UTC `YYYY-MM-DD HH:MM:SS`; the tool always interprets input values as UTC, not the local time zone of the host. The cluster must have the Cloud Native Log Collection add-on (`log-agent`) installed and healthy with the `default-event` Event-to-LTS `LogConfig`. The tool uses `kubectl cce --cluster-id <cluster-id> --region <region> get logconfigs.logging.openvessel.io -A -o json`, selects `default-event`, and reads `outputDetail.LTS.ltsGroupID` and `ltsStreamID`. LTS queries default to `event_type=Warning`, using `Warning` as a server-side keyword filter. For large clusters, request full Event history only after user confirmation with `event_type=all`; this removes the type keyword filter. LTS filtering is keyword matching, not a structured-field selector.
+
+### 3. Query and Analyze Event Results
+
+Without `events`, the tool queries and analyzes current cluster Events by default. For historical requests spanning more than one hour, use LTS with a bounded time window. Providing `start_time` or `end_time` automatically selects LTS; `event_source=lts` may also be set explicitly. Passing an `events` array (or a complete response object containing it) retains offline analysis behavior.
+
+```bash
+# Query and analyze current Events
+python3 scripts/huawei-cloud.py huawei_analyze_cce_events \
+  region=cn-north-4 cluster_id=<cluster-id>
+
+# Query and analyze historical LTS Events
+python3 scripts/huawei-cloud.py huawei_analyze_cce_events \
+  region=cn-north-4 cluster_id=<cluster-id> event_source=lts \
+  start_time="2026-05-30 06:00:00" end_time="2026-05-30 08:00:00"
+
+# Analyze supplied Events without a cloud query
+python3 scripts/huawei-cloud.py huawei_analyze_cce_events \
+  events='[{"type":"Warning","reason":"FailedScheduling","namespace":"default","count":3}]' \
+  max_groups=10
+```
 
 ## Risk Levels
 
@@ -158,6 +184,7 @@ This skill is read-only. It never changes cloud resources, Kubernetes resources,
 | ---- | -------------- | ---------- | ----------- |
 | `huawei_get_cce_events` | Query | R3 | Query current cluster or namespace Events through `kubectl` |
 | `huawei_query_k8s_events_from_lts` | Query | R3 | Query historical Event records from configured LTS collection |
+| `huawei_analyze_cce_events` | Query and analyze | R3 | Query current or LTS Events when needed, then aggregate by type, reason, namespace, and resource |
 
 ## Parameter Reference
 
@@ -169,19 +196,25 @@ This skill is read-only. It never changes cloud resources, Kubernetes resources,
 | `cluster_id` | Required | Exact CCE cluster ID | N/A |
 | `ak` | Optional | Explicit AK for access paths that support it | profile/environment fallback |
 | `sk` | Optional | Explicit SK for access paths that support it | profile/environment fallback |
-| `project_id` | Optional | Explicit Huawei Cloud project ID | profile/IAM/environment fallback |
+| `project_id` | Required for `kubectl cce`; optional otherwise | Target cluster's Huawei Cloud project ID | hcloud profile/IAM/environment fallback for external kubeconfig access |
 
 ### Current Event Query Parameters
 
 | Tool | Required | Optional |
 | ---- | -------- | -------- |
-| `huawei_get_cce_events` | `region`, `cluster_id` | `namespace`, `limit`, `ak`, `sk`, `project_id` |
+| `huawei_get_cce_events` | `region`, `cluster_id` | `namespace`, `event_type` (`Warning` default, `Normal`, or `all`), `limit`, `ak`, `sk`, `project_id` (required for `kubectl cce`), `security_token` |
 
 ### Historical Event Query Parameters
 
 | Tool | Required | Optional |
 | ---- | -------- | -------- |
-| `huawei_query_k8s_events_from_lts` | `region`, `cluster_id`, `start_time`, `end_time` | `keywords`, `ak`, `sk`, `project_id` |
+| `huawei_query_k8s_events_from_lts` | `region`, `cluster_id`, `start_time`, `end_time`, `project_id` | `event_type` (`Warning` default, `Normal`, or `all`), `keywords` (requires `event_type=all`), `ak`, `sk` |
+
+### Event Analysis Parameters
+
+| Tool | Required | Optional |
+| ---- | -------- | -------- |
+| `huawei_analyze_cce_events` | Either `events`, or `region` + `cluster_id` | `event_source` (`current` default or `lts`), `start_time`/`end_time` (required for `lts`), `namespace`, `event_type`, `keywords`, `limit`, `max_groups` (1-100, default 10), `check_resource_status` (default true when `region` and `cluster_id` are present), `ak`, `sk`, `project_id`, `security_token` |
 
 ## Output Format
 
@@ -209,18 +242,30 @@ This skill is read-only. It never changes cloud resources, Kubernetes resources,
 | `event_count` | Number of historical Event records returned |
 | `events` | Parsed Event records |
 | `time_range` | Effective start and end time |
-| `log_config` | Matched Event-to-LTS LogConfig information |
+| `log_config` | Default Event LTS stream discovery metadata |
 
 See [output-schema.md](references/output-schema.md) for detailed analysis and Event field definitions.
+
+### `huawei_analyze_cce_events`
+
+| Field | Description |
+| ----- | ----------- |
+| `event_records`, `total_occurrences` | Input record count and sum of Event occurrence counts |
+| `event_type_breakdown` | Occurrence totals by Event type |
+| `warning_count`, `normal_count` | Warning and Normal occurrence totals |
+| `time_range` | First and last observed Event timestamps when available |
+| `top_reasons` | Most frequent reasons with warning count and per-reason time range |
+| `namespace_breakdown`, `affected_objects` | Most affected namespaces and resources |
+| `repeated_patterns` | Input Event records whose `count` is greater than one |
+| `resource_status` | Current state of up to `max_groups` distinct Event resources. Supported kinds: Pod, Node, Deployment, StatefulSet, DaemonSet, ReplicaSet, Job, CronJob, PVC, PV, and Service. States are `normal`, `abnormal`, `unknown`, `not_found`, `unsupported`, or `query_failed`. |
 
 ## Workflow
 
 1. Identify `region`, exact `cluster_id`, optional namespace, and incident time window.
 2. Use `huawei_get_cce_events` for current Event inspection.
-3. Use `huawei_query_k8s_events_from_lts` when historical coverage, a precise time window, or LTS keyword filtering is required.
-4. Filter warnings first, then group records by `reason`, namespace, and involved resource.
-5. Flag repeated records where `count > 1` and summarize first/last timestamps.
-6. Hand off evidence to the relevant Pod, Workload, Node, Storage, or Network diagnosis skill.
+3. Use `huawei_query_k8s_events_from_lts` for historical Event windows longer than one hour, or when a precise LTS time range or keyword filtering is required.
+4. Pass the returned `events` to `huawei_analyze_cce_events` to aggregate reasons, namespaces, resources, and repeated patterns.
+5. Hand off evidence to the relevant Pod, Workload, Node, Storage, or Network diagnosis skill.
 
 See [workflow.md](references/workflow.md) for pattern recognition and time-window analysis guidance.
 
@@ -233,7 +278,7 @@ python3 scripts/huawei-cloud.py huawei_get_cce_events \
   region=cn-north-4 cluster_id=<cluster-id> limit=10
 ```
 
-When Event-to-LTS collection is configured, verify a bounded historical query:
+When default Event-to-LTS collection is enabled, verify a bounded historical query:
 
 ```bash
 python3 scripts/huawei-cloud.py huawei_query_k8s_events_from_lts \
@@ -242,7 +287,7 @@ python3 scripts/huawei-cloud.py huawei_query_k8s_events_from_lts \
   end_time="2026-05-30 07:00:00"
 ```
 
-Verify that the current Event response includes `access_method`, and that the LTS response identifies the Event LogConfig and LTS stream. Do not create or change logging configuration as part of verification.
+Verify that the current Event response includes `access_method`, and that the LTS response identifies the default LTS group and stream. Do not create or change logging configuration as part of verification.
 
 ## Best Practices
 
@@ -256,7 +301,7 @@ Verify that the current Event response includes `access_method`, and that the LT
 ## Notes
 
 - No active warning does not prove a cluster is healthy; inspect historical LTS Events for recent or recovered incidents when available.
-- The Event-to-LTS path depends on both CCE log collection and an enabled Event-to-LTS LogConfig.
+- The Event-to-LTS path depends on a healthy log-agent add-on with default Event collection enabled.
 - Event summaries should redact sensitive production workload, Pod, and node identifiers where the audience does not need them.
 - Do not modify Kubernetes, CCE logging, LTS, or cloud resources through this skill.
 
@@ -266,17 +311,17 @@ Verify that the current Event response includes `access_method`, and that the LT
 | ------- | ------------ | ------ |
 | External kubeconfig access fails | No external endpoint, invalid profile, or missing CCE permission | Verify `cce:cluster:get` and `cce:cluster:createCert`; the tool then tries `kubectl cce` |
 | `kubectl cce` fallback fails | Plugin missing or plugin credentials unavailable | Install/configure the plugin using [kubectl-cce.md](references/kubectl-cce.md) |
-| LTS query finds no Event LogConfig | Event collection is not configured | Enable Event-to-LTS collection outside this read-only skill, then retry |
-| LTS query returns no records | Time window, keywords, retention, or event collection does not match | Narrow or correct the window and verify the LogConfig and LTS stream |
-| Too many current Events | Broad cluster query | Provide `namespace` and lower `limit`, then filter by type/reason locally |
+| LTS query finds no default Event stream | Default Event collection is not enabled or has not finished provisioning | Enable default Event collection through the log-agent add-on, then retry |
+| LTS query returns no records | Time window, keywords, retention, or event collection does not match | Narrow or correct the window and verify the default LTS group and stream |
+| Too many current Events | Broad cluster query | Warning is the default; provide `namespace` and a lower `limit` to further reduce data at the source |
 | Permission denied | Missing IAM or Kubernetes RBAC permission | Grant the reported least-privilege permission, then retry |
 
 ## Limitations
 
 - The skill provides only the two documented read-only Event tools.
-- Current Event queries cannot apply server-side filters beyond namespace and limit.
-- Historical queries require Event-to-LTS collection configured before the incident; the skill cannot recover uncollected history.
-- The skill cannot create, modify, or delete LogConfigs, LTS streams, Kubernetes resources, or CCE resources.
+- Current Event queries support only namespace and Event type (`Warning`, `Normal`, or `all`) server-side selection.
+- Historical queries require default Event-to-LTS collection enabled before the incident; the skill cannot recover uncollected history.
+- The skill cannot create, modify, or delete LTS streams, Kubernetes resources, or CCE resources.
 - The skill does not automatically select a cluster, namespace, event filter, or diagnosis/remediation action for the user.
 
 ## References
@@ -287,3 +332,4 @@ Verify that the current Event response includes `access_method`, and that the LT
 | [Risk Rules](references/risk-rules.md) | Read-only boundaries, redaction, and handoff constraints |
 | [Output Schema](references/output-schema.md) | Query, analysis, and Event record fields |
 | [kubectl-cce](references/kubectl-cce.md) | kubectl-cce installation, credentials, and access fallback |
+| [Acceptance Criteria](references/acceptance-criteria.md) | Expected outcomes for current, historical, and combined query-and-analysis flows |
