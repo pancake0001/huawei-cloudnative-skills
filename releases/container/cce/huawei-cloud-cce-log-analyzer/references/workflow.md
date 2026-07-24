@@ -3,7 +3,7 @@
 ## Kubernetes Pod Stdout Logs
 
 1. Identify `region`, `cluster_id`, `namespace`, `pod_name`, and optional `container`.
-2. Use `huawei_get_pod_logs` for direct Kubernetes stdout/stderr retrieval.
+2. Use `huawei_get_pod_logs` for stdout/stderr retrieval through `kubectl`. It first uses a temporary kubeconfig for an externally reachable cluster endpoint, then falls back to `kubectl cce`.
 3. Use `tail_lines` for focused recent output; use `previous=true` for a previously terminated container.
 4. Summarize errors, warnings, stack traces, restarts, or repeated messages.
 5. If logs indicate Pod startup, image pull, scheduling, node, or network failures, hand off to the relevant diagnosis skill with exact evidence.
@@ -45,7 +45,7 @@ Pick the desired policy from `matched_streams`:
 For **recent logs** (time window in hours):
 
 ```bash
-python3 scripts/huawei-cloud.py huawei_query_application_recent_logs \
+python3 scripts/huawei-cloud.py huawei_query_application_logs \
   region=cn-north-4 \
   cluster_id=<cluster-id> \
   namespace=default \
@@ -72,7 +72,7 @@ python3 scripts/huawei-cloud.py huawei_query_application_logs \
 Use `auto_paginate=true` when more than one LTS page is needed. `limit` controls per-page size and `max_pages` caps total pages fetched.
 
 ```bash
-python3 scripts/huawei-cloud.py huawei_query_application_recent_logs \
+python3 scripts/huawei-cloud.py huawei_query_application_logs \
   ... \
   auto_paginate=true \
   max_pages=5 \

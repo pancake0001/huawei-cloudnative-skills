@@ -2,16 +2,12 @@
 
 from __future__ import annotations
 
-import base64
 import json
-import os
 import re
-import tempfile
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
-from . import lts
-from .common import _register_cert_file, _safe_delete_file, create_cce_client, get_credentials_with_region, k8s_client
+from . import kubectl_client, lts
 
 
 def _get_policy_name(params: Dict[str, str]) -> Optional[str]:
@@ -292,62 +288,8 @@ def _logconfig_cr_combinations() -> List[Tuple[str, str, str]]:
     ]
 
 
-def _get_cce_custom_objects_api(params: Dict[str, str]) -> Tuple[Any, List[str]]:
-    region = params["region"]
-    cluster_id = params["cluster_id"]
-    ak, sk, project_id = get_credentials_with_region(region, params.get("ak"), params.get("sk"), params.get("project_id"))
-
-    from huaweicloudsdkcce.v3.model.cluster_cert_duration import ClusterCertDuration
-    from huaweicloudsdkcce.v3.model.create_kubernetes_cluster_cert_request import CreateKubernetesClusterCertRequest
-
-    cce_client = create_cce_client(region, ak, sk, project_id)
-    cert_request = CreateKubernetesClusterCertRequest()
-    cert_request.cluster_id = cluster_id
-    body = ClusterCertDuration()
-    body.duration = 1
-    cert_request.body = body
-    cert_response = cce_client.create_kubernetes_cluster_cert(cert_request)
-    kubeconfig_data = cert_response.to_dict()
-
-    external_cluster = None
-    for cluster in kubeconfig_data.get("clusters", []):
-        if "external" in cluster.get("name", "") and "TLS" not in cluster.get("name", ""):
-            external_cluster = cluster
-            break
-    if not external_cluster:
-        external_cluster = kubeconfig_data.get("clusters", [{}])[0]
-    if not external_cluster:
-        raise RuntimeError("Could not find cluster endpoint")
-
-    temp_files = []
-    configuration = k8s_client.Configuration()
-    configuration.host = external_cluster.get("cluster", {}).get("server")
-    configuration.verify_ssl = False
-
-    user_data = None
-    for user in kubeconfig_data.get("users", []):
-        if user.get("name") == "user":
-            user_data = user.get("user", {})
-            break
-
-    if user_data and user_data.get("client_certificate_data"):
-        cert_file = tempfile.mktemp(suffix=".crt")
-        with open(cert_file, "wb") as handle:
-            handle.write(base64.b64decode(user_data["client_certificate_data"]))
-        configuration.cert_file = cert_file
-        temp_files.append(cert_file)
-        _register_cert_file(cert_file)
-
-    if user_data and user_data.get("client_key_data"):
-        key_file = tempfile.mktemp(suffix=".key")
-        with open(key_file, "wb") as handle:
-            handle.write(base64.b64decode(user_data["client_key_data"]))
-        configuration.key_file = key_file
-        temp_files.append(key_file)
-        _register_cert_file(key_file)
-
-    k8s_client.Configuration.set_default(configuration)
-    return k8s_client.CustomObjectsApi(), temp_files
+def _get_cce_custom_objects_api(params: Dict[str, str]) -> Any:
+    return kubectl_client.KubectlCustomObjectsApi(params)
 
 
 def _query_logs_with_pagination(
@@ -441,9 +383,8 @@ def get_cce_logconfigs_action(params: Dict[str, str]) -> Dict[str, Any]:
     cluster_id = params["cluster_id"]
     namespace = params.get("namespace")
 
-    temp_files = []
     try:
-        custom_api, temp_files = _get_cce_custom_objects_api(params)
+        custom_api = _get_cce_custom_objects_api(params)
 
         logconfigs = []
         tried = []
@@ -488,9 +429,6 @@ def get_cce_logconfigs_action(params: Dict[str, str]) -> Dict[str, Any]:
         }
     except Exception as exc:
         return {"success": False, "error": str(exc), "error_type": type(exc).__name__}
-    finally:
-        for file_path in temp_files:
-            _safe_delete_file(file_path)
 
 
 def _build_logconfig_workloads(params: Dict[str, str], source_type: str) -> List[Dict[str, Any]]:
@@ -592,7 +530,6 @@ def _build_logconfig_body(params: Dict[str, str]) -> Dict[str, Any]:
 
 
 def create_cce_logconfig_action(params: Dict[str, str]) -> Dict[str, Any]:
-    temp_files = []
     try:
         body = _build_logconfig_body(params)
         group = params.get("api_group", "logging.openvessel.io")
@@ -612,7 +549,7 @@ def create_cce_logconfig_action(params: Dict[str, str]) -> Dict[str, Any]:
                 "request_body": body,
             }
 
-        custom_api, temp_files = _get_cce_custom_objects_api(params)
+        custom_api = _get_cce_custom_objects_api(params)
         response = custom_api.create_namespaced_custom_object(
             group=group,
             version=version,
@@ -644,13 +581,9 @@ def create_cce_logconfig_action(params: Dict[str, str]) -> Dict[str, Any]:
             "reason": reason,
             "response_body": body_text,
         }
-    finally:
-        for file_path in temp_files:
-            _safe_delete_file(file_path)
 
 
 def delete_cce_logconfig_action(params: Dict[str, str]) -> Dict[str, Any]:
-    temp_files = []
     try:
         name = params.get("logconfig_name") or params.get("name")
         if not name:
@@ -660,7 +593,7 @@ def delete_cce_logconfig_action(params: Dict[str, str]) -> Dict[str, Any]:
         version = params.get("api_version", "v1")
         plural = params.get("plural", "logconfigs")
 
-        custom_api, temp_files = _get_cce_custom_objects_api(params)
+        custom_api = _get_cce_custom_objects_api(params)
         existing = custom_api.get_namespaced_custom_object(
             group=group,
             version=version,
@@ -729,9 +662,6 @@ def delete_cce_logconfig_action(params: Dict[str, str]) -> Dict[str, Any]:
             "reason": reason,
             "response_body": body_text,
         }
-    finally:
-        for file_path in temp_files:
-            _safe_delete_file(file_path)
 
 
 def _discover_audit_log_stream(params: Dict[str, str]) -> Dict[str, Any]:
@@ -748,7 +678,12 @@ def _discover_audit_log_stream(params: Dict[str, str]) -> Dict[str, Any]:
     audit_terms = [term.lower() for term in _parse_text_list(params.get("audit_stream_keywords"), ["audit", "apiserver", "api-server", "kube-apiserver"])]
     cluster_hint = (params.get("cluster_id") or "").lower()
 
-    groups_result = lts.list_log_groups(params["region"], params.get("ak"), params.get("sk"), params.get("project_id"))
+    groups_result = lts.list_log_groups(
+        params["region"],
+        ak=params.get("ak"),
+        sk=params.get("sk"),
+        project_id=params.get("project_id"),
+    )
     if not groups_result.get("success"):
         return groups_result
 
@@ -764,7 +699,13 @@ def _discover_audit_log_stream(params: Dict[str, str]) -> Dict[str, Any]:
             # Keep scanning other groups, but avoid opening every unrelated group when names give no hint.
             continue
 
-        streams_result = lts.list_log_streams(params["region"], group_id, params.get("ak"), params.get("sk"), params.get("project_id"))
+        streams_result = lts.list_log_streams(
+            params["region"],
+            group_id,
+            ak=params.get("ak"),
+            sk=params.get("sk"),
+            project_id=params.get("project_id"),
+        )
         if not streams_result.get("success"):
             continue
         for stream in streams_result.get("log_streams", []):
@@ -1156,61 +1097,26 @@ def query_application_logs_action(params: Dict[str, str]) -> Dict[str, Any]:
     if custom_labels:
         final_labels.update(custom_labels)
 
+    start_time = params.get("start_time")
+    end_time = params.get("end_time")
+    hours = None
+    if not start_time and not end_time:
+        hours = _to_int(params.get("hours"), 1)
+        end_time_dt = datetime.now()
+        start_time_dt = end_time_dt - timedelta(hours=hours)
+        start_time = start_time_dt.strftime("%Y-%m-%d %H:%M:%S")
+        end_time = end_time_dt.strftime("%Y-%m-%d %H:%M:%S")
+
     result = _query_logs_with_pagination(
         params=params,
         log_group_id=stream_result["log_group_id"],
         log_stream_id=stream_result["log_stream_id"],
-        start_time=params.get("start_time"),
-        end_time=params.get("end_time"),
+        start_time=start_time,
+        end_time=end_time,
         labels=final_labels,
     )
-    result.update(
-        {
-            "cluster_id": params["cluster_id"],
-            "namespace": namespace,
-            "app_name": app_name,
-            "match_type": stream_result.get("match_type"),
-            "logconfig_name": stream_result.get("logconfig_name"),
-            "policy_name": stream_result.get("policy_name"),
-            "source_type": stream_result.get("source_type"),
-            "auto_label_filter": system_labels,
-            "custom_labels": custom_labels,
-            "final_labels": final_labels,
-            "matched_streams": stream_result.get("matched_streams"),
-        }
-    )
-    return result
-
-
-def query_application_recent_logs_action(params: Dict[str, str]) -> Dict[str, Any]:
-    namespace = params.get("namespace", "default")
-    app_name = params["app_name"]
-    policy_name = _get_policy_name(params)
-    custom_labels = _parse_labels(params.get("labels"))
-    stream_result = get_application_logconfigs_action(params)
-    if not stream_result.get("success"):
-        return stream_result
-
-    # CCE/LTS uses nameSpace and logconfig as label keys in collected container logs.
-    system_labels = {"clusterId": params["cluster_id"], "appName": app_name, "nameSpace": namespace}
-    if policy_name:
-        system_labels["logconfig"] = policy_name
-    final_labels = system_labels.copy()
-    if custom_labels:
-        final_labels.update(custom_labels)
-
-    hours = _to_int(params.get("hours"), 1)
-    end_time_dt = datetime.now()
-    start_time_dt = end_time_dt - timedelta(hours=hours)
-    result = _query_logs_with_pagination(
-        params=params,
-        log_group_id=stream_result["log_group_id"],
-        log_stream_id=stream_result["log_stream_id"],
-        start_time=start_time_dt.strftime("%Y-%m-%d %H:%M:%S"),
-        end_time=end_time_dt.strftime("%Y-%m-%d %H:%M:%S"),
-        labels=final_labels,
-    )
-    result["hours"] = hours
+    if hours is not None:
+        result["hours"] = hours
     result.update(
         {
             "cluster_id": params["cluster_id"],
@@ -1236,11 +1142,8 @@ def analyze_application_logs_action(params: Dict[str, str]) -> Dict[str, Any]:
     query_params.setdefault("limit", "1000")
     query_params.setdefault("is_desc", "false")
 
-    if params.get("start_time") or params.get("end_time"):
-        query_result = query_application_logs_action(query_params)
-    else:
-        query_params.setdefault("hours", "1")
-        query_result = query_application_recent_logs_action(query_params)
+    query_params.setdefault("hours", "1")
+    query_result = query_application_logs_action(query_params)
     if not query_result.get("success"):
         return query_result
 

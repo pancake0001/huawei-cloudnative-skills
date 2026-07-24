@@ -12,7 +12,7 @@ tags: [cce, logs, lts, analysis]
 
 Query and analyze Kubernetes Pod stdout logs, CCE LogConfig-collected application logs, and Huawei Cloud LTS log streams for CCE workloads.
 
-**Architecture**: scripts/huawei-cloud.py dispatcher → cce.py (Pod stdout) / cce_app_logs.py (LogConfig discovery & app log stream matching) / lts.py (LTS group/stream/query) → K8s API / CCE OpenAPI / LTS API
+**Architecture**: `scripts/huawei-cloud.py` dispatcher → `kubectl` through external kubeconfig or `kubectl cce` (Pod stdout and LogConfig resources) / `hcloud` (LTS group, stream, and log queries).
 
 **Related Skills**:
 - `huawei-cloud-cce-pod-failure-diagnoser` - Pod startup, scheduling, crash-loop diagnosis
@@ -21,8 +21,8 @@ Query and analyze Kubernetes Pod stdout logs, CCE LogConfig-collected applicatio
 - `huawei-cloud-cce-kubernetes-event-analyzer` - Kubernetes Warning events and patterns
 
 **Capabilities**:
-- Query Kubernetes Pod stdout/stderr and previous container logs
-- List, create, and delete CCE LogConfig collection rules
+- Query Kubernetes Pod stdout/stderr and previous container logs through `kubectl`
+- List, create, and delete CCE LogConfig collection rules through `kubectl`
 - Discover application LogConfig policies and map to LTS log groups/streams
 - Query CCE Kubernetes audit logs for Pod deletion and workload change events
 - Query application logs from LTS by time range, keywords, or recent hours
@@ -48,11 +48,14 @@ Query and analyze Kubernetes Pod stdout logs, CCE LogConfig-collected applicatio
 
 ### 2. Huawei Cloud Credentials
 
-- Valid Huawei Cloud credentials (AK/SK mode)
+- `hcloud` profile or valid Huawei Cloud credentials for external kubeconfig access and LTS queries
+- `kubectl` for Pod stdout and LogConfig operations
+- `kubectl-cce` when the cluster has no usable external endpoint; see `huawei-cloud-kubectl-cce-installer`
+- Kubernetes access order is: external kubeconfig through hcloud, then `kubectl cce` fallback
 - **Security Rules**:
   - 🚫 Never expose AK/SK values in code, conversation, or output
   - 🚫 Never use `echo $HUAWEI_CLOUD_AK` or `echo $HUAWEI_CLOUD_SK` to check credentials
-  - ✅ Use environment variables: `HUAWEI_CLOUD_AK`, `HUAWEI_CLOUD_SK`, `HUAWEI_CLOUD_REGION`
+  - ✅ Use environment variables: `HUAWEI_AK`, `HUAWEI_SK`, `HUAWEI_REGION`
   - ✅ Prefer IAM users over root account for cloud operations
 
 **Configuration Method** (Environment Variables):
@@ -112,8 +115,7 @@ export HUAWEI_CLOUD_REGION=cn-north-4
 | Discover app LTS stream mapping | `huawei_get_application_logconfigs` | [references/workflow.md](references/workflow.md) |
 | Query audit logs for Pod deletion | `huawei_query_cce_audit_logs` | [references/workflow.md](references/workflow.md) |
 | Query audit logs for workload changes | `huawei_query_cce_audit_logs` | [references/workflow.md](references/workflow.md) |
-| Query recent application logs | `huawei_query_application_recent_logs` | [references/workflow.md](references/workflow.md) |
-| Query application logs in time window | `huawei_query_application_logs` | [references/workflow.md](references/workflow.md) |
+| Query application logs by recent window or explicit time range | `huawei_query_application_logs` | [references/workflow.md](references/workflow.md) |
 | Analyze logs for abnormalities | `huawei_analyze_application_logs` | [references/workflow.md](references/workflow.md) |
 | Risk constraints & guardrails | — | [references/risk-rules.md](references/risk-rules.md) |
 | Output schema reference | — | [references/output-schema.md](references/output-schema.md) |
@@ -222,7 +224,7 @@ python3 scripts/huawei-cloud.py huawei_query_cce_audit_logs \
 
 ```bash
 # Query recent application logs from a specific LogConfig policy
-python3 scripts/huawei-cloud.py huawei_query_application_recent_logs \
+python3 scripts/huawei-cloud.py huawei_query_application_logs \
   region=cn-north-4 \
   cluster_id=<cluster-id> \
   namespace=default \
@@ -303,12 +305,12 @@ python3 scripts/huawei-cloud.py huawei_analyze_application_logs \
 | `logconfig_name` | app log tools | No | Specific LogConfig policy | Selects from matched streams |
 | `policy_name` | app log tools | No | Specific policy name | Alternative to logconfig_name |
 | `keywords` | app log tools | No | Keyword filter | LTS keyword search |
-| `hours` | recent logs | No | Recent hours window | Default 1 |
-| `start_time` | time-range logs | No | Start time | `YYYY-MM-DD HH:MM:SS` format |
-| `end_time` | time-range logs | No | End time | `YYYY-MM-DD HH:MM:SS` format |
+| `hours` | application logs | No | Recent hours window | Used when no explicit time range is supplied; default 1 |
+| `start_time` | application logs | No | Start time | `YYYY-MM-DD HH:MM:SS` format; takes precedence with `end_time` |
+| `end_time` | application logs | No | End time | `YYYY-MM-DD HH:MM:SS` format; takes precedence with `start_time` |
 | `auto_paginate` | app log tools | No | Enable pagination | `true`/`false` |
 | `max_pages` | app log tools | No | Max pages to fetch | Caps total work when paginating |
-| `limit` | app log tools | No | Per-page size | Recommended 100-1000 |
+| `limit` | LTS list and app log tools | No | Result limit (per page for log queries) | Optional for groups/streams; recommended 100-1000 for logs |
 
 ## Common Region IDs
 

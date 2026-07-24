@@ -9,9 +9,9 @@ Query and analyze Kubernetes standard output logs and Huawei Cloud LTS logs for 
 
 This skill reuses the shared Huawei Cloud dispatcher in `scripts/huawei-cloud.py`; implementation code lives in:
 
-- `scripts/huawei_cloud/cce.py` for Kubernetes Pod stdout logs (`huawei_get_pod_logs`)
-- `scripts/huawei_cloud/cce_app_logs.py` for CCE LogConfig discovery and application log stream matching
-- `scripts/huawei_cloud/lts.py` for LTS log group, stream, and log queries
+- `scripts/huawei_cloud/cce.py` for Kubernetes Pod stdout logs through `kubectl` / `kubectl cce` (`huawei_get_pod_logs`)
+- `scripts/huawei_cloud/cce_app_logs.py` for CCE LogConfig discovery and management through `kubectl` / `kubectl cce`, plus application log stream matching
+- `scripts/huawei_cloud/lts.py` for LTS log group, stream, and log queries through `hcloud`
 
 ## Scope
 
@@ -32,14 +32,13 @@ Do not use this skill to modify workloads, LTS groups/streams, or other cloud re
 
 | Tool | Purpose | Required parameters |
 |------|---------|---------------------|
-| `huawei_get_pod_logs` | Query Kubernetes Pod stdout/stderr through the Kubernetes API | `region`, `cluster_id`, `pod_name` |
+| `huawei_get_pod_logs` | Query Kubernetes Pod stdout/stderr through `kubectl` or `kubectl cce` | `region`, `cluster_id`, `pod_name` |
 | `huawei_get_cce_logconfigs` | List CCE LogConfig resources in a cluster | `region`, `cluster_id` |
 | `huawei_create_cce_logconfig` | Create a CCE LogConfig for container stdout or container file collection; preview by default, create with `confirm=true` | `region`, `cluster_id`, `logconfig_name`, `source_type`, `log_group_id`, `log_stream_id` |
 | `huawei_delete_cce_logconfig` | Delete a CCE LogConfig by name; preview by default, delete with `confirm=true` | `region`, `cluster_id`, `logconfig_name` |
 | `huawei_get_application_logconfigs` | Match app/workload to LTS log group and stream, including stdout and container file LogConfig policies | `region`, `cluster_id`, `app_name` |
 | `huawei_query_cce_audit_logs` | Query CCE audit logs from LTS and summarize Pod deletion, workload changes, verbs, users, resources, namespaces, and response codes | `region`, `cluster_id` |
-| `huawei_query_application_logs` | Query application logs from matched LTS stream; optionally specify `logconfig_name`/`policy_name` | `region`, `cluster_id`, `app_name` |
-| `huawei_query_application_recent_logs` | Query recent application logs from matched LTS stream; optionally specify `logconfig_name`/`policy_name` | `region`, `cluster_id`, `app_name` |
+| `huawei_query_application_logs` | Query application logs from a matched LTS stream by an explicit time range or recent hours; optionally specify `logconfig_name`/`policy_name` | `region`, `cluster_id`, `app_name` |
 | `huawei_analyze_application_logs` | Analyze application logs in a time range for abnormal keywords, HTTP errors, incident windows, recovery time, and abnormal ratios | `region`, `cluster_id`, `app_name` |
 
 ## Examples
@@ -124,7 +123,7 @@ python3 scripts/huawei-cloud.py huawei_create_cce_logconfig \
   log_stream_id=<lts-stream-id>
 
 # Query recent application logs from a specific LogConfig policy
-python3 scripts/huawei-cloud.py huawei_query_application_recent_logs \
+python3 scripts/huawei-cloud.py huawei_query_application_logs \
   region=cn-north-4 \
   cluster_id=<cluster-id> \
   namespace=default \
@@ -153,9 +152,10 @@ python3 scripts/huawei-cloud.py huawei_analyze_application_logs \
 
 ## Analysis Guidance
 
+- Kubernetes resource access first uses an externally reachable cluster endpoint with a temporary kubeconfig and `kubectl`; if that route is unavailable, it falls back to `kubectl cce`. Ensure `kubectl` and the `kubectl-cce` plugin are installed before using Pod or LogConfig tools.
 - Start with the narrowest useful scope: pod/container stdout first when the user names a pod, application LTS logs when they name a workload.
 - Prefer recent windows (`hours=1`, `tail_lines=100-500`) before broad historical searches.
-- For workload-level LTS queries, first call `huawei_get_application_logconfigs` to discover the application's matched LogConfig policies. Then pass the desired `logconfig_name` or `policy_name` to `huawei_query_application_recent_logs` or `huawei_query_application_logs`.
+- For workload-level LTS queries, first call `huawei_get_application_logconfigs` to discover the application's matched LogConfig policies. Then pass the desired `logconfig_name` or `policy_name` to `huawei_query_application_logs`.
 - For LogConfig creation, first call without `confirm=true` and inspect `request_body`. Only call again with `confirm=true` after the user confirms the generated LogConfig.
 - For LogConfig deletion, first call without `confirm=true` and inspect the returned `existing` target summary. Only call again with `confirm=true` after the user confirms the exact `logconfig_name` and namespace.
 - Use `huawei_query_cce_audit_logs` for Kubernetes audit questions. It is pure keyword search over audit log content: `pod_name`, `resource_name`, `workload_name`, `namespace`, `user`, `verb`, `resource`, and `status_code` are all converted into query/content keywords instead of parsed-field filters.
