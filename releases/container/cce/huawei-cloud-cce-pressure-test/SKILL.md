@@ -1,471 +1,309 @@
 ---
+id: huawei-cloud-cce-pressure-test
 name: huawei-cloud-cce-pressure-test
-description: |
-  Huawei Cloud CCE end-to-end workload pressure testing and performance evaluation using Python SDK dispatcher.
-  Trigger: "pressure test", "压测", "load test", "负载测试", "stress test", "压力测试", "performance test", "性能测试", "k6 test", "k6 压测", "ELB traffic test", "ELB 流量测试", "end-to-end pressure test", "全链路压测", "elasticity evaluation", "弹性评估", "traffic generation", "流量生成"
-tags: [cce, pressure-test, k6, elb, observability]
+description: >
+  Run and evaluate Huawei Cloud CCE workload pressure tests with hcloud CLI for CCE cluster discovery and short-lived kubeconfig acquisition, kubectl for Kubernetes route/client/job/metrics evidence, and k6 for traffic generation. Use this skill for CCE pressure test, load test, stress test, performance test, k6 test, ELB traffic test, end-to-end traffic path validation, elasticity evaluation, 压测, 负载测试, 性能测试, 全链路压测, 弹性评估, and traffic generation. Do not use the Python SDK dispatcher.
+tags: [huawei-cloud, cce, hcloud, koocli, kubectl, k6, elb, pressure-test]
 ---
 
 # Huawei Cloud CCE Pressure Test
 
-**Trigger keywords**: pressure test, 压测, load test, 负载测试,
-stress test, 压力测试, performance test, 性能测试, k6 test, k6 压测,
-ELB traffic test, ELB 流量测试, end-to-end pressure test, 全链路压测,
-elasticity evaluation, 弹性评估, traffic generation, 流量生成
+This skill plans, runs, and reports controlled CCE workload pressure tests through Huawei Cloud `hcloud` CLI, Kubernetes `kubectl`, and k6.
 
-> **⚠️ Execution Method (Must Read): This skill executes queries via the local Python dispatcher script. Using hcloud, openstack, or other CLI tools or direct API calls is prohibited.**
->
-> - The dispatcher script is located at `scripts/huawei-cloud.py` within the skill directory
-> - All scripts and environment check scripts are inside the skill package. **You must use `skill action=exec` to execute them. Do not run them directly in a shell.**
-> - **Do not attempt hcloud, openstack, curl IAM, or any other CLI/API methods. This skill does not depend on those tools.**
-> - **All paths are relative to the skill directory, which is the directory where this SKILL.md is located.**
+Execution model:
 
-## Overview
+```text
+hcloud CCE -> short-lived kubeconfig -> kubectl preflight/route/client evidence -> k6 traffic -> kubectl metrics/logs/events -> pressure-test report
+```
 
-This skill runs controlled workload pressure tests on Huawei Cloud CCE.
-It builds a complete traffic path from a k6 client through ELB to
-nginx-ingress to workload pods, supports short-connection, keepalive,
-and ramp traffic models, collects ELB metrics and AOM observability data,
-evaluates elasticity phases, and generates bilingual Markdown and HTML
-reports with performance curves.
+Use CCE hcloud commands for cluster discovery and kubeconfig acquisition:
 
-**Architecture**: Python dispatcher (`scripts/huawei-cloud.py`) →
-Huawei Cloud Python SDK + Kubernetes client → ELB/CCE/AOM/APM APIs →
-Route preparation → Client generation → Traffic run →
-Observability collection → Report generation
+- `hcloud CCE ListClusters`
+- `hcloud CCE ShowCluster`
+- `hcloud CCE ShowClusterEndpoints`
+- `hcloud CCE CreateKubernetesClusterCert`
 
-**Key Principle**: Preview-first. Read-only checks may run immediately,
-but Service/Ingress changes, traffic generation, and workload scaling
-require explicit user approval with `confirm=true` before execution.
+Use `kubectl` for Kubernetes objects after kubeconfig acquisition: Deployments, StatefulSets, DaemonSets, Pods, Services, EndpointSlices, Ingresses, HPA, PDB, Events, Job logs, and metrics-server data.
 
-**Related Skills**:
+Use cloud network hcloud commands only when north-south ELB/VPC context is needed:
 
-| Skill | Purpose |
-|-------|---------|
-| `huawei-cloud-cce-autoscaling-diagnoser` | Diagnose autoscaling failures when HPA or CA does not respond during pressure tests |
-| `huawei-cloud-cce-observability-context-builder` | Build observability context when AOM/APM evidence is needed |
-| `huawei-cloud-cce-pod-failure-diagnoser` | Diagnose Pod runtime failures during traffic runs |
-| `huawei-cloud-cce-node-failure-diagnoser` | Diagnose node-level failures under load |
-| `huawei-cloud-cce-workload-failure-diagnoser` | Diagnose workload rollout failures after scaling |
-| `huawei-cloud-cce-auto-remediation-runner` | Execute remediation actions when issues are found during tests |
-| `huawei-cloud-cce-cluster-management` | Cluster lifecycle, nodepool management, kubeconfig retrieval |
+- `hcloud ELB ListLoadBalancers/v3`
+- `hcloud ELB ListListeners/v3`
+- `hcloud ELB ListPools/v3`
+- `hcloud ELB ListMembers/v3`
+- `hcloud ELB ListHealthMonitors/v3`
+- `hcloud VPC ListSubnets`
+- `hcloud VPC ListSecurityGroups/v3`
+- `hcloud VPC ListSecurityGroupRules/v3`
+- `hcloud EIP ListPublicips/v3`
+- `hcloud NAT ListNatGateways`
 
-**Capabilities**:
+Do not use Python SDK dispatcher commands, `scripts/huawei-cloud.py`, `skill action=exec`, old `huawei_*pressure*` actions, or Huawei Cloud SDK imports for this skill.
 
-1. End-to-end traffic path: k6 client → ELB → nginx-ingress → workload Service → Pod
-2. Short-connection (`short`), keepalive (`keepalive`), and staged ramp (`ramp`) traffic models
-3. Isolated Java sample deployment for lab environments
-4. ELB creation when no reusable ingress-controller ELB exists
-5. Route preparation: Service and Ingress creation/patching with preview-first
-6. k6 client generation with ConfigMap and Job
-7. Traffic run with replica and Pod count monitoring
-8. APM Java agent injection for distributed tracing during tests
-9. Observability collection: ELB metrics, Pod CPU/memory, AOM logs
-10. Bilingual Markdown and HTML report generation with SVG performance curves
-11. Elasticity evaluation: baseline vs scaled phase comparison
+## When To Use
+
+Use this skill for:
+
+- CCE workload pressure tests, k6 tests, load tests, stress tests, and performance baselines.
+- End-to-end path checks such as k6 client -> ELB -> ingress controller -> Service -> Pod.
+- Route readiness checks before sending traffic to an existing workload.
+- Baseline vs scaled or HPA-driven elasticity comparisons.
+- Investigation of latency, 4xx/5xx, connection errors, timeout, saturation, or HPA lag observed during a pressure test.
+- Generating a Markdown report from traffic results and Kubernetes/cloud evidence.
+
+Do not use this skill as a general read-only failure diagnoser when no pressure test is involved. Use the Pod, workload, node, or network diagnoser skills for pure diagnosis.
+
+## Required Inputs
+
+Collect these values before preparing any traffic:
+
+| Input | Required | Notes |
+| --- | --- | --- |
+| `region` | Yes | Example: `cn-north-4` |
+| `project_id` | Usually | Required by most hcloud CCE operations |
+| `cluster_id` | Preferred | If absent, resolve by cluster name with `ListClusters` |
+| `cluster_name` | Optional | Use only to locate `cluster_id` |
+| `namespace` | Usually | Target workload namespace |
+| `workload_name` | Usually | Deployment, StatefulSet, or DaemonSet name |
+| `workload_kind` | Optional | Default to Deployment when not specified |
+| `target_url` | Required before traffic | External URL, ingress URL, or service URL from an approved route |
+| `target_port` | Optional | Container or Service target port |
+| `host_header` | Optional | Required when Ingress host rules are used |
+| `traffic_model` | Yes | `smoke`, `keepalive`, `short`, `ramp`, or user-defined k6 script |
+| `vus`, `duration`, `rps` | Yes | Start small, then ramp only after smoke success |
+| `test_window` | Required for production-like targets | Include owner and stop conditions |
+| `output_dir` | Recommended | Store run summary, logs, evidence, and report |
+
+If any target, owner, or traffic limit is ambiguous, stop before sending traffic and ask for confirmation.
 
 ## Prerequisites
 
-### 1. Python Requirements (MANDATORY)
-
-- Python >= 3.6 installed
-- Required packages: `huaweicloudsdkcore`, `huaweicloudsdkcce`, `huaweicloudsdkvpc`, `huaweicloudsdkvpcep`, `huaweicloudsdkaom`, `huaweicloudsdkelb`, `kubernetes`, `matplotlib`
-- Verify: `python3 --version`
-- Install packages: `pip3 install huaweicloudsdkcore huaweicloudsdkcce huaweicloudsdkvpc huaweicloudsdkvpcep huaweicloudsdkaom huaweicloudsdkelb kubernetes matplotlib`
-
-### 2. Credential Configuration
-
-- Valid Huawei Cloud credentials (AK/SK mode)
-- **Security Rules**:
-  - 🚫 Never expose AK/SK values in code, conversation, or commands
-  - 🚫 Never use `echo $HUAWEI_AK` or `echo $HUAWEI_SK` to check credentials
-  - 🚫 Never write credentials to files, logs, or responses
-  - ✅ Use environment variables: `HUAWEI_AK`, `HUAWEI_SK`, `HUAWEI_REGION`
-  - ✅ Credentials exist only in the current request call stack and are released after each invocation
-  - ✅ Prefer IAM users over root account for cloud operations
-
-**Configuration Method** (Environment Variables Only):
+1. `hcloud` is installed and available in `PATH`, or a platform-native binary has been located and validated with `hcloud version`. Keep examples platform-neutral as `hcloud`, not an OS-specific absolute path.
+2. `kubectl` is installed and compatible with the target Kubernetes minor version. Linux sandboxes must use Linux kubectl; Windows workstations use `kubectl.exe`. Do not hard-code `kubectl.exe` in the skill workflow.
+3. k6 is available locally, or the test will use an approved in-cluster k6 Job image. If public image pulls are unreliable, mirror the k6 image to regional SWR before running the Job.
+4. hcloud credentials are configured through a profile, environment, or one-off CLI parameters. Verify only masked configuration with:
 
 ```bash
-export HUAWEI_AK=<your-ak>
-export HUAWEI_SK=<your-sk>
-export HUAWEI_REGION=cn-north-4
+hcloud configure list
 ```
 
-**Additional Variables**:
+5. IAM allows CCE cluster read and kubeconfig certificate creation. ELB/VPC/EIP/NAT read permissions are needed only when cloud-side network evidence is collected.
+6. Kubernetes RBAC allows read access to workload resources, Services, EndpointSlices, Ingresses, HPA, Events, Pods, Pod logs, Job logs, and metrics. Write permissions are needed only for user-approved route/client/scale changes.
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `HUAWEI_AK` | Yes | Huawei Cloud Access Key |
-| `HUAWEI_SK` | Yes | Huawei Cloud Secret Key |
-| `HUAWEI_REGION` | No | Default region (overrides `region` param if set) |
-| `HUAWEI_PROJECT_ID` | No | Project ID (auto-obtained via IAM API when not set) |
+Never print AK, SK, security tokens, kubeconfig certificates, Authorization headers, registry secrets, or application secrets. Do not write credentials into reports or manifests.
 
-### 3. IAM Permission Requirements
+## CCE hcloud Setup Flow
 
-| API Action | Service | Purpose |
-|------------|---------|---------|
-| CCE cluster read | CCE | Cluster info, workload inspection, Pod metrics |
-| CCE workload read/write | CCE (kubeconfig) | Deploy Java sample, create Service/Ingress, scale replicas |
-| CCE addon read | CCE | Check ingress controller and metrics addon |
-| ELB create/list/read | ELB | Create load balancer for test traffic path |
-| VPC subnet list | VPC | Find candidate subnets for ELB VIP |
-| VPCEP endpoint list | VPCEP | Check existing VPCEP endpoints |
-| AOM metrics read | AOM | Collect Pod CPU/memory and custom metrics |
-| AOM instances list/resolve | AOM | Find AOM instance for the cluster |
-| APM master address read | APM | Get APM master address for Java agent injection |
-| LTS log query | LTS | Correlate application errors with traffic curves |
-
-**Permission Failure Handling**:
-
-1. When any action fails due to IAM permission errors, display the required permission list
-2. Guide the user to create custom policies in the IAM console for Huawei Cloud permissions
-3. Pause execution and wait for user confirmation that permissions have been granted
-4. Retry the failed action
-
-## Core Commands
-
-All actions are invoked via the dispatcher script:
+### 1. Confirm CLI Tools
 
 ```bash
-python3 scripts/huawei-cloud.py <action> region=<region> cluster_id=<cluster_id> [key=value ...]
+hcloud version
+hcloud configure list
+kubectl version --client
+k6 version
 ```
 
-### 1. Deploy Java Sample (Optional)
+If k6 is not installed locally, use an in-cluster Job only after the user approves the Job manifest and target. If hcloud or kubectl is missing, install or locate the platform-native binary and validate the exact binary before continuing.
+
+### 2. Locate And Check The Cluster
 
 ```bash
-# Preview (no mutation)
-python3 scripts/huawei-cloud.py huawei_deploy_cce_pressure_test_java_sample \
-  region=cn-north-4 cluster_id=<cluster_id>
-
-# Apply after user approval
-python3 scripts/huawei-cloud.py huawei_deploy_cce_pressure_test_java_sample \
-  region=cn-north-4 cluster_id=<cluster_id> confirm=true
+hcloud CCE ListClusters --project_id=<project-id> --cli-region=<region> --cli-output=json
+hcloud CCE ShowCluster --cluster_id=<cluster-id> --project_id=<project-id> --detail=true --cli-region=<region> --cli-output=json
+hcloud CCE ShowClusterEndpoints --cluster_id=<cluster-id> --project_id=<project-id> --cli-region=<region> --cli-output=json
 ```
 
-Creates an isolated Namespace, ConfigMap (small Java HTTP server), and Deployment with readiness/liveness probes. Exposes `/healthz`, `/api/hello`, and `/api/work` on port `8080`.
+Confirm the cluster belongs to the expected region/project and has an API endpoint reachable from the current runtime. If only a private endpoint is available, run kubectl from a VPC/VPN/Direct Connect/Cloud Desktop environment that can reach it.
 
-### 2. Create ELB (When No Reusable ELB Exists)
+### 3. Acquire A Short-Lived Kubeconfig
+
+Use the shortest practical duration, normally 1 day, and store the kubeconfig outside the repository.
 
 ```bash
-# Preview (no mutation)
-python3 scripts/huawei-cloud.py huawei_create_elb \
-  region=cn-north-4 name=<elb-name> vip_subnet_cidr_id=<subnet-network-id>
-
-# Apply after user approval
-python3 scripts/huawei-cloud.py huawei_create_elb \
-  region=cn-north-4 name=<elb-name> vip_subnet_cidr_id=<subnet-network-id> confirm=true
+mkdir -p ~/.kube/huawei-cce
+hcloud CCE CreateKubernetesClusterCert --cluster_id=<cluster-id> --project_id=<project-id> --duration=1 --cli-region=<region> --cli-output=json > ~/.kube/huawei-cce/<cluster-id>.kubeconfig
+chmod 600 ~/.kube/huawei-cce/<cluster-id>.kubeconfig
 ```
 
-Creates a chargeable ELB. Review billable fields before applying. Does not silently create an EIP.
+PowerShell:
 
-### 3. Prepare Route
+```powershell
+New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.kube\huawei-cce" | Out-Null
+hcloud CCE CreateKubernetesClusterCert --cluster_id=<cluster-id> --project_id=<project-id> --duration=1 --cli-region=<region> --cli-output=json > "$env:USERPROFILE\.kube\huawei-cce\<cluster-id>.kubeconfig"
+```
+
+KooCLI may emit JSON-formatted kubeconfig; `kubectl` accepts JSON or YAML kubeconfig. If a newly awakened cluster or newly bound EIP causes a timeout, retry certificate creation with explicit CLI timeouts:
 
 ```bash
-# Preview (no mutation)
-python3 scripts/huawei-cloud.py huawei_prepare_cce_pressure_test_route \
-  region=cn-north-4 cluster_id=<cluster_id> namespace=<namespace> workload_name=<deployment-name> target_port=8080
-
-# Apply after user approval
-python3 scripts/huawei-cloud.py huawei_prepare_cce_pressure_test_route \
-  region=cn-north-4 cluster_id=<cluster_id> namespace=<namespace> workload_name=<deployment-name> target_port=8080 confirm=true
+hcloud CCE CreateKubernetesClusterCert --cluster_id=<cluster-id> --project_id=<project-id> --duration=1 --cli-region=<region> --cli-output=json --cli-connect-timeout=20 --cli-read-timeout=90 --cli-retry-count=2 > <kubeconfig-file>
 ```
 
-Creates or patches a ClusterIP Service and Ingress pointing to the workload. Discover an existing nginx ingress controller LoadBalancer address. Does not silently create a chargeable ELB.
-
-### 4. Inject APM Java Agent (Optional)
+### 4. Verify Kubernetes Access
 
 ```bash
-python3 scripts/huawei-cloud.py huawei_inject_cce_apm_javaagent \
-  region=cn-north-4 cluster_id=<cluster_id> namespace=<namespace> \
-  workload_name=<deployment-name> app_name=<apm-app-name> \
-  business=<apm-business> env_name=<apm-env>
+kubectl --kubeconfig=<kubeconfig-file> cluster-info
+kubectl --kubeconfig=<kubeconfig-file> auth can-i get deployments -n <namespace>
+kubectl --kubeconfig=<kubeconfig-file> auth can-i list pods -n <namespace>
+kubectl --kubeconfig=<kubeconfig-file> auth can-i list events -n <namespace>
+kubectl --kubeconfig=<kubeconfig-file> auth can-i get pods/log -n <namespace>
+kubectl --kubeconfig=<kubeconfig-file> auth can-i list jobs -n <client-namespace>
 ```
 
-Injects the Huawei Cloud APM Java agent into the workload Deployment for distributed tracing during the pressure test.
-
-### 5. Generate k6 Client
+Check write permissions only when the user has approved a mutating step:
 
 ```bash
-python3 scripts/huawei-cloud.py huawei_generate_cce_pressure_test_client \
-  target_url=http://<elb-address>/<path> namespace=pressure-test \
-  model=keepalive vus=10 duration_seconds=60
+kubectl --kubeconfig=<kubeconfig-file> auth can-i create jobs -n <client-namespace>
+kubectl --kubeconfig=<kubeconfig-file> auth can-i create services -n <namespace>
+kubectl --kubeconfig=<kubeconfig-file> auth can-i patch services -n <namespace>
+kubectl --kubeconfig=<kubeconfig-file> auth can-i patch ingress -n <namespace>
+kubectl --kubeconfig=<kubeconfig-file> auth can-i update deployments/scale -n <namespace>
 ```
 
-Generates the k6 ConfigMap and Job manifest. Use a regional SWR mirror for the k6 image when public image pulls are unavailable.
+If RBAC denies a read, report the missing verb/resource and continue only with allowed evidence. If RBAC denies a requested mutation, do not work around it with SDK or direct API calls.
 
-**Supported Traffic Models**:
+## Pressure Test Workflow
 
-| Model | Purpose |
-|-------|---------|
-| `short` | Disable connection reuse; observe new-connection pressure |
-| `keepalive` | Reuse connections for a steady HTTP baseline |
-| `ramp` | Increase traffic in stages then scale down |
+Read `references/workflow.md` before running a test. The standard flow is:
 
-### 6. Run Pressure Test
+1. Define the target, owner, traffic model, limits, and stop conditions.
+2. Acquire kubeconfig with `hcloud CCE CreateKubernetesClusterCert`.
+3. Run read-only preflight with `kubectl`.
+4. Choose traffic mode: local k6 against an external URL, or approved in-cluster k6 Job.
+5. Preview every manifest and command that creates, patches, scales, or sends traffic.
+6. Run a low-volume smoke test.
+7. Run the approved baseline or ramp phase.
+8. Collect k6 summary, Job logs, Events, HPA state, Pod metrics, and optional ELB/VPC evidence.
+9. Generate the report with summary, findings, root/bottleneck analysis, and next steps first.
+10. For elasticity evaluation, compare baseline vs scaled/HPA phases and include data gaps.
+
+## Read-Only Preflight
+
+Start with Kubernetes object and health evidence:
 
 ```bash
-# Preview (no mutation)
-python3 scripts/huawei-cloud.py huawei_run_cce_pressure_test \
-  region=cn-north-4 cluster_id=<cluster_id> target_url=http://<elb-address>/<path>
-
-# Apply after user approval
-python3 scripts/huawei-cloud.py huawei_run_cce_pressure_test \
-  region=cn-north-4 cluster_id=<cluster_id> target_url=http://<elb-address>/<path> confirm=true
+kubectl --kubeconfig=<kubeconfig-file> get nodes -o wide
+kubectl --kubeconfig=<kubeconfig-file> get deploy,sts,ds,svc,endpoints,endpointslice,ingress,hpa,pdb -n <namespace> -o wide
+kubectl --kubeconfig=<kubeconfig-file> get pods -n <namespace> -o wide
+kubectl --kubeconfig=<kubeconfig-file> get events -n <namespace> --sort-by=.lastTimestamp
+kubectl --kubeconfig=<kubeconfig-file> top pods -n <namespace>
+kubectl --kubeconfig=<kubeconfig-file> top nodes
 ```
 
-Ensures the client namespace, creates the ConfigMap and Job, waits for completion by default, records replica/Pod count samples, and extracts the k6 summary from logs.
+If `kubectl top` is unavailable, record a metrics gap and do not invent resource trends.
 
-### 7. Collect Observability
+For north-south traffic, inspect known ELB context when identifiers are available:
 
 ```bash
-python3 scripts/huawei-cloud.py huawei_collect_cce_pressure_test_observability \
-  region=cn-north-4 cluster_id=<cluster_id> namespace=<namespace> \
-  workload_name=<deployment-name> elb_id=<elb-id>
+hcloud ELB ListLoadBalancers/v3 --project_id=<project-id> --cli-region=<region> --cli-output=json
+hcloud ELB ListListeners/v3 --project_id=<project-id> --cli-region=<region> --cli-output=json
+hcloud ELB ListPools/v3 --project_id=<project-id> --cli-region=<region> --cli-output=json
 ```
 
-Collects ELB QPS, active connections, layer-7 response time, 2xx ratio,
-Pod CPU/memory metrics, and AOM evidence. Pass `label_selector` to scope
-Pod metrics to the workload. Pod CPU and memory are collected from node
-metrics when `aom_instance_id` is not provided.
+Use `hcloud <service> <operation> --help` before adding filters that differ by API version.
 
-### 8. Generate Report
+## Traffic Generation Modes
+
+### Local k6
+
+Use local k6 when the current runtime can reach `target_url`. This avoids creating Kubernetes resources and is preferred for simple external URL tests.
 
 ```bash
-python3 scripts/huawei-cloud.py huawei_generate_cce_pressure_test_report \
-  result_path=<path-to-run-json>
+k6 run --vus <vus> --duration <duration> <script.js>
 ```
 
-Generates Markdown, HTML, and SVG curve artifacts from the run JSON and optional observability JSON.
+Record the target URL, Host header, VUs, duration, thresholds, and the exact script path. Do not include credentials or bearer tokens in the script.
 
-### 9. Scale Workload (Elasticity Evaluation)
+### In-Cluster k6 Job
+
+Use an in-cluster Job when the target is cluster-internal or the user's runtime cannot reach the target. This creates Kubernetes resources and sends traffic, so it requires explicit approval after the manifest is shown.
+
+Read `references/manifest-templates.md` for the ConfigMap and Job template. Apply only after approval:
 
 ```bash
-# Preview (no mutation)
-python3 scripts/huawei-cloud.py huawei_scale_cce_workload \
-  region=cn-north-4 cluster_id=<cluster_id> workload_type=Deployment \
-  name=<deployment-name> namespace=<namespace> replicas=5
-
-# Apply after user approval
-python3 scripts/huawei-cloud.py huawei_scale_cce_workload \
-  region=cn-north-4 cluster_id=<cluster_id> workload_type=Deployment \
-  name=<deployment-name> namespace=<namespace> replicas=5 confirm=true
+kubectl --kubeconfig=<kubeconfig-file> apply -f <approved-k6-manifest.yaml>
+kubectl --kubeconfig=<kubeconfig-file> wait --for=condition=complete job/<job-name> -n <client-namespace> --timeout=<timeout>
+kubectl --kubeconfig=<kubeconfig-file> logs job/<job-name> -n <client-namespace> --all-containers
 ```
 
-For elasticity evaluation: run a baseline phase, preview scaling, apply only after approval with `confirm=true`, then run a second phase and compare reports.
+If the Job fails with `ImagePullBackOff` or `ErrImagePull`, diagnose it with Pod Events and recommend mirroring the k6 image to regional SWR.
 
-### 10. Supporting Actions (Read-Only)
+## Route And Scaling Changes
 
-| Action | Required Params | Description |
-|--------|----------------|-------------|
-| `huawei_list_cce_hpas` | `region`, `cluster_id` | List HPA specs and conditions |
-| `huawei_get_cce_pods` | `region`, `cluster_id` | List Pod phase, resources, node assignment |
-| `huawei_get_cce_services` | `region`, `cluster_id` | List Service types and cluster IPs |
-| `huawei_get_cce_ingresses` | `region`, `cluster_id` | List Ingress rules and LoadBalancer IPs |
-| `huawei_get_cce_pod_metrics_topN` | `region`, `cluster_id` | Pod resource metric ranking |
-| `huawei_get_elb_metrics` | `region`, `elb_id` | ELB QPS, connections, latency, success rate |
-| `huawei_get_elb_backend_status` | `region`, `elb_id` | Backend member health status |
-| `huawei_list_vpc_subnets` | `region` | List VPC subnets for ELB VIP placement |
-| `huawei_list_aom_instances` | `region` | List AOM instances |
-| `huawei_resolve_cce_aom_instance` | `region`, `cluster_id` | Resolve AOM instance for a CCE cluster |
-| `huawei_get_apm_master_address` | `region` | Get APM master address for agent injection |
-| `huawei_get_aom_metrics` | `region`, `aom_instance_id`, `query` | AOM/Prometheus metric queries |
-| `huawei_query_aom_logs` | `region`, `cluster_id` | Query AOM LTS logs |
-| `huawei_get_cce_logconfigs` | `region`, `cluster_id` | List CCE log collection configs |
-| `huawei_create_cce_logconfig` | `region`, `cluster_id`, `logconfig_name`, `source_type`, `log_group_id`, `log_stream_id` | Create CCE log collection config |
-| `huawei_get_application_logconfigs` | `region`, `cluster_id`, `app_name` | Get application log configs |
-| `huawei_query_application_logs` | `region`, `cluster_id`, `app_name` | Query application logs |
-| `huawei_analyze_application_logs` | `region`, `cluster_id`, `app_name` | Analyze application logs for errors |
-| `huawei_generate_monitor_dashboard` | `region`, `cluster_id` | Generate AOM monitor dashboard URL |
+Service, Ingress, sample workload, ELB creation, workload scaling, HPA changes, and cleanup are not automatic. Preview the exact YAML or command, explain risk and rollback, and run it only after explicit user approval in the conversation.
 
-## Parameter Reference
+For Kubernetes route manifests, read `references/manifest-templates.md`.
 
-### Common Parameters
+For manual scale elasticity tests, apply only after approval:
 
-| Parameter | Required | Description | Default |
-|-----------|----------|-------------|---------|
-| `region` | Yes | Huawei Cloud region | - |
-| `cluster_id` | Yes (most actions) | CCE cluster ID | - |
-| `namespace` | Action-dependent | Kubernetes namespace | - |
-| `workload_name` | Action-dependent | Deployment name | - |
-| `ak` | No | Access Key (overrides env var) | `HUAWEI_AK` env |
-| `sk` | No | Secret Key (overrides env var) | `HUAWEI_SK` env |
-| `project_id` | No | Project ID (overrides env var) | Auto-resolved |
+```bash
+kubectl --kubeconfig=<kubeconfig-file> scale deployment/<workload-name> -n <namespace> --replicas=<replicas>
+kubectl --kubeconfig=<kubeconfig-file> rollout status deployment/<workload-name> -n <namespace> --timeout=180s
+```
 
-### Deploy Java Sample Parameters
+For chargeable ELB creation, use hcloud only after reviewing subnet, AZ, flavor, public/private exposure, and cost impact. Prefer reusing an existing ingress-controller ELB when possible.
 
-| Parameter | Required | Description | Notes |
-|-----------|----------|-------------|-------|
-| `confirm` | Required for mutation | Approve deployment | `true` to apply, omit to preview |
+## Analysis And Scenario Guidance
 
-### ELB Creation Parameters
+Rank findings by direct evidence and the first failing layer:
 
-| Parameter | Required | Description | Notes |
-|-----------|----------|-------------|-------|
-| `name` | Yes | ELB name | - |
-| `vip_subnet_cidr_id` | Yes | VPC subnet network ID for ELB VIP | Obtain from `huawei_list_vpc_subnets` |
-| `availability_zone_list` | No | AZ list | Comma-separated |
-| `l4_flavor_id` | No | Layer-4 flavor ID | Optional performance spec |
-| `l7_flavor_id` | No | Layer-7 flavor ID | Optional performance spec |
-| `confirm` | Required for mutation | Approve ELB creation | `true` to apply, omit to preview |
+1. Target reachability and DNS/TLS/Host header correctness.
+2. Kubernetes route: Ingress -> Service -> EndpointSlice -> ready Pods.
+3. k6 client health and image pull/log evidence.
+4. Application response code, timeout, and latency behavior.
+5. Pod CPU/memory/restart/probe/resource pressure.
+6. HPA metrics and scale-up timing.
+7. Node and cluster capacity.
+8. ELB/listener/pool/member health and cloud network constraints.
 
-### Route Preparation Parameters
+After identifying the top finding, read `references/scenario-guides.md` and apply the matching scenario. Reports should include concrete next checks and candidate fixes for every material finding, not just a generic phrase such as "pressure test failed" or "image pull failed".
 
-| Parameter | Required | Description | Notes |
-|-----------|----------|-------------|-------|
-| `target_port` | No | Container target port | Defaults to workload's first container port |
-| `host` | No | Ingress host rule | Pass same value as `host_header` to client |
-| `selector_json` | No | Pod selector for non-Deployment workloads | JSON string |
-| `confirm` | Required for mutation | Approve route creation | `true` to apply, omit to preview |
+## Report Format
 
-### Client Generation Parameters
+Use `references/output-schema.md` as the detailed schema. Put decision-critical information first; raw commands and supporting tables come after the conclusion.
 
-| Parameter | Required | Description | Default |
-|-----------|----------|-------------|---------|
-| `target_url` | Yes | Full URL to test | - |
-| `namespace` | No | k6 client namespace | `pressure-test` |
-| `model` | No | Traffic model (`short`, `keepalive`, `ramp`) | `keepalive` |
-| `vus` | No | Number of virtual users | `10` |
-| `duration_seconds` | No | Test duration | `60` |
-| `host_header` | No | Host header for Ingress host rules | Matches `host` from route preparation |
+The user-facing report should include, in this order:
 
-### Traffic Run Parameters
+- Executive summary: test status, confidence, target, traffic phase, and one-line conclusion.
+- Root or bottleneck analysis: top findings ranked with direct evidence and plain-language interpretation.
+- Recommended next steps: safe immediate checks, candidate fixes, rollback or stop actions, and owner/skill handoff.
+- Test scope: region, project, cluster, namespace, workload, URL, traffic model, time window, and approvals.
+- Traffic results: requests, RPS, success rate, latency percentiles, thresholds, and k6 errors.
+- Route and workload health: Ingress, Service, EndpointSlice, Pods, Events, HPA, metrics.
+- Cloud-side evidence when collected: ELB/listener/pool/member/VPC/EIP/NAT context.
+- Negative evidence and verification gaps.
+- CLI path used: hcloud CCE operations, kubectl commands, k6 command or Job manifest.
+- Explicit statement of which mutating or traffic-generating operations were approved and run.
 
-| Parameter | Required | Description | Notes |
-|-----------|----------|-------------|-------|
-| `target_url` | Yes | Full URL to test | Must match client target |
-| `confirm` | Required for mutation | Approve traffic run | `true` to apply, omit to preview |
+## Safety Rules
 
-### Observability Collection Parameters
+Read `references/risk-rules.md` before applying manifests or sending traffic. This skill may run read-only checks and create report content, but it must not automatically run:
 
-| Parameter | Required | Description | Notes |
-|-----------|----------|-------------|-------|
-| `elb_id` | No | ELB ID for traffic/connection/latency metrics | Critical for full observability |
-| `label_selector` | No | Pod label selector | Scope Pod metrics to workload |
-| `aom_instance_id` | No | AOM instance ID | Auto-resolved if omitted |
-
-### APM Injection Parameters
-
-| Parameter | Required | Description | Notes |
-|-----------|----------|-------------|-------|
-| `app_name` | Yes | APM application name | - |
-| `business` | Yes | APM business name | - |
-| `env_name` | Yes | APM environment name | - |
-
-### Report Generation Parameters
-
-| Parameter | Required | Description | Notes |
-|-----------|----------|-------------|-------|
-| `result_path` | Yes | Path to run JSON file | Combine with observability JSON if available |
-
-### Common Region IDs
-
-| Region Name | Region ID |
-|-------------|-----------|
-| North China - Beijing 4 | `cn-north-4` |
-| North China - Beijing 1 | `cn-north-1` |
-| East China - Shanghai 1 | `cn-east-3` |
-| East China - Shanghai 2 | `cn-east-2` |
-| South China - Guangzhou | `cn-south-1` |
-| South China - Shenzhen | `cn-south-4` |
-| Southwest China - Guiyang 1 | `cn-southwest-2` |
-| Asia Pacific - Bangkok | `ap-southeast-2` |
-| Asia Pacific - Singapore | `ap-southeast-1` |
-| Asia Pacific - Hong Kong | `ap-southeast-3` |
-| Europe - Paris | `eu-west-0` |
-
-## Output Format
-
-All actions return JSON with the following common structure:
-
-| Field | Description |
-|-------|-------------|
-| `success` | Boolean: `true` if operation succeeded, `false` otherwise |
-| `action` | Action name that was executed |
-| `region` | Huawei Cloud region |
-
-**Run JSON** (`huawei_run_cce_pressure_test` when `output_dir` is provided):
-
-| Field | Description |
-|-------|-------------|
-| `job` | Job creation, completion, failure, and timeout state |
-| `samples` | Workload replica and Pod count samples collected during the run |
-| `metric_series` | Standardized replica curves from the run |
-| `k6_summary` | Requests, RPS, success rate, latency percentiles, bytes, and max VUs parsed from k6 logs |
-| `data_gaps` | Missing evidence that should be called out in the report |
-
-**Observability JSON** (`huawei_collect_cce_pressure_test_observability`):
-
-| Field | Description |
-|-------|-------------|
-| `inventory` | Pods, Services, and Ingresses in the workload namespace |
-| `pod_metrics` | Node-backed Pod CPU and memory metrics |
-| `elb_metrics` | ELB QPS, connections, latency, and response metrics when `elb_id` is provided |
-| `elb_backend_status` | Backend member and health-monitor evidence |
-| `metric_series` | Standardized curves consumed by the report action |
-
-**Report Artifacts** (`huawei_generate_cce_pressure_test_report`):
-
-| Artifact | Purpose |
-|----------|---------|
-| `*-report.md` | Portable Markdown report |
-| `*-report.html` | Styled HTML report with risk-colored recommendations and data-gap tables |
-| `*-curves.svg` | Embedded curve chart for traffic, latency, resources, and replicas |
-
-See [Output Schema](references/output-schema.md) for the full JSON response schema.
+- `kubectl apply`, `create`, `patch`, `edit`, `delete`, `scale`, `rollout restart`, or `rollout undo`
+- Local `k6 run` or in-cluster k6 Job traffic against a real target
+- hcloud create/update/delete operations, including ELB creation
+- HPA, nodepool, NAT, security group, or EIP changes
+- Any SDK dispatcher action
 
 ## Verification
 
-### Step-by-step Verification Checklist
+Read `references/verification-method.md` for the CLI verification checklist. A valid implementation should pass these checks:
 
-1. Verify AK/SK credentials are configured via environment variables
-2. Inspect existing Services, Ingresses, HPA, ingress controller, and ELB context
-3. Confirm cluster, workload, namespace, target port, test window, traffic model, VUs, and output directory
-4. Deploy Java sample (preview → confirm) if needed for an isolated lab
-5. Create ELB (preview → confirm) if no reusable ingress-controller ELB exists
-6. Prepare route (preview → confirm) — Service and Ingress
-7. Inject APM Java agent (optional) for distributed tracing
-8. Generate k6 client manifest — review ConfigMap and Job
-9. Run pressure test (preview → confirm)
-10. Collect observability with `elb_id` for full evidence
-11. Generate report and review Markdown/HTML/SVG artifacts
-12. For elasticity evaluation: run baseline → scale workload → run second phase → compare reports
+- `hcloud version`, `hcloud configure list`, `kubectl version --client`, and either `k6 version` or approved in-cluster Job image validation work.
+- `hcloud CCE ListClusters`, `ShowCluster`, `ShowClusterEndpoints`, and `CreateKubernetesClusterCert` work.
+- `kubectl --kubeconfig=<file>` can read the target namespace and workload.
+- Smoke traffic is run before larger traffic.
+- Repository/package search finds no SDK dispatcher entrypoints in this skill package.
 
-## Best Practices
+## References
 
-1. **Start with low traffic**: Always begin with low VUs and short duration to validate the traffic path before ramping up
-2. **Preview before apply**: Always run mutation actions without `confirm=true` first, review the plan, then re-run with `confirm=true` after explicit user approval
-3. **Use regional SWR images for k6**: Docker Hub images may timeout; mirror k6 to a regional SWR namespace
-4. **Pass `elb_id` for observability**: ELB metrics (QPS, connections, latency, success rate) are critical evidence; always pass `elb_id` when collecting observability
-5. **Run at least two phases for elasticity**: Baseline + scaled phase comparison is the standard methodology for evaluating autoscaling behavior
-6. **Confirm test target before traffic**: Never send traffic to production paths without an approved test window
-7. **Stop raising traffic when indicators degrade**: Halt when success rate drops, latency rises sharply, or resource waterlines exceed agreed limits
-8. **Do not delete resources automatically**: Never auto-delete ELBs, namespaces, workloads, Jobs, or ConfigMaps
-
-## Reference Documents
-
-| Document | Description |
-|----------|-------------|
-| [Workflow](references/workflow.md) | Staged execution, action parameters, and command examples |
-| [Risk Rules](references/risk-rules.md) | Preview-first constraints, mutation boundaries, and operational limits |
-| [Output Schema](references/output-schema.md) | JSON response schema and report artifact structure |
-
-## Notes
-
-- **Preview-first by design** — Service/Ingress changes, traffic generation, and workload scaling return a preview without `confirm=true`; apply only after explicit user approval
-- **Standard traffic path** — `Pod → Service → nginx-ingress → ELB`; the route preparation action discovers existing ingress controllers and does not silently create chargeable resources
-- **ELB is chargeable** — creating a new ELB incurs hourly billing; always preview and confirm before creation
-- **No credential persistence** — AK/SK exists only during API calls; never written to disk, logs, or reports
-- **Cross-skill escalation** — If autoscaling does not respond during tests, hand off to `huawei-cloud-cce-autoscaling-diagnoser`; if Pods fail, hand off to `huawei-cloud-cce-pod-failure-diagnoser`
-
-## Common Pitfalls
-
-| Pitfall | Symptom | Quick Fix |
-|---------|---------|-----------|
-| Public Docker Hub k6 image | Image pull timeout in CCE | Mirror k6 image to regional SWR namespace |
-| Missing ELB in traffic path | k6 client cannot reach workload | Create ELB or verify ingress-controller LoadBalancer IP |
-| Ingress host mismatch | k6 requests rejected with 404 | Pass `host` during route prep and `host_header` to client |
-| No observability without `elb_id` | Missing traffic/latency curves in report | Always pass `elb_id` to observability collection |
-| Skipping baseline phase | Cannot evaluate elasticity improvement | Run baseline phase before scaling |
-| Wrong `vip_subnet_cidr_id` | ELB creation fails | Use network ID from `huawei_list_vpc_subnets`, not subnet UUID |
-| Production traffic without approval | Unintended load on production | Confirm test target and namespace before traffic generation |
+- `references/workflow.md` - staged pressure-test workflow and evidence order.
+- `references/manifest-templates.md` - local k6, in-cluster k6 Job, Service, and Ingress templates.
+- `references/scenario-guides.md` - scenario-specific analysis and next-step guidance.
+- `references/common-pitfalls.md` - pressure-test traps and CLI examples.
+- `references/output-schema.md` - Markdown and JSON report structure.
+- `references/risk-rules.md` - traffic, mutation, and chargeable-resource boundaries.
+- `references/verification-method.md` - environment and CLI verification.
+- `references/iam-policies.md` - IAM and Kubernetes RBAC requirements.
+- Huawei Cloud KooCLI documentation: https://support.huaweicloud.com/hcli/
+- Huawei Cloud CCE documentation: https://support.huaweicloud.com/cce/
+- Kubernetes kubectl reference: https://kubernetes.io/docs/reference/kubectl/

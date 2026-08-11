@@ -1,32 +1,89 @@
-# Pressure-Test Risk Rules
+# CCE Pressure-Test Risk Rules
 
-## R0 Read-Only
+Pressure tests can change cluster state, create billable resources, and affect real traffic. Treat safety boundaries as part of the test design.
 
-- Generate k6 client manifests.
-- Inspect Services, Ingresses, HPA, and ELB evidence.
-- Generate Markdown, HTML, and SVG reports.
+## R0 Read-Only And Planning
 
-## R1 Reviewed Kubernetes Changes
+These actions may run without additional approval after credentials and target are known:
 
-- Create or patch the workload-facing Service and Ingress.
-- Create or patch the isolated Java sample Namespace, ConfigMap, and Deployment.
-- Ensure the k6 client namespace exists, then create a ConfigMap and Job that sends traffic.
+- `hcloud version`, `hcloud configure list`, and `kubectl version --client`.
+- `hcloud CCE ListClusters`, `ShowCluster`, `ShowClusterEndpoints`, and `CreateKubernetesClusterCert`.
+- `kubectl get`, `describe`, `logs`, `top`, and `auth can-i` read-only checks.
+- Read-only hcloud ELB/VPC/EIP/NAT list operations.
+- Generate local scripts, YAML manifests, runbooks, and reports.
 
-Always preview these actions. Apply them only after explicit approval with `confirm=true`.
+Still redact credentials, tokens, certificates, registry secrets, and application secrets.
 
-## R2 Capacity Changes
+## R1 Local Or Manifest Preparation
 
-- Create a chargeable ELB after reviewing subnet, AZ, flavor, and protection settings.
-- Scale workload replicas.
-- Change HPA behavior or target utilization.
-- Change node autoscaler bounds.
+These are low risk but must be shown to the user:
 
-Use the existing remediation or HPA actions. Show the exact change, expected traffic impact, rollback command, and validation checks before applying `confirm=true`.
+- Create a local k6 script.
+- Create a local Kubernetes YAML manifest file.
+- Prepare route, Job, ConfigMap, sample workload, or cleanup manifests.
+- Prepare report artifacts.
 
-## Operational Limits
+Do not apply manifests or send traffic in R1.
 
-- Start with low VUs and short duration.
-- Confirm the test target and namespace before sending traffic.
-- Do not test production traffic paths without an approved window.
-- Stop raising traffic when success rate drops, latency rises sharply, or resource waterlines exceed the agreed limit.
-- Mirror the k6 image to regional SWR when public image pulls are unavailable.
+## R2 Approved Traffic Or Kubernetes Mutation
+
+These require explicit user approval in the conversation:
+
+- Run local `k6 run` against a real target.
+- Apply an in-cluster k6 ConfigMap or Job.
+- Create or patch Service or Ingress for the test route.
+- Create a sample workload for a lab test.
+- Scale a workload for an elasticity phase.
+- Delete test Jobs or ConfigMaps.
+
+Before approval, show:
+
+- Exact command or YAML.
+- Target namespace and resource names.
+- Traffic model, VUs, duration, RPS cap, and thresholds.
+- Expected impact and stop conditions.
+- Rollback or cleanup command.
+
+## R3 High-Risk Or Billable Changes
+
+These require extra confirmation and should be avoided unless necessary:
+
+- Create, update, or delete ELB, EIP, NAT, security group, or VPC resources.
+- Modify HPA behavior, workload resource requests/limits, nodepool size, or cluster autoscaler settings.
+- Run high-volume traffic against production or customer-facing targets.
+- Use short-connection mode at high VU counts, which can amplify connection churn.
+- Run tests without an approved time window or owner.
+
+Show cost impact, blast radius, rollback, and validation checks before executing any R3 command.
+
+## Stop Conditions
+
+Stop the test or avoid escalation when any of these occur:
+
+- Smoke test fails.
+- Success rate falls below the agreed threshold.
+- 5xx, timeout, or connection errors rise sharply.
+- p95 or p99 latency exceeds the agreed limit.
+- Pods restart, become NotReady, or enter CrashLoopBackOff/ImagePullBackOff.
+- HPA cannot read metrics while the test depends on autoscaling.
+- CPU, memory, or node capacity reaches the agreed waterline.
+- The target, Host header, namespace, or route mapping is uncertain.
+
+## Prohibited Defaults
+
+Do not run these by default:
+
+- `kubectl apply`, `create`, `patch`, `edit`, `delete`, `scale`, `rollout restart`, or `rollout undo`.
+- Any local or in-cluster k6 traffic against a real target.
+- hcloud create/update/delete operations.
+- Python SDK dispatcher actions, direct IAM/API calls, or handwritten cloud API calls.
+- Commands that print AK/SK, kubeconfig certs, Authorization headers, or secrets.
+
+## Cleanup Rules
+
+Cleanup is a mutation and must be approved. Only delete resources that were created for this test and are named in the report. Never automatically delete:
+
+- User workloads.
+- Existing Services or Ingresses.
+- ELB, EIP, NAT, security groups, or VPC resources.
+- Namespaces that may contain resources not created by the test.
