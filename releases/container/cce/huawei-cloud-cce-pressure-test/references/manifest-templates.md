@@ -114,9 +114,9 @@ spec:
 Approved execution:
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> apply -f <approved-k6-manifest.yaml>
-kubectl --kubeconfig=<kubeconfig-file> wait --for=condition=complete job/<job-name> -n <client-namespace> --timeout=<timeout>
-kubectl --kubeconfig=<kubeconfig-file> logs job/<job-name> -n <client-namespace> --all-containers
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> apply -f <approved-k6-manifest.yaml>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> wait --for=condition=complete job/<job-name> -n <client-namespace> --timeout=<timeout>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> logs job/<job-name> -n <client-namespace> --all-containers
 ```
 
 If the target needs a Host header, add it to the k6 script headers before approval.
@@ -177,8 +177,8 @@ spec:
 Cleanup requires approval. Only delete resources created for this test:
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> delete job/<job-name> -n <client-namespace>
-kubectl --kubeconfig=<kubeconfig-file> delete configmap/<configmap-name> -n <client-namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> delete job/<job-name> -n <client-namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> delete configmap/<configmap-name> -n <client-namespace>
 ```
 
 Do not delete existing workloads, Services, Ingresses, namespaces, ELBs, EIPs, or security/network resources automatically.

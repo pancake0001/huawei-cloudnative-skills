@@ -6,9 +6,9 @@ This workflow uses CCE `hcloud` commands only for Huawei Cloud cluster access an
 
 1. Confirm `region`, `project_id`, `cluster_id`, `namespace`, `kind`, and `name`.
 2. Use `hcloud CCE ListClusters` and `ShowCluster` to confirm the target cluster exists and is available.
-3. Use `hcloud CCE CreateKubernetesClusterCert` to create a short-lived kubeconfig.
-4. If the returned kubeconfig points to a private API server while `ShowClusterEndpoints.publicEndpoint` is available and the agent is outside the VPC, use a temporary kubeconfig copy whose server is the public endpoint.
-5. Verify access with `kubectl --kubeconfig=<file> cluster-info` and `kubectl auth can-i`.
+3. Read `references/kubectl-cce.md`, then use `kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id>` for authenticated read-only Kubernetes collection; do not generate kubeconfig.
+4. If the default CCE API Gateway endpoint is not valid for the current environment, set `CCE_ENDPOINT` or pass `--endpoint`.
+5. Verify access with `kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> cluster-info` and `kubectl cce ... auth can-i`.
 6. When several workloads are failing at once, inspect Nodes and cluster events first to detect a shared scheduling or node readiness blocker.
 7. Read the workload YAML and describe output.
 8. Record `metadata.uid`, `metadata.generation`, `status.observedGeneration`, selector, desired/current/updated/ready/available replicas, strategy, and conditions.
@@ -80,13 +80,13 @@ This workflow uses CCE `hcloud` commands only for Huawei Cloud cluster access an
 ### Pod Runtime Failures
 
 - Signals: `Pending`, `FailedScheduling`, `FailedMount`, `ImagePullBackOff`, `ErrImagePull`, `CrashLoopBackOff`, `OOMKilled`, `Evicted`, frequent restarts, or `ContainersNotReady`.
-- Evidence: `describe pod`, events, current logs, previous logs, PVC/PV state, node conditions, and optional `kubectl top`.
+- Evidence: `describe pod`, events, current logs, previous logs, PVC/PV state, node conditions, and optional `kubectl cce ... top`.
 - Handoff: pod/node/storage/network skills based on the first concrete blocker.
 
 ### Shared Node Or Scheduling Blocker
 
 - Signal: many workloads across namespaces are unavailable, Pods are Pending, and all candidate nodes are `Ready=Unknown`/`NotReady` or have untolerated taints such as `node.kubernetes.io/unreachable` or `node.cloudprovider.kubernetes.io/shutdown`.
-- Evidence: `kubectl get nodes`, `describe node`, Pod `FailedScheduling` events, and workload unavailable counts.
+- Evidence: `kubectl cce ... get nodes`, `describe node`, Pod `FailedScheduling` events, and workload unavailable counts.
 - Next checks: whether the cluster was recently awakened, whether ECS worker nodes are still stopped/unreachable, node heartbeat recovery, and CCE node pool status.
 - Handoff: `huawei-cloud-cce-node-failure-diagnoser` or remediation runner for explicit node recovery actions.
 

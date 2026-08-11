@@ -7,7 +7,7 @@ Minimum cloud permissions for the base workflow:
 | Service | Purpose |
 | --- | --- |
 | CCE cluster list/show | Locate and validate the target cluster |
-| CCE cluster certificate creation | Generate short-lived kubeconfig for kubectl |
+| CCE Kubernetes API Gateway access | Allow kubectl-cce plugin access to the Kubernetes API through CCE API Gateway |
 
 Optional cloud network read permissions:
 

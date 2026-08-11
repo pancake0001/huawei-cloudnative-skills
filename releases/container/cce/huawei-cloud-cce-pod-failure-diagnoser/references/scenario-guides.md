@@ -133,7 +133,7 @@ Ruled-out examples:
 Next checks:
 
 - Compare memory requests/limits with app/runtime settings.
-- Use `kubectl top pod --containers` and `kubectl top node` when metrics-server is available.
+- Use `kubectl cce ... top pod --containers` and `kubectl cce ... top node` when metrics-server is available.
 - Check previous logs around termination and recent traffic/batch events.
 - Inspect node `MemoryPressure`.
 

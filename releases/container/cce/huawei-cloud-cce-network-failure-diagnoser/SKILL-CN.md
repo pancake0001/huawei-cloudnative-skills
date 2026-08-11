@@ -2,7 +2,7 @@
 id: huawei-cloud-cce-network-failure-diagnoser
 name: huawei-cloud-cce-network-failure-diagnoser
 description: >
-  使用 hcloud CLI 做 CCE 集群发现、kubeconfig 获取，以及可选的 ELB/VPC/EIP/NAT 只读证据采集，再使用 kubectl 采集 Kubernetes 网络对象来诊断华为云 CCE 网络故障。适用于 Service 不通、DNS/CoreDNS 异常、Ingress 502/504、NetworkPolicy 阻断、EndpointSlice/后端就绪异常、ELB 后端健康、EIP/NAT/VPC/安全组/ACL 问题和端到端网络诊断报告。不使用 Python SDK dispatcher。
+  使用 hcloud CLI 做 CCE 集群发现、kubectl-cce 插件接入，以及可选的 ELB/VPC/EIP/NAT 只读证据采集，再通过 kubectl-cce 插件采集 Kubernetes 网络对象来诊断华为云 CCE 网络故障。适用于 Service 不通、DNS/CoreDNS 异常、Ingress 502/504、NetworkPolicy 阻断、EndpointSlice/后端就绪异常、ELB 后端健康、EIP/NAT/VPC/安全组/ACL 问题和端到端网络诊断报告。不使用 Python SDK dispatcher。
 tags: [huawei-cloud, cce, hcloud, koocli, kubectl, network, elb, vpc, diagnosis]
 ---
 
@@ -13,17 +13,16 @@ tags: [huawei-cloud, cce, hcloud, koocli, kubectl, network, elb, vpc, diagnosis]
 执行模型：
 
 ```text
-hcloud CCE -> 短期 kubeconfig -> kubectl 网络证据 -> 可选 hcloud ELB/VPC/EIP/NAT 只读证据 -> 排名诊断报告
+hcloud CCE 查询集群 -> kubectl cce 网络证据 -> 可选 hcloud ELB/VPC/EIP/NAT 只读证据 -> 排名诊断报告
 ```
 
-CCE hcloud 用于集群发现和 kubeconfig：
+CCE hcloud 用于集群发现和元数据读取，Kubernetes 访问使用 kubectl-cce 插件：
 
 - `hcloud CCE ListClusters`
 - `hcloud CCE ShowCluster`
 - `hcloud CCE ShowClusterEndpoints`
-- `hcloud CCE CreateKubernetesClusterCert`
 
-Kubernetes 网络对象使用 `kubectl` 读取：Nodes、Pods、Services、Endpoints、EndpointSlices、Ingresses、NetworkPolicies、Events、CoreDNS/kube-dns 资源，以及 RBAC 允许时的相关 controller 日志。
+Kubernetes 网络对象使用 `kubectl cce` 读取：Nodes、Pods、Services、Endpoints、EndpointSlices、Ingresses、NetworkPolicies、Events、CoreDNS/kube-dns 资源，以及 RBAC 允许时的相关 controller 日志。
 
 北南向链路需要云侧证据时，使用只读 hcloud 网络命令：
 
@@ -40,6 +39,8 @@ Kubernetes 网络对象使用 `kubectl` 读取：Nodes、Pods、Services、Endpo
 - `hcloud NAT ListNatGateways`
 
 不要使用 Python SDK dispatcher、`scripts/huawei-cloud.py`、`skill action=exec`、旧 `huawei_network_*` action 或 Huawei Cloud SDK import。
+
+**相关前置 skill**：如果需要安装或修复 `kubectl`/`kubectl-cce`，使用 `huawei-cloud-kubectl-cce-installer`。插件接入约束见 `references/kubectl-cce.md`。
 
 ## 使用场景
 
@@ -82,10 +83,10 @@ Kubernetes 网络对象使用 `kubectl` 读取：Nodes、Pods、Services、Endpo
 hcloud configure list
 ```
 
-4. IAM 允许读取 CCE 集群并创建 kubeconfig 证书。只有诊断云侧网络对象时才需要 ELB/VPC/EIP/NAT 读权限。
+4. IAM 允许读取 CCE 集群并使用 kubectl-cce API Gateway 接入。只有诊断云侧网络对象时才需要 ELB/VPC/EIP/NAT 读权限。
 5. Kubernetes RBAC 允许读取 Services、Endpoints、EndpointSlices、Ingresses、NetworkPolicies、Pods、Nodes、Events 和相关日志。
 
-不要打印 AK、SK、security token、kubeconfig 证书、Authorization header 或应用密钥。
+不要打印 AK、SK、security token、kubectl-cce 代理凭据、Authorization header 或应用密钥。
 
 ## CCE hcloud 设置流程
 
@@ -109,26 +110,40 @@ hcloud CCE ShowClusterEndpoints --cluster_id=<cluster-id> --project_id=<project-
 
 若只有私网 API endpoint，kubectl 必须在可达 VPC 的环境中运行。
 
-### 3. 获取短期 kubeconfig
+### 3. 配置 kubectl-cce 插件
+
+执行 Kubernetes 命令前先阅读 `references/kubectl-cce.md`。本 skill 以 kubectl CCE 插件作为主要 Kubernetes 访问路径；不要生成 kubeconfig、不要改写 kubeconfig server 字段、不要调用 Kubernetes SDK，也不要退回 SDK dispatcher 动作。
+
+如果缺少 `kubectl` 或 `kubectl-cce`，使用 `huawei-cloud-kubectl-cce-installer` 安装或修复本地前置工具。本诊断 skill 只负责验证和使用插件，不负责定义插件安装策略。
+
+先验证本地工具和插件发现：
 
 ```bash
-hcloud CCE CreateKubernetesClusterCert --cluster_id=<cluster-id> --project_id=<project-id> --duration=1 --cli-region=<region> --cli-output=json > <temp-kubeconfig-file>
-chmod 600 <temp-kubeconfig-file>
+kubectl version --client
+kubectl plugin list
 ```
 
-kubeconfig 放在仓库外，诊断结束后删除。集群刚唤醒或 EIP 刚绑定时，可加 `--cli-connect-timeout=20 --cli-read-timeout=90 --cli-retry-count=2`。
+通过受批准的工具参数、受保护的 shell 环境或本地凭据提供方配置插件认证，不要打印凭据值。诊断命令中显式传入集群、区域和项目 ID：
+
+```bash
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get namespaces
+```
+
+仅当默认 `<cluster-id>.cce.<region>.myhuaweicloud.com` endpoint 不适用于当前环境时，才设置 `CCE_ENDPOINT` 或传入 `--endpoint`。如果插件访问失败，在报告中记录脱敏后的安装、凭据、API Gateway 可达性或 Kubernetes RBAC 缺口；不要切换到 kubeconfig 生成或 SDK 调用。
+
+插件会阻断 `exec`、`attach`、`port-forward` 等流式命令；`logs -f` 和 `watch` 未强化，诊断报告中使用有限 `logs --tail` 和普通 `get` 命令。
 
 ### 4. 验证 Kubernetes 只读权限
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> cluster-info
-kubectl --kubeconfig=<kubeconfig-file> auth can-i list services -n <namespace>
-kubectl --kubeconfig=<kubeconfig-file> auth can-i list endpoints -n <namespace>
-kubectl --kubeconfig=<kubeconfig-file> auth can-i list endpointslices.discovery.k8s.io -n <namespace>
-kubectl --kubeconfig=<kubeconfig-file> auth can-i list networkpolicies.networking.k8s.io -n <namespace>
-kubectl --kubeconfig=<kubeconfig-file> auth can-i list ingresses.networking.k8s.io -n <namespace>
-kubectl --kubeconfig=<kubeconfig-file> auth can-i list pods -n <namespace>
-kubectl --kubeconfig=<kubeconfig-file> auth can-i list events -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> cluster-info
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list services -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list endpoints -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list endpointslices.discovery.k8s.io -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list networkpolicies.networking.k8s.io -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list ingresses.networking.k8s.io -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list pods -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list events -n <namespace>
 ```
 
 若 RBAC 拒绝某项读取，在报告中记录缺失权限，只继续采集允许读取的证据。
@@ -140,26 +155,26 @@ kubectl --kubeconfig=<kubeconfig-file> auth can-i list events -n <namespace>
 Kubernetes 网络基线：
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> get nodes -o wide
-kubectl --kubeconfig=<kubeconfig-file> get svc,endpoints,endpointslice,ingress,networkpolicy -n <namespace> -o wide
-kubectl --kubeconfig=<kubeconfig-file> get pods -n <namespace> -o wide
-kubectl --kubeconfig=<kubeconfig-file> get events -n <namespace> --sort-by=.lastTimestamp
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get nodes -o wide
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get svc,endpoints,endpointslice,ingress,networkpolicy -n <namespace> -o wide
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n <namespace> -o wide
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -n <namespace> --sort-by=.lastTimestamp
 ```
 
 Service：
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> get svc <service-name> -n <namespace> -o yaml
-kubectl --kubeconfig=<kubeconfig-file> get endpoints <service-name> -n <namespace> -o yaml
-kubectl --kubeconfig=<kubeconfig-file> get endpointslice -n <namespace> -l kubernetes.io/service-name=<service-name> -o yaml
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get svc <service-name> -n <namespace> -o yaml
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get endpoints <service-name> -n <namespace> -o yaml
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get endpointslice -n <namespace> -l kubernetes.io/service-name=<service-name> -o yaml
 ```
 
 DNS：
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> get svc,endpoints,endpointslice -n kube-system -o wide
-kubectl --kubeconfig=<kubeconfig-file> get pods -n kube-system -o wide | grep -E 'coredns|kube-dns|node-local-dns'
-kubectl --kubeconfig=<kubeconfig-file> logs -n kube-system -l k8s-app=kube-dns --tail=200
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get svc,endpoints,endpointslice -n kube-system -o wide
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n kube-system -o wide | grep -E 'coredns|kube-dns|node-local-dns'
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> logs -n kube-system -l k8s-app=kube-dns --tail=200
 ```
 
 PowerShell 中用 `Select-String` 替代 `grep`。
@@ -167,9 +182,9 @@ PowerShell 中用 `Select-String` 替代 `grep`。
 Ingress/LoadBalancer：
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> get ingress <ingress-name> -n <namespace> -o yaml
-kubectl --kubeconfig=<kubeconfig-file> describe ingress <ingress-name> -n <namespace>
-kubectl --kubeconfig=<kubeconfig-file> describe svc <service-name> -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get ingress <ingress-name> -n <namespace> -o yaml
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe ingress <ingress-name> -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe svc <service-name> -n <namespace>
 ```
 
 必要时使用云网络只读命令：
@@ -227,7 +242,7 @@ hcloud NAT ListNatGateways --project_id=<project-id> --cli-region=<region> --cli
 
 执行建议前先读 `references/risk-rules.md`。本技能只读，不运行：
 
-- `kubectl apply`、`create`、`patch`、`edit`、`delete`、`scale`、`rollout undo` 或组件重启
+- `kubectl cce ... apply`、`create`、`patch`、`edit`、`delete`、`scale`、`rollout undo` 或组件重启
 - 未经明确授权的 `kubectl exec`、抓包或主动流量测试
 - hcloud create/update/delete 操作
 - 任意 SDK dispatcher action
@@ -237,8 +252,8 @@ hcloud NAT ListNatGateways --project_id=<project-id> --cli-region=<region> --cli
 见 `references/verification-method.md`。有效实现应满足：
 
 - `hcloud version`、`hcloud configure list`、`kubectl version --client` 可用。
-- `hcloud CCE ListClusters`、`ShowCluster`、`CreateKubernetesClusterCert` 可用。
-- `kubectl --kubeconfig=<file>` 能读取目标 namespace 网络对象。
+- `hcloud CCE ListClusters`、`ShowCluster` 可用，`kubectl cce ...` 能读取目标集群。
+- `kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id>` 能读取目标 namespace 网络对象。
 - 云侧排查需要时，hcloud ELB/VPC/EIP/NAT 只读命令可用。
 - 技能包中没有 SDK dispatcher 入口残留。
 

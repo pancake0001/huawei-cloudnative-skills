@@ -1,6 +1,6 @@
 # CCE Pressure-Test Verification Method
 
-Use this checklist to verify that the skill is really using hcloud CLI and kubectl instead of the old SDK dispatcher.
+Use this checklist to verify that the skill is really using hcloud CLI and `kubectl cce` plugin commands instead of the old SDK dispatcher.
 
 ## Repository Verification
 
@@ -31,37 +31,36 @@ k6 version
 
 If k6 is not installed locally, record it and use an approved in-cluster Job only when the user accepts the manifest and image source.
 
-Keep examples as `hcloud` and `kubectl`. Local debug notes may contain absolute paths, but the skill itself should stay platform-neutral.
+Keep examples as `hcloud` for cloud metadata and `kubectl cce ...` for Kubernetes access. Local debug notes may contain absolute paths, but the skill itself should stay platform-neutral.
 
-## CCE CLI Verification
+## CCE CLI And kubectl-cce Verification
 
 ```bash
 hcloud CCE ListClusters --project_id=<project-id> --cli-region=<region> --cli-output=json
 hcloud CCE ShowCluster --cluster_id=<cluster-id> --project_id=<project-id> --detail=true --cli-region=<region> --cli-output=json
 hcloud CCE ShowClusterEndpoints --cluster_id=<cluster-id> --project_id=<project-id> --cli-region=<region> --cli-output=json
-hcloud CCE CreateKubernetesClusterCert --cluster_id=<cluster-id> --project_id=<project-id> --duration=1 --cli-region=<region> --cli-output=json > <kubeconfig-file>
+kubectl plugin list
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get ns
 ```
 
-The kubeconfig may be JSON or YAML. `kubectl` accepts both. Store it outside the repository and remove it when no longer needed.
-
-If the kubeconfig server points to a private endpoint and the current runtime cannot reach it, report the network placement issue rather than switching to SDK.
+The CCE hcloud commands verify cluster metadata. Kubernetes access must go through the kubectl-cce plugin, which creates a short-lived local proxy and does not generate or store kubeconfig. If the default `<cluster-id>.cce.<region>.myhuaweicloud.com` endpoint is not valid, set `CCE_ENDPOINT` or pass `--endpoint`; do not switch to SDK or kubeconfig generation.
 
 ## Kubernetes Access Verification
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> cluster-info
-kubectl --kubeconfig=<kubeconfig-file> auth can-i list pods -n <namespace>
-kubectl --kubeconfig=<kubeconfig-file> auth can-i list events -n <namespace>
-kubectl --kubeconfig=<kubeconfig-file> auth can-i get pods/log -n <namespace>
-kubectl --kubeconfig=<kubeconfig-file> get deploy,sts,ds,svc,endpoints,endpointslice,ingress,hpa,pdb -n <namespace> -o wide
-kubectl --kubeconfig=<kubeconfig-file> get pods -n <namespace> -o wide
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> cluster-info
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list pods -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list events -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i get pods/log -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get deploy,sts,ds,svc,endpoints,endpointslice,ingress,hpa,pdb -n <namespace> -o wide
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n <namespace> -o wide
 ```
 
 For metrics:
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> top pods -n <namespace>
-kubectl --kubeconfig=<kubeconfig-file> top nodes
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> top pods -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> top nodes
 ```
 
 If metrics are unavailable, record a gap.
@@ -78,9 +77,9 @@ Before a large test:
 For in-cluster Job mode:
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> get job,pod -n <client-namespace> -o wide
-kubectl --kubeconfig=<kubeconfig-file> describe pod -n <client-namespace> -l job-name=<job-name>
-kubectl --kubeconfig=<kubeconfig-file> logs job/<job-name> -n <client-namespace> --all-containers
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get job,pod -n <client-namespace> -o wide
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe pod -n <client-namespace> -l job-name=<job-name>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> logs job/<job-name> -n <client-namespace> --all-containers
 ```
 
 Do not continue if the k6 Job cannot pull its image, cannot resolve the target, or exits before producing a k6 summary.

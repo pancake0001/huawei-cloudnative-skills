@@ -38,55 +38,42 @@ hcloud CCE ShowCluster --cluster_id=<cluster-id> --project_id=<project-id> --det
 hcloud CCE ShowClusterEndpoints --cluster_id=<cluster-id> --project_id=<project-id> --cli-region=<region> --cli-output=json
 ```
 
-Create a short-lived kubeconfig outside the repository:
+Read `references/kubectl-cce.md`, then configure kubectl-cce plugin access and verify the plugin path:
 
 ```bash
-mkdir -p ~/.kube/huawei-cce
-hcloud CCE CreateKubernetesClusterCert --cluster_id=<cluster-id> --project_id=<project-id> --duration=1 --cli-region=<region> --cli-output=json > ~/.kube/huawei-cce/<cluster-id>.kubeconfig
-chmod 600 ~/.kube/huawei-cce/<cluster-id>.kubeconfig
+kubectl plugin list
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get ns
 ```
 
-PowerShell:
-
-```powershell
-New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.kube\huawei-cce" | Out-Null
-hcloud CCE CreateKubernetesClusterCert --cluster_id=<cluster-id> --project_id=<project-id> --duration=1 --cli-region=<region> --cli-output=json > "$env:USERPROFILE\.kube\huawei-cce\<cluster-id>.kubeconfig"
-```
-
-If certificate creation times out after a cluster wake-up or EIP change, retry with explicit hcloud timeouts:
-
-```bash
-hcloud CCE CreateKubernetesClusterCert --cluster_id=<cluster-id> --project_id=<project-id> --duration=1 --cli-region=<region> --cli-output=json --cli-connect-timeout=20 --cli-read-timeout=90 --cli-retry-count=2 > <kubeconfig-file>
-```
-
+The plugin uses `HUAWEICLOUD_SDK_AK`/`HUAWEICLOUD_SDK_SK` plus `CCE_PROJECT_ID`, temporary `HUAWEICLOUD_SECURITY_TOKEN` when needed, or `HUAWEI_IAM_TOKEN`. It starts a short-lived local proxy for the CCE API Gateway and does not generate or store kubeconfig. Use `CCE_ENDPOINT` or `--endpoint` only when the default `<cluster-id>.cce.<region>.myhuaweicloud.com` endpoint is not valid.
 ## 3. Run Read-Only Kubernetes Preflight
 
 Verify cluster and RBAC:
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> cluster-info
-kubectl --kubeconfig=<kubeconfig-file> auth can-i list pods -n <namespace>
-kubectl --kubeconfig=<kubeconfig-file> auth can-i list events -n <namespace>
-kubectl --kubeconfig=<kubeconfig-file> auth can-i get pods/log -n <namespace>
-kubectl --kubeconfig=<kubeconfig-file> auth can-i list jobs -n <client-namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> cluster-info
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list pods -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list events -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i get pods/log -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list jobs -n <client-namespace>
 ```
 
 Collect baseline objects:
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> get nodes -o wide
-kubectl --kubeconfig=<kubeconfig-file> get deploy,sts,ds -n <namespace> -o wide
-kubectl --kubeconfig=<kubeconfig-file> get svc,endpoints,endpointslice,ingress -n <namespace> -o wide
-kubectl --kubeconfig=<kubeconfig-file> get hpa,pdb -n <namespace> -o wide
-kubectl --kubeconfig=<kubeconfig-file> get pods -n <namespace> -o wide
-kubectl --kubeconfig=<kubeconfig-file> get events -n <namespace> --sort-by=.lastTimestamp
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get nodes -o wide
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get deploy,sts,ds -n <namespace> -o wide
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get svc,endpoints,endpointslice,ingress -n <namespace> -o wide
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get hpa,pdb -n <namespace> -o wide
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n <namespace> -o wide
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -n <namespace> --sort-by=.lastTimestamp
 ```
 
 Collect metrics if available:
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> top pods -n <namespace>
-kubectl --kubeconfig=<kubeconfig-file> top nodes
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> top pods -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> top nodes
 ```
 
 Record `Metrics API not available` as a data gap instead of switching to SDK or guessing trends.
@@ -96,23 +83,23 @@ Record `Metrics API not available` as a data gap instead of switching to SDK or 
 For an existing Ingress route:
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> get ingress <ingress-name> -n <namespace> -o yaml
-kubectl --kubeconfig=<kubeconfig-file> describe ingress <ingress-name> -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get ingress <ingress-name> -n <namespace> -o yaml
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe ingress <ingress-name> -n <namespace>
 ```
 
 For a Service route:
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> get svc <service-name> -n <namespace> -o yaml
-kubectl --kubeconfig=<kubeconfig-file> get endpoints <service-name> -n <namespace> -o yaml
-kubectl --kubeconfig=<kubeconfig-file> get endpointslice -n <namespace> -l kubernetes.io/service-name=<service-name> -o yaml
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get svc <service-name> -n <namespace> -o yaml
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get endpoints <service-name> -n <namespace> -o yaml
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get endpointslice -n <namespace> -l kubernetes.io/service-name=<service-name> -o yaml
 ```
 
 For the target workload:
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> get <workload-kind> <workload-name> -n <namespace> -o yaml
-kubectl --kubeconfig=<kubeconfig-file> get pods -n <namespace> -l '<selector>' -o wide
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get <workload-kind> <workload-name> -n <namespace> -o yaml
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n <namespace> -l '<selector>' -o wide
 ```
 
 Do not create or patch Service/Ingress until the user approves an exact manifest.
@@ -145,9 +132,9 @@ k6 run --vus <vus> --duration <duration> <script.js>
 Use an in-cluster k6 Job when the target is internal or local reachability is not available. This requires approval because it creates resources and sends traffic. Read `manifest-templates.md`, write a manifest, show it to the user, and only then run:
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> apply -f <approved-k6-manifest.yaml>
-kubectl --kubeconfig=<kubeconfig-file> wait --for=condition=complete job/<job-name> -n <client-namespace> --timeout=<timeout>
-kubectl --kubeconfig=<kubeconfig-file> logs job/<job-name> -n <client-namespace> --all-containers
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> apply -f <approved-k6-manifest.yaml>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> wait --for=condition=complete job/<job-name> -n <client-namespace> --timeout=<timeout>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> logs job/<job-name> -n <client-namespace> --all-containers
 ```
 
 ## 7. Smoke Before Load
@@ -177,11 +164,11 @@ For each phase, record:
 Collect after each phase:
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> get pods -n <namespace> -o wide
-kubectl --kubeconfig=<kubeconfig-file> get hpa -n <namespace> -o yaml
-kubectl --kubeconfig=<kubeconfig-file> get events -n <namespace> --sort-by=.lastTimestamp
-kubectl --kubeconfig=<kubeconfig-file> top pods -n <namespace>
-kubectl --kubeconfig=<kubeconfig-file> logs job/<job-name> -n <client-namespace> --all-containers
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n <namespace> -o wide
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get hpa -n <namespace> -o yaml
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -n <namespace> --sort-by=.lastTimestamp
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> top pods -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> logs job/<job-name> -n <client-namespace> --all-containers
 ```
 
 If a local k6 process is used, save stdout/stderr and the script.
@@ -198,8 +185,8 @@ Use at least two phases:
 Manual scaling requires an approved command:
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> scale deployment/<workload-name> -n <namespace> --replicas=<replicas>
-kubectl --kubeconfig=<kubeconfig-file> rollout status deployment/<workload-name> -n <namespace> --timeout=180s
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> scale deployment/<workload-name> -n <namespace> --replicas=<replicas>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> rollout status deployment/<workload-name> -n <namespace> --timeout=180s
 ```
 
 Do not change HPA, nodepool, cluster autoscaler, or resource limits inside this skill unless the user explicitly approves the exact command and rollback.
@@ -211,8 +198,8 @@ Generate the report using `output-schema.md`. Put summary, bottleneck/root analy
 Cleanup is also a mutation. Show delete commands separately and run them only after approval:
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> delete job/<job-name> -n <client-namespace>
-kubectl --kubeconfig=<kubeconfig-file> delete configmap/<configmap-name> -n <client-namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> delete job/<job-name> -n <client-namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> delete configmap/<configmap-name> -n <client-namespace>
 ```
 
 Never delete user workloads, Services, Ingresses, ELBs, EIPs, or namespaces automatically.

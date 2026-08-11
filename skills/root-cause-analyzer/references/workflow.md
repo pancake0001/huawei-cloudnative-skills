@@ -1,11 +1,11 @@
 # Workflow
 
-1. 建立故障时间线：用户感知时间、告警触发时间、Kubernetes 事件时间、发布/配置变更时间。
-2. 首选调用 `huawei_root_cause_analyze`；如果需要下钻，再分别调用 rollout、dependency、change、network、node/pod diagnoser。
-3. Workload 发布漏斗优先级最高：generation/observedGeneration、ReplicaSet、Pod Ready、事件、日志、command/args、探针、镜像。
-4. 依赖影响面用 Service selector、Ingress backend、Pod Ready 和 Node 分布判断传播路径。
-5. 变更影响面用审计日志、K8s 历史事件、AOM 告警和当前拓扑验证“变更后出现故障”的因果链。
-6. 对每条根因候选记录支持证据、反证、数据缺口和恢复交接。
-7. 按影响范围、时间吻合度、证据强度、可恢复性排序。
-8. 输出 Top3 根因、验证步骤、影响面和恢复建议。
-9. 对低置信度结论明确标注需要补充的数据。
+1. 明确 region、project_id、cluster_id、namespace、目标对象、故障现象、fault_time 和分析窗口。
+2. 优先构建或复用 `observability-context-builder` 上下文包：告警、Events、日志、指标、拓扑、时间线和数据缺口。
+3. 读取 `references/kubectl-cce.md`，校验 `hcloud`、`kubectl`、`kubectl-cce`，用 hcloud 定位目标集群。
+4. 使用 `kubectl cce` 只读采集 Pods、Workloads、ReplicaSets、Services、Ingresses、Endpoints/EndpointSlices、Nodes、Events、PVC/PV/StorageClass 和相关 NetworkPolicies。
+5. 建立时间线：用户现象、告警、Event、发布/变更、指标/日志、恢复尝试。
+6. 按证据调用或参考 workload、pod、node、network、storage、dependency-impact、change-impact、observability-context、alarm、event、metric 等依赖 skill。
+7. 将各域发现归一成根因候选：域、标题、支持证据、反证、数据缺口、影响面、置信度和下一步验证。
+8. 按时间吻合度、直接证据、故障特征、影响面、反证和可恢复性排序 Top3。
+9. 报告前置 `总结`、`根因分析`、`下一步措施`，命令细节和原始证据放后面。

@@ -13,7 +13,7 @@ When the node is unreachable, pressure conditions may also be `Unknown`. Do not 
 Always inspect `kube-node-lease/<node-name>` for NotReady or Unknown nodes:
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> get lease <node-name> -n kube-node-lease -o yaml
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get lease <node-name> -n kube-node-lease -o yaml
 ```
 
 Lease freshness is a strong liveness signal.
@@ -28,7 +28,7 @@ One Pod failing on a healthy node is often a Pod/workload/storage issue. Check w
 
 ## Pitfall 6: Overusing Metrics
 
-Metrics are supporting evidence, not mandatory truth. If `kubectl top` returns `Metrics API not available`, record the gap and rely on conditions, Events, and eviction messages.
+Metrics are supporting evidence, not mandatory truth. If `kubectl cce ... top` returns `Metrics API not available`, record the gap and rely on conditions, Events, and eviction messages.
 
 ## Pitfall 7: Running Remediation From The Diagnoser
 

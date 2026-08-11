@@ -2,7 +2,7 @@
 id: huawei-cloud-cce-network-failure-diagnoser
 name: huawei-cloud-cce-network-failure-diagnoser
 description: >
-  Diagnose Huawei Cloud CCE network failures with hcloud CLI for CCE cluster discovery, kubeconfig acquisition, and optional read-only ELB/VPC/EIP/NAT evidence, then kubectl for Kubernetes network objects. Use this skill for Service unreachable, DNS/CoreDNS errors, Ingress 502/504, NetworkPolicy blocks, EndpointSlice/backend readiness issues, ELB backend health, EIP/NAT/VPC/security-group/ACL concerns, and end-to-end network Markdown reports. Do not use the Python SDK dispatcher.
+  Diagnose Huawei Cloud CCE network failures with hcloud CLI for CCE cluster discovery, kubectl-cce plugin access, and optional read-only ELB/VPC/EIP/NAT evidence, then `kubectl cce` for Kubernetes network objects. Use this skill for Service unreachable, DNS/CoreDNS errors, Ingress 502/504, NetworkPolicy blocks, EndpointSlice/backend readiness issues, ELB backend health, EIP/NAT/VPC/security-group/ACL concerns, and end-to-end network Markdown reports. Do not use the Python SDK dispatcher.
 tags: [huawei-cloud, cce, hcloud, koocli, kubectl, network, elb, vpc, diagnosis]
 ---
 
@@ -13,17 +13,16 @@ This skill diagnoses CCE network failures through Huawei Cloud `hcloud` CLI and 
 Execution model:
 
 ```text
-hcloud CCE -> short-lived kubeconfig -> kubectl network evidence -> optional hcloud ELB/VPC/EIP/NAT read-only evidence -> ranked diagnosis report
+hcloud CCE cluster discovery -> kubectl cce network evidence -> optional hcloud ELB/VPC/EIP/NAT read-only evidence -> ranked diagnosis report
 ```
 
-Use CCE hcloud commands for cluster discovery and kubeconfig:
+Use CCE hcloud commands for cluster discovery and metadata. Use kubectl-cce for Kubernetes API access:
 
 - `hcloud CCE ListClusters`
 - `hcloud CCE ShowCluster`
 - `hcloud CCE ShowClusterEndpoints`
-- `hcloud CCE CreateKubernetesClusterCert`
 
-Use `kubectl` for Kubernetes network objects: Nodes, Pods, Services, Endpoints, EndpointSlices, Ingresses, NetworkPolicies, Events, CoreDNS/kube-dns resources, and relevant controller logs when RBAC allows.
+Use `kubectl cce` through the kubectl-cce plugin for Kubernetes network objects: Nodes, Pods, Services, Endpoints, EndpointSlices, Ingresses, NetworkPolicies, Events, CoreDNS/kube-dns resources, and relevant controller logs when RBAC allows.
 
 Use cloud network hcloud commands only for read-only north-south evidence when identifiers are available or can be safely correlated:
 
@@ -40,6 +39,8 @@ Use cloud network hcloud commands only for read-only north-south evidence when i
 - `hcloud NAT ListNatGateways`
 
 Do not use Python SDK dispatcher commands, `scripts/huawei-cloud.py`, `skill action=exec`, old `huawei_network_*` actions, or Huawei Cloud SDK imports for this skill.
+
+**Related prerequisite skill**: use `huawei-cloud-kubectl-cce-installer` to install or repair `kubectl`/`kubectl-cce`. Read `references/kubectl-cce.md` for the plugin access contract.
 
 ## When To Use
 
@@ -82,10 +83,10 @@ If the target is vague, start with a namespace scan and ask for the specific ser
 hcloud configure list
 ```
 
-4. IAM allows CCE cluster read and kubeconfig certificate creation. ELB/VPC/EIP/NAT read permissions are needed only when diagnosing cloud-side network objects.
+4. IAM allows CCE cluster read and kubectl-cce API Gateway access. ELB/VPC/EIP/NAT read permissions are needed only when diagnosing cloud-side network objects.
 5. Kubernetes RBAC allows read access to Services, Endpoints, EndpointSlices, Ingresses, NetworkPolicies, Pods, Nodes, Events, and relevant logs.
 
-Never print AK, SK, security tokens, kubeconfig certificates, Authorization headers, or registry/application secrets.
+Never print AK, SK, security tokens, kubectl-cce proxy credentials, Authorization headers, or registry/application secrets.
 
 ## CCE hcloud Setup Flow
 
@@ -107,28 +108,42 @@ hcloud CCE ShowCluster --cluster_id=<cluster-id> --project_id=<project-id> --det
 hcloud CCE ShowClusterEndpoints --cluster_id=<cluster-id> --project_id=<project-id> --cli-region=<region> --cli-output=json
 ```
 
-If only a private API endpoint is available, run kubectl from a VPC/VPN/Direct Connect/Cloud Desktop environment that can reach the private endpoint.
+The kubectl-cce plugin normally talks to the CCE API Gateway endpoint `<cluster-id>.cce.<region>.myhuaweicloud.com`. If that endpoint is not valid for the current environment, set `CCE_ENDPOINT` or pass `--endpoint`. If plugin/API Gateway access fails, report it as an access gap with the error text; do not fall back to kubeconfig generation or SDK calls by default.
 
-### 3. Acquire A Short-Lived Kubeconfig
+### 3. Configure kubectl-cce Plugin
+
+Read `references/kubectl-cce.md` before running Kubernetes commands. Use the kubectl CCE plugin as the primary Kubernetes access path; do not generate kubeconfig, patch kubeconfig server fields, call the Kubernetes SDK, or fall back to SDK dispatcher actions.
+
+If `kubectl` or `kubectl-cce` is missing, use `huawei-cloud-kubectl-cce-installer` to install or repair local prerequisites. This diagnoser verifies and uses the plugin; it does not own plugin installation policy.
+
+Verify local tooling and plugin discovery:
 
 ```bash
-hcloud CCE CreateKubernetesClusterCert --cluster_id=<cluster-id> --project_id=<project-id> --duration=1 --cli-region=<region> --cli-output=json > <temp-kubeconfig-file>
-chmod 600 <temp-kubeconfig-file>
+kubectl version --client
+kubectl plugin list
 ```
 
-Store kubeconfig outside the repository and delete it after diagnosis when no longer needed. If KooCLI times out on a recently awakened cluster, retry with `--cli-connect-timeout=20 --cli-read-timeout=90 --cli-retry-count=2`.
+Configure plugin credentials through approved tool parameters, a protected shell environment, or an approved local credential provider without printing values. Pass cluster, region, and project ID explicitly in diagnostic commands:
+
+```bash
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get namespaces
+```
+
+Use `CCE_ENDPOINT` or `--endpoint` only when the default `<cluster-id>.cce.<region>.myhuaweicloud.com` endpoint is not valid for the current environment. If plugin access fails, report the sanitized installation, credential, API Gateway reachability, or Kubernetes RBAC gap; do not switch to kubeconfig generation or SDK calls.
+
+The plugin intentionally blocks streaming commands such as `exec`, `attach`, and `port-forward`. `logs -f` and `watch` are not hardened, so use bounded `logs --tail` and normal `get` commands in diagnosis reports.
 
 ### 4. Verify Kubernetes Read Access
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> cluster-info
-kubectl --kubeconfig=<kubeconfig-file> auth can-i list services -n <namespace>
-kubectl --kubeconfig=<kubeconfig-file> auth can-i list endpoints -n <namespace>
-kubectl --kubeconfig=<kubeconfig-file> auth can-i list endpointslices.discovery.k8s.io -n <namespace>
-kubectl --kubeconfig=<kubeconfig-file> auth can-i list networkpolicies.networking.k8s.io -n <namespace>
-kubectl --kubeconfig=<kubeconfig-file> auth can-i list ingresses.networking.k8s.io -n <namespace>
-kubectl --kubeconfig=<kubeconfig-file> auth can-i list pods -n <namespace>
-kubectl --kubeconfig=<kubeconfig-file> auth can-i list events -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> cluster-info
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list services -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list endpoints -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list endpointslices.discovery.k8s.io -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list networkpolicies.networking.k8s.io -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list ingresses.networking.k8s.io -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list pods -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list events -n <namespace>
 ```
 
 If RBAC denies a read, report the missing verb/resource and continue only with allowed evidence.
@@ -140,26 +155,26 @@ Read `references/workflow.md` for detailed evidence order and failure rules.
 Start with the Kubernetes network baseline:
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> get nodes -o wide
-kubectl --kubeconfig=<kubeconfig-file> get svc,endpoints,endpointslice,ingress,networkpolicy -n <namespace> -o wide
-kubectl --kubeconfig=<kubeconfig-file> get pods -n <namespace> -o wide
-kubectl --kubeconfig=<kubeconfig-file> get events -n <namespace> --sort-by=.lastTimestamp
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get nodes -o wide
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get svc,endpoints,endpointslice,ingress,networkpolicy -n <namespace> -o wide
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n <namespace> -o wide
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -n <namespace> --sort-by=.lastTimestamp
 ```
 
 For a Service:
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> get svc <service-name> -n <namespace> -o yaml
-kubectl --kubeconfig=<kubeconfig-file> get endpoints <service-name> -n <namespace> -o yaml
-kubectl --kubeconfig=<kubeconfig-file> get endpointslice -n <namespace> -l kubernetes.io/service-name=<service-name> -o yaml
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get svc <service-name> -n <namespace> -o yaml
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get endpoints <service-name> -n <namespace> -o yaml
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get endpointslice -n <namespace> -l kubernetes.io/service-name=<service-name> -o yaml
 ```
 
 For DNS:
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> get svc,endpoints,endpointslice -n kube-system -o wide
-kubectl --kubeconfig=<kubeconfig-file> get pods -n kube-system -o wide | grep -E 'coredns|kube-dns|node-local-dns'
-kubectl --kubeconfig=<kubeconfig-file> logs -n kube-system -l k8s-app=kube-dns --tail=200
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get svc,endpoints,endpointslice -n kube-system -o wide
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n kube-system -o wide | grep -E 'coredns|kube-dns|node-local-dns'
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> logs -n kube-system -l k8s-app=kube-dns --tail=200
 ```
 
 On PowerShell, replace `grep` with `Select-String`.
@@ -167,9 +182,9 @@ On PowerShell, replace `grep` with `Select-String`.
 For Ingress and LoadBalancer:
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> get ingress <ingress-name> -n <namespace> -o yaml
-kubectl --kubeconfig=<kubeconfig-file> describe ingress <ingress-name> -n <namespace>
-kubectl --kubeconfig=<kubeconfig-file> describe svc <service-name> -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get ingress <ingress-name> -n <namespace> -o yaml
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe ingress <ingress-name> -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe svc <service-name> -n <namespace>
 ```
 
 Use hcloud cloud-network reads only when needed:
@@ -242,7 +257,7 @@ The user-facing report should include, in this order:
 
 Read `references/risk-rules.md` before making recommendations. This skill is read-only. Do not run:
 
-- `kubectl apply`, `create`, `patch`, `edit`, `delete`, `scale`, `rollout undo`, or component restarts
+- `kubectl cce ... apply`, `create`, `patch`, `edit`, `delete`, `scale`, `rollout undo`, or component restarts
 - `kubectl exec`, packet capture, or traffic generation unless explicitly requested and acknowledged
 - hcloud create/update/delete operations
 - Any SDK dispatcher action
@@ -252,8 +267,8 @@ Read `references/risk-rules.md` before making recommendations. This skill is rea
 Read `references/verification-method.md` for the CLI verification checklist. A valid implementation should pass these checks:
 
 - `hcloud version`, `hcloud configure list`, and `kubectl version --client` work.
-- `hcloud CCE ListClusters`, `ShowCluster`, and `CreateKubernetesClusterCert` work.
-- `kubectl --kubeconfig=<file>` can read network objects in the target namespace.
+- `hcloud CCE ListClusters` and `ShowCluster` work, and `kubectl cce ...` can reach the cluster through the CCE API Gateway.
+- `kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id>` can read network objects in the target namespace.
 - Optional hcloud ELB/VPC/EIP/NAT read operations work when cloud-side evidence is needed.
 - Repository/package search finds no SDK dispatcher entrypoints in this skill package.
 

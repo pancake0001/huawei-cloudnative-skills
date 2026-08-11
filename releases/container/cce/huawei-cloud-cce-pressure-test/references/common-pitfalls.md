@@ -16,7 +16,7 @@ What it means:
 
 Next steps:
 
-- Inspect Job Pod Events with `kubectl describe pod`.
+- Inspect Job Pod Events with `kubectl cce ... describe pod`.
 - Mirror the k6 image to regional SWR or use local k6.
 - Re-run smoke before any larger phase.
 
@@ -53,7 +53,7 @@ Next steps:
 
 Symptoms:
 
-- `kubectl top` returns `Metrics API not available`.
+- `kubectl cce ... top` returns `Metrics API not available`.
 - HPA cannot read CPU or memory metrics.
 
 Next steps:
@@ -71,23 +71,23 @@ Symptoms:
 
 Next steps:
 
-- Inspect `kubectl get hpa -o yaml`.
+- Inspect `kubectl cce ... get hpa -o yaml`.
 - Check target utilization, current metrics, min/max replicas, and stabilization windows.
 - Hand off to the autoscaling diagnoser when HPA behavior is the main issue.
 
-## Public Endpoint Or Kubeconfig Reachability
+## kubectl-cce Gateway Reachability
 
 Symptoms:
 
-- `CreateKubernetesClusterCert` succeeds, but kubectl cannot connect.
-- kubeconfig server points to a private IP.
+- `kubectl cce ...` fails to reach the CCE API Gateway.
 - Cluster was just awakened or EIP was just bound.
 
 Next steps:
 
 - Check `ShowClusterEndpoints`.
-- Use a runtime that can reach the private API endpoint, or carefully replace only the kubeconfig `server` field with the public endpoint when available.
-- Retry certificate creation with explicit hcloud timeouts after wake-up.
+- Verify `kubectl plugin list` can discover `kubectl-cce`.
+- Retry the same `kubectl cce ...` command after the cluster endpoint stabilizes.
+- If the default endpoint is not valid, set `CCE_ENDPOINT` or pass `--endpoint`; do not generate kubeconfig or switch to SDK.
 
 ## ELB Evidence Missing
 

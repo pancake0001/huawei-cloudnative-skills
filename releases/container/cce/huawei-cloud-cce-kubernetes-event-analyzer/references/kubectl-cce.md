@@ -1,34 +1,40 @@
 # kubectl-cce Usage
 
-`huawei_get_cce_events` uses `kubectl` to read Events. It first uses a temporary kubeconfig through the cluster external endpoint. When no external endpoint is available, it falls back to the `kubectl cce` plugin.
+Use `kubectl cce` as the primary Kubernetes access path. Do not generate kubeconfig, patch kubeconfig server fields, call the Kubernetes SDK, or fall back to SDK dispatcher actions for Kubernetes evidence.
 
 ## Install
 
-Install `kubectl` with the system package manager and verify it:
+Use `huawei-cloud-kubectl-cce-installer` when `kubectl` or `kubectl-cce` is missing. That skill owns local installation planning, release selection, source-build fallback, and plugin discovery checks.
+
+For manual verification:
 
 ```bash
 kubectl version --client
-```
-
-Install `kubectl-cce` v0.1.0 from the GitHub release that matches the local OS and architecture:
-
-```bash
-curl -LO https://github.com/pancake0001/kubectl-cce-plugin/releases/download/v0.1.0/kubectl-cce_0.1.0_linux_amd64.tar.gz
-tar -xzf kubectl-cce_0.1.0_linux_amd64.tar.gz
-chmod +x kubectl-cce && mv kubectl-cce /usr/local/bin/
 kubectl plugin list
 ```
 
-The executable must be named `kubectl-cce` so that kubectl discovers it as `kubectl cce`.
+On Windows, use `kubectl.exe` and a Windows `kubectl-cce` executable on `PATH`. On Linux sandboxes, use Linux-compatible binaries. If multiple kubectl binaries exist, set or document `KUBECTL_BIN` and verify the selected binary.
 
-## Plugin Credentials
+## Credentials
 
-The plugin requires AK, SK, and the target cluster's project ID. The skill supplies compatible credential environment variables internally and passes the project ID explicitly with `--project-id`. Temporary credentials also require a security token.
+The plugin needs Huawei Cloud credentials plus the target project ID. Configure credentials through an approved local provider, protected environment, or tool-provided values. Do not print AK/SK, security tokens, Authorization headers, kubeconfig content, or plugin credential material.
 
-Set these values through an approved local credential provider before invoking the plugin. Never place credential values in this document, shell history, source control, or command output.
+Always pass `--project-id <project-id>` when available instead of relying on implicit discovery.
 
-## Example
+## Use
+
+Always pass cluster, region, and project explicitly:
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -A
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -A --sort-by=.lastTimestamp
 ```
+
+For CCE API Gateway endpoint issues, record the sanitized error and use an endpoint override only when the default endpoint is invalid for the region or runtime network.
+
+## Limits
+
+- Prefer read-only `get` and bounded query commands.
+- Do not run mutating commands.
+- Do not use interactive or streaming commands.
+
+Do not bypass the plugin by generating kubeconfig or switching to SDK calls.

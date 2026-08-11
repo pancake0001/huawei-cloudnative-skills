@@ -1,84 +1,38 @@
 # Output Schema
 
-## Event Query Summary
+```json
+{
+  "success": true,
+  "scope": {
+    "region": "cn-north-4",
+    "project_id": "project-id",
+    "cluster_id": "cluster-id",
+    "namespace": "optional",
+    "time_range": "optional"
+  },
+  "summary": {
+    "top_reason": "ImagePullBackOff",
+    "total_events": 120,
+    "warning_count": 42,
+    "affected_objects": 8,
+    "confidence": 0.78,
+    "data_gaps": []
+  },
+  "top_reasons": [],
+  "repeated_patterns": [],
+  "namespace_breakdown": [],
+  "affected_objects": [],
+  "event_timeline": [],
+  "next_steps": [],
+  "report_markdown": "# CCE Kubernetes Event Analysis Report..."
+}
+```
 
-| Field | Description |
-|------|-------------|
-| `region` | Huawei Cloud region |
-| `cluster_id` | CCE cluster ID |
-| `namespace` | Kubernetes namespace (optional filter) |
-| `event_type` | Event type filter applied (e.g., Warning) |
-| `time_range` | Effective start/end time or recent-hours window |
-| `total_events` | Number of returned events |
-| `warning_count` | Number of Warning events |
-| `normal_count` | Number of Normal events |
+Markdown section order:
 
-## Analysis Summary
-
-| Field | Description |
-|------|-------------|
-| `top_reasons` | Top event reasons with counts, sorted by frequency |
-| `repeated_patterns` | Events with count > 1, grouped by reason |
-| `namespace_breakdown` | Event counts by namespace |
-| `first_warning` | Timestamp of first Warning event in window |
-| `last_warning` | Timestamp of last Warning event in window |
-| `affected_objects` | Count of unique involved objects with Warning events |
-| `next_steps` | Suggested follow-up query or diagnosis skill |
-
-## Local Event Analysis Response (`huawei_analyze_cce_events`)
-
-| Field | Description |
-|------|-------------|
-| `source` | Caller-provided label for the supplied Event result |
-| `event_records` | Number of input Event records |
-| `total_occurrences` | Sum of Event `count` values across input records |
-| `event_type_breakdown` | Occurrence totals grouped by Event type |
-| `top_reasons` | Most frequent reasons with warning totals and time ranges |
-| `namespace_breakdown` | Most affected namespaces, sorted by occurrences |
-| `affected_objects` | Most affected namespace/kind/name resource identities |
-| `repeated_patterns` | Event records with `count > 1` |
-| `resource_status` | Current-state checks for distinct resources referenced by Events, including a per-state summary and resource-level messages |
-
-## Event Detail (per event)
-
-| Field | Description |
-|------|-------------|
-| `reason` | Event reason (e.g., FailedScheduling, ImagePullBackOff, FailedMount) |
-| `message` | Event message (summarized, redacted) |
-| `involved_object_kind` | Kind of the involved object (Pod, Node, Deployment, etc.) |
-| `involved_object_name` | Name of the involved object (redacted in public output) |
-| `namespace` | Namespace of the involved object |
-| `count` | Number of times this event occurred |
-| `first_timestamp` | First occurrence |
-| `last_timestamp` | Most recent occurrence |
-| `type` | Event type (Normal, Warning) |
-
-## K8s API Response Fields (huawei_get_cce_events)
-
-| Field | Description |
-|------|-------------|
-| `region` | Huawei Cloud region |
-| `cluster_id` | CCE cluster ID |
-| `namespace` | Kubernetes namespace filter (if applied) |
-| `access_method` | `kubectl_kubeconfig_external` or `kubectl_cce_plugin` |
-| `total_fetched` | Number of events returned by the API |
-| `events` | Raw event list (apply filters client-side) |
-| `warning_count` | Number of Warning events (calculated) |
-| `top_reasons` | Top event reasons with counts (calculated) |
-| `repeated_patterns` | Events with count > 1 grouped by reason |
-| `namespace_breakdown` | Event counts by namespace |
-| `next_steps` | Suggested follow-up query or diagnosis skill |
-
-## LTS Response Fields (huawei_query_k8s_events_from_lts)
-
-| Field | Description |
-|------|-------------|
-| `region` | Huawei Cloud region |
-| `cluster_id` | CCE cluster ID |
-| `log_group_id` | LTS log group ID |
-| `log_stream_id` | LTS log stream ID |
-| `keywords` | Keywords used for filtering |
-| `event_count` | Number of events returned |
-| `events` | Parsed event list with normalized structure |
-| `time_range` | Start/end time of the query |
-| `log_config` | `default-event` LogConfig metadata and `kubectl_cce_logconfig` discovery method |
+1. `## Summary`
+2. `## Event Patterns`
+3. `## Next Actions`
+4. `## Event Timeline`
+5. `## Data Gaps`
+6. `## Appendix`

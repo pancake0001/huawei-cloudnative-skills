@@ -1,7 +1,12 @@
 # Risk Rules
 
-- Allow automatic R1 read-only queries: alarms, metrics, logs, events, inventory, read-only report generation.
-- Prohibit any action requiring `confirm=true` — no mutations allowed.
-- Never persist AK/SK, tokens, certificates, or kubeconfig.
-- Log output must be sanitized. When suspected secrets are found, describe the hit location only — never copy the original text.
-- Charts and reports must only be generated from authorized query results.
+- This skill is read-only. Allowed operations are discovery, log/event/metric/alarm query, local summarization, and Markdown report generation.
+- Use `hcloud` for CCE cloud metadata and supported AOM/LTS/CES read-only evidence.
+- Use `kubectl cce` for Kubernetes resource state, Events, bounded logs, and Metrics API checks.
+- Do not use Huawei Cloud SDK imports, Kubernetes SDK clients, generated kubeconfig, temporary kubeconfig files, direct IAM curl flows, or old dispatcher actions.
+- Do not run mutation commands: `apply`, `create`, `patch`, `edit`, `delete`, `scale`, `rollout restart`, `rollout undo`, `cordon`, `drain`, cloud bind/unbind, hibernate, awake, start, stop, or reboot.
+- Do not run interactive or streaming commands such as `exec`, `attach`, `port-forward`, `logs -f`, or `watch`.
+- Keep log collection bounded with `--tail`, explicit Pod/container scope, and short time windows where possible.
+- Redact secrets in log output. If a credential-like value appears, report only source, object, container, and approximate line/time.
+- Missing AOM, LTS, Metrics API, logs, or RBAC evidence is a data gap; do not treat absence of evidence as healthy state.
+- This skill prepares context. It should recommend the next diagnoser instead of making high-confidence root-cause claims from partial evidence.

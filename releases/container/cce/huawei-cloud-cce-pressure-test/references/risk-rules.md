@@ -7,8 +7,8 @@ Pressure tests can change cluster state, create billable resources, and affect r
 These actions may run without additional approval after credentials and target are known:
 
 - `hcloud version`, `hcloud configure list`, and `kubectl version --client`.
-- `hcloud CCE ListClusters`, `ShowCluster`, `ShowClusterEndpoints`, and `CreateKubernetesClusterCert`.
-- `kubectl get`, `describe`, `logs`, `top`, and `auth can-i` read-only checks.
+- `hcloud CCE ListClusters`, `ShowCluster`, and `ShowClusterEndpoints`; Kubernetes evidence uses `kubectl cce ...`.
+- `kubectl cce ... get`, `describe`, `logs`, `top`, and `auth can-i` read-only checks.
 - Read-only hcloud ELB/VPC/EIP/NAT list operations.
 - Generate local scripts, YAML manifests, runbooks, and reports.
 
@@ -73,11 +73,11 @@ Stop the test or avoid escalation when any of these occur:
 
 Do not run these by default:
 
-- `kubectl apply`, `create`, `patch`, `edit`, `delete`, `scale`, `rollout restart`, or `rollout undo`.
+- `kubectl cce ... apply`, `create`, `patch`, `edit`, `delete`, `scale`, `rollout restart`, or `rollout undo`.
 - Any local or in-cluster k6 traffic against a real target.
 - hcloud create/update/delete operations.
 - Python SDK dispatcher actions, direct IAM/API calls, or handwritten cloud API calls.
-- Commands that print AK/SK, kubeconfig certs, Authorization headers, or secrets.
+- Commands that print AK/SK, kubectl-cce proxy credentials, Authorization headers, or secrets.
 
 ## Cleanup Rules
 

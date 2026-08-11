@@ -2,12 +2,12 @@
 
 ## Skill 定位
 
-`huawei-cloud-cce-workload-failure-diagnoser` 用于诊断华为云 CCE 集群中的工作负载发布和可用性问题。它不负责修复资源，只负责通过 `hcloud CCE` 获取集群访问入口和 kubeconfig，再通过 `kubectl` 只读采集 Kubernetes 证据，最后输出根因判断、证据链和移交建议。
+`huawei-cloud-cce-workload-failure-diagnoser` 用于诊断华为云 CCE 集群中的工作负载发布和可用性问题。它不负责修复资源，只负责通过 `hcloud CCE` 获取集群元数据，再通过 `kubectl cce ...` 插件路径只读采集 Kubernetes 证据，最后输出根因判断、证据链和移交建议。
 
 核心链路：
 
 ```text
-hcloud CCE 查询集群 -> hcloud CCE 生成短期 kubeconfig -> kubectl 只读采集资源 -> 发布漏斗分析 -> Top causes -> 移交建议
+hcloud CCE 查询集群 -> kubectl cce 只读采集资源 -> 发布漏斗分析 -> Top causes -> 移交建议
 ```
 
 ## 主要诊断场景
@@ -52,15 +52,15 @@ hcloud CCE 查询集群 -> hcloud CCE 生成短期 kubeconfig -> kubectl 只读�
 
 3. 查询集群和访问入口
 
-   使用 `hcloud CCE ListClusters`、`ShowCluster`、`ShowClusterEndpoints` 确认集群存在、状态可用、region/project 正确，并检查是否有公网 API 入口。如果 `publicEndpoint` 为空，后续 `kubectl` 必须运行在能访问 CCE 私网 API Server 的网络里。
+   使用 `hcloud CCE ListClusters`、`ShowCluster`、`ShowClusterEndpoints` 确认集群存在、状态可用、region/project 正确。Kubernetes 访问通过 kubectl-cce 插件默认访问 `<cluster-id>.cce.<region>.myhuaweicloud.com`，必要时用 `CCE_ENDPOINT` 或 `--endpoint` 覆盖。
 
-4. 生成短期 kubeconfig
+4. 配置 kubectl-cce 插件
 
-   使用 `hcloud CCE CreateKubernetesClusterCert --duration=1` 生成 kubeconfig，保存到临时或用户 kubeconfig 路径，并限制文件权限。KooCLI 可能输出 JSON 格式 kubeconfig，`kubectl` 可以直接读取 JSON 或 YAML。
+   确认 `kubectl plugin list` 能发现 `kubectl-cce`，通过受批准的工具参数、受保护的 shell 环境或本地凭据提供方配置认证，并在命令中显式传入 `--project-id`。不要生成、保存或修改 kubeconfig。
 
 5. 验证 Kubernetes 读权限
 
-   先跑 `kubectl --kubeconfig=<file> cluster-info`，再用 `kubectl auth can-i` 检查目标命名空间里的 Deployment/Pod/Event/Pod logs 读取权限。网络不可达或 RBAC 不足要作为诊断缺口写入报告。
+   先跑 `kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> cluster-info`，再用 `kubectl cce ... auth can-i` 检查目标命名空间里的 Deployment/Pod/Event/Pod logs 读取权限。网络不可达或 RBAC 不足要作为诊断缺口写入报告。
 
 6. 采集工作负载证据
 
@@ -87,12 +87,11 @@ hcloud CCE 查询集群 -> hcloud CCE 生成短期 kubeconfig -> kubectl 只读�
 允许：
 
 - `hcloud CCE ListClusters`、`ShowCluster`、`ShowClusterEndpoints`
-- `hcloud CCE CreateKubernetesClusterCert`
-- `kubectl get`、`describe`、`logs`、`rollout status`、`rollout history`、`auth can-i`、`cluster-info`、`top`
+- `kubectl cce ... get`、`describe`、`logs`、`rollout status`、`rollout history`、`auth can-i`、`cluster-info`、`top`
 
 禁止：
 
-- `kubectl apply/create/patch/edit/delete/scale/rollout undo/cordon/drain/taint`
-- 除 `CreateKubernetesClusterCert` 之外的 hcloud create/update/delete 操作
+- `kubectl cce ... apply/create/patch/edit/delete/scale/rollout undo/cordon/drain/taint`
+- 任何 hcloud create/update/delete 操作
 - Python SDK dispatcher、`scripts/huawei-cloud.py`、`skill action=exec`、`huawei_workload_*`
-- 在报告或日志中输出 AK/SK、token、kubeconfig 证书或 Authorization header
+- 在报告或日志中输出 AK/SK、token、kubectl-cce 代理凭据或 Authorization header

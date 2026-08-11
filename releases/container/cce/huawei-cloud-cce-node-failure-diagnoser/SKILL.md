@@ -2,7 +2,7 @@
 id: huawei-cloud-cce-node-failure-diagnoser
 name: huawei-cloud-cce-node-failure-diagnoser
 description: >
-  Diagnose Huawei Cloud CCE node failures with hcloud CLI for CCE cluster discovery, node metadata, and kubeconfig acquisition, then kubectl for read-only Kubernetes node evidence. Use this skill for CCE NodeNotReady, Ready=Unknown, kube-node-lease timeout, DiskPressure, MemoryPressure, PIDPressure, NetworkUnavailable, CNI/node network symptoms, kubelet or container runtime abnormalities, node problem detector events, eviction impact, and node-level workload impact. Do not use the Python SDK dispatcher.
+  Diagnose Huawei Cloud CCE node failures with hcloud CLI for CCE cluster discovery, node metadata, and kubectl-cce plugin access, then `kubectl cce` for read-only Kubernetes node evidence. Use this skill for CCE NodeNotReady, Ready=Unknown, kube-node-lease timeout, DiskPressure, MemoryPressure, PIDPressure, NetworkUnavailable, CNI/node network symptoms, kubelet or container runtime abnormalities, node problem detector events, eviction impact, and node-level workload impact. Do not use the Python SDK dispatcher.
 tags: [huawei-cloud, cce, hcloud, koocli, kubectl, node, diagnosis]
 ---
 
@@ -13,21 +13,22 @@ This skill diagnoses CCE/Kubernetes node failures through Huawei Cloud `hcloud` 
 Execution model:
 
 ```text
-hcloud CCE -> short-lived kubeconfig -> kubectl --kubeconfig=<file> -> read-only node evidence -> ranked diagnosis report
+hcloud CCE cluster discovery -> kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> read-only node evidence -> ranked diagnosis report
 ```
 
-Use CCE hcloud commands for cluster-level and CCE node metadata:
+Use CCE hcloud commands for cluster-level and CCE node metadata. Use kubectl-cce for Kubernetes API access:
 
 - `hcloud CCE ListClusters`
 - `hcloud CCE ShowCluster`
 - `hcloud CCE ShowClusterEndpoints`
 - `hcloud CCE ListNodes`
 - `hcloud CCE ShowNode`
-- `hcloud CCE CreateKubernetesClusterCert`
 
-Use `kubectl` for Kubernetes node state, kube-node-lease, Events, Pods on the node, logs from affected Pods when needed, and metrics from metrics-server.
+Use `kubectl cce` through the kubectl-cce plugin for Kubernetes node state, kube-node-lease, Events, Pods on the node, logs from affected Pods when needed, and metrics from metrics-server.
 
 Do not use Python SDK dispatcher commands, `scripts/huawei-cloud.py`, `skill action=exec`, old `huawei_node_*` actions, or Huawei Cloud SDK imports for this skill.
+
+**Related prerequisite skill**: use `huawei-cloud-kubectl-cce-installer` to install or repair `kubectl`/`kubectl-cce`. Read `references/kubectl-cce.md` for the plugin access contract.
 
 ## When To Use
 
@@ -50,7 +51,7 @@ Do not use this skill to modify node or workload state. Cordon, uncordon, drain,
 | `cluster_id` | Preferred | If absent, resolve by cluster name with `ListClusters` |
 | `cluster_name` | Optional | Use only to locate `cluster_id` |
 | `node_name` | Preferred | Kubernetes node name, often the internal IP in CCE |
-| `node_ip` | Optional | Use to match `kubectl get nodes -o wide` or CCE node metadata |
+| `node_ip` | Optional | Use to match `kubectl cce ... get nodes -o wide` or CCE node metadata |
 | `namespace` | Optional | Needed when narrowing affected Pods or logs |
 
 At least one of `node_name` or `node_ip` should be provided. If both are missing, first list nodes and ask the user which node or symptom to focus on.
@@ -65,10 +66,10 @@ At least one of `node_name` or `node_ip` should be provided. If both are missing
 hcloud configure list
 ```
 
-4. IAM allows CCE cluster/node read and kubeconfig certificate creation.
+4. IAM allows CCE cluster/node read and kubectl-cce API Gateway access.
 5. Kubernetes RBAC allows read access to nodes, leases, events, pods, pod logs, and metrics when available.
 
-Never print AK, SK, security tokens, kubeconfig certificates, Authorization headers, or registry secrets.
+Never print AK, SK, security tokens, kubectl-cce proxy credentials, Authorization headers, or registry secrets.
 
 ## CCE hcloud Setup Flow
 
@@ -90,7 +91,7 @@ hcloud CCE ShowCluster --cluster_id=<cluster-id> --project_id=<project-id> --det
 hcloud CCE ShowClusterEndpoints --cluster_id=<cluster-id> --project_id=<project-id> --cli-region=<region> --cli-output=json
 ```
 
-Confirm the cluster is in the expected region/project and is reachable from the current network. If only a private API endpoint is available, run kubectl from a VPC/VPN/Direct Connect/Cloud Desktop environment that can reach the private endpoint.
+Confirm the cluster is in the expected region/project and is reachable from the current network. The kubectl-cce plugin normally talks to the CCE API Gateway endpoint `<cluster-id>.cce.<region>.myhuaweicloud.com`. If that endpoint is not valid for the current environment, set `CCE_ENDPOINT` or pass `--endpoint`. If plugin/API Gateway access fails, report it as an access gap with the error text; do not fall back to kubeconfig generation or SDK calls by default.
 
 ### 3. Optional CCE Node Metadata
 
@@ -103,30 +104,38 @@ hcloud CCE ShowNode --cluster_id=<cluster-id> --node_id=<node-id> --project_id=<
 
 Do not use CCE node update/delete/reset operations.
 
-### 4. Acquire A Short-Lived Kubeconfig
+### 4. Configure kubectl-cce Plugin
+
+Read `references/kubectl-cce.md` before running Kubernetes commands. Use the kubectl CCE plugin as the primary Kubernetes access path; do not generate kubeconfig, patch kubeconfig server fields, call the Kubernetes SDK, or fall back to SDK dispatcher actions.
+
+If `kubectl` or `kubectl-cce` is missing, use `huawei-cloud-kubectl-cce-installer` to install or repair local prerequisites. This diagnoser verifies and uses the plugin; it does not own plugin installation policy.
+
+Verify local tooling and plugin discovery:
 
 ```bash
-hcloud CCE CreateKubernetesClusterCert --cluster_id=<cluster-id> --project_id=<project-id> --duration=1 --cli-region=<region> --cli-output=json > <temp-kubeconfig-file>
-chmod 600 <temp-kubeconfig-file>
+kubectl version --client
+kubectl plugin list
 ```
 
-KooCLI may output JSON-formatted kubeconfig. `kubectl` accepts JSON or YAML kubeconfig. Store it outside the repository and delete it after the diagnosis when no longer needed.
-
-If the cluster was recently awakened or an EIP was just bound, retry certificate creation with explicit timeouts:
+Configure plugin credentials through approved tool parameters, a protected shell environment, or an approved local credential provider without printing values. Pass cluster, region, and project ID explicitly in diagnostic commands:
 
 ```bash
-hcloud CCE CreateKubernetesClusterCert --cluster_id=<cluster-id> --project_id=<project-id> --duration=1 --cli-region=<region> --cli-output=json --cli-connect-timeout=20 --cli-read-timeout=90 --cli-retry-count=2 > <temp-kubeconfig-file>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get namespaces
 ```
+
+Use `CCE_ENDPOINT` or `--endpoint` only when the default `<cluster-id>.cce.<region>.myhuaweicloud.com` endpoint is not valid for the current environment. If plugin access fails, report the sanitized installation, credential, API Gateway reachability, or Kubernetes RBAC gap; do not switch to kubeconfig generation or SDK calls.
+
+The plugin intentionally blocks streaming commands such as `exec`, `attach`, and `port-forward`. `logs -f` and `watch` are not hardened, so use bounded `logs --tail` and normal `get` commands in diagnosis reports.
 
 ### 5. Verify Kubernetes Read Access
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> cluster-info
-kubectl --kubeconfig=<kubeconfig-file> auth can-i get nodes
-kubectl --kubeconfig=<kubeconfig-file> auth can-i list leases -n kube-node-lease
-kubectl --kubeconfig=<kubeconfig-file> auth can-i list events -A
-kubectl --kubeconfig=<kubeconfig-file> auth can-i list pods -A
-kubectl --kubeconfig=<kubeconfig-file> auth can-i get pods/log -A
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> cluster-info
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i get nodes
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list leases -n kube-node-lease
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list events -A
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list pods -A
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i get pods/log -A
 ```
 
 If RBAC denies a read, report the missing verb/resource and continue only with allowed evidence.
@@ -138,34 +147,34 @@ Read `references/workflow.md` for detailed evidence order and failure rules.
 Start with the cluster and node baseline:
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> get nodes -o wide
-kubectl --kubeconfig=<kubeconfig-file> describe node <node-name>
-kubectl --kubeconfig=<kubeconfig-file> get lease <node-name> -n kube-node-lease -o yaml
-kubectl --kubeconfig=<kubeconfig-file> get events -A --field-selector involvedObject.kind=Node,involvedObject.name=<node-name> --sort-by=.lastTimestamp
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get nodes -o wide
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe node <node-name>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get lease <node-name> -n kube-node-lease -o yaml
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -A --field-selector involvedObject.kind=Node,involvedObject.name=<node-name> --sort-by=.lastTimestamp
 ```
 
 Then inspect workload impact on the node:
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> get pods -A --field-selector spec.nodeName=<node-name> -o wide
-kubectl --kubeconfig=<kubeconfig-file> get pods -A --field-selector spec.nodeName=<node-name> -o custom-columns="NAMESPACE:.metadata.namespace,NAME:.metadata.name,READY:.status.containerStatuses[*].ready,RESTARTS:.status.containerStatuses[*].restartCount,PHASE:.status.phase,REASON:.status.reason,NODE:.spec.nodeName"
-kubectl --kubeconfig=<kubeconfig-file> get events -A --sort-by=.lastTimestamp
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -A --field-selector spec.nodeName=<node-name> -o wide
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -A --field-selector spec.nodeName=<node-name> -o custom-columns="NAMESPACE:.metadata.namespace,NAME:.metadata.name,READY:.status.containerStatuses[*].ready,RESTARTS:.status.containerStatuses[*].restartCount,PHASE:.status.phase,REASON:.status.reason,NODE:.spec.nodeName"
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -A --sort-by=.lastTimestamp
 ```
 
 Use metrics-server when available:
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> top node <node-name>
-kubectl --kubeconfig=<kubeconfig-file> top pods -A --sort-by=memory
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> top node <node-name>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> top pods -A --sort-by=memory
 ```
 
-If `kubectl top` returns `Metrics API not available`, record it as a verification gap and avoid inventing resource trends.
+If `kubectl cce ... top` returns `Metrics API not available`, record it as a verification gap and avoid inventing resource trends.
 
 ## Cause Ranking
 
 Rank causes by direct evidence and the first failing layer:
 
-1. Cluster/API reachability or kubeconfig/RBAC gap.
+1. Cluster/API Gateway/plugin/RBAC reachability gap.
 2. Node liveness and kube-node-lease staleness.
 3. Node conditions: Ready, pressure, NetworkUnavailable, kubelet/CRI/CNI/NPD conditions.
 4. Taints, unschedulable state, and scheduling impact.
@@ -208,7 +217,7 @@ The user-facing report should include, in this order:
 
 Read `references/risk-rules.md` before making recommendations. This skill is read-only. Do not run:
 
-- `kubectl apply`, `create`, `patch`, `edit`, `delete`, `scale`, `rollout undo`, `cordon`, `uncordon`, `drain`, or `taint`
+- `kubectl cce ... apply`, `create`, `patch`, `edit`, `delete`, `scale`, `rollout undo`, `cordon`, `uncordon`, `drain`, or `taint`
 - CCE node reset/delete/update operations
 - ECS reboot/stop/delete operations
 - Any SDK dispatcher action
@@ -218,8 +227,8 @@ Read `references/risk-rules.md` before making recommendations. This skill is rea
 Read `references/verification-method.md` for the CLI verification checklist. A valid implementation should pass these checks:
 
 - `hcloud version`, `hcloud configure list`, and `kubectl version --client` work.
-- `hcloud CCE ListClusters`, `ShowCluster`, and `CreateKubernetesClusterCert` work.
-- `kubectl --kubeconfig=<file>` can read nodes, leases, events, and pods.
+- `hcloud CCE ListClusters` and `ShowCluster` work, and `kubectl cce ...` can reach the cluster through the CCE API Gateway.
+- `kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id>` can read nodes, leases, events, and pods.
 - Repository/package search finds no SDK dispatcher entrypoints in this skill package.
 
 ## References
