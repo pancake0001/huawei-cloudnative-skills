@@ -1,81 +1,59 @@
 # Output Schema
 
-`huawei_storage_failure_diagnose` returns structured JSON with the final customer report embedded in `report_markdown`.
-
 ```json
 {
   "success": true,
-  "action": "huawei_storage_failure_diagnose",
-  "region": "cn-north-4",
-  "cluster_id": "cluster-id",
-  "namespace": "default",
-  "conclusion": "high signal conclusion",
-  "confidence": "High",
-  "findings": [
+  "analysis_trace_id": "STO-...",
+  "scope": {
+    "region": "cn-north-4",
+    "project_id": "project-id",
+    "cluster_id": "cluster-id",
+    "namespace": "default",
+    "pvc_name": "optional",
+    "pod_name": "optional",
+    "volume_id": "optional"
+  },
+  "summary": {
+    "headline": "storage diagnosis summary",
+    "top_cause": {},
+    "affected_objects": [],
+    "confidence": 0.82,
+    "data_gaps": []
+  },
+  "top_causes": [
     {
-      "stage": "Mount stage failure",
-      "type": "EVSNodeAttachLimitExceeded",
-      "title": "VolumeAttachment Attached=false; error indicates ECS per-node attached cloud disk count has reached the upper limit",
-      "confidence": 0.94,
-      "severity": "critical",
+      "rank": 1,
+      "type": "FailedMount|FailedAttach|PVCPending|CapacityExhaustion|NfsTimeout|ObsCredentialError",
+      "title": "cause title",
+      "stage": "provisioning|binding|attach|mount|runtime|network|teardown",
+      "confidence": 0.82,
       "evidence": [],
+      "counter_evidence": [],
+      "data_gaps": [],
+      "next_verification": [],
       "recommendation": []
     }
   ],
-  "top_causes": [],
-  "snapshot": {
-    "inputs": {},
-    "pvcs": [],
-    "pvs": [],
-    "storage_classes": [],
+  "evidence": {
+    "pvc": [],
+    "pv": [],
+    "storageclass": [],
+    "volumeattachments": [],
     "pods": [],
     "nodes": [],
     "events": [],
-    "volume_attachments": [],
-    "network_policies": [],
-    "node_stats": {},
-    "pvc_volume_stats": [],
-    "csi_logs": {},
-    "cloud_storage": {}
+    "csi_logs": [],
+    "cloud_storage": []
   },
-  "report_markdown": "# CCE Storage Failure Automated Diagnosis Report\n..."
+  "report_markdown": "# CCE Storage Failure Diagnosis Report..."
 }
 ```
 
-## Markdown Sections
+Markdown section order:
 
-`report_markdown` must contain the following headings:
-
-- `# CCE Storage Failure Automated Diagnosis Report`
-- `## 1. Diagnosis Overview`
-- `## 2. Investigation Process`
-- `## 3. Key Object Relationships`
-- `## 4. Evidence Matrix`
-- `## 5. Diagnosis Conclusion`
-- `## 6. Recommended Actions and Verification Standards`
-- `## 7. Data Gaps and Manual Confirmation`
-
-## Finding Types
-
-Common `type` values:
-
-- `NormalWaitForFirstConsumer`
-- `EVSQuotaExceeded`
-- `SFSSubnetIPInsufficient`
-- `OBSBucketNameInvalid`
-- `EVSAvailabilityZoneSchedulingConflict`
-- `LocalPVNodeOffline`
-- `VolumeAttachmentNotCreated`
-- `EVSNodeAttachLimitExceeded`
-- `EVSResidualAttachmentLock`
-- `EVSAttachFailed`
-- `HostKernelMountFailed`
-- `SFSNfsNetworkBlocked`
-- `OBSCredentialInvalid`
-- `StoragePermissionDenied`
-- `PVCCapacityExhausted`
-- `PVCInodeExhausted`
-- `ReadOnlyFilesystemProtection`
-- `ConfigMapSecretSubPathDeadlock`
-- `PVCProtectionBlocked`
-- `StorageIOError`
+1. `## Summary`
+2. `## Root Cause Analysis`
+3. `## Next Actions`
+4. `## Evidence`
+5. `## Data Gaps`
+6. `## Appendix`

@@ -8,7 +8,7 @@ Minimum cloud permissions for this CLI workflow:
 | --- | --- |
 | CCE cluster list/show | Locate and validate the target cluster |
 | CCE node list/show | Correlate CCE node metadata when needed |
-| CCE cluster certificate creation | Generate short-lived kubeconfig for kubectl |
+| CCE Kubernetes API Gateway access | Allow kubectl-cce plugin access to the Kubernetes API through CCE API Gateway |
 
 The skill does not require AOM, HSS, ECS write, VPC write, or CCE mutation permissions.
 
@@ -23,6 +23,6 @@ Minimum Kubernetes read permissions:
 | `events` | get, list | Node and workload event timeline |
 | `pods` | get, list | Workload impact on the node |
 | `pods/log` | get | Logs for affected Pods when needed |
-| `metrics.k8s.io` | get, list | Optional `kubectl top` evidence |
+| `metrics.k8s.io` | get, list | Optional `kubectl cce ... top` evidence |
 
 If a permission is missing, report it as a verification gap and continue with allowed evidence.

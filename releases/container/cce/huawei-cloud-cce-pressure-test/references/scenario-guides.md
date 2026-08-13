@@ -96,7 +96,7 @@ Next steps:
 
 Evidence:
 
-- `kubectl top` or HPA status shows missing metrics.
+- `kubectl cce ... top` or HPA status shows missing metrics.
 - HPA does not scale while traffic increases.
 
 Interpretation:

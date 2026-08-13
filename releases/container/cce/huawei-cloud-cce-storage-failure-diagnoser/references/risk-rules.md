@@ -1,9 +1,10 @@
 # Risk Rules
 
-- Auto-execution is allowed for read-only queries on PVC, PV, StorageClass, Pod, Node, Event, VolumeAttachment, NetworkPolicy, Kubelet `/stats/summary`, Everest CSI logs, EVS/SFS/SFS Turbo, security groups, and VPC ACLs.
-- Allowed to generate Markdown diagnosis reports, read-only verification command suggestions, and recovery plans.
-- Never delete PVC/PV/Pod, patch finalizers, force-detach/attach EVS, or modify StorageClass, StorageClass parameters, PV reclaim policy, IAM delegations, AK/SK Secrets, security groups, ACLs, or VPC routes.
-- Never execute `kubectl exec`, node SSH, packet capture, stress testing, `fsck`, `dmesg` collection, or active NFS/OBS read/write probes unless the user explicitly requests and confirms the risk.
-- Any action that changes the data plane or control plane must be handed off to `huawei-cloud-cce-auto-remediation-runner`, with impact scope, rollback method, data consistency risk, and verification standards output first.
-- When PVC is Terminating, never directly suggest removing the `kubernetes.io/pvc-protection` finalizer; must first prove there are no Pod references and no business data risk.
-- In EVS residual mount or read-only filesystem scenarios, never suggest force-unmount, force-attach, or direct restart of database-class workloads before confirming filesystem consistency.
+- Read-only storage diagnosis only.
+- Do not create, patch, delete, or resize PVC/PV/Pod/StorageClass resources.
+- Do not remove finalizers, force detach/attach EVS disks, modify IAM delegations, edit Secrets, edit security groups/ACLs, run fsck, run node SSH, or run `kubectl exec`.
+- Do not use Python SDK dispatcher commands, `scripts/huawei-cloud.py`, `skill action=exec`, `huawei_storage_*`, `huawei_get_cce_*`, kubeconfig generation, direct IAM curl flows, or Huawei Cloud SDK imports.
+- Use `kubectl cce` for Kubernetes storage evidence and `hcloud` for cloud-side read-only storage/network metadata.
+- Keep CSI logs bounded with `--tail` and sanitize secrets, tokens, endpoints containing credentials, bucket credentials, and application Secret data.
+- If RBAC denies VolumeAttachment/CSI logs, cloud volume ID is unknown, or metrics are unavailable, write it as a data gap and lower confidence.
+- Remediation must be handed off to `huawei-cloud-cce-auto-remediation-runner` after explicit user confirmation.

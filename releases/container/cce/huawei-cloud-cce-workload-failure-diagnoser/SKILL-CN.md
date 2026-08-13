@@ -2,7 +2,7 @@
 id: huawei-cloud-cce-workload-failure-diagnoser
 name: huawei-cloud-cce-workload-failure-diagnoser
 description: >
-  使用 hcloud CLI 进行华为云 CCE 集群发现和 kubeconfig 获取，再使用 kubectl 只读采集 Kubernetes 证据，诊断 CCE 工作负载发布和可用性故障。当用户提到 CCE Deployment、StatefulSet、DaemonSet、发布卡住、副本不可用、Pod 未就绪、ImagePullBackOff、CrashLoopBackOff、探针失败、调度失败、PVC 挂载失败、工作负载事件，或要求在不使用 Python SDK dispatcher 的情况下排查华为云 CCE 工作负载时，使用此 skill。
+  使用 hcloud CLI 进行华为云 CCE 集群发现，并通过 `kubectl cce` 插件命令只读采集 Kubernetes 证据，诊断 CCE 工作负载发布和可用性故障。当用户提到 CCE Deployment、StatefulSet、DaemonSet、发布卡住、副本不可用、Pod 未就绪、ImagePullBackOff、CrashLoopBackOff、探针失败、调度失败、PVC 挂载失败、工作负载事件，或要求在不使用 Python SDK dispatcher 的情况下排查华为云 CCE 工作负载时，使用此 skill。
 tags: [huawei-cloud, cce, hcloud, koocli, kubectl, workload, diagnosis]
 ---
 
@@ -10,18 +10,19 @@ tags: [huawei-cloud, cce, hcloud, koocli, kubectl, workload, diagnosis]
 
 此 skill 通过华为云 `hcloud` CLI 和 Kubernetes `kubectl` 诊断 CCE 工作负载发布和可用性故障。
 
-**执行模型**：`hcloud CCE` -> 短期 kubeconfig -> `kubectl --kubeconfig=<file>` -> 只读工作负载证据 -> 根因排序与移交建议。
+**执行模型**：`hcloud CCE` 查询集群 -> `kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id>` 只读采集工作负载证据 -> 根因排序与移交建议。
 
 集群级操作使用 CCE hcloud 命令：
 
 - `hcloud CCE ListClusters`
 - `hcloud CCE ShowCluster`
 - `hcloud CCE ShowClusterEndpoints`
-- `hcloud CCE CreateKubernetesClusterCert`
 
-获取 kubeconfig 后，使用 `kubectl` 查看 Kubernetes 资源。工作负载、ReplicaSet、Pod、Event、日志、PVC、Service、Ingress、HPA 和 Node 都属于 Kubernetes 资源，应通过 `kubectl --kubeconfig=<file>` 检查。
+通过 kubectl-cce 插件接入后，使用 `kubectl cce` 查看 Kubernetes 资源。工作负载、ReplicaSet、Pod、Event、日志、PVC、Service、Ingress、HPA 和 Node 都属于 Kubernetes 资源，应通过 `kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id>` 检查。
 
 此 skill 不使用 Python SDK dispatcher 命令、`scripts/huawei-cloud.py`、`skill action=exec`、`huawei_workload_*` 动作或任何捆绑 SDK 脚本。
+
+**相关前置 skill**：如果需要安装或修复 `kubectl`/`kubectl-cce`，使用 `huawei-cloud-kubectl-cce-installer`。插件接入约束见 `references/kubectl-cce.md`。
 
 ## 何时使用
 
@@ -59,10 +60,10 @@ tags: [huawei-cloud, cce, hcloud, koocli, kubectl, workload, diagnosis]
 hcloud configure list
 ```
 
-4. 调用方拥有华为云 IAM 权限，可以列出/查看 CCE 集群并创建 kubeconfig 证书。
-5. 生成的 kubeconfig 用户拥有 Kubernetes RBAC 权限，可以读取目标命名空间中的必要资源。
+4. 调用方拥有华为云 IAM 权限，可以列出/查看 CCE 集群并使用 kubectl-cce API Gateway 接入。
+5. kubectl-cce 认证用户拥有 Kubernetes RBAC 权限，可以读取目标命名空间中的必要资源。
 
-最终报告中不要打印 AK、SK、安全令牌、kubeconfig 证书或 Authorization header。日志中必须脱敏密钥。
+最终报告中不要打印 AK、SK、安全令牌、kubectl-cce 代理凭据或 Authorization header。日志中必须脱敏密钥。
 
 ## CCE hcloud 设置流程
 
@@ -113,38 +114,38 @@ hcloud CCE ShowClusterEndpoints --cluster_id=<cluster-id> --project_id=<project-
 
 使用这些证据确认集群处于可用状态、位于预期 region/project，并且当前网络可以访问。
 
-如果 `ShowClusterEndpoints` 返回空的 `publicEndpoint`，且 kubeconfig server 是私网 IP 地址，则 `kubectl` 必须在能够访问集群私网 API Server 的网络中运行，例如华为云 VPC 主机、VPN、专线、云桌面，或具备 VPC 连通性的 sandbox。不要把这种情况误判为 SDK/CLI 改造失败。
+kubectl-cce 插件默认访问 CCE API Gateway endpoint `<cluster-id>.cce.<region>.myhuaweicloud.com`。如果该 endpoint 不适用于当前环境，设置 `CCE_ENDPOINT` 或传入 `--endpoint`。如果插件/API Gateway 访问失败，在报告中记录错误和访问缺口；不要默认退回 kubeconfig 生成或 SDK 调用。
 
-如果 `publicEndpoint` 已存在，但 `CreateKubernetesClusterCert` 返回的 kubeconfig 中 `clusters[].cluster.server` 仍指向私网 endpoint，则在外部网络运行 `kubectl` 前，创建 kubeconfig 临时副本，并只把 `server` 字段替换为 `publicEndpoint`。记录原始 server 和实际使用的 server。不要修改证书、密钥、token 或 user 字段。
+### 4. 配置 kubectl-cce 插件
 
-对于刚唤醒的集群或刚绑定 EIP 的集群，KooCLI 默认超时时间可能偏短。如果 `CreateKubernetesClusterCert` 返回 KooCLI timeout，可使用显式超时重试，例如 `--cli-connect-timeout=20 --cli-read-timeout=90 --cli-retry-count=2`。
+执行 Kubernetes 命令前先阅读 `references/kubectl-cce.md`。本 skill 以 kubectl CCE 插件作为主要 Kubernetes 访问路径；不要生成 kubeconfig、不要改写 kubeconfig server 字段、不要调用 Kubernetes SDK，也不要退回 SDK dispatcher 动作。
 
-### 4. 获取短期 kubeconfig
+如果缺少 `kubectl` 或 `kubectl-cce`，使用 `huawei-cloud-kubectl-cce-installer` 安装或修复本地前置工具。本诊断 skill 只负责验证和使用插件，不负责定义插件安装策略。
 
-使用尽可能短的有效期，通常为 1 天。
+先验证本地工具和插件发现：
 
 ```bash
-mkdir -p ~/.kube/huawei-cce
-hcloud CCE CreateKubernetesClusterCert --cluster_id=<cluster-id> --project_id=<project-id> --duration=1 --cli-region=<region> --cli-output=json > ~/.kube/huawei-cce/<cluster-id>.kubeconfig
-chmod 600 ~/.kube/huawei-cce/<cluster-id>.kubeconfig
+kubectl version --client
+kubectl plugin list
 ```
 
-Windows PowerShell：
+通过受批准的工具参数、受保护的 shell 环境或本地凭据提供方配置插件认证，不要打印凭据值。诊断命令中显式传入集群、区域和项目 ID：
 
-```powershell
-New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.kube\huawei-cce" | Out-Null
-hcloud CCE CreateKubernetesClusterCert --cluster_id=<cluster-id> --project_id=<project-id> --duration=1 --cli-region=<region> --cli-output=json > "$env:USERPROFILE\.kube\huawei-cce\<cluster-id>.kubeconfig"
+```bash
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get namespaces
 ```
 
-kubeconfig 文件格式与平台无关。KooCLI 可能输出 JSON 格式 kubeconfig；`kubectl` 可以接受 JSON 或 YAML kubeconfig。Linux/macOS 和 Windows 的差异主要是路径语法和可执行文件名称。
+仅当默认 `<cluster-id>.cce.<region>.myhuaweicloud.com` endpoint 不适用于当前环境时，才设置 `CCE_ENDPOINT` 或传入 `--endpoint`。如果插件访问失败，在报告中记录脱敏后的安装、凭据、API Gateway 可达性或 Kubernetes RBAC 缺口；不要切换到 kubeconfig 生成或 SDK 调用。
+
+插件会阻断 `exec`、`attach`、`port-forward` 等流式命令；`logs -f` 和 `watch` 未强化，诊断报告中使用有限 `logs --tail` 和普通 `get` 命令。
 
 ### 5. 验证 Kubernetes 访问
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> cluster-info
-kubectl --kubeconfig=<kubeconfig-file> auth can-i get deployments -n <namespace>
-kubectl --kubeconfig=<kubeconfig-file> auth can-i list pods -n <namespace>
-kubectl --kubeconfig=<kubeconfig-file> auth can-i get pods/log -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> cluster-info
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i get deployments -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list pods -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i get pods/log -n <namespace>
 ```
 
 如果 RBAC 拒绝某个读操作，报告缺失权限，并停止或基于部分证据继续诊断。
@@ -156,9 +157,9 @@ kubectl --kubeconfig=<kubeconfig-file> auth can-i get pods/log -n <namespace>
 当多个命名空间中的大量工作负载同时不可用时，先检查集群级共性证据，再下钻单个工作负载：
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> get nodes -o wide
-kubectl --kubeconfig=<kubeconfig-file> describe node <node-name>
-kubectl --kubeconfig=<kubeconfig-file> get events -A --sort-by=.lastTimestamp
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get nodes -o wide
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe node <node-name>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -A --sort-by=.lastTimestamp
 ```
 
 如果所有候选节点都是 `Ready=Unknown`、`NotReady`，或带有 `node.kubernetes.io/unreachable`、`node.cloudprovider.kubernetes.io/shutdown` taint，则应将共性的节点/调度阻塞排在单个工作负载症状之前。
@@ -166,18 +167,18 @@ kubectl --kubeconfig=<kubeconfig-file> get events -A --sort-by=.lastTimestamp
 ### Deployment 证据
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> get deployment <name> -n <namespace> -o yaml
-kubectl --kubeconfig=<kubeconfig-file> describe deployment <name> -n <namespace>
-kubectl --kubeconfig=<kubeconfig-file> rollout status deployment/<name> -n <namespace> --timeout=30s
-kubectl --kubeconfig=<kubeconfig-file> rollout history deployment/<name> -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get deployment <name> -n <namespace> -o yaml
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe deployment <name> -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> rollout status deployment/<name> -n <namespace> --timeout=30s
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> rollout history deployment/<name> -n <namespace>
 ```
 
 从 `spec.selector.matchLabels` 推导 selector，然后检查 ReplicaSet 和 Pod：
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> get rs -n <namespace> --selector='<selector>' -o yaml
-kubectl --kubeconfig=<kubeconfig-file> get pods -n <namespace> --selector='<selector>' -o wide
-kubectl --kubeconfig=<kubeconfig-file> get pods -n <namespace> --selector='<selector>' -o yaml
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get rs -n <namespace> --selector='<selector>' -o yaml
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n <namespace> --selector='<selector>' -o wide
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n <namespace> --selector='<selector>' -o yaml
 ```
 
 按 ownerReference 过滤 ReplicaSet，只保留指向 Deployment UID 的对象。将 `deployment.kubernetes.io/revision` 最大的 ReplicaSet 视为新版本。
@@ -185,10 +186,10 @@ kubectl --kubeconfig=<kubeconfig-file> get pods -n <namespace> --selector='<sele
 ### StatefulSet 证据
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> get statefulset <name> -n <namespace> -o yaml
-kubectl --kubeconfig=<kubeconfig-file> describe statefulset <name> -n <namespace>
-kubectl --kubeconfig=<kubeconfig-file> rollout status statefulset/<name> -n <namespace> --timeout=30s
-kubectl --kubeconfig=<kubeconfig-file> get pods -n <namespace> --selector='<selector>' -o wide
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get statefulset <name> -n <namespace> -o yaml
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe statefulset <name> -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> rollout status statefulset/<name> -n <namespace> --timeout=30s
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n <namespace> --selector='<selector>' -o wide
 ```
 
 对比 `spec.replicas`、`status.currentReplicas`、`status.updatedReplicas`、`status.readyReplicas`、`status.availableReplicas`，以及 `spec.updateStrategy` 中的 partition 设置。
@@ -196,10 +197,10 @@ kubectl --kubeconfig=<kubeconfig-file> get pods -n <namespace> --selector='<sele
 ### DaemonSet 证据
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> get daemonset <name> -n <namespace> -o yaml
-kubectl --kubeconfig=<kubeconfig-file> describe daemonset <name> -n <namespace>
-kubectl --kubeconfig=<kubeconfig-file> rollout status daemonset/<name> -n <namespace> --timeout=30s
-kubectl --kubeconfig=<kubeconfig-file> get pods -n <namespace> --selector='<selector>' -o wide
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get daemonset <name> -n <namespace> -o yaml
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe daemonset <name> -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> rollout status daemonset/<name> -n <namespace> --timeout=30s
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n <namespace> --selector='<selector>' -o wide
 ```
 
 对比 `desiredNumberScheduled`、`currentNumberScheduled`、`updatedNumberScheduled`、`numberReady`、`numberAvailable`、`numberUnavailable` 和节点调度约束。
@@ -209,14 +210,14 @@ kubectl --kubeconfig=<kubeconfig-file> get pods -n <namespace> --selector='<sele
 采集工作负载、ReplicaSet 和 Pod 事件。尽量使用 UID 相关过滤，并始终避免把命名空间下所有 Warning 事件都当作目标工作负载证据。
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> get events -n <namespace> --sort-by=.lastTimestamp
-kubectl --kubeconfig=<kubeconfig-file> get events -n <namespace> --field-selector involvedObject.name=<name> --sort-by=.lastTimestamp
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -n <namespace> --sort-by=.lastTimestamp
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -n <namespace> --field-selector involvedObject.name=<name> --sort-by=.lastTimestamp
 ```
 
 如果可用 `events.k8s.io/v1`：
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> get events.events.k8s.io -n <namespace> --sort-by=.eventTime -o yaml
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events.events.k8s.io -n <namespace> --sort-by=.eventTime -o yaml
 ```
 
 只保留 involved object UID/name 能映射到工作负载、所属 ReplicaSet 或选中 Pod 的事件。
@@ -226,33 +227,33 @@ kubectl --kubeconfig=<kubeconfig-file> get events.events.k8s.io -n <namespace> -
 对每个未 Ready 的新版本 Pod，检查状态、事件、日志和资源压力：
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> describe pod <pod-name> -n <namespace>
-kubectl --kubeconfig=<kubeconfig-file> logs <pod-name> -n <namespace> --all-containers --tail=200
-kubectl --kubeconfig=<kubeconfig-file> logs <pod-name> -n <namespace> --all-containers --previous --tail=200
-kubectl --kubeconfig=<kubeconfig-file> top pod <pod-name> -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe pod <pod-name> -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> logs <pod-name> -n <namespace> --all-containers --tail=200
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> logs <pod-name> -n <namespace> --all-containers --previous --tail=200
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> top pod <pod-name> -n <namespace>
 ```
 
 如果出现调度或节点压力迹象：
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> get nodes -o wide
-kubectl --kubeconfig=<kubeconfig-file> describe node <node-name>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get nodes -o wide
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe node <node-name>
 ```
 
 如果出现存储迹象：
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> get pvc -n <namespace>
-kubectl --kubeconfig=<kubeconfig-file> describe pvc <pvc-name> -n <namespace>
-kubectl --kubeconfig=<kubeconfig-file> get pv
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pvc -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe pvc <pvc-name> -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pv
 ```
 
 如果出现流量或 readiness 路径问题：
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> get svc,endpoints,ingress -n <namespace>
-kubectl --kubeconfig=<kubeconfig-file> describe svc <service-name> -n <namespace>
-kubectl --kubeconfig=<kubeconfig-file> describe ingress <ingress-name> -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get svc,endpoints,ingress -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe svc <service-name> -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe ingress <ingress-name> -n <namespace>
 ```
 
 ## 根因排序
@@ -300,8 +301,8 @@ kubectl --kubeconfig=<kubeconfig-file> describe ingress <ingress-name> -n <names
 
 提出建议前阅读 `references/risk-rules.md`。此 skill 只做只读诊断。不要运行：
 
-- `kubectl apply`、`create`、`patch`、`edit`、`delete`、`scale`、`rollout undo`、`cordon`、`drain` 或 `taint`
-- 除 `CreateKubernetesClusterCert` 外的任何 hcloud create/update/delete 操作
+- `kubectl cce ... apply`、`create`、`patch`、`edit`、`delete`、`scale`、`rollout undo`、`cordon`、`drain` 或 `taint`
+- 任何 hcloud create/update/delete 操作
 - 任何 SDK dispatcher 动作
 
 ## 验证
@@ -310,8 +311,8 @@ kubectl --kubeconfig=<kubeconfig-file> describe ingress <ingress-name> -n <names
 
 - `hcloud version`、`hcloud configure list` 和 `kubectl version --client` 可用。
 - `hcloud CCE ListClusters` 和 `ShowCluster` 能找到目标集群。
-- `CreateKubernetesClusterCert` 能创建短期 kubeconfig。
-- `kubectl --kubeconfig=<file>` 能读取目标命名空间。
+- `kubectl cce ...` 能通过 CCE API Gateway 读取目标集群。
+- `kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id>` 能读取目标命名空间。
 - 仓库/包内搜索不到 SDK dispatcher 入口。
 
 ## 参考

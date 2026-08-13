@@ -5,8 +5,8 @@ This skill operates at R1: read-only observation and diagnosis.
 ## Allowed
 
 - Run CCE read operations through `hcloud CCE ListClusters`, `ShowCluster`, and `ShowClusterEndpoints`.
-- Run `hcloud CCE CreateKubernetesClusterCert` to acquire a short-lived kubeconfig for diagnosis.
-- Run read-only `kubectl` commands: `get`, `describe`, `logs`, `rollout status`, `rollout history`, `auth can-i`, `cluster-info`, and optional `top`.
+- Run `kubectl cce ...` to perform authenticated read-only Kubernetes collection through the CCE plugin.
+- Run read-only `kubectl cce ...` commands: `get`, `describe`, `logs`, `rollout status`, `rollout history`, `auth can-i`, `cluster-info`, and optional `top`.
 - Read Workload, ReplicaSet, Pod, Event, PVC, PV, Service, Endpoint, Ingress, HPA, Node, metric, and log evidence.
 - Generate diagnosis summaries, timelines, Top causes, and handoff recommendations.
 - Suggest remediation options only as proposals.
@@ -15,13 +15,13 @@ This skill operates at R1: read-only observation and diagnosis.
 
 - Do not run Python SDK dispatcher commands or bundled SDK scripts.
 - Do not run `scripts/huawei-cloud.py`, `skill action=exec`, or any `huawei_workload_*` action.
-- Do not run `kubectl apply`, `create`, `patch`, `edit`, `delete`, `scale`, `replace`, `rollout undo`, `cordon`, `uncordon`, `drain`, `taint`, or `label` unless the user explicitly switches to a remediation task and accepts the risk.
-- Do not run hcloud create/update/delete operations except `CreateKubernetesClusterCert`.
+- Do not run `kubectl cce ... apply`, `create`, `patch`, `edit`, `delete`, `scale`, `replace`, `rollout undo`, `cordon`, `uncordon`, `drain`, `taint`, or `label` unless the user explicitly switches to a remediation task and accepts the risk.
+- Do not run hcloud create/update/delete operations.
 - Do not cordon, uncordon, drain, reboot, delete nodes, or resize node pools.
 - Do not treat all namespace Warning events as evidence; filter to workload, owned ReplicaSet, or selected Pod evidence.
 - Do not fabricate diagnosis results without command evidence.
-- Do not print AK/SK, tokens, kubeconfig certificates, or Authorization headers.
-- Do not commit kubeconfig files or verification logs containing sensitive data.
+- Do not print AK/SK, tokens, kubectl-cce proxy credentials, or Authorization headers.
+- Do not commit verification logs containing sensitive data.
 
 ## Handoff
 
@@ -35,10 +35,10 @@ This skill operates at R1: read-only observation and diagnosis.
 | Pod-level failures | `huawei-cloud-cce-pod-failure-diagnoser` | CrashLoop, ImagePull, OOM, Pending, probe, or log drilldown |
 | Alarm correlation evidence | `huawei-cloud-cce-alarm-correlation-engine` | AOM alarm deduplication and severity grouping |
 
-## Kubeconfig Handling
+## kubectl-cce Credential Handling
 
-- Use a short duration, normally `--duration=1`.
-- Store kubeconfig outside the repository or in an ignored temporary path.
-- Restrict permissions where supported by the OS.
-- Delete temporary kubeconfig files after verification unless the user asks to keep them.
-- Never include kubeconfig content in the report.
+- Do not generate kubeconfig for this skill path.
+- Configure plugin credentials through environment variables or IAM token without printing values.
+- Use explicit `--cluster-id`, `--region`, and `--project-id` flags in examples.
+- Use `CCE_ENDPOINT` or `--endpoint` only when the default CCE API Gateway endpoint is not valid.
+- Never include plugin proxy credentials, tokens, or Authorization headers in the report.

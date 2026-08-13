@@ -20,11 +20,11 @@ The final user-facing report may be Markdown, but it should be easy to map to th
   "cli_path": {
     "hcloud_commands": [
       "hcloud CCE ShowCluster ...",
-      "hcloud CCE CreateKubernetesClusterCert ..."
+      "kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get ns"
     ],
     "kubectl_commands": [
-      "kubectl --kubeconfig=<file> describe pod ...",
-      "kubectl --kubeconfig=<file> get events ..."
+      "kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe pod ...",
+      "kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events ..."
     ],
     "mutating_commands_run": false
   },
@@ -112,7 +112,7 @@ The final user-facing report may be Markdown, but it should be easy to map to th
       },
       "metrics": {
         "available": true,
-        "source": "kubectl top",
+        "source": "kubectl cce ... top",
         "notes": []
       }
     }
@@ -137,7 +137,7 @@ The final user-facing report may be Markdown, but it should be easy to map to th
   "verification_gaps": [
     {
       "area": "metrics",
-      "detail": "metrics-server unavailable; kubectl top failed"
+      "detail": "metrics-server unavailable; kubectl cce ... top failed"
     }
   ],
   "recommended_actions": [

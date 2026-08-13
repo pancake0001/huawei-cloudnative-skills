@@ -17,8 +17,8 @@ Produce a concise Markdown report for users, and optionally include the JSON-com
 
 ## CLI Path
 - hcloud:
-- kubeconfig:
-- kubectl:
+- kubectl-cce plugin:
+- kubectl cce:
 - Mutating commands run: No
 
 ## Summary
@@ -70,11 +70,11 @@ Produce a concise Markdown report for users, and optionally include the JSON-com
     "hcloud": [
       "hcloud CCE ListClusters ...",
       "hcloud CCE ShowCluster ...",
-      "hcloud CCE CreateKubernetesClusterCert ..."
+      "kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get ns"
     ],
     "kubectl": [
-      "kubectl --kubeconfig=<file> get deployment ...",
-      "kubectl --kubeconfig=<file> get pods ..."
+      "kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get deployment ...",
+      "kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods ..."
     ],
     "mutating_commands_run": false
   },
@@ -117,7 +117,7 @@ Produce a concise Markdown report for users, and optionally include the JSON-com
     }
   ],
   "events": {
-    "source": "kubectl get events",
+    "source": "kubectl cce ... get events",
     "filtered_count": 5,
     "filter_basis": "workload/replicaset/pod UID or selected object names",
     "timeline": []

@@ -8,7 +8,7 @@ Minimum cloud-side permissions:
 
 - CCE cluster list/show.
 - CCE cluster endpoint show.
-- CCE kubeconfig certificate creation.
+- CCE kubectl-cce API Gateway access.
 
 Optional read-only permissions for north-south checks:
 
@@ -76,4 +76,4 @@ When a command is denied:
 3. Add the missing permission to data gaps.
 4. Do not switch to SDK, direct API calls, or admin credentials without user approval.
 
-Never print credentials, kubeconfig certificates, or tokens while troubleshooting permissions.
+Never print credentials, kubectl-cce proxy credentials, or tokens while troubleshooting permissions.

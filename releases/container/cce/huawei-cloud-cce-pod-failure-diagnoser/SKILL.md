@@ -2,7 +2,7 @@
 id: huawei-cloud-cce-pod-failure-diagnoser
 name: huawei-cloud-cce-pod-failure-diagnoser
 description: >
-  Diagnose Huawei Cloud CCE Pod failures with hcloud CLI for CCE cluster discovery and kubeconfig acquisition, then kubectl for read-only Kubernetes evidence collection. Use this skill when the user mentions CCE Pod CrashLoopBackOff, ImagePullBackOff, ErrImagePull, OOMKilled, Pending, Evicted, restart storms, container logs, Pod Events, Pod metrics, or asks to troubleshoot a Huawei Cloud CCE Pod without using the Python SDK dispatcher.
+  Diagnose Huawei Cloud CCE Pod failures with hcloud CLI for CCE cluster discovery and kubectl-cce plugin access, then `kubectl cce` for read-only Kubernetes evidence collection. Use this skill when the user mentions CCE Pod CrashLoopBackOff, ImagePullBackOff, ErrImagePull, OOMKilled, Pending, Evicted, restart storms, container logs, Pod Events, Pod metrics, or asks to troubleshoot a Huawei Cloud CCE Pod without using the Python SDK dispatcher.
 tags: [huawei-cloud, cce, hcloud, koocli, kubectl, pod, diagnosis]
 ---
 
@@ -10,18 +10,19 @@ tags: [huawei-cloud, cce, hcloud, koocli, kubectl, pod, diagnosis]
 
 This skill diagnoses single-resource Pod failures in Huawei Cloud CCE clusters through the Huawei Cloud `hcloud` CLI and Kubernetes `kubectl`.
 
-**Execution model**: `hcloud CCE` -> short-lived kubeconfig -> `kubectl --kubeconfig=<file>` -> read-only Pod evidence -> cause ranking and handoff recommendations.
+**Execution model**: `hcloud CCE` cluster discovery -> `kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id>` read-only Pod evidence -> cause ranking and handoff recommendations.
 
-Use CCE hcloud commands for cluster-level operations:
+Use CCE hcloud commands for cluster-level metadata:
 
 - `hcloud CCE ListClusters`
 - `hcloud CCE ShowCluster`
 - `hcloud CCE ShowClusterEndpoints`
-- `hcloud CCE CreateKubernetesClusterCert`
 
-Use `kubectl` for Kubernetes resources after kubeconfig acquisition. Pods, Events, logs, Services, PVCs, Nodes, and metrics from metrics-server are Kubernetes resources and should be inspected with `kubectl --kubeconfig=<file>`.
+Use `kubectl cce` for Kubernetes resources through kubectl-cce plugin access. Pods, Events, logs, Services, PVCs, Nodes, and metrics from metrics-server are Kubernetes resources and should be inspected with `kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id>`.
 
 Do not use Python SDK dispatcher commands, `scripts/huawei-cloud.py`, `skill action=exec`, `huawei_pod_*` actions, or bundled SDK scripts for this skill.
+
+**Related prerequisite skill**: use `huawei-cloud-kubectl-cce-installer` to install or repair `kubectl`/`kubectl-cce`. Read `references/kubectl-cce.md` for the plugin access contract.
 
 ## When To Use
 
@@ -61,10 +62,10 @@ Collect these values before diagnosis:
 hcloud configure list
 ```
 
-5. The caller has Huawei Cloud IAM permission to list/show CCE clusters and create kubeconfig certificates.
-6. The generated kubeconfig user has Kubernetes RBAC permission to read Pods, Events, logs, Services, PVCs, Nodes, and metrics in the target namespace.
+5. The caller has Huawei Cloud IAM permission to list/show CCE clusters and use kubectl-cce plugin access.
+6. The kubectl-cce authenticated user has Kubernetes RBAC permission to read Pods, Events, logs, Services, PVCs, Nodes, and metrics in the target namespace.
 
-Never print AK, SK, security token, kubeconfig certificates, or Authorization headers in the final report. Redact secrets in logs.
+Never print AK, SK, security token, kubectl-cce proxy credentials, or Authorization headers in the final report. Redact secrets in logs.
 
 ## CCE hcloud Setup Flow
 
@@ -115,39 +116,39 @@ hcloud CCE ShowClusterEndpoints --cluster_id=<cluster-id> --project_id=<project-
 
 Use this evidence to confirm the cluster is available, in the expected region/project, and reachable from the current network.
 
-If `ShowClusterEndpoints` returns an empty `publicEndpoint` and the kubeconfig server is a private IP address, `kubectl` must run from a network that can reach the cluster private API server, such as a Huawei Cloud VPC host, VPN, Direct Connect, Cloud Desktop, or a sandbox with VPC connectivity. Do not treat this as an SDK/CLI conversion failure.
+The kubectl-cce plugin normally talks to the CCE API Gateway endpoint `<cluster-id>.cce.<region>.myhuaweicloud.com`. If that endpoint is not valid for the current environment, set `CCE_ENDPOINT` or pass `--endpoint`. If plugin/API Gateway access fails, report it as an access gap with the error text; do not fall back to kubeconfig generation or SDK calls by default.
 
-If `publicEndpoint` is present but `CreateKubernetesClusterCert` still returns a kubeconfig whose `clusters[].cluster.server` points to the private endpoint, create a temporary copy of the kubeconfig and replace only the `server` field with `publicEndpoint` before running `kubectl` from an external network. Record both the original server and the server actually used. Do not modify certificate, key, token, or user fields.
+### 4. Configure kubectl-cce Plugin
 
-For recently awakened clusters or newly bound EIPs, KooCLI default timeout values may be too short. If `CreateKubernetesClusterCert` returns a KooCLI timeout, retry with explicit CLI timeouts, for example `--cli-connect-timeout=20 --cli-read-timeout=90 --cli-retry-count=2`.
+Read `references/kubectl-cce.md` before running Kubernetes commands. Use the kubectl CCE plugin as the primary Kubernetes access path; do not generate kubeconfig, patch kubeconfig server fields, call the Kubernetes SDK, or fall back to SDK dispatcher actions.
 
-### 4. Acquire A Short-Lived Kubeconfig
+If `kubectl` or `kubectl-cce` is missing, use `huawei-cloud-kubectl-cce-installer` to install or repair local prerequisites. This diagnoser verifies and uses the plugin; it does not own plugin installation policy.
 
-Use the shortest practical duration, normally 1 day.
+Verify local tooling and plugin discovery:
 
 ```bash
-mkdir -p ~/.kube/huawei-cce
-hcloud CCE CreateKubernetesClusterCert --cluster_id=<cluster-id> --project_id=<project-id> --duration=1 --cli-region=<region> --cli-output=json > ~/.kube/huawei-cce/<cluster-id>.kubeconfig
-chmod 600 ~/.kube/huawei-cce/<cluster-id>.kubeconfig
+kubectl version --client
+kubectl plugin list
 ```
 
-On Windows PowerShell:
+Configure plugin credentials through approved tool parameters, a protected shell environment, or an approved local credential provider without printing values. Pass cluster, region, and project ID explicitly in diagnostic commands:
 
-```powershell
-New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.kube\huawei-cce" | Out-Null
-hcloud CCE CreateKubernetesClusterCert --cluster_id=<cluster-id> --project_id=<project-id> --duration=1 --cli-region=<region> --cli-output=json > "$env:USERPROFILE\.kube\huawei-cce\<cluster-id>.kubeconfig"
+```bash
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get namespaces
 ```
 
-The kubeconfig file format is platform-independent. KooCLI may emit JSON-formatted kubeconfig; `kubectl` accepts JSON or YAML kubeconfig. Only path syntax and executable name differ between Linux/macOS and Windows.
+Use `CCE_ENDPOINT` or `--endpoint` only when the default `<cluster-id>.cce.<region>.myhuaweicloud.com` endpoint is not valid for the current environment. If plugin access fails, report the sanitized installation, credential, API Gateway reachability, or Kubernetes RBAC gap; do not switch to kubeconfig generation or SDK calls.
+
+The plugin intentionally blocks streaming commands such as `exec`, `attach`, and `port-forward`. `logs -f` and `watch` are not hardened, so use bounded `logs --tail` and normal `get` commands in diagnosis reports.
 
 ### 5. Verify Kubernetes Access
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> cluster-info
-kubectl --kubeconfig=<kubeconfig-file> auth can-i get pods -n <namespace>
-kubectl --kubeconfig=<kubeconfig-file> auth can-i list events -n <namespace>
-kubectl --kubeconfig=<kubeconfig-file> auth can-i get pods/log -n <namespace>
-kubectl --kubeconfig=<kubeconfig-file> auth can-i get nodes
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> cluster-info
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i get pods -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list events -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i get pods/log -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i get nodes
 ```
 
 If RBAC denies a read, report the missing permission and continue only with evidence that can be collected safely.
@@ -161,9 +162,9 @@ Read `references/workflow.md` for detailed evidence ordering and failure rules.
 Before deep-diving, find abnormal Pods and restart-heavy Pods:
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> get pods -A -o wide
-kubectl --kubeconfig=<kubeconfig-file> get pods -A --field-selector=status.phase!=Running -o wide
-kubectl --kubeconfig=<kubeconfig-file> get pods -A -o custom-columns="NAMESPACE:.metadata.namespace,NAME:.metadata.name,READY:.status.containerStatuses[*].ready,RESTARTS:.status.containerStatuses[*].restartCount,PHASE:.status.phase,NODE:.spec.nodeName"
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -A -o wide
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -A --field-selector=status.phase!=Running -o wide
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -A -o custom-columns="NAMESPACE:.metadata.namespace,NAME:.metadata.name,READY:.status.containerStatuses[*].ready,RESTARTS:.status.containerStatuses[*].restartCount,PHASE:.status.phase,NODE:.spec.nodeName"
 ```
 
 Use the field-selector output for obvious `Pending`/`Failed` Pods, and use the custom column output to catch Pods that are `Running` but not Ready or have abnormal restart counts.
@@ -173,17 +174,17 @@ Use the field-selector output for obvious `Pending`/`Failed` Pods, and use the c
 If the target Pod name is known:
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> get pod <pod-name> -n <namespace> -o wide
-kubectl --kubeconfig=<kubeconfig-file> get pod <pod-name> -n <namespace> -o yaml
-kubectl --kubeconfig=<kubeconfig-file> describe pod <pod-name> -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pod <pod-name> -n <namespace> -o wide
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pod <pod-name> -n <namespace> -o yaml
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe pod <pod-name> -n <namespace>
 ```
 
 If only a workload name is known, derive the selector from the workload and list Pods:
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> get deployment <workload-name> -n <namespace> -o yaml
-kubectl --kubeconfig=<kubeconfig-file> get pods -n <namespace> --selector='<selector>' -o wide
-kubectl --kubeconfig=<kubeconfig-file> get pods -n <namespace> --selector='<selector>' -o yaml
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get deployment <workload-name> -n <namespace> -o yaml
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n <namespace> --selector='<selector>' -o wide
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n <namespace> --selector='<selector>' -o yaml
 ```
 
 For StatefulSet or DaemonSet, replace `deployment` with the correct workload kind.
@@ -193,14 +194,14 @@ For StatefulSet or DaemonSet, replace `deployment` with the correct workload kin
 Prefer Pod-specific events, then namespace events sorted by time:
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> get events -n <namespace> --field-selector involvedObject.name=<pod-name> --sort-by=.lastTimestamp
-kubectl --kubeconfig=<kubeconfig-file> get events -n <namespace> --sort-by=.lastTimestamp
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -n <namespace> --field-selector involvedObject.name=<pod-name> --sort-by=.lastTimestamp
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -n <namespace> --sort-by=.lastTimestamp
 ```
 
 When `events.k8s.io/v1` is available:
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> get events.events.k8s.io -n <namespace> --sort-by=.eventTime -o yaml
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events.events.k8s.io -n <namespace> --sort-by=.eventTime -o yaml
 ```
 
 Only cite Events that map to the target Pod, its owner, selected Pods, or the responsible Node/PVC.
@@ -210,15 +211,15 @@ Only cite Events that map to the target Pod, its owner, selected Pods, or the re
 For CrashLoopBackOff, OOMKilled, and frequent restarts, inspect previous logs first:
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> logs <pod-name> -n <namespace> --all-containers --previous --tail=200
-kubectl --kubeconfig=<kubeconfig-file> logs <pod-name> -n <namespace> --all-containers --tail=200
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> logs <pod-name> -n <namespace> --all-containers --previous --tail=200
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> logs <pod-name> -n <namespace> --all-containers --tail=200
 ```
 
 For multi-container Pods, narrow the container when needed:
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> logs <pod-name> -n <namespace> -c <container-name> --previous --tail=200
-kubectl --kubeconfig=<kubeconfig-file> logs <pod-name> -n <namespace> -c <container-name> --tail=200
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> logs <pod-name> -n <namespace> -c <container-name> --previous --tail=200
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> logs <pod-name> -n <namespace> -c <container-name> --tail=200
 ```
 
 Do not repeatedly request container logs for `ImagePullBackOff` when the image was never pulled. Use Events as primary evidence.
@@ -230,27 +231,27 @@ If a log command for an image-pull failure returns `container is waiting to star
 Use metrics-server through kubectl when available:
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> top pod <pod-name> -n <namespace>
-kubectl --kubeconfig=<kubeconfig-file> top pod <pod-name> -n <namespace> --containers
-kubectl --kubeconfig=<kubeconfig-file> top pod -n <namespace> --sort-by=memory
-kubectl --kubeconfig=<kubeconfig-file> top node
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> top pod <pod-name> -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> top pod <pod-name> -n <namespace> --containers
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> top pod -n <namespace> --sort-by=memory
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> top node
 ```
 
-If metrics-server is unavailable and `kubectl top` returns `Metrics API not available`, record it as a verification gap and avoid inventing resource trends. Do not switch to Python SDK, AOM SDK, or hand-written API calls to fill this gap inside this skill.
+If metrics-server is unavailable and `kubectl cce ... top` returns `Metrics API not available`, record it as a verification gap and avoid inventing resource trends. Do not switch to Python SDK, AOM SDK, or hand-written API calls to fill this gap inside this skill.
 
 When Pending, Evicted, or node pressure appears:
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> get nodes -o wide
-kubectl --kubeconfig=<kubeconfig-file> describe node <node-name>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get nodes -o wide
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe node <node-name>
 ```
 
 When storage appears:
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> get pvc -n <namespace>
-kubectl --kubeconfig=<kubeconfig-file> describe pvc <pvc-name> -n <namespace>
-kubectl --kubeconfig=<kubeconfig-file> get pv
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pvc -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe pvc <pvc-name> -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pv
 ```
 
 ## Cause Ranking
@@ -304,8 +305,8 @@ After identifying the top cause, read `references/scenario-guides.md` and apply 
 
 Read `references/risk-rules.md` before making recommendations. This skill is read-only. Do not run:
 
-- `kubectl apply`, `create`, `patch`, `edit`, `delete`, `scale`, `rollout undo`, `cordon`, `drain`, or `taint`
-- Any hcloud create/update/delete operation except `CreateKubernetesClusterCert`
+- `kubectl cce ... apply`, `create`, `patch`, `edit`, `delete`, `scale`, `rollout undo`, `cordon`, `drain`, or `taint`
+- Any hcloud create/update/delete operation
 - Any SDK dispatcher action
 
 ## Verification
@@ -314,8 +315,8 @@ Read `references/verification-method.md` for the CLI verification checklist. A v
 
 - `hcloud version`, `hcloud configure list`, and `kubectl version --client` work.
 - `hcloud CCE ListClusters` and `ShowCluster` find the target cluster.
-- `CreateKubernetesClusterCert` creates a short-lived kubeconfig.
-- `kubectl --kubeconfig=<file>` can read the target namespace.
+- `kubectl cce ...` can reach the cluster through the CCE API Gateway.
+- `kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id>` can read the target namespace.
 - Repository/package search finds no SDK dispatcher entrypoints in this skill package.
 
 ## References

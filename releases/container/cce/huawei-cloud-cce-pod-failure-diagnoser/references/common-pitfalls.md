@@ -12,14 +12,14 @@ This document lists common traps when diagnosing CCE Pod failures with `hcloud C
 
 ```bash
 # With pod_name
-kubectl --kubeconfig=<kubeconfig-file> get pod <pod-name> -n <namespace> -o wide
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pod <pod-name> -n <namespace> -o wide
 
 # With workload_name, first derive the selector
-kubectl --kubeconfig=<kubeconfig-file> get deployment <workload-name> -n <namespace> -o yaml
-kubectl --kubeconfig=<kubeconfig-file> get pods -n <namespace> --selector='<selector>' -o wide
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get deployment <workload-name> -n <namespace> -o yaml
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n <namespace> --selector='<selector>' -o wide
 
 # With a known label selector
-kubectl --kubeconfig=<kubeconfig-file> get pods -n <namespace> --selector='app=my-app' -o wide
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n <namespace> --selector='app=my-app' -o wide
 ```
 
 ## Pitfall 2: Wrong Namespace
@@ -31,28 +31,28 @@ kubectl --kubeconfig=<kubeconfig-file> get pods -n <namespace> --selector='app=m
 **Solution**: Verify namespaces and scan by name carefully:
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> get ns
-kubectl --kubeconfig=<kubeconfig-file> get pods -n <namespace> -o wide
-kubectl --kubeconfig=<kubeconfig-file> get pods -A | grep <pod-name-fragment>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get ns
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n <namespace> -o wide
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -A | grep <pod-name-fragment>
 ```
 
 On Windows PowerShell, use:
 
 ```powershell
-kubectl --kubeconfig=<kubeconfig-file> get pods -A | Select-String <pod-name-fragment>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -A | Select-String <pod-name-fragment>
 ```
 
 ## Pitfall 3: ImagePullBackOff With Log Requests
 
-**Symptom**: Logs are empty, `kubectl logs` reports that the container is waiting, or previous logs report that no previous terminated container exists.
+**Symptom**: Logs are empty, `kubectl cce ... logs` reports that the container is waiting, or previous logs report that no previous terminated container exists.
 
 **Root Cause**: `ImagePullBackOff` means the image was not pulled, so no container exists to produce logs.
 
 **Solution**: Use Events as primary evidence:
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> describe pod <pod-name> -n <namespace>
-kubectl --kubeconfig=<kubeconfig-file> get events -n <namespace> --field-selector involvedObject.name=<pod-name> --sort-by=.lastTimestamp
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe pod <pod-name> -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -n <namespace> --field-selector involvedObject.name=<pod-name> --sort-by=.lastTimestamp
 ```
 
 Focus on image name, tag, pull secret, registry, DNS, timeout, unauthorized, or repository-not-found messages.
@@ -81,9 +81,9 @@ The final report should include a recommendation block, not only the Event text.
 **Solution**: Read previous logs first, then correlate memory limits:
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> logs <pod-name> -n <namespace> --all-containers --previous --tail=200
-kubectl --kubeconfig=<kubeconfig-file> describe pod <pod-name> -n <namespace>
-kubectl --kubeconfig=<kubeconfig-file> top pod <pod-name> -n <namespace> --containers
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> logs <pod-name> -n <namespace> --all-containers --previous --tail=200
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe pod <pod-name> -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> top pod <pod-name> -n <namespace> --containers
 ```
 
 If metrics are unavailable, report the gap instead of inferring a memory trend.
@@ -97,16 +97,16 @@ If metrics are unavailable, report the gap instead of inferring a memory trend.
 **Solution**:
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> describe pod <pod-name> -n <namespace>
-kubectl --kubeconfig=<kubeconfig-file> get events -n <namespace> --field-selector involvedObject.name=<pod-name> --sort-by=.lastTimestamp
-kubectl --kubeconfig=<kubeconfig-file> get nodes -o wide
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe pod <pod-name> -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -n <namespace> --field-selector involvedObject.name=<pod-name> --sort-by=.lastTimestamp
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get nodes -o wide
 ```
 
 For `FailedMount` or `FailedAttachVolume`, inspect PVC/PV and consider handing off to storage diagnosis:
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> get pvc -n <namespace>
-kubectl --kubeconfig=<kubeconfig-file> describe pvc <pvc-name> -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pvc -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe pvc <pvc-name> -n <namespace>
 ```
 
 ## Pitfall 6: Evicted Without Node Pressure Evidence
@@ -118,18 +118,18 @@ kubectl --kubeconfig=<kubeconfig-file> describe pvc <pvc-name> -n <namespace>
 **Solution**:
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> describe pod <pod-name> -n <namespace>
-kubectl --kubeconfig=<kubeconfig-file> describe node <node-name>
-kubectl --kubeconfig=<kubeconfig-file> top node
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe pod <pod-name> -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe node <node-name>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> top node
 ```
 
 If node-level pressure is confirmed, hand off to `huawei-cloud-cce-node-failure-diagnoser`.
 
 ## Pitfall 7: Cluster Endpoint Not Reachable
 
-**Symptom**: `hcloud` can create kubeconfig, but `kubectl` times out or cannot connect to the API server.
+**Symptom**: `kubectl cce ...` times out or cannot reach the CCE API Gateway.
 
-**Root Cause**: The kubeconfig may point to a private API endpoint while the current machine is outside the VPC.
+**Root Cause**: The kubectl-cce plugin endpoint may be unreachable from the current runtime or a custom endpoint may be required.
 
 **Solution**:
 
@@ -137,47 +137,41 @@ If node-level pressure is confirmed, hand off to `huawei-cloud-cce-node-failure-
 hcloud CCE ShowClusterEndpoints --cluster_id=<cluster-id> --project_id=<project-id> --cli-region=<region> --cli-output=json
 ```
 
-If only a private endpoint is available, run `kubectl` from a network with VPC reachability. If a public endpoint exists but kubeconfig still points to a private address, use a temporary kubeconfig copy and replace only `clusters[].cluster.server`.
+Use the default CCE API Gateway endpoint first. If that endpoint is not valid for the environment, set `CCE_ENDPOINT` or pass `--endpoint`, then rerun the same `kubectl cce ...` command.
 
-## Pitfall 8: hcloud Timeout On Recently Awakened Cluster
+## Pitfall 8: kubectl-cce Gateway Timeout On Recently Awakened Cluster
 
-**Symptom**: `CreateKubernetesClusterCert` times out after a cluster wakeup or EIP change.
+**Symptom**: `kubectl cce ...` times out after a cluster wakeup or endpoint change.
 
-**Root Cause**: The cluster API or CCE control plane is still becoming reachable, or default KooCLI timeouts are too short.
+**Root Cause**: The cluster API or CCE control plane is still becoming reachable, or the selected CCE API Gateway endpoint is not reachable from the runtime.
 
 **Solution**:
 
 ```bash
-hcloud CCE CreateKubernetesClusterCert \
-  --cluster_id=<cluster-id> \
-  --project_id=<project-id> \
-  --duration=1 \
-  --cli-region=<region> \
-  --cli-output=json \
-  --cli-connect-timeout=20 \
-  --cli-read-timeout=90 \
-  --cli-retry-count=2 > <kubeconfig-file>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get ns
 ```
+
+If the default endpoint is not valid, retry with `--endpoint <cce-api-gateway-endpoint>` or set `CCE_ENDPOINT`.
 
 ## Pitfall 9: Metrics API Unavailable
 
-**Symptom**: `kubectl top` fails or returns no metrics.
+**Symptom**: `kubectl cce ... top` fails or returns no metrics.
 
 **Root Cause**: metrics-server is not installed, not ready, or RBAC denies metrics access.
 
 **Solution**:
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> top pod -n <namespace>
-kubectl --kubeconfig=<kubeconfig-file> get apiservices | grep metrics
-kubectl --kubeconfig=<kubeconfig-file> get pods -n kube-system | grep metrics
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> top pod -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get apiservices | grep metrics
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n kube-system | grep metrics
 ```
 
 On PowerShell:
 
 ```powershell
-kubectl --kubeconfig=<kubeconfig-file> get apiservices | Select-String metrics
-kubectl --kubeconfig=<kubeconfig-file> get pods -n kube-system | Select-String metrics
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get apiservices | Select-String metrics
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n kube-system | Select-String metrics
 ```
 
 If metrics remain unavailable, mark metrics as a gap and continue with Events/logs/status.

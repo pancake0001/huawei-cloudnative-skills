@@ -1,6 +1,6 @@
 # Verification Method
 
-Verification must prove that this skill uses CCE `hcloud` CLI plus `kubectl`, and no SDK dispatcher path remains.
+Verification must prove that this skill uses CCE `hcloud` CLI plus `kubectl cce` plugin commands, and no SDK dispatcher path remains.
 
 ## Step 1: Tooling Check
 
@@ -31,26 +31,31 @@ Expected:
 - Endpoint information explains whether kubectl should use public or private API reachability.
 - No Python process or local dispatcher script is used.
 
-## Step 3: Kubeconfig Acquisition
+## Step 3: kubectl-cce Plugin Access
+
+Run:
 
 ```bash
-hcloud CCE CreateKubernetesClusterCert --cluster_id=<cluster-id> --project_id=<project-id> --duration=1 --cli-region=<region> --cli-output=json > <kubeconfig-file>
+kubectl plugin list
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get ns
 ```
 
 Expected:
 
-- Kubeconfig content is produced and stored outside the repository.
-- The file is deleted after validation if it is temporary.
-
+- `kubectl` discovers the plugin as `kubectl-cce`.
+- The plugin uses `HUAWEICLOUD_SDK_AK`/`HUAWEICLOUD_SDK_SK` plus `CCE_PROJECT_ID`, temporary `HUAWEICLOUD_SECURITY_TOKEN` when needed, or `HUAWEI_IAM_TOKEN`.
+- The plugin starts its short-lived local proxy and reaches the CCE API Gateway endpoint.
+- If the default `<cluster-id>.cce.<region>.myhuaweicloud.com` endpoint is not valid, set `CCE_ENDPOINT` or pass `--endpoint`.
+- Do not generate, store, or patch kubeconfig files for this skill path.
 ## Step 4: Kubernetes Read Access
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> cluster-info
-kubectl --kubeconfig=<kubeconfig-file> auth can-i get nodes
-kubectl --kubeconfig=<kubeconfig-file> auth can-i list leases -n kube-node-lease
-kubectl --kubeconfig=<kubeconfig-file> auth can-i list events -A
-kubectl --kubeconfig=<kubeconfig-file> auth can-i list pods -A
-kubectl --kubeconfig=<kubeconfig-file> auth can-i get pods/log -A
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> cluster-info
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i get nodes
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list leases -n kube-node-lease
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list events -A
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list pods -A
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i get pods/log -A
 ```
 
 Expected:
@@ -60,18 +65,18 @@ Expected:
 ## Step 5: Node Evidence Baseline
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> get nodes -o wide
-kubectl --kubeconfig=<kubeconfig-file> describe node <node-name>
-kubectl --kubeconfig=<kubeconfig-file> get lease <node-name> -n kube-node-lease -o yaml
-kubectl --kubeconfig=<kubeconfig-file> get events -A --field-selector involvedObject.kind=Node,involvedObject.name=<node-name> --sort-by=.lastTimestamp
-kubectl --kubeconfig=<kubeconfig-file> get pods -A --field-selector spec.nodeName=<node-name> -o wide
-kubectl --kubeconfig=<kubeconfig-file> top node <node-name>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get nodes -o wide
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe node <node-name>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get lease <node-name> -n kube-node-lease -o yaml
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -A --field-selector involvedObject.kind=Node,involvedObject.name=<node-name> --sort-by=.lastTimestamp
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -A --field-selector spec.nodeName=<node-name> -o wide
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> top node <node-name>
 ```
 
 Expected:
 
 - Node state, lease, Events, and workload impact can be inspected.
-- `kubectl top` may fail when metrics-server is unavailable; record the gap.
+- `kubectl cce ... top` may fail when metrics-server is unavailable; record the gap.
 - No mutating kubectl command is run.
 
 ## Step 6: Repository Residual Check
@@ -79,7 +84,7 @@ Expected:
 From the skill package directory, run:
 
 ```bash
-rg -n "scripts/huawei-cloud.py|skill action=exec|huawei_node_|Python SDK dispatcher|Huawei Cloud Python SDK|huaweicloudsdk|CreateKubernetesClusterCertRequest|BasicCredentials|Signer\\(" . --glob "!*.md"
+rg -n "scripts/huawei-cloud.py|skill action=exec|huawei_node_|Python SDK dispatcher|Huawei Cloud Python SDK|huaweicloudsdk|KubernetesClusterCertRequest|BasicCredentials|Signer\\(" . --glob "!*.md"
 ```
 
 Expected:
@@ -90,7 +95,7 @@ Expected:
 ## Pass Criteria
 
 1. hcloud can list/show the target CCE cluster and nodes.
-2. hcloud can create a short-lived kubeconfig.
+2. `kubectl cce ...` can reach the target cluster through the CCE API Gateway.
 3. kubectl can read target node evidence or reports explicit RBAC gaps.
 4. The package contains no SDK dispatcher scripts or skill profile tool mapping.
 5. The diagnosis workflow remains read-only.

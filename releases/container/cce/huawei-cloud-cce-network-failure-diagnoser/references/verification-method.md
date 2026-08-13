@@ -1,6 +1,6 @@
 # Verification Method
 
-Verification must prove that this skill uses `hcloud` CLI plus `kubectl`, and no SDK dispatcher path remains.
+Verification must prove that this skill uses `hcloud` CLI plus `kubectl cce` plugin commands, and no SDK dispatcher path remains.
 
 ## Step 1: Tooling Check
 
@@ -29,27 +29,33 @@ Expected:
 - Target cluster appears and endpoint reachability is understood.
 - No Python process or local dispatcher script is used.
 
-## Step 3: Kubeconfig Acquisition
+## Step 3: kubectl-cce Plugin Access
+
+Run:
 
 ```bash
-hcloud CCE CreateKubernetesClusterCert --cluster_id=<cluster-id> --project_id=<project-id> --duration=1 --cli-region=<region> --cli-output=json > <kubeconfig-file>
+kubectl plugin list
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get ns
 ```
 
 Expected:
 
-- Kubeconfig is produced outside the repository and cleaned up if temporary.
-
+- `kubectl` discovers the plugin as `kubectl-cce`.
+- The plugin uses `HUAWEICLOUD_SDK_AK`/`HUAWEICLOUD_SDK_SK` plus `CCE_PROJECT_ID`, temporary `HUAWEICLOUD_SECURITY_TOKEN` when needed, or `HUAWEI_IAM_TOKEN`.
+- The plugin starts its short-lived local proxy and reaches the CCE API Gateway endpoint.
+- If the default `<cluster-id>.cce.<region>.myhuaweicloud.com` endpoint is not valid, set `CCE_ENDPOINT` or pass `--endpoint`.
+- Do not generate, store, or patch kubeconfig files for this skill path.
 ## Step 4: Kubernetes Network Read Access
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> cluster-info
-kubectl --kubeconfig=<kubeconfig-file> auth can-i list services -n <namespace>
-kubectl --kubeconfig=<kubeconfig-file> auth can-i list endpoints -n <namespace>
-kubectl --kubeconfig=<kubeconfig-file> auth can-i list endpointslices.discovery.k8s.io -n <namespace>
-kubectl --kubeconfig=<kubeconfig-file> auth can-i list ingresses.networking.k8s.io -n <namespace>
-kubectl --kubeconfig=<kubeconfig-file> auth can-i list networkpolicies.networking.k8s.io -n <namespace>
-kubectl --kubeconfig=<kubeconfig-file> auth can-i list pods -n <namespace>
-kubectl --kubeconfig=<kubeconfig-file> auth can-i list events -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> cluster-info
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list services -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list endpoints -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list endpointslices.discovery.k8s.io -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list ingresses.networking.k8s.io -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list networkpolicies.networking.k8s.io -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list pods -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list events -n <namespace>
 ```
 
 Expected:
@@ -59,10 +65,10 @@ Expected:
 ## Step 5: Network Evidence Baseline
 
 ```bash
-kubectl --kubeconfig=<kubeconfig-file> get nodes -o wide
-kubectl --kubeconfig=<kubeconfig-file> get svc,endpoints,endpointslice,ingress,networkpolicy -n <namespace> -o wide
-kubectl --kubeconfig=<kubeconfig-file> get pods -n <namespace> -o wide
-kubectl --kubeconfig=<kubeconfig-file> get events -n <namespace> --sort-by=.lastTimestamp
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get nodes -o wide
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get svc,endpoints,endpointslice,ingress,networkpolicy -n <namespace> -o wide
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n <namespace> -o wide
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -n <namespace> --sort-by=.lastTimestamp
 ```
 
 Expected:
@@ -93,7 +99,7 @@ Expected:
 From the skill package directory, run:
 
 ```bash
-rg -n "scripts/huawei-cloud.py|skill action=exec|huawei_network_|Python SDK dispatcher|Huawei Cloud Python SDK|huaweicloudsdk|CreateKubernetesClusterCertRequest|BasicCredentials|Signer\\(" . --glob "!*.md"
+rg -n "scripts/huawei-cloud.py|skill action=exec|huawei_network_|Python SDK dispatcher|Huawei Cloud Python SDK|huaweicloudsdk|KubernetesClusterCertRequest|BasicCredentials|Signer\\(" . --glob "!*.md"
 ```
 
 Expected:
@@ -104,7 +110,7 @@ Expected:
 ## Pass Criteria
 
 1. hcloud can list/show the target CCE cluster.
-2. hcloud can create a short-lived kubeconfig.
+2. `kubectl cce ...` can reach the target cluster through the CCE API Gateway.
 3. kubectl can read target namespace network objects or reports explicit RBAC gaps.
 4. Optional cloud network evidence uses hcloud read-only list/show commands.
 5. The package contains no SDK dispatcher scripts or skill profile tool mapping.

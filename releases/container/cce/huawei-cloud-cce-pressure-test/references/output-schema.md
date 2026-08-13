@@ -173,6 +173,6 @@ A data gap is not a failure by itself. Include:
 
 Examples:
 
-- `kubectl top` returned Metrics API unavailable, so Pod CPU/memory trends could not be confirmed.
+- `kubectl cce ... top` returned Metrics API unavailable, so Pod CPU/memory trends could not be confirmed.
 - ELB ID was not provided, so listener/pool/member health was not correlated.
 - RBAC denied Job logs, so the k6 summary is unavailable.

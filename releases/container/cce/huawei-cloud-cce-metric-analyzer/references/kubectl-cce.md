@@ -1,52 +1,29 @@
 # kubectl-cce Usage
 
-Use `kubectl` only when the metric analyzer must read Kubernetes resources that AOM and hcloud cannot derive, such as Pod label filtering, Ingress TLS Secrets, or LoadBalancer Services.
+Use `kubectl cce` only when the metric analyzer must read Kubernetes resources that AOM and hcloud cannot derive, such as Pod label filtering, Ingress TLS Secrets, or LoadBalancer Services. Do not generate kubeconfig, patch kubeconfig server fields, call the Kubernetes SDK, or fall back to SDK dispatcher actions for Kubernetes evidence.
 
 ## Install
 
-Install `kubectl` with the system package manager, then verify:
+Use `huawei-cloud-kubectl-cce-installer` when `kubectl` or `kubectl-cce` is missing. Verify:
 
 ```bash
 kubectl version --client
-```
-
-Install `kubectl-cce` v0.1.0 from GitHub Releases. Choose the archive that matches the target OS and architecture.
-
-```bash
-curl -LO https://github.com/pancake0001/kubectl-cce-plugin/releases/download/v0.1.0/kubectl-cce_0.1.0_linux_amd64.tar.gz
-tar -xzf kubectl-cce_0.1.0_linux_amd64.tar.gz
-chmod +x kubectl-cce && mv kubectl-cce /usr/local/bin/
 kubectl plugin list
 ```
 
-The executable must be named `kubectl-cce` so kubectl discovers it as the `kubectl cce` plugin.
+Windows uses `kubectl.exe` and a Windows `kubectl-cce` executable. Linux sandboxes require Linux-compatible binaries.
 
-## Configure
+## Credentials
 
-Use AK/SK credentials:
+Configure plugin credentials through an approved local provider, protected environment, or tool-provided values. Do not print AK/SK, security tokens, Authorization headers, kubeconfig content, or plugin credential material.
 
-```bash
-export HW_ACCESS_KEY="<your-ak>"
-export HW_SECRET_KEY="<your-sk>"
-export HW_PROJECT_ID="<your-project-id>"
-export HW_REGION="cn-north-4"
-```
-
-For temporary AK/SK, also set:
-
-```bash
-export HW_SECURITY_TOKEN="<your-security-token>"
-```
-
-If AK/SK is not available, use an IAM token:
-
-```bash
-export HUAWEI_IAM_TOKEN="<your-iam-token>"
-```
+Always pass `--project-id <project-id>` when available.
 
 ## Use
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region cn-north-4 get pods -A
-kubectl cce --cluster-id <cluster-id> --region cn-north-4 get svc,ingress -A
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -A
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get svc,ingress -A
 ```
+
+Keep Kubernetes reads read-only and bounded. If plugin access fails, report a metric relationship data gap instead of bypassing the plugin.

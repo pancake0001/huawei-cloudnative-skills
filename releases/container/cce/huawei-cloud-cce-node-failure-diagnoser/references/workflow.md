@@ -5,14 +5,14 @@ This workflow is read-only and uses only `hcloud CCE` plus `kubectl`.
 ## Evidence Order
 
 1. Scope: confirm `region`, `project_id`, `cluster_id`, and one of `node_name` or `node_ip`.
-2. CLI setup: verify hcloud, masked credentials, kubectl, cluster metadata, endpoint reachability, kubeconfig acquisition, and read RBAC.
+2. CLI setup: read `references/kubectl-cce.md`, verify hcloud, masked credentials, kubectl, cluster metadata, endpoint reachability, kubectl-cce plugin access, and read RBAC.
 3. Node inventory: list CCE nodes with hcloud when node ID metadata is useful; list Kubernetes nodes with kubectl for actual health state.
 4. Node snapshot: inspect Ready condition, pressure conditions, NetworkUnavailable, taints, unschedulable state, labels, capacity, allocatable, and allocated resource summary.
 5. Lease: inspect `kube-node-lease/<node-name>` and compare renew time with the current time. A stale lease plus Ready=Unknown is strong control-plane-to-node heartbeat evidence.
 6. Events: collect Node-specific Events first, then cluster Events sorted by time. Preserve reason, message, count, source, and timestamp.
 7. Workload impact: list all Pods on the node and classify Running, Pending, Failed, Evicted, Unknown, NotReady, and restart-heavy Pods.
 8. Concentrated symptoms: look for node-local patterns such as `FailedCreatePodSandBox`, `ContainerStatusUnknown`, volume mount failures, CNI errors, image pull failures only on this node, or evictions.
-9. Metrics: use `kubectl top node` and `kubectl top pods -A` when metrics-server is available. Record a verification gap when it is not.
+9. Metrics: use `kubectl cce ... top node` and `kubectl cce ... top pods -A` when metrics-server is available. Record a verification gap when it is not.
 10. Output: rank Top3 causes, cite evidence, describe impact, list safe next checks, and hand off any mutation.
 
 ## Baseline Commands
@@ -21,14 +21,15 @@ This workflow is read-only and uses only `hcloud CCE` plus `kubectl`.
 hcloud CCE ShowCluster --cluster_id=<cluster-id> --project_id=<project-id> --detail=true --cli-region=<region> --cli-output=json
 hcloud CCE ShowClusterEndpoints --cluster_id=<cluster-id> --project_id=<project-id> --cli-region=<region> --cli-output=json
 hcloud CCE ListNodes --cluster_id=<cluster-id> --project_id=<project-id> --cli-region=<region> --cli-output=json
-hcloud CCE CreateKubernetesClusterCert --cluster_id=<cluster-id> --project_id=<project-id> --duration=1 --cli-region=<region> --cli-output=json > <kubeconfig-file>
 
-kubectl --kubeconfig=<kubeconfig-file> get nodes -o wide
-kubectl --kubeconfig=<kubeconfig-file> describe node <node-name>
-kubectl --kubeconfig=<kubeconfig-file> get lease <node-name> -n kube-node-lease -o yaml
-kubectl --kubeconfig=<kubeconfig-file> get events -A --field-selector involvedObject.kind=Node,involvedObject.name=<node-name> --sort-by=.lastTimestamp
-kubectl --kubeconfig=<kubeconfig-file> get pods -A --field-selector spec.nodeName=<node-name> -o wide
-kubectl --kubeconfig=<kubeconfig-file> top node <node-name>
+kubectl plugin list
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get ns
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get nodes -o wide
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe node <node-name>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get lease <node-name> -n kube-node-lease -o yaml
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -A --field-selector involvedObject.kind=Node,involvedObject.name=<node-name> --sort-by=.lastTimestamp
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -A --field-selector spec.nodeName=<node-name> -o wide
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> top node <node-name>
 ```
 
 ## Failure Rules
@@ -49,7 +50,7 @@ kubectl --kubeconfig=<kubeconfig-file> top node <node-name>
 
 - Signals: `MemoryPressure=True`, `DiskPressure=True`, `PIDPressure=True`, evicted Pods, ephemeral-storage messages, or allocatable/request saturation.
 - Interpretation: kubelet is protecting node stability or the node is near an operating limit.
-- Next checks: node `describe` allocated resources, `kubectl top`, affected Pod QoS classes, eviction messages, image/container log disk usage, and recent workload changes.
+- Next checks: node `describe` allocated resources, `kubectl cce ... top`, affected Pod QoS classes, eviction messages, image/container log disk usage, and recent workload changes.
 
 ### Network Or CNI Node Issue
 
