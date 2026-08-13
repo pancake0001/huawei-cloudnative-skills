@@ -19,8 +19,8 @@ Install and verify the local `kubectl` and `kubectl-cce` prerequisites used for 
 - Show a no-change installation plan before execution
 - Select the latest missing Linux `kubectl` package from Huawei Cloud OBS for the local architecture
 - Fall back to the official Kubernetes stable release, then build the same stable tag when download fails
-- Install `kubectl-cce` v0.1.0 from its Gitee Release on Linux when available
-- Build the fixed `kubectl-cce` v0.1.0 source tag when a Release asset is unavailable or download fails
+- Install `kubectl-cce` v0.2.1 from its Gitee Release on Linux when available
+- Build the fixed `kubectl-cce` v0.2.1 source tag when a Release asset is unavailable or download fails
 - Verify `kubectl` and `kubectl-cce` plugin discovery after installation
 
 **Typical Use Cases**:
@@ -95,14 +95,14 @@ Run only after the user confirms the previewed installation path and actions. Th
 
 - For Linux, list the public OBS package repository and select the latest package for the local `amd64` or `arm64` architecture. Package names determine release ordering.
 - If OBS lookup, download, or extraction fails, download the official Kubernetes stable release; build the same stable tag only if that download fails.
-- When the Linux `kubectl-cce` v0.1.0 asset is unavailable or download fails, build the fixed `v0.1.0` source tag.
-- On macOS, build `kubectl-cce` v0.1.0 from source because the Release has no macOS asset.
+- When the Linux `kubectl-cce` v0.2.1 asset is unavailable or download fails, build the fixed `v0.2.1` source tag.
+- On macOS, build `kubectl-cce` v0.2.1 from source because the Release has no macOS asset.
 
 The fallback requires `git` and Go. If either is absent, return the missing dependency rather than installing it automatically.
 
 ### 5. Windows Manual Installation
 
-The bundled script does not run on Windows. Download the matching Windows `kubectl` binary from the [official Kubernetes release site](https://kubernetes.io/releases/download/) and the matching `kubectl-cce` ZIP from the [Gitee `v0.1.0` Release](https://gitee.com/pancake0001/kubectl-cce-plugin/releases/tag/v0.1.0). Extract the files, place them in a user-selected directory on `PATH`, and verify with `kubectl version --client` and `kubectl plugin list`. See [plugin-usage.md](references/plugin-usage.md) for the plugin-specific steps.
+The bundled script does not run on Windows. Download the matching Windows `kubectl` binary from the [official Kubernetes release site](https://kubernetes.io/releases/download/) and the matching `kubectl-cce` ZIP from the [Gitee `v0.2.1` Release](https://gitee.com/pancake0001/kubectl-cce-plugin/releases/tag/v0.2.1). Extract the files, place them in a user-selected directory on `PATH`, and verify with `kubectl version --client` and `kubectl plugin list`. See [plugin-usage.md](references/plugin-usage.md) for the plugin-specific steps.
 
 ## Risk Levels
 
@@ -209,7 +209,7 @@ The plugin is ready when `kubectl plugin list` contains `kubectl-cce`. Do not re
 | Source build fails | `git`/Go missing or source build dependency failure | Install the reported build prerequisite, then rerun the plan and confirmed installation |
 | Permission denied in `--bin-dir` | Protected target directory | Select a writable directory or run an explicitly approved elevated command |
 | Plugin not listed | Target directory is not in `PATH` | Add the selected `--bin-dir` to `PATH`, then rerun `kubectl plugin list` |
-| macOS plugin missing | v0.1.0 has no macOS Release asset | Use the fixed `v0.1.0` source-build fallback |
+| macOS plugin missing | v0.2.1 has no macOS Release asset | Use the fixed `v0.2.1` source-build fallback |
 
 ## Limitations
 

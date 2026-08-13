@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PLUGIN_VERSION="0.1.0"
+PLUGIN_VERSION="0.2.1"
 PLUGIN_REPOSITORY="pancake0001/kubectl-cce-plugin"
 PLUGIN_RELEASE_BASE_URL="https://gitee.com/${PLUGIN_REPOSITORY}/releases/download"
 KUBERNETES_REPOSITORY="https://github.com/kubernetes/kubernetes.git"

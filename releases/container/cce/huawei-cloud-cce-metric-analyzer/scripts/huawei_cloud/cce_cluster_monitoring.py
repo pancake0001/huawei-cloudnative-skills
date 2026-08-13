@@ -827,7 +827,7 @@ def analyze_cce_cluster_monitoring(
 
 def cce_cluster_monitoring_aggregation_action(params: Dict[str, str]) -> Dict[str, Any]:
     """
-    Aggregate cluster monitoring evidence for local analysis.
+    Action handler for huawei_cce_cluster_monitoring_aggregation tool.
 
     Expected parameters:
     - region: Huawei Cloud region (required)

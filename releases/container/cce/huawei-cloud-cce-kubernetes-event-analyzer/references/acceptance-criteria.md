@@ -2,18 +2,17 @@
 
 ## Current Events
 
-- The skill uses `kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events ...`.
-- The result includes event counts, Warning counts, top reasons, affected namespaces/resources, repeated patterns, and representative sanitized samples when Events exist.
-- Namespace, reason, type, keyword, and time-window filters are reflected in the report.
+- `huawei_get_cce_events` returns `success: true`, the requested `cluster_id`, a non-empty `access_method`, and an `events` array when Events exist.
+- `huawei_analyze_cce_events` with `region` and `cluster_id` returns `source: current`, a `query` object, and aggregate counters.
 
-## Historical Events
+## Historical LTS Events
 
-- Historical LTS queries are attempted only after discovering a `default-event` LogConfig or receiving explicit LTS IDs.
-- The query is bounded by start and end time.
-- Missing LogConfig, missing LTS IDs, or unavailable LTS permissions are reported as data gaps.
+- `huawei_query_k8s_events_from_lts` reads the cluster `default-event` LogConfig through `kubectl cce` and returns its configured LTS group and stream IDs.
+- A bounded query that has collected Events returns normalized records with `type`, `reason`, timestamp, and affected-object fields when available.
+- `huawei_analyze_cce_events event_source=lts` returns `source: lts`, query time-range metadata, and aggregate counters.
 
 ## Analysis Quality
 
-- Event patterns are mapped to likely diagnosis handoff skills.
-- Current Event retention limits are stated when the incident is older than available Events.
-- No mutation command, generated kubeconfig, SDK dispatcher, or raw SDK access is used.
+- Analysis returns event-record and occurrence totals, type breakdown, top reasons, namespaces, affected objects, and repeated patterns.
+- Supplying an `events` array continues to perform offline analysis without a cloud request.
+- Missing credentials, missing LTS collection, inaccessible clusters, and invalid time windows return actionable errors without changing cloud or Kubernetes resources.

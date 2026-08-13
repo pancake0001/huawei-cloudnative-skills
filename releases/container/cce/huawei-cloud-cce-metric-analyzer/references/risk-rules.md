@@ -1,13 +1,8 @@
 # Risk Rules
 
-- This skill is read-only. Allowed operations are discovery, metric query, local parsing, and Markdown report generation.
-- Allowed cloud access path: `hcloud` CLI for CCE metadata, CES metrics, and cloud-resource discovery.
-- Allowed Kubernetes access path: `kubectl cce` for resource relationships and live Metrics API checks.
-- Allowed observability exception: approved AOM Prometheus range-query evidence when the runtime already has a safe signing path. Do not hand-roll IAM token flows or print signed headers.
-- Do not use Huawei Cloud SDK imports, Kubernetes SDK clients, generated kubeconfig, temporary kubeconfig files, or direct mutation commands.
-- Do not run `kubectl apply`, `create`, `patch`, `edit`, `delete`, `scale`, `rollout restart`, `rollout undo`, `exec`, `attach`, or `port-forward`.
-- Keep metric windows bounded. Start with 1 hour for active incidents and avoid windows over 24 hours unless the user asks.
-- Redact or avoid secrets, tokens, Authorization headers, kubeconfig contents, and credential material.
-- Missing AOM/CES/Metrics API series are data gaps. Do not describe missing metrics as healthy behavior.
-- Thresholds are only investigation leads. Require corroborating Events, logs, alarms, topology, or user symptoms before assigning high-confidence root cause.
-- Do not make automatic scaling or remediation decisions from metrics alone. Hand off to the appropriate diagnoser or remediation skill only after explicit user confirmation.
+- This skill is read-only: it only queries and analyzes metrics. No modifications are made to resources.
+- Do not expose sensitive data such as pod names, node IPs, or cluster IDs in public outputs. Use redacted or fictional examples when possible.
+- If metric analysis reveals critical resource issues, provide clear recommendations and suggest the appropriate diagnosis skill.
+- Keep metric queries time-bounded. The `hours` parameter defaults to 1 to avoid overwhelming results. For historical analysis, use larger time windows but cap at 24 hours.
+- Do not make automatic scaling or remediation decisions based solely on metric analysis. Forward to `huawei-cloud-cce-auto-remediation-runner` only if explicitly requested and validated.
+- Thresholds (CPU >80%, Memory >85%) are predefined baselines. Actual thresholds may vary by workload SLO. Recommend users to customize thresholds based on their specific requirements.

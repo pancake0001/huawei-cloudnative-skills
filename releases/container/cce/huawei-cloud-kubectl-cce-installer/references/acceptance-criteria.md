@@ -5,7 +5,7 @@
 - `--check` completes without changing the local machine and reports the platform, architecture, executable presence, and plugin discovery state.
 - The default invocation prints a plan and exits without installing or replacing executables.
 - `--execute` installs only missing `kubectl` and `kubectl-cce` executables into the confirmed `--bin-dir`.
-- Linux `kubectl-cce` downloads use the Gitee `v0.1.0` Release asset matching the local CPU architecture; an unavailable asset falls back to the pinned source tag.
+- Linux `kubectl-cce` downloads use the Gitee `v0.2.1` Release asset matching the local CPU architecture; an unavailable asset falls back to the pinned source tag.
 - Existing `kubectl` and `kubectl-cce` executables are not overwritten.
 
 ## Verification
