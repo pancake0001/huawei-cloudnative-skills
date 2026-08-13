@@ -1,11 +1,14 @@
 # Risk Rules
 
-- This skill is read-only. It may query and analyze alarms, rules, action rules, mute rules, and CCE metadata.
-- Do not create, update, enable, disable, delete, configure, or clean alarm rules or notification rules from this skill.
-- Use `hcloud` for AOM, CCE, and IAM/project evidence.
-- Do not use Huawei Cloud SDK imports, legacy dispatcher actions, hand-written IAM curl flows, or out-of-band cloud APIs.
-- Do not use Kubernetes commands for alarm evidence unless a downstream diagnoser is explicitly invoked.
-- Output must never expose AK/SK, security tokens, Authorization headers, profile secrets, or raw signed payloads.
-- Absence of active alarms does not prove health. Always check historical alarms when the incident time is known.
-- Alarm evidence alone is rarely a complete root cause. Correlate with Events, metrics, logs, topology, or change history before assigning high confidence.
-- If the user asks to modify alarms, provide a preview-style recommendation and hand off to a dedicated alarm-management or remediation workflow.
+## Risk Boundaries
+
+- R3 tools are read-only operations, including alarm query, alarm analysis, action rule query, and mute rule query.
+- R2, R1, and R0 tools must show the exact execution action, affected resources, and expected impact before execution.
+- R2, R1, and R0 tools must wait for explicit user confirmation before adding `confirm=true` or performing any cloud-side change.
+- Cloud resource changes are allowed only through the tools provided by this skill; do not modify alarm rules, action rules, mute rules, or other cloud resources through any out-of-band method.
+- Output must never expose AK/SK, tokens, or complete sensitive logs.
+- If the user requests scaling, rebooting, draining, or other remediation actions, output recommendations only and hand off to `huawei-cloud-cce-auto-remediation-runner`.
+
+## Analysis Notes
+
+- Do not interpret absence of active alarms as "no problem"; always cross-reference history alarms.
