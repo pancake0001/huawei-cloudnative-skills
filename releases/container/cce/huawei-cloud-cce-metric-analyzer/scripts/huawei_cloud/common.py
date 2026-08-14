@@ -6,10 +6,36 @@ import json
 import os
 import re
 import subprocess
+from contextlib import contextmanager
+from contextvars import ContextVar
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Iterator, List, Optional
 
 _PROJECT_ID_CACHE = {}
+_ACTIVE_SECURITY_TOKEN: ContextVar[Optional[str]] = ContextVar("active_security_token", default=None)
+
+
+def normalize_cli_credentials(params: Dict[str, str]) -> Dict[str, str]:
+    """Map public --cli-* credential parameters onto the internal names."""
+    normalized = dict(params)
+    for cli_name, internal_name in (("cli_access_key", "ak"), ("cli_secret_key", "sk"), ("cli_security_token", "security_token")):
+        value = normalized.pop(cli_name, None)
+        if not value:
+            continue
+        if normalized.get(internal_name) and normalized[internal_name] != value:
+            raise ValueError(f"{cli_name} and {internal_name} must not provide different values")
+        normalized[internal_name] = value
+    return normalized
+
+
+@contextmanager
+def credential_context(params: Dict[str, str]) -> Iterator[Dict[str, str]]:
+    normalized = normalize_cli_credentials(params)
+    token = _ACTIVE_SECURITY_TOKEN.set(normalized.get("security_token"))
+    try:
+        yield normalized
+    finally:
+        _ACTIVE_SECURITY_TOKEN.reset(token)
 
 def _safe_delete_file(filepath: Optional[str]) -> None:
     if not filepath:
@@ -43,6 +69,7 @@ def get_security_token(security_token: Optional[str] = None) -> Optional[str]:
     """Return an optional temporary security token for signed HTTP requests."""
     return (
         security_token
+        or _ACTIVE_SECURITY_TOKEN.get()
         or os.environ.get("HUAWEI_SECURITY_TOKEN")
         or os.environ.get("HUAWEICLOUD_SDK_SECURITY_TOKEN")
         or os.environ.get("HW_SECURITY_TOKEN")
@@ -76,6 +103,22 @@ def _redact_text(text: str, *secrets: Optional[str]) -> str:
     for secret in secrets:
         if secret:
             redacted = redacted.replace(secret, _mask_secret(secret) or "")
+    return redacted
+
+
+def redact_command(command: List[str]) -> List[str]:
+    redacted: List[str] = []
+    redact_next = False
+    sensitive_keys = {"--cli-access-key", "--cli-secret-key", "--cli-security-token"}
+    for item in command:
+        if redact_next:
+            redacted.append("***")
+            redact_next = False
+        elif item in sensitive_keys:
+            redacted.append(item)
+            redact_next = True
+        else:
+            redacted.append(re.sub(r"(--cli-(?:access-key|secret-key|security-token)=).*", r"\1***", item))
     return redacted
 
 
@@ -130,6 +173,9 @@ def run_hcloud(
         cmd.append(f"--cli-access-key={access_key}")
     if secret_key:
         cmd.append(f"--cli-secret-key={secret_key}")
+    security_token = get_security_token()
+    if security_token:
+        cmd.append(f"--cli-security-token={security_token}")
     if proj_id:
         cmd.append(f"--cli-project-id={proj_id}")
 
@@ -140,10 +186,7 @@ def run_hcloud(
             value = "true" if value else "false"
         cmd.append(f"--{key}={value}")
 
-    safe_cmd = [
-        re.sub(r"(--cli-(?:access|secret)-key=).*", r"\1***", part)
-        for part in cmd
-    ]
+    safe_cmd = redact_command(cmd)
     try:
         proc = subprocess.run(cmd, text=True, capture_output=True, timeout=timeout)
     except FileNotFoundError:
@@ -155,7 +198,7 @@ def run_hcloud(
     stderr = proc.stderr.strip()
     if proc.returncode != 0:
         message = stderr or stdout or f"hcloud exited with code {proc.returncode}"
-        message = _redact_text(message, access_key, secret_key)
+        message = _redact_text(message, access_key, secret_key, security_token)
         return {"success": False, "error": message, "command": safe_cmd, "returncode": proc.returncode}
 
     data, parse_error = _parse_hcloud_json_output(stdout)
@@ -164,7 +207,7 @@ def run_hcloud(
         return {
             "success": False,
             "error": f"hcloud returned non-JSON output: {parse_error}",
-            "output": _redact_text(combined_output[:2000], access_key, secret_key),
+            "output": _redact_text(combined_output[:2000], access_key, secret_key, security_token),
             "command": safe_cmd,
             "returncode": proc.returncode,
         }

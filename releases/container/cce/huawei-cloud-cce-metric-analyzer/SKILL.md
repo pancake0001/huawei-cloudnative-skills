@@ -53,6 +53,7 @@ Query and analyze metrics for CCE clusters (Pod/Node CPU/memory/disk) and cloud 
 ### 2. Credential Configuration
 
 - Valid Huawei Cloud credentials via hcloud profile or AK/SK mode
+- CLI callers may pass `--cli-access-key`, `--cli-secret-key`, and `--cli-security-token`. They are mapped to the existing credential chain and passed explicitly to hcloud and `kubectl cce`; do not combine them with conflicting `ak`, `sk`, or `security_token` values.
 - **Security Rules**:
   - 🚫 Never expose AK/SK values in code, conversation, or commands
   - 🚫 Never use `echo $HUAWEI_AK` or `echo $HUAWEI_SK` to check credentials
@@ -408,6 +409,8 @@ Controller-manager, scheduler, and etcd metrics depend on AOM ServiceMonitor col
 | `namespace`   | No       | Namespace filter                | `default`|
 | `top_n`       | No       | Number of top items             | 10       |
 | `security_token` | No    | Temporary security token for AK/SK session credentials | env fallback |
+| `--cli-access-key` / `--cli-secret-key` | No | Explicit AK/SK for hcloud and `kubectl cce` | Overrides profile/environment credentials |
+| `--cli-security-token` | No | STS security token paired with explicit AK/SK | Explicitly passed to hcloud and `kubectl cce` |
 
 ## Output Format
 

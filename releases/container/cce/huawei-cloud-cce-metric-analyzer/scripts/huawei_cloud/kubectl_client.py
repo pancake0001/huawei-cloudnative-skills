@@ -8,11 +8,12 @@ import subprocess
 import tempfile
 from typing import Any, Dict, List, Optional
 
+from . import common
 from .common import get_credentials, get_security_token, run_hcloud
 
 
 def _run_json_command(cmd: List[str], env: Optional[Dict[str, str]] = None, timeout: int = 60) -> Dict[str, Any]:
-    safe_cmd = [part if "token" not in part.lower() else "***" for part in cmd]
+    safe_cmd = common.redact_command(cmd)
     try:
         proc = subprocess.run(cmd, text=True, capture_output=True, timeout=timeout, env=env)
     except FileNotFoundError:
@@ -142,7 +143,17 @@ def _kubectl_get_with_cce_plugin(region: str, cluster_id: str, resource_args: Li
         env["HW_SECURITY_TOKEN"] = sec_token
         env["HUAWEICLOUD_SECURITY_TOKEN"] = sec_token
 
-    result = _run_json_command(["kubectl", "cce", "--cluster-id", cluster_id, "--region", region, "get", *resource_args, "-o", "json"], env=env)
+    command = ["kubectl", "cce", "--cluster-id", cluster_id, "--region", region]
+    if proj_id:
+        command.extend(["--project-id", proj_id])
+    if access_key:
+        command.extend(["--cli-access-key", access_key])
+    if secret_key:
+        command.extend(["--cli-secret-key", secret_key])
+    if sec_token:
+        command.extend(["--cli-security-token", sec_token])
+    command.extend(["get", *resource_args, "-o", "json"])
+    result = _run_json_command(command, env=env)
     if result.get("success"):
         result["access_method"] = "kubectl_cce_plugin"
     return result
