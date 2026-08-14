@@ -482,3 +482,7 @@ See [Output Schema](references/output-schema.md) for the complete JSON response 
 | [Workflow](references/workflow.md) | Metric query sequence, threshold detection, next-step handoff |
 | [Risk Rules](references/risk-rules.md) | Read-only constraints, data redaction, time-bounding, threshold caveats |
 | [Output Schema](references/output-schema.md) | JSON response schema for metric and status output |
+| [CLI Installation Guide](references/cli-installation-guide.md) | hcloud, kubectl, kubectl-cce, and dispatcher setup |
+| [IAM Policies](references/iam-policies.md) | Required read-only Huawei Cloud and Kubernetes permissions |
+| [Verification Method](references/verification-method.md) | Static checks and smoke tests |
+| [Acceptance Criteria](references/acceptance-criteria.md) | Functional, security, documentation, and quality gates |

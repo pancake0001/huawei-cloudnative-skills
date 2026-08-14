@@ -1,84 +1,62 @@
 # Output Schema
 
-## Event Query Summary
+This is the single source of truth for the public response fields emitted by this skill.
+
+## Current Event Response (`huawei_get_cce_events`)
 
 | Field | Description |
-|------|-------------|
-| `region` | Huawei Cloud region |
-| `cluster_id` | CCE cluster ID |
-| `namespace` | Kubernetes namespace (optional filter) |
-| `event_type` | Event type filter applied (e.g., Warning) |
-| `time_range` | Effective start/end time or recent-hours window |
-| `total_events` | Number of returned events |
-| `warning_count` | Number of Warning events |
-| `normal_count` | Number of Normal events |
-
-## Analysis Summary
-
-| Field | Description |
-|------|-------------|
-| `top_reasons` | Top event reasons with counts, sorted by frequency |
-| `repeated_patterns` | Events with count > 1, grouped by reason |
-| `namespace_breakdown` | Event counts by namespace |
-| `first_warning` | Timestamp of first Warning event in window |
-| `last_warning` | Timestamp of last Warning event in window |
-| `affected_objects` | Count of unique involved objects with Warning events |
-| `next_steps` | Suggested follow-up query or diagnosis skill |
-
-## Local Event Analysis Response (`huawei_analyze_cce_events`)
-
-| Field | Description |
-|------|-------------|
-| `source` | Caller-provided label for the supplied Event result |
-| `event_records` | Number of input Event records |
-| `total_occurrences` | Sum of Event `count` values across input records |
-| `event_type_breakdown` | Occurrence totals grouped by Event type |
-| `top_reasons` | Most frequent reasons with warning totals and time ranges |
-| `namespace_breakdown` | Most affected namespaces, sorted by occurrences |
-| `affected_objects` | Most affected namespace/kind/name resource identities |
-| `repeated_patterns` | Event records with `count > 1` |
-| `resource_status` | Current-state checks for distinct resources referenced by Events, including a per-state summary and resource-level messages |
-
-## Event Detail (per event)
-
-| Field | Description |
-|------|-------------|
-| `reason` | Event reason (e.g., FailedScheduling, ImagePullBackOff, FailedMount) |
-| `message` | Event message (summarized, redacted) |
-| `involved_object_kind` | Kind of the involved object (Pod, Node, Deployment, etc.) |
-| `involved_object_name` | Name of the involved object (redacted in public output) |
-| `namespace` | Namespace of the involved object |
-| `count` | Number of times this event occurred |
-| `first_timestamp` | First occurrence |
-| `last_timestamp` | Most recent occurrence |
-| `type` | Event type (Normal, Warning) |
-
-## K8s API Response Fields (huawei_get_cce_events)
-
-| Field | Description |
-|------|-------------|
-| `region` | Huawei Cloud region |
-| `cluster_id` | CCE cluster ID |
-| `namespace` | Kubernetes namespace filter (if applied) |
+| --- | --- |
+| `success` | Whether the query completed successfully |
+| `region`, `cluster_id` | Requested Huawei Cloud region and CCE cluster ID |
+| `namespace` | Requested namespace or `all` |
+| `event_type` | Applied Event type filter |
 | `access_method` | `kubectl_kubeconfig_external` or `kubectl_cce_plugin` |
-| `total_fetched` | Number of events returned by the API |
-| `events` | Raw event list (apply filters client-side) |
-| `warning_count` | Number of Warning events (calculated) |
-| `top_reasons` | Top event reasons with counts (calculated) |
-| `repeated_patterns` | Events with count > 1 grouped by reason |
-| `namespace_breakdown` | Event counts by namespace |
-| `next_steps` | Suggested follow-up query or diagnosis skill |
+| `count`, `limit` | Returned Event record count and requested maximum |
+| `events` | Normalized Event records |
 
-## LTS Response Fields (huawei_query_k8s_events_from_lts)
+## Historical Event Response (`huawei_query_k8s_events_from_lts`)
 
 | Field | Description |
-|------|-------------|
-| `region` | Huawei Cloud region |
-| `cluster_id` | CCE cluster ID |
-| `log_group_id` | LTS log group ID |
-| `log_stream_id` | LTS log stream ID |
-| `keywords` | Keywords used for filtering |
-| `event_count` | Number of events returned |
-| `events` | Parsed event list with normalized structure |
-| `time_range` | Start/end time of the query |
-| `log_config` | `default-event` LogConfig metadata and `kubectl_cce_logconfig` discovery method |
+| --- | --- |
+| `success` | Whether the LTS query completed successfully |
+| `region`, `cluster_id` | Requested Huawei Cloud region and CCE cluster ID |
+| `log_group_id`, `log_stream_id` | LTS source identifiers read from `default-event` |
+| `event_type`, `keywords` | Applied LTS type and keyword filter |
+| `event_count`, `events` | Returned historical Event record count and parsed records |
+| `time_range` | Requested UTC start and end time |
+| `log_config` | `default-event` LogConfig metadata and discovery method |
+| `pagination` | Page count, limit, and whether more results are available |
+
+## Event Analysis Response (`huawei_analyze_cce_events`)
+
+| Field | Description |
+| --- | --- |
+| `source` | `current`, `lts`, or caller-provided source label |
+| `event_records`, `total_occurrences` | Input record count and sum of Event `count` values |
+| `event_type_breakdown` | Occurrence totals by Event type |
+| `warning_count`, `normal_count` | Warning and Normal occurrence totals |
+| `time_range` | First and last observed Event timestamps |
+| `top_reasons` | Most frequent reasons with occurrence count, Warning count, and time range |
+| `namespace_breakdown`, `affected_objects` | Most affected namespaces and resources |
+| `repeated_patterns` | Event records whose `count` is greater than one |
+| `resource_status` | Current-state checks for Event resources when `region` and `cluster_id` are available |
+| `query` | Source-query metadata when the tool fetched Events itself |
+
+### Resource Status
+
+| Field | Description |
+| --- | --- |
+| `checked` | Number of distinct resources checked, capped by `max_groups` |
+| `summary` | Resource counts grouped by current state |
+| `resources` | Per-resource kind, name, namespace, state, and message |
+| `state` | `normal`, `abnormal`, `unknown`, `not_found`, `unsupported`, or `query_failed` |
+
+## Normalized Event Record
+
+| Field | Description |
+| --- | --- |
+| `name`, `namespace` | Event name and namespace when available |
+| `type`, `reason`, `message` | Event type, reason, and message |
+| `involved_object` | Referenced resource `kind`, `name`, and `namespace` |
+| `count` | Number of occurrences represented by the record |
+| `first_timestamp`, `last_timestamp` | First and latest observed timestamps |

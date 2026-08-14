@@ -17,12 +17,6 @@ Query and analyze Kubernetes Events in Huawei Cloud CCE clusters to identify war
 **Related Skills**:
 - `huawei-cloud-kubectl-cce-installer` - Install `kubectl` and the `kubectl-cce` plugin required for cluster access
 - `huawei-cloud-cce-metric-analyzer` - CCE and cloud-resource metrics
-- `huawei-cloud-cce-pod-failure-diagnoser` - Pod failure diagnosis
-- `huawei-cloud-cce-workload-failure-diagnoser` - Workload rollout diagnosis
-- `huawei-cloud-cce-node-failure-diagnoser` - Node failure diagnosis
-- `huawei-cloud-cce-storage-failure-diagnoser` - Storage failure diagnosis
-- `huawei-cloud-cce-network-failure-diagnoser` - Network failure diagnosis
-- `huawei-cloud-cce-auto-remediation-runner` - Explicit remediation workflow
 
 **Capabilities**:
 - Query current Kubernetes Events across a cluster or in a namespace
@@ -218,46 +212,7 @@ This skill is read-only. It never changes cloud resources, Kubernetes resources,
 
 ## Output Format
 
-### `huawei_get_cce_events`
-
-| Field | Description |
-| ----- | ----------- |
-| `success` | Query success status |
-| `region` | Huawei Cloud region |
-| `cluster_id` | CCE cluster ID |
-| `namespace` | Requested namespace or `all` |
-| `access_method` | `kubectl_kubeconfig_external` or `kubectl_cce_plugin` |
-| `count` | Number of returned Event records |
-| `limit` | Requested maximum Event records |
-| `events` | Normalized Event records |
-| `error`, `kubeconfig_error`, `plugin_error` | Failure details when access fails |
-
-### `huawei_query_k8s_events_from_lts`
-
-| Field | Description |
-| ----- | ----------- |
-| `success` | Query success status |
-| `cluster_id` | CCE cluster ID |
-| `log_group_id`, `log_stream_id` | LTS source identifiers |
-| `event_count` | Number of historical Event records returned |
-| `events` | Parsed Event records |
-| `time_range` | Effective start and end time |
-| `log_config` | Default Event LTS stream discovery metadata |
-
-See [output-schema.md](references/output-schema.md) for detailed analysis and Event field definitions.
-
-### `huawei_analyze_cce_events`
-
-| Field | Description |
-| ----- | ----------- |
-| `event_records`, `total_occurrences` | Input record count and sum of Event occurrence counts |
-| `event_type_breakdown` | Occurrence totals by Event type |
-| `warning_count`, `normal_count` | Warning and Normal occurrence totals |
-| `time_range` | First and last observed Event timestamps when available |
-| `top_reasons` | Most frequent reasons with warning count and per-reason time range |
-| `namespace_breakdown`, `affected_objects` | Most affected namespaces and resources |
-| `repeated_patterns` | Input Event records whose `count` is greater than one |
-| `resource_status` | Current state of up to `max_groups` distinct Event resources. Supported kinds: Pod, Node, Deployment, StatefulSet, DaemonSet, ReplicaSet, Job, CronJob, PVC, PV, and Service. States are `normal`, `abnormal`, `unknown`, `not_found`, `unsupported`, or `query_failed`. |
+All public response fields, Event record fields, and resource-status states are defined in [output-schema.md](references/output-schema.md). That reference is the single source of truth for output contracts.
 
 ## Workflow
 
