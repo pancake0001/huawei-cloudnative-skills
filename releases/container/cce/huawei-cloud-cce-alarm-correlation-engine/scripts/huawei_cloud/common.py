@@ -7,9 +7,39 @@ import os
 import shutil
 import subprocess
 import tempfile
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from contextlib import contextmanager
+from contextvars import ContextVar
+from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple
 
 _PROJECT_ID_CACHE: Dict[str, str] = {}
+_ACTIVE_SECURITY_TOKEN: ContextVar[Optional[str]] = ContextVar("active_security_token", default=None)
+
+
+def normalize_cli_credentials(params: Dict[str, str]) -> Dict[str, str]:
+    """Map public --cli-* credential parameters onto the internal names."""
+    normalized = dict(params)
+    for cli_name, internal_name in (("cli_access_key", "ak"), ("cli_secret_key", "sk"), ("cli_security_token", "security_token")):
+        value = normalized.pop(cli_name, None)
+        if not value:
+            continue
+        if normalized.get(internal_name) and normalized[internal_name] != value:
+            raise ValueError(f"{cli_name} and {internal_name} must not provide different values")
+        normalized[internal_name] = value
+    return normalized
+
+
+@contextmanager
+def credential_context(params: Dict[str, str]) -> Iterator[Dict[str, str]]:
+    normalized = normalize_cli_credentials(params)
+    token = _ACTIVE_SECURITY_TOKEN.set(normalized.get("security_token"))
+    try:
+        yield normalized
+    finally:
+        _ACTIVE_SECURITY_TOKEN.reset(token)
+
+
+def get_security_token(security_token: Optional[str] = None) -> Optional[str]:
+    return security_token or _ACTIVE_SECURITY_TOKEN.get() or os.environ.get("HUAWEI_SECURITY_TOKEN") or os.environ.get("HUAWEICLOUD_SDK_SECURITY_TOKEN") or os.environ.get("HW_SECURITY_TOKEN")
 
 
 def _has_hcloud_profile() -> bool:
@@ -82,9 +112,7 @@ def _base_hcloud_command(
     command = ["hcloud", service, operation, f"--cli-region={region}", "--cli-output=json"]
     if access_key and secret_key:
         command.extend([f"--cli-access-key={access_key}", f"--cli-secret-key={secret_key}"])
-    token = None
-    if access_key and secret_key:
-        token = os.environ.get("HUAWEI_SECURITY_TOKEN") or os.environ.get("HUAWEICLOUD_SDK_SECURITY_TOKEN")
+    token = get_security_token() if access_key and secret_key else None
     if token:
         command.append(f"--cli-security-token={token}")
     if proj_id:

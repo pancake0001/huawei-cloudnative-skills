@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any, Callable, Dict
 
-from . import aom
+from . import aom, common
 
 Handler = Callable[[Dict[str, str]], Dict[str, Any]]
 
@@ -401,11 +401,12 @@ def is_registered_action(action: str) -> bool:
 
 
 def dispatch_action(action: str, params: Dict[str, str]) -> Dict[str, Any]:
-    required, handler = ACTION_SPECS[action]
-    error = _require(params, *required)
-    if error:
-        return {"success": False, "error": error}
     try:
-        return handler(params)
+        with common.credential_context(params) as normalized:
+            required, handler = ACTION_SPECS[action]
+            error = _require(normalized, *required)
+            if error:
+                return {"success": False, "error": error}
+            return handler(normalized)
     except ValueError as exc:
         return {"success": False, "error": str(exc), "error_type": type(exc).__name__}

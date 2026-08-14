@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Callable, Dict
 
-from . import cce, cce_events_lts, event_analysis
+from . import cce, cce_events_lts, common, event_analysis
 
 Handler = Callable[[Dict[str, str]], Dict[str, Any]]
 
@@ -52,6 +52,10 @@ def is_registered_action(action: str) -> bool:
 
 
 def dispatch_action(action: str, params: Dict[str, str]) -> Dict[str, Any]:
-    required, handler = ACTION_SPECS[action]
-    error = _require(params, *required)
-    return {"success": False, "error": error} if error else handler(params)
+    try:
+        with common.credential_context(params) as normalized:
+            required, handler = ACTION_SPECS[action]
+            error = _require(normalized, *required)
+            return {"success": False, "error": error} if error else handler(normalized)
+    except ValueError as exc:
+        return {"success": False, "error": str(exc)}

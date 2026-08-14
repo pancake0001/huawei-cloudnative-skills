@@ -61,6 +61,7 @@ Correlate Huawei Cloud AOM active and historical alarms for CCE operations, then
 - Valid Huawei Cloud credentials via explicit tool parameters, local hcloud profile, or environment variable fallback
 - Credential priority for hcloud calls is: explicit tool parameters > local hcloud profile > environment variables
 - Tools that need `project_id` resolve it internally where possible: explicit `project_id` parameter first, then active hcloud profile/IAM project lookup for the target region, then environment fallback
+- CLI callers may pass `--cli-access-key`, `--cli-secret-key`, and `--cli-security-token`. These map to the internal credential fields and are passed explicitly to every hcloud command. Do not combine an alias with a conflicting `ak`, `sk`, or `security_token` value.
 
 **Security Rules**:
 - Never expose AK/SK, tokens, or credential-derived secrets in code, commands, logs, or responses
@@ -337,6 +338,8 @@ This skill includes read-only query tools and mutation tools. Mutation tools mus
 | `ak` | Optional | Explicit AK; highest priority for hcloud calls | profile/env fallback |
 | `sk` | Optional | Explicit SK; highest priority for hcloud calls | profile/env fallback |
 | `project_id` | Optional | Explicit Project ID | hcloud/IAM/env fallback |
+| `--cli-access-key` / `--cli-secret-key` | Optional | Explicit AK/SK for hcloud | Overrides profile/environment credentials |
+| `--cli-security-token` | Optional | STS security token paired with explicit AK/SK | Passed as `--cli-security-token` to hcloud |
 | `confirm` | Mutation only | Execute a previewed mutation when set to `true` | `false` |
 
 ### Alarm Query Parameters

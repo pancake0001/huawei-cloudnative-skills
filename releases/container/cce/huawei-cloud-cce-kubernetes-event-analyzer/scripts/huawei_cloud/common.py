@@ -4,7 +4,39 @@ from __future__ import annotations
 
 import os
 import re
-from typing import Optional
+from contextlib import contextmanager
+from contextvars import ContextVar
+from typing import Dict, Iterator, Optional
+
+
+_ACTIVE_SECURITY_TOKEN: ContextVar[Optional[str]] = ContextVar("active_security_token", default=None)
+
+
+def normalize_cli_credentials(params: Dict[str, str]) -> Dict[str, str]:
+    """Map public --cli-* credential parameters onto the internal names."""
+    normalized = dict(params)
+    for cli_name, internal_name in (("cli_access_key", "ak"), ("cli_secret_key", "sk"), ("cli_security_token", "security_token")):
+        value = normalized.pop(cli_name, None)
+        if not value:
+            continue
+        if normalized.get(internal_name) and normalized[internal_name] != value:
+            raise ValueError(f"{cli_name} and {internal_name} must not provide different values")
+        normalized[internal_name] = value
+    return normalized
+
+
+@contextmanager
+def credential_context(params: Dict[str, str]) -> Iterator[Dict[str, str]]:
+    normalized = normalize_cli_credentials(params)
+    token = _ACTIVE_SECURITY_TOKEN.set(normalized.get("security_token"))
+    try:
+        yield normalized
+    finally:
+        _ACTIVE_SECURITY_TOKEN.reset(token)
+
+
+def get_security_token(security_token: Optional[str] = None) -> Optional[str]:
+    return security_token or _ACTIVE_SECURITY_TOKEN.get() or os.environ.get("HUAWEI_SECURITY_TOKEN") or os.environ.get("HUAWEICLOUD_SDK_SECURITY_TOKEN") or os.environ.get("HW_SECURITY_TOKEN")
 
 
 def get_credentials(
@@ -47,7 +79,16 @@ def resolve_hcloud_credentials(
 
 def redact_command(command: list[str]) -> list[str]:
     """Redact credential values before a command is returned to callers."""
-    return [
-        re.sub(r"(--cli-(?:access-key|secret-key|security-token)=).*", r"\1***", part)
-        for part in command
-    ]
+    redacted: list[str] = []
+    redact_next = False
+    sensitive_keys = {"--cli-access-key", "--cli-secret-key", "--cli-security-token"}
+    for part in command:
+        if redact_next:
+            redacted.append("***")
+            redact_next = False
+        elif part in sensitive_keys:
+            redacted.append(part)
+            redact_next = True
+        else:
+            redacted.append(re.sub(r"(--cli-(?:access-key|secret-key|security-token)=).*", r"\1***", part))
+    return redacted

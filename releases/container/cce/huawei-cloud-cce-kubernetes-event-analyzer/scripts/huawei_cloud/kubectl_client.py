@@ -63,6 +63,9 @@ def _run_hcloud(
         cmd.append(f"--cli-access-key={access_key}")
     if secret_key:
         cmd.append(f"--cli-secret-key={secret_key}")
+    security_token = common.get_security_token()
+    if security_token:
+        cmd.append(f"--cli-security-token={security_token}")
     if resolved_project_id:
         cmd.append(f"--cli-project-id={resolved_project_id}")
     for key, value in params.items():
@@ -146,11 +149,18 @@ def _get_events_with_cce_plugin(
         env.update({"HW_ACCESS_KEY": access_key, "HUAWEICLOUD_SDK_AK": access_key})
     if secret_key:
         env.update({"HW_SECRET_KEY": secret_key, "HUAWEICLOUD_SDK_SK": secret_key})
+    security_token = common.get_security_token(security_token)
     if security_token:
         env.update({"HW_SECURITY_TOKEN": security_token, "HUAWEICLOUD_SECURITY_TOKEN": security_token})
     command = ["kubectl", "cce", "--cluster-id", cluster_id, "--region", region]
     if resolved_project_id:
         command.extend(["--project-id", resolved_project_id])
+    if access_key:
+        command.extend(["--cli-access-key", access_key])
+    if secret_key:
+        command.extend(["--cli-secret-key", secret_key])
+    if security_token:
+        command.extend(["--cli-security-token", security_token])
     command.extend(["get", *args, "-o", "json"])
     result = _run_command(command, env=env)
     if result.get("success"):

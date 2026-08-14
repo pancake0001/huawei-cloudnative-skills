@@ -64,7 +64,7 @@ After installation, `kubectl cce` requires credentials only when it accesses a C
 All commands use the bundled installer script:
 
 ```bash
-bash scripts/install_kubectl_cce.sh [--check] [--execute] [--bin-dir <directory>]
+bash scripts/install_kubectl_cce.sh [--check] [--execute] [--reinstall] [--bin-dir <directory>]
 ```
 
 ### 1. Local State Check
@@ -90,6 +90,16 @@ sudo bash scripts/install_kubectl_cce.sh --execute --bin-dir /usr/local/bin
 ```
 
 Run only after the user confirms the previewed installation path and actions. The script does not overwrite existing `kubectl` or `kubectl-cce` executables.
+
+### 4. Confirmed Plugin Reinstallation
+
+To explicitly replace an existing `kubectl-cce` without changing `kubectl`, first run the same command without `--execute` to inspect the plan. Then, after confirmation:
+
+```bash
+sudo bash scripts/install_kubectl_cce.sh --reinstall --execute --bin-dir <existing-plugin-directory>
+```
+
+`--reinstall` replaces only `kubectl-cce` with the pinned version. It does not replace `kubectl`.
 
 ### 4. Source-Build Fallback
 
@@ -119,6 +129,7 @@ This skill modifies only local binaries and does not operate on cloud resources.
 | Default script mode | R3 | Show installation plan without making changes |
 | `--execute` | R1 | Install missing binaries into the selected directory |
 | Source-build fallback | R1 | Clone fixed source tags and compile missing binaries |
+| `--reinstall --execute` | R1 | Explicitly replace the existing `kubectl-cce` binary |
 
 ## Parameter Reference
 
@@ -126,6 +137,7 @@ This skill modifies only local binaries and does not operate on cloud resources.
 | --------- | ----------------- | ----------- | ------- |
 | `--check` | Optional | Run only local inspection and verification | Disabled |
 | `--execute` | Required for mutation | Install missing binaries after explicit confirmation | Disabled |
+| `--reinstall` | Optional | Replace an existing `kubectl-cce`; requires `--execute` | Disabled |
 | `--bin-dir <directory>` | Optional | Target directory for newly installed executables | `/usr/local/bin` |
 | `--help` | Optional | Display script usage | N/A |
 
@@ -139,7 +151,7 @@ The installer may inspect the local machine without confirmation, but installati
 | --------- | ---------- | ------------------------ |
 | Installation mode | `--check` and the default plan are read-only; `--execute` installs missing binaries | Explicit confirmation required for `--execute` |
 | `--bin-dir` | Defaults to `/usr/local/bin`; may be changed to a writable user-selected directory | Confirm the target directory before installation |
-| Existing executables | Detected from `PATH`; the script does not overwrite them | Report the detected state; do not replace an executable without a separately approved workflow |
+| Existing executables | Detected from `PATH`; `--reinstall` can replace only `kubectl-cce` | Report the detected state; require explicit approval for `--reinstall --execute` |
 | Network timeouts | Use defaults unless the user provides positive integer overrides | Confirm non-default values when they materially extend the wait time |
 
 Never infer a writable installation directory, use `sudo` automatically, or install a missing build dependency without the user's explicit approval.
@@ -161,7 +173,7 @@ The script writes human-readable output to standard output and exits nonzero whe
 
 1. Run `--check` and record the current local state.
 2. Run the default plan command with the intended `--bin-dir`.
-3. Present the planned downloads, source-build fallback, target directory, and R1 local-system impact to the user.
+3. Present the planned downloads, source-build fallback, target directory, and R1 local-system impact to the user. Use `--reinstall` only when the user explicitly requested a plugin replacement.
 4. Wait for explicit confirmation.
 5. Run the same command with `--execute`.
 6. Verify `kubectl version --client` and `kubectl plugin list`.
@@ -214,7 +226,7 @@ The plugin is ready when `kubectl plugin list` contains `kubectl-cce`. Do not re
 ## Limitations
 
 - The bundled script executes only on Linux and macOS. Windows uses manual downloads from the official Kubernetes release site and Gitee; the script must not be used.
-- The script installs missing binaries only; it does not upgrade or replace existing binaries.
+- The script installs missing binaries only unless `--reinstall --execute` is explicitly confirmed; that mode replaces only `kubectl-cce`.
 - The skill does not configure Huawei Cloud credentials or retrieve kubeconfig files.
 - The skill does not test cluster connectivity unless the user explicitly requests a separate read-only CCE command.
 - Source build depends on the availability of the pinned Git tags and a compatible local Go toolchain.

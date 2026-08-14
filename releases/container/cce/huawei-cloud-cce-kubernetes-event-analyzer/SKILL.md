@@ -48,6 +48,7 @@ Query and analyze Kubernetes Events in Huawei Cloud CCE clusters to identify war
 - External kubeconfig access uses hcloud credential priority: explicit tool parameters > local hcloud profile > environment variables.
 - The `kubectl cce` fallback requires AK/SK and the target cluster's `project_id` from explicit tool parameters or environment variables; encrypted hcloud profile credentials cannot be reused by the plugin. When `project_id` is available, the implementation passes it explicitly as `kubectl cce --project-id <project-id>`.
 - LTS queries require valid Huawei Cloud credentials and an authorized project.
+- CLI callers may pass `--cli-access-key`, `--cli-secret-key`, and `--cli-security-token`. The skill passes these explicitly to hcloud and `kubectl cce`; do not combine them with conflicting `ak`, `sk`, or `security_token` values.
 
 **Security Rules**:
 - Never print, persist, or hardcode AK/SK, security tokens, kubeconfig content, or temporary client credentials.
@@ -191,12 +192,14 @@ This skill is read-only. It never changes cloud resources, Kubernetes resources,
 | `ak` | Optional | Explicit AK for access paths that support it | profile/environment fallback |
 | `sk` | Optional | Explicit SK for access paths that support it | profile/environment fallback |
 | `project_id` | Required for `kubectl cce`; optional otherwise | Target cluster's Huawei Cloud project ID | hcloud profile/IAM/environment fallback for external kubeconfig access |
+| `--cli-access-key` / `--cli-secret-key` | Optional | Explicit AK/SK for hcloud and `kubectl cce` | Overrides profile/environment credentials |
+| `--cli-security-token` | Optional | STS security token paired with explicit AK/SK | Explicitly passed to hcloud and `kubectl cce` |
 
 ### Current Event Query Parameters
 
 | Tool | Required | Optional |
 | ---- | -------- | -------- |
-| `huawei_get_cce_events` | `region`, `cluster_id` | `namespace`, `event_type` (`Warning` default, `Normal`, or `all`), `limit`, `ak`, `sk`, `project_id` (required for `kubectl cce`), `security_token` |
+| `huawei_get_cce_events` | `region`, `cluster_id` | `namespace`, `event_type` (`Warning` default, `Normal`, or `all`), `limit`, `ak`, `sk`, `project_id` (required for `kubectl cce`), `security_token`, or the `--cli-*` credential aliases |
 
 ### Historical Event Query Parameters
 

@@ -66,6 +66,9 @@ def _hcloud_base_command(
         cmd.append(f"--cli-access-key={access_key}")
     if secret_key:
         cmd.append(f"--cli-secret-key={secret_key}")
+    security_token = common.get_security_token()
+    if security_token:
+        cmd.append(f"--cli-security-token={security_token}")
     return cmd
 
 
