@@ -35,7 +35,9 @@ Expected:
 
 - Target cluster appears in the list.
 - `ShowCluster` returns the same cluster ID and expected status.
-- `ShowClusterEndpoints` records endpoint context. Kubernetes access uses kubectl-cce through the CCE API Gateway; if the default gateway endpoint is not valid, set `CCE_ENDPOINT` or pass `--endpoint`.
+- `ShowClusterEndpoints` records endpoint context. Kubernetes access uses
+  kubectl-cce through the CCE API Gateway; if the default gateway endpoint is
+  not valid, set `CCE_ENDPOINT` or pass `--endpoint`.
 - No Python SDK process or local dispatcher script is used.
 
 ## Step 3: kubectl-cce Plugin Access
@@ -54,6 +56,7 @@ Expected:
 - The plugin starts its short-lived local proxy and reaches the CCE API Gateway endpoint.
 - If the default `<cluster-id>.cce.<region>.myhuaweicloud.com` endpoint is not valid, set `CCE_ENDPOINT` or pass `--endpoint`.
 - Do not generate, store, or patch kubeconfig files for this skill path.
+
 ## Step 4: Kubernetes Read Access
 
 Run:
@@ -118,8 +121,12 @@ Expected:
 From the skill package directory, run:
 
 ```bash
-rg -n "scripts/huawei-cloud.py|skill action=exec|huawei_pod_|Python SDK dispatcher|Huawei Cloud Python SDK|huaweicloudsdk|KubernetesClusterCertRequest|BasicCredentials|Signer\\(" . --glob "!*.md"
+rg -n "huawei-cloud[.]py|skill action=exec|huawei_pod_|huaweicloudsdk|KubernetesClusterCertRequest|BasicCredentials|Signer\\(" . --glob "!*.md"
 ```
+
+This searches executable and configuration files for legacy Python dispatchers,
+old skill execution mappings, obsolete Huawei Pod actions, Huawei Cloud SDK
+imports, and certificate-generation code.
 
 Expected:
 
@@ -132,7 +139,8 @@ Expected:
 Review terminal output or saved verification logs:
 
 - Commands used `hcloud CCE ...` for discovery and `kubectl cce ...` for Kubernetes evidence.
-- No command begins with `python`, `python3`, `skill action=exec`, or `scripts/huawei-cloud.py`.
+- No command begins with a Python interpreter, a legacy skill executor, or a
+  removed dispatcher entrypoint.
 - Secrets are absent or redacted.
 - No kubeconfig file is generated or stored by the skill path.
 
@@ -141,7 +149,8 @@ Review terminal output or saved verification logs:
 The skill passes verification when:
 
 1. `hcloud` can list/show the target CCE cluster.
-2. `kubectl cce ...` can reach the target cluster through the CCE API Gateway.
-3. `kubectl cce ...` can read the target Pod/namespace or reports explicit RBAC gaps.
-4. The package contains no SDK dispatcher scripts, skill profile tool mapping, or `huawei_pod_*` actions.
-5. The diagnosis workflow remains read-only.
+1. `kubectl cce ...` can reach the target cluster through the CCE API Gateway.
+1. `kubectl cce ...` can read the target Pod/namespace or reports explicit RBAC gaps.
+1. The package contains no SDK dispatcher scripts, skill profile tool mapping,
+   or obsolete Huawei Pod actions.
+1. The diagnosis workflow remains read-only.

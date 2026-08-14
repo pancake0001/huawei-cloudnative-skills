@@ -171,11 +171,16 @@ When writing a human-readable report, put the action-driving sections first:
 
 ## Scenario-Specific Recommendation Requirements
 
-After identifying `top_causes[].type`, load `references/scenario-guides.md` and apply the matching scenario section. Do not reserve detailed recommendations for one special case; every concrete failure type should include scenario-specific interpretation, ruled-out causes, next checks, and candidate fix paths.
+After identifying `top_causes[].type`, load `references/scenario-guides.md` and
+apply the matching scenario section. Do not reserve detailed recommendations for
+one special case; every concrete failure type should include scenario-specific
+interpretation, ruled-out causes, next checks, and candidate fix paths.
 
 Each top cause should include:
 
-- `scenario`: the matched scenario guide section, such as `ImagePullBackOff`, `CrashLoopBackOff`, `OOMKilled`, `Pending`, `StorageMountFailure`, `Evicted`, `ProbeFailure`, `SandboxOrCNIBlocked`, or `QuotaOrAdmissionRejected`.
+- `scenario`: the matched scenario guide section, such as `ImagePullBackOff`,
+  `CrashLoopBackOff`, `OOMKilled`, `Pending`, `StorageMountFailure`, `Evicted`,
+  `ProbeFailure`, `SandboxOrCNIBlocked`, or `QuotaOrAdmissionRejected`.
 - `subtype`: a more precise class derived from Events/logs/status, such as `repository_or_tag_missing`, `app_startup_error`, `memory_limit_too_low`, `failed_scheduling_taint`, or `pvc_pending`.
 - `interpretation`: plain-language explanation of what the evidence means.
 - `ruled_out`: adjacent causes that are less likely and why.
