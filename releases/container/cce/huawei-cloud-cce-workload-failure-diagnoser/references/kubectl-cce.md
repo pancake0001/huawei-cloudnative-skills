@@ -1,6 +1,7 @@
 # kubectl-cce Usage
 
-This skill uses the `kubectl cce` plugin as the primary Kubernetes access path. Do not generate kubeconfig, patch kubeconfig server fields, call the Kubernetes SDK, or fall back to SDK dispatcher actions for Kubernetes evidence.
+This skill uses the `kubectl cce` plugin as the primary Kubernetes access path. Do not generate or patch kubeconfig, call the Kubernetes SDK, or fall back to
+SDK dispatcher actions for Kubernetes evidence.
 
 ## Install
 
@@ -13,11 +14,13 @@ kubectl version --client
 kubectl plugin list
 ```
 
-The executable must be named `kubectl-cce` so kubectl discovers it as `kubectl cce`. On Windows the executable is usually `kubectl-cce.exe`. If the real kubectl binary is not in `PATH`, set `KUBECTL_BIN` to the platform-native kubectl path before invoking the plugin.
+The executable must be named `kubectl-cce` so kubectl discovers it as `kubectl cce`. On Windows it is usually `kubectl-cce.exe`. If kubectl is not in `PATH`,
+set `KUBECTL_BIN` to the platform-native kubectl path before invoking the plugin.
 
 ## Credentials
 
-The plugin requires AK/SK or an IAM token plus the target project ID. Configure credentials through approved tool parameters, a protected shell environment, or an approved local credential provider. Do not print credential values, tokens, Authorization headers, or proxy details.
+The plugin requires AK/SK or an IAM token plus the target project ID. Configure credentials through approved tool parameters, a protected shell environment,
+or an approved local credential provider. Do not print credential values, tokens, Authorization headers, or proxy details.
 
 Supported credential names depend on the plugin version; common aliases include:
 
@@ -38,7 +41,8 @@ Use the default CCE API Gateway endpoint first. Set `CCE_ENDPOINT` or pass `--en
 
 ## Limits
 
-The plugin intentionally blocks streaming commands such as `exec`, `attach`, and `port-forward`. `logs -f` and `watch` are not hardened. Use bounded `logs --tail` and ordinary `get`/`describe` commands for reports.
+The plugin blocks streaming commands such as `exec`, `attach`, and `port-forward`. `logs -f` and `watch` are not hardened. Use bounded `logs --tail` and ordinary
+`get`/`describe` commands for reports.
 
 ## Failure Handling
 

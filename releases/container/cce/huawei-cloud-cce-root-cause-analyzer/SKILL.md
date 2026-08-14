@@ -1,14 +1,23 @@
 ---
-id: huawei-cloud-cce-root-cause-analyzer
 name: huawei-cloud-cce-root-cause-analyzer
 description: >
-  Analyze cross-domain Huawei Cloud CCE incidents with hcloud CLI, kubectl-cce plugin commands, an observability context package, and related diagnosis skills. Use this skill when an incident spans alarms, workload rollout, Pod events/logs, recent changes, service topology, nodes, network, storage, or metrics, and the user needs a complete Markdown root-cause report with summary, root cause ranking, next actions, evidence chain, impact scope, confidence, and remediation handoff. Do not use Python SDK dispatcher actions.
-tags: [cce, root-cause-analysis, cross-domain-diagnosis, kubernetes, hcloud, kubectl-cce]
+  Analyze cross-domain Huawei Cloud CCE incidents using hcloud, kubectl-cce,
+  an observability context package, and related diagnosis skills. Use this skill
+  whenever the user mentions a cross-domain incident spanning alarms, workload
+  rollouts, Pod Events or logs, recent changes, service topology, nodes, network,
+  storage, or metrics and needs ranked root causes, evidence chains, impact scope,
+  confidence, next actions, or remediation handoff.
+version: 1.0.0
+tags: [huawei-cloud, cce, root-cause, kubectl, diagnosis]
 ---
 
 # Huawei Cloud CCE Root Cause Analyzer
 
-This skill converges multi-domain CCE evidence into ranked root cause conclusions and a customer-ready Markdown report. It is an orchestration and synthesis skill: collect evidence through `hcloud`, `kubectl cce`, and focused read-only diagnosis skills, then rank causes by timeline alignment, evidence strength, impact scope, counter-evidence, and recoverability.
+## Overview
+
+This skill converges multi-domain CCE evidence into ranked root cause conclusions and a customer-ready Markdown report. It orchestrates evidence collection through
+`hcloud`, `kubectl cce`, and focused read-only diagnosis skills, then ranks causes by timeline alignment, evidence strength, impact scope, counter-evidence, and
+recoverability.
 
 Execution model:
 
@@ -16,9 +25,17 @@ Execution model:
 observability context package -> hcloud CCE discovery -> kubectl cce current Kubernetes evidence -> optional hcloud/AOM/LTS evidence -> domain diagnoser handoff -> root cause ranking -> Markdown report
 ```
 
-Do not use Python SDK dispatcher commands, `scripts/huawei-cloud.py`, `skill action=exec`, `huawei_root_cause_*`, `huawei_*_diagnose`, `huawei_*_analyze`, bundled SDK scripts, kubeconfig generation, or Huawei Cloud SDK imports for this skill.
+Do not use Python SDK dispatchers, legacy skill execution actions, old Huawei diagnosis actions, bundled SDK scripts, kubeconfig generation, or Huawei Cloud SDK imports.
 
 **Related prerequisite skill**: use `huawei-cloud-kubectl-cce-installer` to install or repair `kubectl`/`kubectl-cce`. Read `references/kubectl-cce.md` before running Kubernetes commands.
+
+## Prerequisites
+
+1. `hcloud`, `kubectl`, and kubectl-cce are available as platform-native binaries.
+2. Credentials and project context are available through approved protected channels.
+3. IAM and Kubernetes RBAC permit the read-only evidence required by selected domain skills.
+4. Build or reuse an observability context package before assigning high-confidence root causes.
+5. If tooling is missing, use `huawei-cloud-kubectl-cce-installer`; do not download or execute installers in this skill.
 
 ## Evidence Dependency Skills
 
@@ -38,9 +55,10 @@ Use these read-only skills as evidence providers when their domain is relevant:
 | `huawei-cloud-cce-kubernetes-event-analyzer` | Current and historical Kubernetes Event analysis |
 | `huawei-cloud-cce-metric-analyzer` | AOM/Prometheus and cloud resource metrics when metric evidence is needed |
 
-**Remediation handoff only**: `huawei-cloud-cce-auto-remediation-runner` is not an evidence dependency. Mention it only after the root cause is established and the user asks for a preview or confirms a recovery action.
+**Remediation handoff only**: `huawei-cloud-cce-auto-remediation-runner` is not an evidence dependency. Mention it only after the root cause is established and
+the user asks for a preview or confirms a recovery action.
 
-## Required Inputs
+## Parameters
 
 | Input | Required | Notes |
 | --- | --- | --- |
@@ -54,18 +72,37 @@ Use these read-only skills as evidence providers when their domain is relevant:
 
 If the target is ambiguous, first collect a broad read-only snapshot and state what object still needs confirmation before assigning high confidence.
 
-## Evidence Collection
+## Core Commands And Evidence Collection
 
-1. Start by building or reusing an observability context package with `huawei-cloud-cce-observability-context-builder` unless the user already provided equivalent alarms, Events, logs, metrics, scope, timeline, and data gaps.
-2. Verify `hcloud`, `kubectl`, and `kubectl-cce` availability. If the plugin is missing, use `huawei-cloud-kubectl-cce-installer`.
-3. Discover cluster metadata with read-only hcloud commands:
+### 1. Build Or Reuse Context
+
+Build or reuse an observability context package with
+`huawei-cloud-cce-observability-context-builder` unless the user provided equivalent
+alarms, Events, logs, metrics, scope, timeline, and data gaps.
+
+### 2. Verify Tools
+
+Verify `hcloud`, `kubectl`, and `kubectl-cce` availability. If the plugin is missing,
+use `huawei-cloud-kubectl-cce-installer`.
 
 ```bash
-hcloud CCE ListClusters --cli-region=<region> --cli-output=json
-hcloud CCE ShowCluster --cluster_id=<cluster-id> --cli-region=<region> --cli-output=json
+hcloud version
+kubectl version --client
+kubectl plugin list
 ```
 
-4. Collect current Kubernetes evidence through the plugin. Always pass cluster, region, and project explicitly:
+### 3. Discover Cluster Metadata
+
+Use read-only hcloud commands:
+
+```bash
+hcloud CCE ListClusters --project_id=<project-id> --cli-region=<region> --cli-output=json
+hcloud CCE ShowCluster --cluster_id=<cluster-id> --project_id=<project-id> --cli-region=<region> --cli-output=json
+```
+
+### 4. Collect Current Kubernetes Evidence
+
+Use the plugin and always pass cluster, region, and project explicitly:
 
 ```bash
 kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -A -o wide
@@ -74,9 +111,20 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -A --sort-by=.lastTimestamp
 ```
 
-5. Add focused evidence through dependent skills when a signal crosses domains. Do not duplicate full domain logic inside this skill.
-6. Use AOM/LTS/metrics skills for historical alarms, historical events, logs, and time-series when current Kubernetes state is insufficient.
-7. Record every failed collector as a data gap with the command category, object scope, sanitized error, and impact on confidence.
+### 5. Add Focused Domain Evidence
+
+Use dependent skills when a signal crosses domains. Do not duplicate full domain logic
+inside this skill.
+
+### 6. Add Historical Evidence
+
+Use AOM/LTS/metrics skills for historical alarms, historical Events, logs, and
+time-series when current Kubernetes state is insufficient.
+
+### 7. Record Data Gaps
+
+Record every failed collector with the command category, object scope, sanitized error,
+and impact on confidence.
 
 ## Root Cause Workflow
 
@@ -93,7 +141,7 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 5. Rank Top3 causes by timeline alignment, direct evidence, blast radius, known failure signature, counter-evidence, and recoverability.
 6. Output remediation only as recommendations or handoff instructions. Mutations belong to `huawei-cloud-cce-auto-remediation-runner` after explicit confirmation.
 
-## Report Requirements
+## Output Format
 
 The Markdown report must put the most important information first:
 
@@ -105,14 +153,29 @@ The Markdown report must put the most important information first:
 6. `## Impact Scope`: affected workloads, Pods, Services, Ingresses, Nodes, namespaces, and upstream/downstream dependencies.
 7. `## Appendix`: raw evidence summaries, command categories, and limitations.
 
-Never write only "image pull failed", "node abnormal", "network issue", or "change caused failure" when more evidence is available. Explain the concrete failure signature, why it maps to the cause, what evidence is missing, and how to verify the next step.
+Never write only "image pull failed", "node abnormal", "network issue", or "change caused failure" when more evidence is available. Explain the concrete
+failure signature, why it maps to the cause, what evidence is missing, and how to verify the next step.
+
+## Best Practices
+
+- Build one shared timeline and object scope before comparing domain hypotheses.
+- Rank causes by direct evidence and counter-evidence, not by symptom frequency alone.
+- Preserve data gaps and lower confidence when a required collector fails.
+- Keep domain-specific logic in its diagnoser and use this skill for synthesis.
+
+## Notes And Safety Rules
+
+- Use only read-only `hcloud` and `kubectl cce` operations.
+- Do not generate kubeconfig or call cloud/Kubernetes SDK clients.
+- Do not run remediation, rollout, node, network, or storage mutations.
+- Redact credentials, tokens, headers, proxy details, registry secrets, and sensitive log values.
 
 ## Verification
 
 Before treating the skill as ready, verify:
 
 ```bash
-rg -n "scripts/huawei-cloud.py|skill action=exec|huawei_root_cause|huawei_.*_(diagnose|analyze)|huaweicloudsdk|KubernetesClusterCertRequest|CreateKubernetesClusterCert" . --glob "!*.md"
+rg -n "huawei-cloud[.]py|skill action=ex[e]c|huawei[-_]root[-_]cause|huawei[-_].*[-_]diagnose|huawei[-_].*[-_]analyze|huaweicloudsdk|KubernetesClusterCertRequest|CreateKubernetesClusterCert" . --glob "!*.md"
 rg -n -P "^kubectl (?!cce|version|plugin)" .
 ```
 

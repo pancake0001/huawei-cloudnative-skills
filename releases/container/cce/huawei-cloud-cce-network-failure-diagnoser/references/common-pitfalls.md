@@ -14,7 +14,8 @@ When Service and endpoints are healthy but east-west traffic fails, inspect Netw
 
 ## Pitfall 4: Overusing Active Tests
 
-`kubectl exec` curl tests, packet capture, and traffic generation can affect workloads or require extra permissions. This skill is passive by default. Use active tests only after explicit user request and risk acknowledgment.
+Interactive in-Pod HTTP tests, packet capture, and traffic generation can affect workloads or require extra permissions. This skill is passive by default.
+Use active tests only after explicit user request and risk acknowledgment.
 
 ## Pitfall 5: Confusing DNS And Service Routing
 

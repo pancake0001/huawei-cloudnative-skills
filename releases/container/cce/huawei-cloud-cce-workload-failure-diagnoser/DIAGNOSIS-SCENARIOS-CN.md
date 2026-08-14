@@ -52,7 +52,8 @@ hcloud CCE 查询集群 -> kubectl cce 只读采集资源 -> 发布漏斗分析 
 
 3. 查询集群和访问入口
 
-   使用 `hcloud CCE ListClusters`、`ShowCluster`、`ShowClusterEndpoints` 确认集群存在、状态可用、region/project 正确。Kubernetes 访问通过 kubectl-cce 插件默认访问 `<cluster-id>.cce.<region>.myhuaweicloud.com`，必要时用 `CCE_ENDPOINT` 或 `--endpoint` 覆盖。
+   使用 `hcloud CCE ListClusters`、`ShowCluster`、`ShowClusterEndpoints` 确认集群存在、状态可用、region/project 正确。Kubernetes 访问通过
+   kubectl-cce 插件默认访问 `<cluster-id>.cce.<region>.myhuaweicloud.com`，必要时用 `CCE_ENDPOINT` 或 `--endpoint` 覆盖。
 
 4. 配置 kubectl-cce 插件
 
@@ -60,7 +61,8 @@ hcloud CCE 查询集群 -> kubectl cce 只读采集资源 -> 发布漏斗分析 
 
 5. 验证 Kubernetes 读权限
 
-   先跑 `kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> cluster-info`，再用 `kubectl cce ... auth can-i` 检查目标命名空间里的 Deployment/Pod/Event/Pod logs 读取权限。网络不可达或 RBAC 不足要作为诊断缺口写入报告。
+   先跑 `kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> cluster-info`，再用 `kubectl cce ... auth can-i` 检查目标
+   命名空间里的 Deployment/Pod/Event/Pod logs 读取权限。网络不可达或 RBAC 不足要作为诊断缺口写入报告。
 
 6. 采集工作负载证据
 
@@ -93,5 +95,5 @@ hcloud CCE 查询集群 -> kubectl cce 只读采集资源 -> 发布漏斗分析 
 
 - `kubectl cce ... apply/create/patch/edit/delete/scale/rollout undo/cordon/drain/taint`
 - 任何 hcloud create/update/delete 操作
-- Python SDK dispatcher、`scripts/huawei-cloud.py`、`skill action=exec`、`huawei_workload_*`
+- Python SDK dispatcher、旧版分发脚本或旧版工作负载动作别名
 - 在报告或日志中输出 AK/SK、token、kubectl-cce 代理凭据或 Authorization header

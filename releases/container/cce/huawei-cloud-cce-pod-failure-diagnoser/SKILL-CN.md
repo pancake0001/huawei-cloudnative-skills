@@ -1,7 +1,11 @@
 ---
 name: huawei-cloud-cce-pod-failure-diagnoser
-description: 使用 hcloud 和只读 kubectl-cce 证据诊断华为云 CCE Pod 故障；用户提到 CrashLoopBackOff、ImagePullBackOff、OOMKilled、Pending 或 Evicted 时使用本技能。
-version: 1.0.0
+description: >
+  使用 hcloud 和只读 kubectl-cce 证据诊断华为云 CCE Pod 故障。
+  适用于 CrashLoopBackOff、ImagePullBackOff、ErrImagePull、OOMKilled、Pending、
+  FailedScheduling、FailedMount、FailedAttachVolume、探针失败、sandbox 或 CNI 失败、
+  频繁重启、Error、RunContainerError 或 Evicted 等场景。
+version: 1.0.1
 tags: [huawei-cloud, cce, kubectl, pod, diagnosis]
 ---
 
@@ -51,16 +55,11 @@ tags: [huawei-cloud, cce, kubectl, pod, diagnosis]
 ## 前置条件
 
 1. `hcloud` 已安装并在 `PATH` 中。不同平台使用对应原生二进制，命令示例统一写 `hcloud ...`，不要硬编码 Windows 或 Linux 专属路径。
-1. `kubectl` 已安装，并与目标 Kubernetes 小版本兼容。很多 agent sandbox 运行在 Linux，即使开发机是 Windows，也不要在流程里写死 `kubectl.exe`。
-1. 如果 `hcloud` 或 `kubectl` 不在 `PATH` 中，先定位当前平台可执行的二进制，赋值给 shell 变量，并用 `version` 验证后再用。不要因为某个文件名叫 `kubectl.exe` 或 `hcloud.exe` 就假设它适配当前 OS。
-1. AK/SK 已配置到 hcloud。只用下面命令检查配置，不打印密钥：
-
-```bash
-hcloud configure list
-```
-
-1. IAM 至少允许 list/show CCE 集群并使用 kubectl-cce API Gateway 接入。
-1. kubectl-cce 认证用户具备目标 namespace 中读取 Pod、Events、logs、Service、PVC、Node、metrics 的 RBAC 权限。
+2. `kubectl` 已安装，并与目标 Kubernetes 小版本兼容。很多 agent sandbox 运行在 Linux，即使开发机是 Windows，也不要在流程里写死 `kubectl.exe`。
+3. 如果 `hcloud` 或 `kubectl` 不在 `PATH` 中，先定位当前平台可执行的二进制，赋值给 shell 变量，并用 `version` 验证后再用。不要因为某个文件名叫 `kubectl.exe` 或 `hcloud.exe` 就假设它适配当前 OS。
+4. AK/SK 已配置到 hcloud。只用 `hcloud configure list` 检查配置，不打印密钥。
+5. IAM 至少允许 list/show CCE 集群并使用 kubectl-cce API Gateway 接入。
+6. kubectl-cce 认证用户具备目标 namespace 中读取 Pod、Events、logs、Service、PVC、Node、metrics 的 RBAC 权限。
 
 最终报告里不要输出 AK、SK、security token、kubectl-cce 代理凭据或 Authorization header。日志片段必须脱敏。
 
@@ -239,12 +238,12 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 按 Pod 生命周期中最先失败的层级排序：
 
 1. Pod 未通过准入或 sandbox/network 创建失败。
-1. Pod 存在但无法调度。
-1. Pod 已调度但卷无法 attach/mount。
-1. 镜像无法拉取。
-1. 容器启动后退出或崩溃。
-1. 容器运行但 startup/liveness/readiness 探针失败。
-1. 节点压力或驱逐解释 Pod 故障。
+2. Pod 存在但无法调度。
+3. Pod 已调度但卷无法 attach/mount。
+4. 镜像无法拉取。
+5. 容器启动后退出或崩溃。
+6. 容器运行但 startup/liveness/readiness 探针失败。
+7. 节点压力或驱逐解释 Pod 故障。
 
 常见原因标签：
 
@@ -276,7 +275,7 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 - 当前日志和 previous 日志发现。
 - 指标、节点、存储等缺口。
 - 详细证据：相关 Events、状态字段、owner/workload 信息和关键命令证据。
-- CLI 路径：使用过的 hcloud CCE 和 kubectl 证据命令。
+- CLI 路径：使用过的 hcloud CCE 和 kubectl-cce 证据命令。
 - 明确说明没有执行变更命令。
 
 识别 Top Cause 后，读取 `references/scenario-guides.md` 并套用对应场景。
@@ -313,7 +312,7 @@ ImagePullBackOff、CrashLoopBackOff、OOMKilled、Pending、存储挂载、Evict
 - `kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id>` 能读取目标 namespace。
 - 本 skill 包中没有 SDK dispatcher 入口或 SDK 脚本残留。
 
-## References
+## 参考文档
 
 - `references/workflow.md` - 证据顺序和故障分类规则。
 - `references/scenario-guides.md` - 各故障场景的解释、下一步检查、候选修复和移交建议。

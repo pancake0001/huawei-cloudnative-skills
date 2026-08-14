@@ -2,7 +2,7 @@
 
 - Read-only only: allow discovery, diagnosis, metric/log/event query, and report generation.
 - Do not scale, delete, patch, restart, drain, reboot, bind/unbind EIP, change routing, modify security groups, modify NetworkPolicy/RBAC, sleep/wake clusters, or change vulnerability state.
-- Do not use Python SDK dispatcher commands, `scripts/huawei-cloud.py`, `skill action=exec`, `huawei_*` actions, kubeconfig generation, direct IAM curl flows, or Huawei Cloud SDK imports.
+- Do not use Python SDK dispatcher commands, legacy dispatcher scripts or actions, kubeconfig generation, direct IAM HTTP flows, or Huawei Cloud SDK imports.
 - Use `kubectl cce` for Kubernetes evidence and `hcloud` for cloud-side read-only evidence. If either path fails, report a sanitized data gap and reduce confidence.
 - Treat the observability context package as first-pass evidence. Re-check high-risk or contradictory findings before assigning high-confidence root cause.
 - Do not conclude root cause from a single alarm or isolated object update. Require a timeline or evidence chain.

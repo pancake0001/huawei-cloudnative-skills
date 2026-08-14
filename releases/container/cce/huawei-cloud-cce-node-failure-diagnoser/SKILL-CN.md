@@ -1,12 +1,17 @@
 ---
-id: huawei-cloud-cce-node-failure-diagnoser
 name: huawei-cloud-cce-node-failure-diagnoser
 description: >
-  使用 hcloud CLI 做华为云 CCE 集群发现和节点元数据查询，再通过 `kubectl cce` 插件命令采集只读 Kubernetes 节点证据来诊断节点故障。适用于 CCE NodeNotReady、Ready=Unknown、kube-node-lease 超时、DiskPressure、MemoryPressure、PIDPressure、NetworkUnavailable、CNI/节点网络异常、kubelet 或容器运行时异常、NPD 事件、驱逐影响和节点级工作负载影响。不使用 Python SDK dispatcher。
-tags: [huawei-cloud, cce, hcloud, koocli, kubectl, node, diagnosis]
+  使用 hcloud 获取华为云 CCE 集群和节点元数据，并通过只读 kubectl-cce 证据诊断节点故障。
+  适用于 NodeNotReady、Ready=Unknown、kube-node-lease 过期、DiskPressure、
+  MemoryPressure、PIDPressure、NetworkUnavailable、CNI、kubelet 或 runtime 故障、
+  驱逐或节点级工作负载影响。
+version: 1.0.0
+tags: [huawei-cloud, cce, kubectl, node, diagnosis]
 ---
 
-# Huawei Cloud CCE Node Failure Diagnoser
+# 华为云 CCE 节点故障诊断
+
+## 概述
 
 本技能通过华为云 `hcloud` CLI 和 Kubernetes `kubectl` 诊断 CCE/Kubernetes 节点故障。
 
@@ -26,7 +31,7 @@ CCE hcloud 只用于集群级和 CCE 节点元数据：
 
 Kubernetes 节点状态、kube-node-lease、Events、节点上的 Pods、必要时的 Pod 日志，以及 metrics-server 指标，都使用 `kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id>` 采集。
 
-不要使用 Python SDK dispatcher、`scripts/huawei-cloud.py`、`skill action=exec`、旧 `huawei_node_*` action 或 Huawei Cloud SDK import。
+不要使用 Python SDK dispatcher、旧 skill 执行动作、旧 Huawei node action 或 Huawei Cloud SDK import。
 
 **相关前置 skill**：如果需要安装或修复 `kubectl`/`kubectl-cce`，使用 `huawei-cloud-kubectl-cce-installer`。插件接入约束见 `references/kubectl-cce.md`。
 
@@ -42,7 +47,7 @@ Kubernetes 节点状态、kube-node-lease、Events、节点上的 Pods、必要�
 
 本技能不修改节点或工作负载状态。cordon、uncordon、drain、reboot、delete、taint、scale、restart 等动作只能作为建议输出，并在用户确认后交给 remediation skill。
 
-## 必要输入
+## 参数确认
 
 | 输入 | 必填 | 说明 |
 | --- | --- | --- |
@@ -60,18 +65,13 @@ Kubernetes 节点状态、kube-node-lease、Events、节点上的 Pods、必要�
 
 1. `hcloud` 已安装并在 `PATH` 中，或已找到平台原生二进制并用 `hcloud version` 验证。
 2. `kubectl` 已安装并兼容目标 Kubernetes 版本。Linux sandbox 使用 Linux kubectl；Windows 工作站使用 `kubectl.exe`。
-3. hcloud 已具备认证配置，或本次命令通过临时参数传入凭据。只用下面命令做脱敏验证：
-
-```bash
-hcloud configure list
-```
-
+3. hcloud 已具备认证配置，或本次命令通过临时参数传入凭据。只用 `hcloud configure list` 做脱敏验证。
 4. IAM 允许读取 CCE 集群/节点并使用 kubectl-cce API Gateway 接入。
 5. Kubernetes RBAC 允许读取 nodes、leases、events、pods、pod logs 和 metrics。
 
 不要打印 AK、SK、security token、kubectl-cce 代理凭据、Authorization header 或镜像仓库密钥。
 
-## CCE hcloud 设置流程
+## 核心命令与准备流程
 
 ### 1. 确认 CLI 工具
 
@@ -81,7 +81,9 @@ hcloud configure list
 kubectl version --client
 ```
 
-如果工具不在 `PATH` 中，先定位或安装平台原生二进制，并验证实际使用的二进制。技能文档示例保持平台无关，只写 `hcloud` 和 `kubectl`。
+如果工具缺失，停止当前诊断流程，改用 `huawei-cloud-kubectl-cce-installer`
+或批准的平台安装流程。本诊断技能不得下载或执行安装脚本。安装时固定批准版本、
+校验官方 checksum 或签名，再重新执行上述检查。
 
 ### 2. 定位并检查集群
 
@@ -181,7 +183,21 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 5. 节点上集中的 Pod 症状：Evicted、ContainerStatusUnknown、FailedCreatePodSandBox、挂载失败、重启风暴。
 6. allocatable/request 汇总和 metrics 指标显示的资源饱和。
 
-## 报告格式
+常见原因标签：
+
+| 原因 | 证据 |
+| --- | --- |
+| `ControlPlaneDisconnected` | Ready=Unknown、lease 过期、NodeStatusUnknown conditions |
+| `NodeNotReady` | Ready=False，且存在 kubelet/节点问题 Events |
+| `MemoryPressure` | MemoryPressure=True、驱逐、内存指标或 allocatable 压力 |
+| `DiskPressure` | DiskPressure=True、ephemeral-storage 驱逐或磁盘问题 conditions |
+| `PIDPressure` | PIDPressure=True 或 PID 问题 Events |
+| `NetworkUnavailableOrCNI` | NetworkUnavailable=True，或节点集中出现 CNIProblem、FailedCreatePodSandBox |
+| `KubeletOrRuntimeProblem` | KUBELETProblem、CRIProblem、containerd/kubelet 重启信号 |
+| `SchedulingDisabledOrTainted` | 节点不可调度，或 taint 已影响调度 |
+| `HealthyOrNoNodeFault` | 节点 Ready、lease 新鲜，且无压力或问题信号 |
+
+## 输出格式
 
 按 `references/output-schema.md` 输出用户报告。报告要先给结论和行动建议，再放命令轨迹和原始条件表。
 
@@ -196,10 +212,17 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 - 反向证据：相邻原因为什么不优先。
 - Node condition 表和 kube-node-lease 结论。
 - 指标缺口和验证缺口。
-- CLI 路径：hcloud CCE 操作和 kubectl 证据命令。
+- CLI 路径：hcloud CCE 操作和 kubectl-cce 证据命令。
 - 明确说明没有执行任何变更命令。
 
-## 安全边界
+## 最佳实践
+
+- 先检查节点存活状态和 lease 新鲜度，再解释下游 Pod 症状。
+- 关联 Kubernetes 节点名、CCE 节点 ID、conditions、Events 和受影响 Pod。
+- 指标或日志不可用时记录验证缺口，不推断不存在的趋势。
+- 保持只读诊断，所有节点或工作负载变更都必须移交。
+
+## 注意事项与安全边界
 
 执行建议前先读 `references/risk-rules.md`。本技能只读，不运行：
 
@@ -217,7 +240,7 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 - `kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id>` 能读取 nodes、leases、events、pods。
 - 技能包中没有 SDK dispatcher 入口残留。
 
-## References
+## 参考文档
 
 - `references/workflow.md` - 节点证据顺序和故障规则。
 - `references/common-pitfalls.md` - 节点诊断常见坑和 CLI 示例。

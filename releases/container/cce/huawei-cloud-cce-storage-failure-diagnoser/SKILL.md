@@ -1,12 +1,19 @@
 ---
-id: huawei-cloud-cce-storage-failure-diagnoser
 name: huawei-cloud-cce-storage-failure-diagnoser
 description: >
-  Diagnose Huawei Cloud CCE storage failures with hcloud CLI for cluster/cloud storage metadata and kubectl-cce plugin commands for read-only PVC, PV, StorageClass, Pod, Node, Event, VolumeAttachment, and CSI log evidence. Use this skill for PVC Pending, provisioning failures, PV/PVC binding issues, EVS topology conflicts, VolumeAttachment attach failures, FailedMount, SFS/SFS Turbo NFS timeout, OBS 403 or credential errors, runtime IO errors, read-only filesystem, capacity or inode exhaustion, subPath mount deadlocks, PVC Terminating protection, and Markdown storage diagnosis reports. Do not use Python SDK dispatcher actions.
-tags: [cce, storage-diagnosis, evs, pvc, fault-diagnosis, hcloud, kubectl-cce]
+  Diagnose Huawei Cloud CCE storage failures using hcloud for cluster and
+  cloud-storage metadata plus read-only kubectl-cce evidence. Use this skill whenever
+  the user mentions PVC Pending, provisioning or binding failures, EVS topology
+  conflicts, FailedAttach, FailedMount, CSI errors, SFS or SFS Turbo NFS timeouts,
+  OBS 403 or credential errors, runtime I/O, read-only filesystems, capacity or inode
+  exhaustion, subPath issues, or PVC termination.
+version: 1.0.0
+tags: [huawei-cloud, cce, kubectl, storage, diagnosis]
 ---
 
 # Huawei Cloud CCE Storage Failure Diagnoser
+
+## Overview
 
 This skill diagnoses CCE/Kubernetes storage failures across provisioning, binding, scheduling, attach/mount, runtime I/O, capacity, permission, and teardown stages.
 
@@ -16,9 +23,17 @@ Execution model:
 hcloud CCE/cloud storage discovery -> kubectl cce storage evidence -> optional CSI logs/cloud metrics -> cause ranking -> Markdown report
 ```
 
-Do not use Python SDK dispatcher commands, `scripts/huawei-cloud.py`, `skill action=exec`, `huawei_storage_*`, `huawei_get_cce_*`, bundled SDK scripts, kubeconfig generation, or Huawei Cloud SDK imports.
+Do not use Python SDK dispatchers, legacy skill execution actions, old Huawei storage actions, bundled SDK scripts, kubeconfig generation, or Huawei Cloud SDK imports.
 
 **Related prerequisite skill**: use `huawei-cloud-kubectl-cce-installer` to install or repair `kubectl`/`kubectl-cce`. Read `references/kubectl-cce.md` before running Kubernetes commands.
+
+## Prerequisites
+
+1. `hcloud`, `kubectl`, and kubectl-cce are available as platform-native binaries.
+2. Credentials and project context are provided through approved protected channels.
+3. IAM and Kubernetes RBAC permit the required read-only cluster, storage, Event, Pod, Node, and CSI log queries.
+4. If tooling is missing, use `huawei-cloud-kubectl-cce-installer`; this skill must not download or execute installers.
+5. Never print credentials, tokens, headers, proxy details, storage secrets, or sensitive CSI log values.
 
 ## Related Skills
 
@@ -31,7 +46,7 @@ Do not use Python SDK dispatcher commands, `scripts/huawei-cloud.py`, `skill act
 | `huawei-cloud-cce-root-cause-analyzer` | Storage is one candidate in a multi-domain incident |
 | `huawei-cloud-cce-auto-remediation-runner` | User-confirmed remediation preview/execution |
 
-## Required Inputs
+## Parameters
 
 | Input | Required | Notes |
 | --- | --- | --- |
@@ -44,16 +59,29 @@ Do not use Python SDK dispatcher commands, `scripts/huawei-cloud.py`, `skill act
 | `failure_symptom` | Recommended | `pvc_pending`, `failed_mount`, `failed_attach`, `capacity`, `readonly_fs`, `nfs_timeout`, `obs_403`, `terminating` |
 | `volume_id` | Optional | EVS/SFS/SFS Turbo/OBS identifier when known |
 
-## Collection
+## Core Commands And Evidence Collection
 
-1. Discover cluster context:
+### 1. Verify Tools And Plugin
+
+Read `references/kubectl-cce.md`, then verify platform-native tools and plugin discovery:
 
 ```bash
-hcloud CCE ListClusters --cli-region=<region> --cli-output=json
-hcloud CCE ShowCluster --cluster_id=<cluster-id> --cli-region=<region> --cli-output=json
+hcloud version
+kubectl version --client
+kubectl plugin list
 ```
 
-2. Collect Kubernetes storage evidence through kubectl-cce:
+If a tool or plugin is missing, stop and use `huawei-cloud-kubectl-cce-installer`.
+Do not download an installer or fall back to SDK or kubeconfig access.
+
+### 2. Discover Cluster Context
+
+```bash
+hcloud CCE ListClusters --project_id=<project-id> --cli-region=<region> --cli-output=json
+hcloud CCE ShowCluster --cluster_id=<cluster-id> --project_id=<project-id> --cli-region=<region> --cli-output=json
+```
+
+### 3. Collect Kubernetes Storage Evidence
 
 ```bash
 kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pvc,pv,storageclass,volumeattachments -A -o json
@@ -63,14 +91,23 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -n <namespace> --sort-by=.lastTimestamp
 ```
 
-3. Collect CSI evidence when RBAC allows. Keep logs bounded and sanitized:
+### 4. Collect CSI Evidence
+
+When RBAC allows, discover the deployed CSI Pod names and labels before selecting a
+target; CCE versions may use different labels. Keep logs bounded and sanitized:
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n kube-system -l app=everest-csi-driver -o wide
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> logs -n kube-system -l app=everest-csi-driver --tail=200
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n kube-system --show-labels
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pod <csi-pod-name> -n kube-system -o json
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> logs <csi-pod-name> -n kube-system -c <csi-container-name> --tail=200
 ```
 
-4. Collect cloud-side read-only evidence only when identifiers are known or safely derived. Use hcloud for EVS/SFS/SFS Turbo/OBS/VPC/security-group/ACL context and metric skills for time-series evidence. If an operation name or identifier is uncertain, run help or record a data gap.
+### 5. Collect Cloud-Side Evidence
+
+Collect cloud-side read-only evidence only when identifiers are known or safely derived.
+Use hcloud for EVS/SFS/SFS Turbo/OBS/VPC/security-group/ACL context and metric skills
+for time-series evidence. If an operation name or identifier is uncertain, run help or
+record a data gap.
 
 ## Diagnosis Workflow
 
@@ -83,7 +120,7 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 7. OBS/IAM/credential: inspect Events and CSI logs for 403, delegation, AK/SK Secret, bucket, endpoint, and policy errors without printing secrets.
 8. Terminating/finalizer: inspect deletionTimestamp, finalizers, bound Pods, VolumeAttachment, and protection state. Recommend remediation only; do not remove finalizers.
 
-## Output Requirements
+## Output Format
 
 The Markdown report must start with:
 
@@ -93,12 +130,22 @@ The Markdown report must start with:
 4. `## Evidence`: PVC/PV/StorageClass/VolumeAttachment/Pod/Node/Event/CSI/cloud evidence.
 5. `## Data Gaps`: missing RBAC, missing CSI logs, missing cloud volume ID, unavailable metrics, or unknown StorageClass backend.
 
-Do not mutate resources. Do not run `exec`, node SSH, packet capture, stress tests, `fsck`, finalizer removal, force detach, or storage expansion from this skill.
+## Best Practices
+
+- Diagnose storage in lifecycle order: provisioning, binding, scheduling, attach, mount, runtime, and teardown.
+- Correlate PVC, PV, StorageClass, VolumeAttachment, Pod, Node, CSI, and cloud volume identities.
+- Keep CSI logs bounded and redact credentials, endpoints, and sensitive mount details.
+- Treat missing cloud identifiers, RBAC, logs, or metrics as explicit data gaps.
+
+## Notes And Safety Rules
+
+Do not mutate resources. Do not run `exec`, node SSH, packet capture, stress tests,
+`fsck`, finalizer removal, force detach, or storage expansion from this skill.
 
 ## Verification
 
 ```bash
-rg -n "scripts/huawei-cloud.py|skill action=exec|huawei_storage|huawei_get_cce_|huaweicloudsdk|KubernetesClusterCertRequest|CreateKubernetesClusterCert" . --glob "!*.md"
+rg -n "huawei-cloud[.]py|skill action=ex[e]c|huawei[-_]storage|huawei[-_]get[-_]cce|huaweicloudsdk|KubernetesClusterCertRequest|CreateKubernetesClusterCert" . --glob "!*.md"
 rg -n -P "^kubectl (?!cce|version|plugin)" .
 ```
 

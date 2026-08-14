@@ -1,12 +1,17 @@
 ---
-id: huawei-cloud-cce-root-cause-analyzer
 name: huawei-cloud-cce-root-cause-analyzer
 description: >
-  使用 hcloud CLI、kubectl-cce 插件命令、可观测上下文包和相关诊断 skill，对华为云 CCE 跨域故障做根因分析。适用于告警、工作负载发布、Pod 事件/日志、近期变更、服务拓扑、节点、网络、存储或指标同时相关，并需要输出包含总结、根因排序、下一步措施、证据链、影响面、置信度和恢复交接的 Markdown 报告的场景。不要使用 Python SDK dispatcher action。
-tags: [cce, root-cause-analysis, cross-domain-diagnosis, kubernetes, hcloud, kubectl-cce]
+  使用 hcloud、kubectl-cce、可观测上下文包和相关诊断 Skill 分析华为云 CCE 跨域故障。
+  适用于同时涉及告警、工作负载发布、Pod Events 或日志、近期变更、服务拓扑、
+  节点、网络、存储或指标，且需要根因排序、证据链、影响面、置信度、下一步措施
+  和恢复交接的场景。
+version: 1.0.0
+tags: [huawei-cloud, cce, root-cause, kubectl, diagnosis]
 ---
 
 # 华为云 CCE 根因分析
+
+## 概述
 
 本 skill 负责把 CCE 多域证据收敛成可交付的根因结论和 Markdown 报告。它是编排与综合分析 skill：通过 `hcloud`、`kubectl cce` 和聚焦的只读诊断 skill 采集证据，再按时间吻合度、证据强度、影响范围、反证和可恢复性排序根因。
 
@@ -16,9 +21,17 @@ tags: [cce, root-cause-analysis, cross-domain-diagnosis, kubernetes, hcloud, kub
 可观测上下文包 -> hcloud CCE 查询集群 -> kubectl cce 采集当前 Kubernetes 证据 -> 可选 hcloud/AOM/LTS 证据 -> 域诊断 skill 下钻 -> 根因排序 -> Markdown 报告
 ```
 
-不要使用 Python SDK dispatcher、`scripts/huawei-cloud.py`、`skill action=exec`、`huawei_root_cause_*`、`huawei_*_diagnose`、`huawei_*_analyze`、捆绑 SDK 脚本、kubeconfig 生成或 Huawei Cloud SDK import。
+不要使用 Python SDK dispatcher、旧 skill 执行动作、旧 Huawei 诊断 action、捆绑 SDK 脚本、kubeconfig 生成或 Huawei Cloud SDK import。
 
 **相关前置 skill**：如果需要安装或修复 `kubectl`/`kubectl-cce`，使用 `huawei-cloud-kubectl-cce-installer`。执行 Kubernetes 命令前先读 `references/kubectl-cce.md`。
+
+## 前置条件
+
+1. `hcloud`、`kubectl` 和 kubectl-cce 均为当前平台可执行的原生二进制。
+2. 凭据和项目上下文通过批准的受保护渠道提供。
+3. IAM 和 Kubernetes RBAC 允许所选域 Skill 所需的只读证据采集。
+4. 给出高置信度根因前，先构建或复用可观测上下文包。
+5. 工具缺失时使用 `huawei-cloud-kubectl-cce-installer`，本技能不得下载或执行安装脚本。
 
 ## 证据依赖 Skill
 
@@ -40,7 +53,7 @@ tags: [cce, root-cause-analysis, cross-domain-diagnosis, kubernetes, hcloud, kub
 
 **恢复交接目标**：`huawei-cloud-cce-auto-remediation-runner` 不是证据依赖。只有根因明确后，且用户要求预览或确认恢复动作时，才作为交接目标提及。
 
-## 必要输入
+## 参数确认
 
 | 输入 | 必填 | 说明 |
 | --- | --- | --- |
@@ -54,18 +67,36 @@ tags: [cce, root-cause-analysis, cross-domain-diagnosis, kubernetes, hcloud, kub
 
 目标不明确时，先做只读广域快照，并在报告里说明还需要确认哪些对象，不能直接给高置信度结论。
 
-## 证据采集
+## 核心命令与证据采集
 
-1. 优先使用 `huawei-cloud-cce-observability-context-builder` 构建可观测上下文包；如果用户已经提供等价的告警、Events、日志、指标、范围、时间线和数据缺口，可以直接复用。
-2. 验证 `hcloud`、`kubectl` 和 `kubectl-cce`。缺插件时使用 `huawei-cloud-kubectl-cce-installer`。
-3. 使用只读 hcloud 命令发现集群：
+### 1. 构建或复用上下文
+
+优先使用 `huawei-cloud-cce-observability-context-builder` 构建可观测上下文包；
+如果用户已经提供等价的告警、Events、日志、指标、范围、时间线和数据缺口，可以直接复用。
+
+### 2. 验证工具
+
+验证 `hcloud`、`kubectl` 和 `kubectl-cce`。缺插件时使用
+`huawei-cloud-kubectl-cce-installer`。
 
 ```bash
-hcloud CCE ListClusters --cli-region=<region> --cli-output=json
-hcloud CCE ShowCluster --cluster_id=<cluster-id> --cli-region=<region> --cli-output=json
+hcloud version
+kubectl version --client
+kubectl plugin list
 ```
 
-4. 通过插件采集当前 Kubernetes 证据。必须显式传入集群、区域和项目：
+### 3. 发现集群元数据
+
+使用只读 hcloud 命令：
+
+```bash
+hcloud CCE ListClusters --project_id=<project-id> --cli-region=<region> --cli-output=json
+hcloud CCE ShowCluster --cluster_id=<cluster-id> --project_id=<project-id> --cli-region=<region> --cli-output=json
+```
+
+### 4. 采集当前 Kubernetes 证据
+
+通过插件采集，并且必须显式传入集群、区域和项目：
 
 ```bash
 kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -A -o wide
@@ -74,9 +105,17 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -A --sort-by=.lastTimestamp
 ```
 
-5. 信号跨域时调用或参考对应依赖 skill 的报告，不在本 skill 里重复完整域诊断逻辑。
-6. 当前 Kubernetes 状态不足时，用告警、事件、指标、日志类 skill 补充 AOM/LTS/历史证据。
-7. 所有采集失败都要作为数据缺口记录：命令类别、对象范围、脱敏错误和对置信度的影响。
+### 5. 补充专项证据
+
+信号跨域时调用或参考对应依赖 skill 的报告，不在本 skill 里重复完整域诊断逻辑。
+
+### 6. 补充历史证据
+
+当前 Kubernetes 状态不足时，用告警、事件、指标、日志类 skill 补充 AOM/LTS/历史证据。
+
+### 7. 记录数据缺口
+
+所有采集失败都要记录命令类别、对象范围、脱敏错误和对置信度的影响。
 
 ## 根因分析流程
 
@@ -93,7 +132,7 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 5. 按时间吻合度、直接证据、影响面、已知故障特征、反证和可恢复性排序 Top3。
 6. 恢复动作只输出建议或交接说明；需要变更时交给 `huawei-cloud-cce-auto-remediation-runner`，并要求用户显式确认。
 
-## 报告要求
+## 输出格式
 
 Markdown 报告必须把关键信息放前面：
 
@@ -107,18 +146,32 @@ Markdown 报告必须把关键信息放前面：
 
 有证据时不能只写“镜像拉取失败”“节点异常”“网络问题”“变更导致故障”。必须说明具体失败特征、为什么映射到该根因、缺什么证据、下一步怎么验证。
 
+## 最佳实践
+
+- 比较域级假设前，先建立共享时间线和对象范围。
+- 依据直接证据和反证排序根因，不按症状出现次数排序。
+- 采集器失败时保留数据缺口并降低置信度。
+- 域级细节留在对应 diagnoser，本技能负责综合分析。
+
+## 注意事项与安全规则
+
+- 仅使用只读 `hcloud` 和 `kubectl cce` 操作。
+- 不生成 kubeconfig，不调用云或 Kubernetes SDK。
+- 不执行恢复、发布、节点、网络或存储变更。
+- 脱敏凭据、token、header、代理信息、镜像仓库密钥和日志敏感值。
+
 ## 验证
 
 改造后用以下扫描确认没有旧执行入口：
 
 ```bash
-rg -n "scripts/huawei-cloud.py|skill action=exec|huawei_root_cause|huawei_.*_(diagnose|analyze)|huaweicloudsdk|KubernetesClusterCertRequest|CreateKubernetesClusterCert" . --glob "!*.md"
+rg -n "huawei-cloud[.]py|skill action=ex[e]c|huawei[-_]root[-_]cause|huawei[-_].*[-_]diagnose|huawei[-_].*[-_]analyze|huaweicloudsdk|KubernetesClusterCertRequest|CreateKubernetesClusterCert" . --glob "!*.md"
 rg -n -P "^kubectl (?!cce|version|plugin)" .
 ```
 
 期望结果：没有可执行 SDK dispatcher 入口，也没有裸 Kubernetes 访问路径。Markdown 中只能作为禁用项或验证项出现。
 
-## References
+## 参考文档
 
 - `references/kubectl-cce.md`：插件接入约束。
 - `references/workflow.md`：证据链和根因排序。

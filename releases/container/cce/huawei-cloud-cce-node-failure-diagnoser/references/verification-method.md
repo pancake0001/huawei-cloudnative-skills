@@ -47,6 +47,7 @@ Expected:
 - The plugin starts its short-lived local proxy and reaches the CCE API Gateway endpoint.
 - If the default `<cluster-id>.cce.<region>.myhuaweicloud.com` endpoint is not valid, set `CCE_ENDPOINT` or pass `--endpoint`.
 - Do not generate, store, or patch kubeconfig files for this skill path.
+
 ## Step 4: Kubernetes Read Access
 
 ```bash
@@ -84,7 +85,7 @@ Expected:
 From the skill package directory, run:
 
 ```bash
-rg -n "scripts/huawei-cloud.py|skill action=exec|huawei_node_|Python SDK dispatcher|Huawei Cloud Python SDK|huaweicloudsdk|KubernetesClusterCertRequest|BasicCredentials|Signer\\(" . --glob "!*.md"
+rg -n "huawei-cloud[.]py|skill action=ex[e]c|huawei[-_]node|Python SDK dispatcher|Huawei Cloud Python SDK|huaweicloudsdk|KubernetesClusterCertRequest|BasicCredentials|Signer\\(" . --glob "!*.md"
 ```
 
 Expected:

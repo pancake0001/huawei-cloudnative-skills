@@ -6,7 +6,7 @@ The final user-facing report may be Markdown, but it should be easy to map to th
 {
   "success": true,
   "action": "pod_failure_diagnose_cli",
-  "execution_model": "hcloud CCE + kubectl",
+  "execution_model": "hcloud CCE + kubectl-cce",
   "target": {
     "region": "cn-north-4",
     "project_id": "optional",

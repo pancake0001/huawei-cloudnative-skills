@@ -56,7 +56,7 @@ Produce a concise Markdown report for users, and optionally include the JSON-com
 ```json
 {
   "success": true,
-  "execution_model": "hcloud_cce_cli_plus_kubectl",
+  "execution_model": "hcloud_cce_cli_plus_kubectl_cce",
   "target": {
     "region": "cn-north-4",
     "project_id": "project-id",
@@ -151,7 +151,7 @@ Produce a concise Markdown report for users, and optionally include the JSON-com
 
 | Field | Description |
 | --- | --- |
-| `execution_model` | Must be `hcloud_cce_cli_plus_kubectl` |
+| `execution_model` | Must be `hcloud_cce_cli_plus_kubectl_cce` |
 | `commands.mutating_commands_run` | Must remain `false` for this skill |
 | `summary.status` | Diagnosis status based on the first failing funnel layer |
 | `events.filter_basis` | Explain how namespace events were narrowed to workload-related evidence |
