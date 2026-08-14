@@ -1,12 +1,13 @@
 ---
-id: huawei-cloud-cce-workload-failure-diagnoser
 name: huawei-cloud-cce-workload-failure-diagnoser
-description: >
-  使用 hcloud CLI 进行华为云 CCE 集群发现，并通过 `kubectl cce` 插件命令只读采集 Kubernetes 证据，诊断 CCE 工作负载发布和可用性故障。当用户提到 CCE Deployment、StatefulSet、DaemonSet、发布卡住、副本不可用、Pod 未就绪、ImagePullBackOff、CrashLoopBackOff、探针失败、调度失败、PVC 挂载失败、工作负载事件，或要求在不使用 Python SDK dispatcher 的情况下排查华为云 CCE 工作负载时，使用此 skill。
-tags: [huawei-cloud, cce, hcloud, koocli, kubectl, workload, diagnosis]
+description: 使用 hcloud 和只读 kubectl-cce 诊断 CCE 工作负载发布故障；用户提到副本不可用、Deployment、StatefulSet、DaemonSet 发布卡住或工作负载 Pod 异常时使用本技能。
+version: 1.0.0
+tags: [huawei-cloud, cce, kubectl, workload, diagnosis]
 ---
 
 # 华为云 CCE 工作负载故障诊断
+
+## 概述
 
 此 skill 通过华为云 `hcloud` CLI 和 Kubernetes `kubectl` 诊断 CCE 工作负载发布和可用性故障。
 
@@ -18,9 +19,10 @@ tags: [huawei-cloud, cce, hcloud, koocli, kubectl, workload, diagnosis]
 - `hcloud CCE ShowCluster`
 - `hcloud CCE ShowClusterEndpoints`
 
-通过 kubectl-cce 插件接入后，使用 `kubectl cce` 查看 Kubernetes 资源。工作负载、ReplicaSet、Pod、Event、日志、PVC、Service、Ingress、HPA 和 Node 都属于 Kubernetes 资源，应通过 `kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id>` 检查。
+通过 kubectl-cce 插件接入后，使用 `kubectl cce` 查看 Kubernetes 资源。工作负载、ReplicaSet、Pod、Event、日志、PVC、Service、Ingress、HPA 和 Node
+都属于 Kubernetes 资源，应通过 `kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id>` 检查。
 
-此 skill 不使用 Python SDK dispatcher 命令、`scripts/huawei-cloud.py`、`skill action=exec`、`huawei_workload_*` 动作或任何捆绑 SDK 脚本。
+此 skill 不使用 Python SDK dispatcher、旧 skill 执行动作、旧 Huawei workload 动作或捆绑 SDK 脚本。
 
 **相关前置 skill**：如果需要安装或修复 `kubectl`/`kubectl-cce`，使用 `huawei-cloud-kubectl-cce-installer`。插件接入约束见 `references/kubectl-cce.md`。
 
@@ -36,7 +38,7 @@ tags: [huawei-cloud, cce, hcloud, koocli, kubectl, workload, diagnosis]
 
 不要用此 skill 修改资源。扩缩容、删除、重启、回滚、cordon、drain 或节点操作只能作为建议移交，不能直接执行。
 
-## 必要输入
+## 参数确认
 
 诊断前先收集这些值：
 
@@ -53,19 +55,20 @@ tags: [huawei-cloud, cce, hcloud, koocli, kubectl, workload, diagnosis]
 ## 前置条件
 
 1. `hcloud`（华为云 KooCLI）已安装并可在 `PATH` 中访问。使用运行环境对应平台的原生二进制。Linux sandbox 应使用 Linux 版 KooCLI 安装脚本或 tar 包；macOS 和 Windows 使用对应安装包。skill 命令应写成 `hcloud ...`，不要写平台专属的可执行文件路径。
-2. `kubectl` 已安装，并与目标 Kubernetes 小版本兼容。使用运行环境对应平台的原生二进制（`linux-amd64`、`linux-arm64`、`darwin-*` 或 `windows-amd64`）。很多 agent sandbox 即使作者工作站是 Windows，也会运行在 Linux 上，所以不要在 skill 流程中硬编码 Windows 专属 `kubectl.exe` 路径。
+2. `kubectl` 已安装，并与目标 Kubernetes 小版本兼容。使用运行环境对应平台的原生二进制（`linux-amd64`、`linux-arm64`、`darwin-*` 或
+   `windows-amd64`）。很多 agent sandbox 会运行在 Linux 上，所以不要在 skill 流程中硬编码 Windows 专属 `kubectl.exe` 路径。
 3. AK/SK 凭据已配置到 hcloud。只检查配置是否存在：
 
 ```bash
 hcloud configure list
 ```
 
-4. 调用方拥有华为云 IAM 权限，可以列出/查看 CCE 集群并使用 kubectl-cce API Gateway 接入。
-5. kubectl-cce 认证用户拥有 Kubernetes RBAC 权限，可以读取目标命名空间中的必要资源。
+1. 调用方拥有华为云 IAM 权限，可以列出/查看 CCE 集群并使用 kubectl-cce API Gateway 接入。
+2. kubectl-cce 认证用户拥有 Kubernetes RBAC 权限，可以读取目标命名空间中的必要资源。
 
 最终报告中不要打印 AK、SK、安全令牌、kubectl-cce 代理凭据或 Authorization header。日志中必须脱敏密钥。
 
-## CCE hcloud 设置流程
+## 核心命令与准备流程
 
 ### 1. 确认 CLI 工具
 
@@ -75,27 +78,9 @@ hcloud configure list
 kubectl version --client
 ```
 
-如果缺少 `kubectl`，先安装或下载运行平台对应的原生二进制：
-
-```bash
-# Linux amd64 示例
-curl -LO "https://dl.k8s.io/release/v1.33.0/bin/linux/amd64/kubectl"
-chmod +x ./kubectl
-./kubectl version --client
-```
-
-Windows 使用 `kubectl.exe`；Linux 和 macOS 使用不带 `.exe` 后缀的 `kubectl`。
-
-如果缺少 `hcloud`，先安装或下载运行平台对应的 KooCLI 原生二进制：
-
-```bash
-# Linux/macOS 示例：官方安装脚本
-curl -sSL https://cn-north-4-hdn-koocli.obs.cn-north-4.myhuaweicloud.com/cli/latest/hcloud_install.sh -o ./hcloud_install.sh
-bash ./hcloud_install.sh -y
-hcloud version
-```
-
-在 Windows 上解压得到的二进制是 `hcloud.exe`，但此 skill 中的示例仍统一写作 `hcloud`，以保持流程的平台中性。
+如果缺少 `kubectl`、`kubectl-cce` 或 `hcloud`，停止当前诊断流程，改用
+`huawei-cloud-kubectl-cce-installer` 或批准的平台安装流程。本诊断技能不得下载或
+执行安装脚本。安装时固定批准版本、校验官方 checksum 或签名，再重新执行上述版本检查。
 
 ### 2. 定位 CCE 集群
 
@@ -114,7 +99,8 @@ hcloud CCE ShowClusterEndpoints --cluster_id=<cluster-id> --project_id=<project-
 
 使用这些证据确认集群处于可用状态、位于预期 region/project，并且当前网络可以访问。
 
-kubectl-cce 插件默认访问 CCE API Gateway endpoint `<cluster-id>.cce.<region>.myhuaweicloud.com`。如果该 endpoint 不适用于当前环境，设置 `CCE_ENDPOINT` 或传入 `--endpoint`。如果插件/API Gateway 访问失败，在报告中记录错误和访问缺口；不要默认退回 kubeconfig 生成或 SDK 调用。
+kubectl-cce 插件默认访问 CCE API Gateway endpoint `<cluster-id>.cce.<region>.myhuaweicloud.com`。如果该 endpoint 不适用于当前环境，设置
+`CCE_ENDPOINT` 或传入 `--endpoint`。如果插件/API Gateway 访问失败，在报告中记录错误和访问缺口；不要退回 kubeconfig 生成或 SDK 调用。
 
 ### 4. 配置 kubectl-cce 插件
 
@@ -214,7 +200,7 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -n <namespace> --field-selector involvedObject.name=<name> --sort-by=.lastTimestamp
 ```
 
-如果可用 `events.k8s.io/v1`：
+Kubernetes Events v1 API 可用时：
 
 ```bash
 kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events.events.k8s.io -n <namespace> --sort-by=.eventTime -o yaml
@@ -284,7 +270,7 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 | `NodePressureOrNotReady` | Node condition 显示压力/NotReady，或 Pod 被驱逐 |
 | `ServiceOrIngressMismatch` | Service selector/endpoints/Ingress 与 Ready Pod 不匹配 |
 
-## 报告格式
+## 输出格式
 
 使用 `references/output-schema.md` 作为详细 schema。面向用户的报告应包含：
 
@@ -297,7 +283,14 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 - 明确说明未执行任何变更命令。
 - 验证缺口，包括 RBAC 拒绝、缺少 metrics-server、日志不可访问，或 hcloud/kubectl 工具不可用。
 
-## 安全规则
+## 最佳实践
+
+- 从发布漏斗最先失败的层级开始，依据直接证据排序候选根因。
+- 关联工作负载 generation、所属对象、选中 Pod 和 Events 后再下结论。
+- 限制日志和指标采集范围，将缺失证据明确记录为验证缺口。
+- 将只读诊断和变更修复分离，为每项拟议变更注明移交对象。
+
+## 注意事项与安全规则
 
 提出建议前阅读 `references/risk-rules.md`。此 skill 只做只读诊断。不要运行：
 
@@ -315,7 +308,7 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 - `kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id>` 能读取目标命名空间。
 - 仓库/包内搜索不到 SDK dispatcher 入口。
 
-## 参考
+## 参考文档
 
 - `references/workflow.md` - 证据顺序和故障规则。
 - `references/output-schema.md` - Markdown 和 JSON 报告结构。

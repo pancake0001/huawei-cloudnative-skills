@@ -1,12 +1,13 @@
 ---
-id: huawei-cloud-cce-node-failure-diagnoser
 name: huawei-cloud-cce-node-failure-diagnoser
-description: >
-  Diagnose Huawei Cloud CCE node failures with hcloud CLI for CCE cluster discovery, node metadata, and kubectl-cce plugin access, then `kubectl cce` for read-only Kubernetes node evidence. Use this skill for CCE NodeNotReady, Ready=Unknown, kube-node-lease timeout, DiskPressure, MemoryPressure, PIDPressure, NetworkUnavailable, CNI/node network symptoms, kubelet or container runtime abnormalities, node problem detector events, eviction impact, and node-level workload impact. Do not use the Python SDK dispatcher.
-tags: [huawei-cloud, cce, hcloud, koocli, kubectl, node, diagnosis]
+description: Diagnose CCE node failures with hcloud and read-only kubectl-cce. Use this skill whenever the user mentions NodeNotReady, node pressure, stale leases, kubelet, runtime, CNI, or eviction.
+version: 1.0.0
+tags: [huawei-cloud, cce, kubectl, node, diagnosis]
 ---
 
 # Huawei Cloud CCE Node Failure Diagnoser
+
+## Overview
 
 This skill diagnoses CCE/Kubernetes node failures through Huawei Cloud `hcloud` CLI and Kubernetes `kubectl`.
 
@@ -26,7 +27,7 @@ Use CCE hcloud commands for cluster-level and CCE node metadata. Use kubectl-cce
 
 Use `kubectl cce` through the kubectl-cce plugin for Kubernetes node state, kube-node-lease, Events, Pods on the node, logs from affected Pods when needed, and metrics from metrics-server.
 
-Do not use Python SDK dispatcher commands, `scripts/huawei-cloud.py`, `skill action=exec`, old `huawei_node_*` actions, or Huawei Cloud SDK imports for this skill.
+Do not use Python SDK dispatchers, legacy skill execution actions, old Huawei node actions, or Huawei Cloud SDK imports for this skill.
 
 **Related prerequisite skill**: use `huawei-cloud-kubectl-cce-installer` to install or repair `kubectl`/`kubectl-cce`. Read `references/kubectl-cce.md` for the plugin access contract.
 
@@ -40,9 +41,10 @@ Use this skill for:
 - Node resource pressure, allocatable/request saturation, taints, scheduling disabled, or node-local workload impact.
 - User asks to diagnose a CCE node without mutating the cluster.
 
-Do not use this skill to modify node or workload state. Cordon, uncordon, drain, reboot, delete, taint, scale, or restart operations must be written as recommendations and handed off to a remediation skill after confirmation.
+Do not use this skill to modify node or workload state. Cordon, uncordon, drain, reboot, delete, taint, scale, or restart operations must be recommendations and
+must be handed off to a remediation skill after confirmation.
 
-## Required Inputs
+## Parameters
 
 | Input | Required | Notes |
 | --- | --- | --- |
@@ -66,12 +68,12 @@ At least one of `node_name` or `node_ip` should be provided. If both are missing
 hcloud configure list
 ```
 
-4. IAM allows CCE cluster/node read and kubectl-cce API Gateway access.
-5. Kubernetes RBAC allows read access to nodes, leases, events, pods, pod logs, and metrics when available.
+1. IAM allows CCE cluster/node read and kubectl-cce API Gateway access.
+2. Kubernetes RBAC allows read access to nodes, leases, events, pods, pod logs, and metrics when available.
 
 Never print AK, SK, security tokens, kubectl-cce proxy credentials, Authorization headers, or registry secrets.
 
-## CCE hcloud Setup Flow
+## Core Commands And Setup
 
 ### 1. Confirm CLI Tools
 
@@ -81,7 +83,10 @@ hcloud configure list
 kubectl version --client
 ```
 
-If a tool is not in `PATH`, locate or install a platform-native binary and validate the exact binary before using it. Keep skill examples platform-neutral as `hcloud` and `kubectl`; only local debug notes may contain absolute executable paths.
+If a tool is missing, stop this diagnosis flow and use
+`huawei-cloud-kubectl-cce-installer` or an approved platform-specific procedure.
+This diagnoser must not download or execute installer scripts. Pin an approved
+version, verify its published checksum or signature, and then rerun the checks.
 
 ### 2. Locate And Check The Cluster
 
@@ -91,7 +96,9 @@ hcloud CCE ShowCluster --cluster_id=<cluster-id> --project_id=<project-id> --det
 hcloud CCE ShowClusterEndpoints --cluster_id=<cluster-id> --project_id=<project-id> --cli-region=<region> --cli-output=json
 ```
 
-Confirm the cluster is in the expected region/project and is reachable from the current network. The kubectl-cce plugin normally talks to the CCE API Gateway endpoint `<cluster-id>.cce.<region>.myhuaweicloud.com`. If that endpoint is not valid for the current environment, set `CCE_ENDPOINT` or pass `--endpoint`. If plugin/API Gateway access fails, report it as an access gap with the error text; do not fall back to kubeconfig generation or SDK calls by default.
+Confirm that the cluster is in the expected region/project and reachable from the current network. The plugin normally uses the CCE API Gateway endpoint
+`<cluster-id>.cce.<region>.myhuaweicloud.com`. If it is invalid for the environment, set `CCE_ENDPOINT` or pass `--endpoint`. Report access failures and do not
+fall back to kubeconfig generation or SDK calls.
 
 ### 3. Optional CCE Node Metadata
 
@@ -106,9 +113,11 @@ Do not use CCE node update/delete/reset operations.
 
 ### 4. Configure kubectl-cce Plugin
 
-Read `references/kubectl-cce.md` before running Kubernetes commands. Use the kubectl CCE plugin as the primary Kubernetes access path; do not generate kubeconfig, patch kubeconfig server fields, call the Kubernetes SDK, or fall back to SDK dispatcher actions.
+Read `references/kubectl-cce.md` before running Kubernetes commands. Use the kubectl CCE plugin as the primary Kubernetes access path. Do not generate or patch
+kubeconfig, call the Kubernetes SDK, or fall back to SDK dispatcher actions.
 
-If `kubectl` or `kubectl-cce` is missing, use `huawei-cloud-kubectl-cce-installer` to install or repair local prerequisites. This diagnoser verifies and uses the plugin; it does not own plugin installation policy.
+If `kubectl` or `kubectl-cce` is missing, use `huawei-cloud-kubectl-cce-installer` to install or repair local prerequisites. This diagnoser only verifies and uses
+the plugin; it does not own plugin installation policy.
 
 Verify local tooling and plugin discovery:
 
@@ -117,15 +126,18 @@ kubectl version --client
 kubectl plugin list
 ```
 
-Configure plugin credentials through approved tool parameters, a protected shell environment, or an approved local credential provider without printing values. Pass cluster, region, and project ID explicitly in diagnostic commands:
+Configure plugin credentials through approved tool parameters, a protected shell environment, or an approved local credential provider without printing values.
+Pass cluster, region, and project ID explicitly in diagnostic commands:
 
 ```bash
 kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get namespaces
 ```
 
-Use `CCE_ENDPOINT` or `--endpoint` only when the default `<cluster-id>.cce.<region>.myhuaweicloud.com` endpoint is not valid for the current environment. If plugin access fails, report the sanitized installation, credential, API Gateway reachability, or Kubernetes RBAC gap; do not switch to kubeconfig generation or SDK calls.
+Use `CCE_ENDPOINT` or `--endpoint` only when the default `<cluster-id>.cce.<region>.myhuaweicloud.com` endpoint is invalid. If plugin access fails, report the
+sanitized installation, credential, API Gateway reachability, or Kubernetes RBAC gap; do not switch to kubeconfig generation or SDK calls.
 
-The plugin intentionally blocks streaming commands such as `exec`, `attach`, and `port-forward`. `logs -f` and `watch` are not hardened, so use bounded `logs --tail` and normal `get` commands in diagnosis reports.
+The plugin blocks streaming commands such as `exec`, `attach`, and `port-forward`. `logs -f` and `watch` are not hardened, so use bounded `logs --tail` and normal
+`get` commands in diagnosis reports.
 
 ### 5. Verify Kubernetes Read Access
 
@@ -195,7 +207,7 @@ Common cause labels:
 | `SchedulingDisabledOrTainted` | unschedulable node or taints causing scheduling impact |
 | `HealthyOrNoNodeFault` | Node Ready, lease fresh, no pressure/problem signals |
 
-## Report Format
+## Output Format
 
 Use `references/output-schema.md` as the detailed schema. Put decision-critical information first; command traces and raw condition tables come after the conclusion and next steps.
 
@@ -213,7 +225,14 @@ The user-facing report should include, in this order:
 - CLI path used: hcloud CCE operations and kubectl evidence commands.
 - Explicit statement that no mutating command was run.
 
-## Safety Rules
+## Best Practices
+
+- Start with node liveness and lease freshness before interpreting downstream Pod symptoms.
+- Correlate Kubernetes node names, CCE node IDs, conditions, Events, and affected Pods.
+- Treat unavailable metrics or logs as verification gaps instead of inferring trends.
+- Keep diagnosis read-only and hand off every node or workload mutation.
+
+## Notes And Safety Rules
 
 Read `references/risk-rules.md` before making recommendations. This skill is read-only. Do not run:
 

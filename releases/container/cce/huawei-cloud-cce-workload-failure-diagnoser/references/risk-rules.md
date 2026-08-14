@@ -14,8 +14,9 @@ This skill operates at R1: read-only observation and diagnosis.
 ## Not Allowed
 
 - Do not run Python SDK dispatcher commands or bundled SDK scripts.
-- Do not run `scripts/huawei-cloud.py`, `skill action=exec`, or any `huawei_workload_*` action.
-- Do not run `kubectl cce ... apply`, `create`, `patch`, `edit`, `delete`, `scale`, `replace`, `rollout undo`, `cordon`, `uncordon`, `drain`, `taint`, or `label` unless the user explicitly switches to a remediation task and accepts the risk.
+- Do not run legacy dispatcher scripts, generic skill execution entry points, or legacy workload actions.
+- Do not run `kubectl cce ... apply`, `create`, `patch`, `edit`, `delete`, `scale`, `replace`, `rollout undo`, `cordon`, `uncordon`, `drain`, `taint`, or `label`
+  unless the user explicitly switches to a remediation task and accepts the risk.
 - Do not run hcloud create/update/delete operations.
 - Do not cordon, uncordon, drain, reboot, delete nodes, or resize node pools.
 - Do not treat all namespace Warning events as evidence; filter to workload, owned ReplicaSet, or selected Pod evidence.

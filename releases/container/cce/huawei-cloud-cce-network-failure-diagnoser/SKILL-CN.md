@@ -1,12 +1,13 @@
 ---
-id: huawei-cloud-cce-network-failure-diagnoser
 name: huawei-cloud-cce-network-failure-diagnoser
-description: >
-  使用 hcloud CLI 做 CCE 集群发现、kubectl-cce 插件接入，以及可选的 ELB/VPC/EIP/NAT 只读证据采集，再通过 kubectl-cce 插件采集 Kubernetes 网络对象来诊断华为云 CCE 网络故障。适用于 Service 不通、DNS/CoreDNS 异常、Ingress 502/504、NetworkPolicy 阻断、EndpointSlice/后端就绪异常、ELB 后端健康、EIP/NAT/VPC/安全组/ACL 问题和端到端网络诊断报告。不使用 Python SDK dispatcher。
-tags: [huawei-cloud, cce, hcloud, koocli, kubectl, network, elb, vpc, diagnosis]
+description: 使用 hcloud 和只读 kubectl-cce 诊断 CCE 网络故障；用户提到 Service、DNS、Ingress、NetworkPolicy、EndpointSlice、ELB、EIP、NAT、VPC 或安全组连通性问题时使用本技能。
+version: 1.0.0
+tags: [huawei-cloud, cce, kubectl, network, diagnosis]
 ---
 
-# Huawei Cloud CCE Network Failure Diagnoser
+# 华为云 CCE 网络故障诊断
+
+## 概述
 
 本技能通过华为云 `hcloud` CLI 和 Kubernetes `kubectl` 诊断 CCE 网络故障。
 
@@ -38,7 +39,7 @@ Kubernetes 网络对象使用 `kubectl cce` 读取：Nodes、Pods、Services、E
 - `hcloud EIP ListPublicips/v3`
 - `hcloud NAT ListNatGateways`
 
-不要使用 Python SDK dispatcher、`scripts/huawei-cloud.py`、`skill action=exec`、旧 `huawei_network_*` action 或 Huawei Cloud SDK import。
+不要使用 Python SDK dispatcher、旧 skill 执行动作、旧 Huawei network action 或 Huawei Cloud SDK import。
 
 **相关前置 skill**：如果需要安装或修复 `kubectl`/`kubectl-cce`，使用 `huawei-cloud-kubectl-cce-installer`。插件接入约束见 `references/kubectl-cce.md`。
 
@@ -55,7 +56,7 @@ Kubernetes 网络对象使用 `kubectl cce` 读取：Nodes、Pods、Services、E
 
 本技能不修改资源。绑定/解绑 EIP、修改安全组、更新 ELB listener、编辑 CoreDNS、创建 NetworkPolicy、扩缩容或重启组件都只能作为建议输出并移交。
 
-## 必要输入
+## 参数确认
 
 | 输入 | 必填 | 说明 |
 | --- | --- | --- |
@@ -83,12 +84,12 @@ Kubernetes 网络对象使用 `kubectl cce` 读取：Nodes、Pods、Services、E
 hcloud configure list
 ```
 
-4. IAM 允许读取 CCE 集群并使用 kubectl-cce API Gateway 接入。只有诊断云侧网络对象时才需要 ELB/VPC/EIP/NAT 读权限。
-5. Kubernetes RBAC 允许读取 Services、Endpoints、EndpointSlices、Ingresses、NetworkPolicies、Pods、Nodes、Events 和相关日志。
+1. IAM 允许读取 CCE 集群并使用 kubectl-cce API Gateway 接入。只有诊断云侧网络对象时才需要 ELB/VPC/EIP/NAT 读权限。
+2. Kubernetes RBAC 允许读取 Services、Endpoints、EndpointSlices、Ingresses、NetworkPolicies、Pods、Nodes、Events 和相关日志。
 
 不要打印 AK、SK、security token、kubectl-cce 代理凭据、Authorization header 或应用密钥。
 
-## CCE hcloud 设置流程
+## 核心命令与准备流程
 
 ### 1. 确认 CLI 工具
 
@@ -98,7 +99,9 @@ hcloud configure list
 kubectl version --client
 ```
 
-工具不在 `PATH` 中时，先定位或安装平台原生二进制，并验证实际使用的二进制。
+如果工具缺失，停止当前诊断流程，改用 `huawei-cloud-kubectl-cce-installer`
+或批准的平台安装流程。本诊断技能不得下载或执行安装脚本。安装时固定批准版本、
+校验官方 checksum 或签名，再重新执行上述检查。
 
 ### 2. 定位并检查集群
 
@@ -220,7 +223,7 @@ hcloud NAT ListNatGateways --project_id=<project-id> --cli-region=<region> --cli
 8. VPC/安全组/ACL/EIP/NAT。
 9. 应用后端 readiness 或过载。
 
-## 报告格式
+## 输出格式
 
 按 `references/output-schema.md` 输出。报告要先给结论、根因和行动建议；拓扑、对象快照和命令轨迹放在后面。
 
@@ -238,7 +241,14 @@ hcloud NAT ListNatGateways --project_id=<project-id> --cli-region=<region> --cli
 - CLI 路径：hcloud CCE、kubectl、可选 hcloud ELB/VPC/EIP/NAT。
 - 明确说明没有执行变更命令。
 
-## 安全边界
+## 最佳实践
+
+- 从客户端入口沿链路追踪到 Ready backend，在第一个失败跳点停止并取证。
+- 关联 selectors、endpoints、policies、DNS、Ingress 和云网络对象标识。
+- 主动测试必须由用户明确同意，执行前记录范围、风险和预期信号。
+- 将只读诊断和网络或工作负载变更分离，并注明移交对象。
+
+## 注意事项与安全边界
 
 执行建议前先读 `references/risk-rules.md`。本技能只读，不运行：
 
@@ -257,7 +267,7 @@ hcloud NAT ListNatGateways --project_id=<project-id> --cli-region=<region> --cli
 - 云侧排查需要时，hcloud ELB/VPC/EIP/NAT 只读命令可用。
 - 技能包中没有 SDK dispatcher 入口残留。
 
-## References
+## 参考文档
 
 - `references/workflow.md` - 分层网络证据顺序和故障规则。
 - `references/common-pitfalls.md` - 网络诊断常见坑和 CLI 示例。

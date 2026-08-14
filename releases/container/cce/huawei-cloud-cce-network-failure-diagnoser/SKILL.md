@@ -1,12 +1,13 @@
 ---
-id: huawei-cloud-cce-network-failure-diagnoser
 name: huawei-cloud-cce-network-failure-diagnoser
-description: >
-  Diagnose Huawei Cloud CCE network failures with hcloud CLI for CCE cluster discovery, kubectl-cce plugin access, and optional read-only ELB/VPC/EIP/NAT evidence, then `kubectl cce` for Kubernetes network objects. Use this skill for Service unreachable, DNS/CoreDNS errors, Ingress 502/504, NetworkPolicy blocks, EndpointSlice/backend readiness issues, ELB backend health, EIP/NAT/VPC/security-group/ACL concerns, and end-to-end network Markdown reports. Do not use the Python SDK dispatcher.
-tags: [huawei-cloud, cce, hcloud, koocli, kubectl, network, elb, vpc, diagnosis]
+description: Diagnose CCE network failures with hcloud and read-only kubectl-cce. Use this skill whenever the user mentions Service, DNS, Ingress, NetworkPolicy, ELB, EIP, NAT, VPC, or security-group failures.
+version: 1.0.0
+tags: [huawei-cloud, cce, kubectl, network, diagnosis]
 ---
 
 # Huawei Cloud CCE Network Failure Diagnoser
+
+## Overview
 
 This skill diagnoses CCE network failures through Huawei Cloud `hcloud` CLI and Kubernetes `kubectl`.
 
@@ -22,7 +23,8 @@ Use CCE hcloud commands for cluster discovery and metadata. Use kubectl-cce for 
 - `hcloud CCE ShowCluster`
 - `hcloud CCE ShowClusterEndpoints`
 
-Use `kubectl cce` through the kubectl-cce plugin for Kubernetes network objects: Nodes, Pods, Services, Endpoints, EndpointSlices, Ingresses, NetworkPolicies, Events, CoreDNS/kube-dns resources, and relevant controller logs when RBAC allows.
+Use `kubectl cce` through the kubectl-cce plugin for Kubernetes network objects: Nodes, Pods, Services, Endpoints, EndpointSlices, Ingresses, NetworkPolicies,
+Events, CoreDNS/kube-dns resources, and relevant controller logs when RBAC allows.
 
 Use cloud network hcloud commands only for read-only north-south evidence when identifiers are available or can be safely correlated:
 
@@ -38,7 +40,7 @@ Use cloud network hcloud commands only for read-only north-south evidence when i
 - `hcloud EIP ListPublicips/v3`
 - `hcloud NAT ListNatGateways`
 
-Do not use Python SDK dispatcher commands, `scripts/huawei-cloud.py`, `skill action=exec`, old `huawei_network_*` actions, or Huawei Cloud SDK imports for this skill.
+Do not use Python SDK dispatchers, legacy skill execution actions, old Huawei network actions, or Huawei Cloud SDK imports for this skill.
 
 **Related prerequisite skill**: use `huawei-cloud-kubectl-cce-installer` to install or repair `kubectl`/`kubectl-cce`. Read `references/kubectl-cce.md` for the plugin access contract.
 
@@ -53,9 +55,10 @@ Use this skill for:
 - ELB backend unhealthy, listener/pool/member mismatch, EIP/NAT/VPC/security group/ACL questions.
 - Network symptoms that require an end-to-end Markdown report with evidence and verification criteria.
 
-Do not use this skill to mutate resources. Binding/unbinding EIP, changing security groups, updating ELB listeners, editing CoreDNS, creating NetworkPolicies, scaling workloads, or restarting components must be handed off as recommendations only.
+Do not use this skill to mutate resources. Binding/unbinding EIP, changing security groups, updating ELB listeners, editing CoreDNS, creating NetworkPolicies,
+scaling workloads, or restarting components must be handed off as recommendations only.
 
-## Required Inputs
+## Parameters
 
 | Input | Required | Notes |
 | --- | --- | --- |
@@ -83,12 +86,12 @@ If the target is vague, start with a namespace scan and ask for the specific ser
 hcloud configure list
 ```
 
-4. IAM allows CCE cluster read and kubectl-cce API Gateway access. ELB/VPC/EIP/NAT read permissions are needed only when diagnosing cloud-side network objects.
-5. Kubernetes RBAC allows read access to Services, Endpoints, EndpointSlices, Ingresses, NetworkPolicies, Pods, Nodes, Events, and relevant logs.
+1. IAM allows CCE cluster read and kubectl-cce API Gateway access. ELB/VPC/EIP/NAT read permissions are needed only for cloud-side network objects.
+2. Kubernetes RBAC allows read access to Services, Endpoints, EndpointSlices, Ingresses, NetworkPolicies, Pods, Nodes, Events, and relevant logs.
 
 Never print AK, SK, security tokens, kubectl-cce proxy credentials, Authorization headers, or registry/application secrets.
 
-## CCE hcloud Setup Flow
+## Core Commands And Setup
 
 ### 1. Confirm CLI Tools
 
@@ -98,7 +101,10 @@ hcloud configure list
 kubectl version --client
 ```
 
-If a tool is not in `PATH`, locate or install a platform-native binary and validate the exact binary before using it. Keep examples platform-neutral as `hcloud` and `kubectl`.
+If a tool is missing, stop this diagnosis flow and use
+`huawei-cloud-kubectl-cce-installer` or an approved platform-specific procedure.
+This diagnoser must not download or execute installer scripts. Pin an approved
+version, verify its published checksum or signature, and then rerun the checks.
 
 ### 2. Locate And Check The Cluster
 
@@ -108,13 +114,16 @@ hcloud CCE ShowCluster --cluster_id=<cluster-id> --project_id=<project-id> --det
 hcloud CCE ShowClusterEndpoints --cluster_id=<cluster-id> --project_id=<project-id> --cli-region=<region> --cli-output=json
 ```
 
-The kubectl-cce plugin normally talks to the CCE API Gateway endpoint `<cluster-id>.cce.<region>.myhuaweicloud.com`. If that endpoint is not valid for the current environment, set `CCE_ENDPOINT` or pass `--endpoint`. If plugin/API Gateway access fails, report it as an access gap with the error text; do not fall back to kubeconfig generation or SDK calls by default.
+The kubectl-cce plugin normally talks to `<cluster-id>.cce.<region>.myhuaweicloud.com`. If that CCE API Gateway endpoint is invalid for the current environment,
+set `CCE_ENDPOINT` or pass `--endpoint`. If access fails, report the error as an access gap; do not fall back to kubeconfig generation or SDK calls.
 
 ### 3. Configure kubectl-cce Plugin
 
-Read `references/kubectl-cce.md` before running Kubernetes commands. Use the kubectl CCE plugin as the primary Kubernetes access path; do not generate kubeconfig, patch kubeconfig server fields, call the Kubernetes SDK, or fall back to SDK dispatcher actions.
+Read `references/kubectl-cce.md` before running Kubernetes commands. Use the kubectl CCE plugin as the primary Kubernetes access path. Do not generate or patch
+kubeconfig, call the Kubernetes SDK, or fall back to SDK dispatcher actions.
 
-If `kubectl` or `kubectl-cce` is missing, use `huawei-cloud-kubectl-cce-installer` to install or repair local prerequisites. This diagnoser verifies and uses the plugin; it does not own plugin installation policy.
+If `kubectl` or `kubectl-cce` is missing, use `huawei-cloud-kubectl-cce-installer` to install or repair local prerequisites. This diagnoser only verifies and uses
+the plugin; it does not own plugin installation policy.
 
 Verify local tooling and plugin discovery:
 
@@ -123,15 +132,18 @@ kubectl version --client
 kubectl plugin list
 ```
 
-Configure plugin credentials through approved tool parameters, a protected shell environment, or an approved local credential provider without printing values. Pass cluster, region, and project ID explicitly in diagnostic commands:
+Configure plugin credentials through approved tool parameters, a protected shell environment, or an approved local credential provider without printing values.
+Pass cluster, region, and project ID explicitly in diagnostic commands:
 
 ```bash
 kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get namespaces
 ```
 
-Use `CCE_ENDPOINT` or `--endpoint` only when the default `<cluster-id>.cce.<region>.myhuaweicloud.com` endpoint is not valid for the current environment. If plugin access fails, report the sanitized installation, credential, API Gateway reachability, or Kubernetes RBAC gap; do not switch to kubeconfig generation or SDK calls.
+Use `CCE_ENDPOINT` or `--endpoint` only when the default `<cluster-id>.cce.<region>.myhuaweicloud.com` endpoint is invalid. If plugin access fails, report the
+sanitized installation, credential, API Gateway reachability, or Kubernetes RBAC gap; do not switch to kubeconfig generation or SDK calls.
 
-The plugin intentionally blocks streaming commands such as `exec`, `attach`, and `port-forward`. `logs -f` and `watch` are not hardened, so use bounded `logs --tail` and normal `get` commands in diagnosis reports.
+The plugin blocks streaming commands such as `exec`, `attach`, and `port-forward`. `logs -f` and `watch` are not hardened, so use bounded `logs --tail` and normal
+`get` commands in diagnosis reports.
 
 ### 4. Verify Kubernetes Read Access
 
@@ -204,7 +216,8 @@ Use `hcloud <service> <operation> --help` when a filter parameter differs by API
 
 ## Active Test Boundary
 
-By default, do not run `kubectl exec`, packet capture, stress tests, or synthetic traffic generation. If the user explicitly requests an active connectivity test, explain the scope and risk, then prefer the least invasive command and include it in the report.
+By default, do not run `kubectl exec`, packet capture, stress tests, or synthetic traffic generation. If the user explicitly requests an active connectivity test,
+explain the scope and risk, then prefer the least invasive command and include it in the report.
 
 ## Cause Ranking
 
@@ -235,7 +248,7 @@ Common cause labels:
 | `EgressNatOrEipIssue` | NAT/EIP missing or abnormal for external egress/ingress path |
 | `BackendApplicationIssue` | Network path exists but backend Pods are not ready or logs show app errors |
 
-## Report Format
+## Output Format
 
 Use `references/output-schema.md` as the detailed schema. Put decision-critical information first; topology, object snapshots, and command traces come after the conclusion and next steps.
 
@@ -253,7 +266,14 @@ The user-facing report should include, in this order:
 - CLI path used: hcloud CCE, kubectl, and optional hcloud ELB/VPC/EIP/NAT reads.
 - Explicit statement that no mutating command was run.
 
-## Safety Rules
+## Best Practices
+
+- Trace the path from client entrypoint to ready backend and stop at the first failed hop.
+- Correlate selectors, endpoints, policies, DNS, Ingress, and cloud network identifiers.
+- Keep active tests opt-in and record their scope, risk, and expected signal before execution.
+- Separate read-only diagnosis from network or workload changes and name the handoff.
+
+## Notes And Safety Rules
 
 Read `references/risk-rules.md` before making recommendations. This skill is read-only. Do not run:
 

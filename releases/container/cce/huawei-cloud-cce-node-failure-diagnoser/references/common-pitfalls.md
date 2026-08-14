@@ -2,7 +2,8 @@
 
 ## Pitfall 1: Treating Ready=Unknown As A Definite Kubelet Failure
 
-`Ready=Unknown` plus stale kube-node-lease means the control plane has lost heartbeat visibility. It may be kubelet, node network, runtime, host, or maintenance. State the broader conclusion first, then list node-side checks.
+`Ready=Unknown` plus a stale kube-node-lease means the control plane has lost heartbeat visibility. The cause may be kubelet, node network, runtime, host, or
+maintenance. State the broader conclusion first, then list node-side checks.
 
 ## Pitfall 2: Marking Unknown Pressure Conditions As Normal
 

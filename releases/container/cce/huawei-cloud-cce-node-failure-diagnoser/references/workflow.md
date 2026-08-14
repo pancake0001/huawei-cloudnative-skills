@@ -11,7 +11,8 @@ This workflow is read-only and uses only `hcloud CCE` plus `kubectl`.
 5. Lease: inspect `kube-node-lease/<node-name>` and compare renew time with the current time. A stale lease plus Ready=Unknown is strong control-plane-to-node heartbeat evidence.
 6. Events: collect Node-specific Events first, then cluster Events sorted by time. Preserve reason, message, count, source, and timestamp.
 7. Workload impact: list all Pods on the node and classify Running, Pending, Failed, Evicted, Unknown, NotReady, and restart-heavy Pods.
-8. Concentrated symptoms: look for node-local patterns such as `FailedCreatePodSandBox`, `ContainerStatusUnknown`, volume mount failures, CNI errors, image pull failures only on this node, or evictions.
+8. Concentrated symptoms: look for node-local patterns such as `FailedCreatePodSandBox`, `ContainerStatusUnknown`, volume mount failures, CNI errors, image pull
+   failures only on this node, or evictions.
 9. Metrics: use `kubectl cce ... top node` and `kubectl cce ... top pods -A` when metrics-server is available. Record a verification gap when it is not.
 10. Output: rank Top3 causes, cite evidence, describe impact, list safe next checks, and hand off any mutation.
 

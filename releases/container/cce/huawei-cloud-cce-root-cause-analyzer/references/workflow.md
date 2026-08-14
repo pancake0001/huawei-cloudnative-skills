@@ -3,7 +3,8 @@
 1. Confirm scope: region, project_id, cluster_id, namespace, target object, user-visible symptom, fault_time, and analysis window.
 2. Build or reuse an observability context package with `huawei-cloud-cce-observability-context-builder`: alarms, Events, logs, metrics, topology hints, timeline, and data gaps.
 3. Read `references/kubectl-cce.md`, verify `hcloud`, `kubectl`, and `kubectl-cce`, and resolve the target cluster with `hcloud CCE ListClusters` / `ShowCluster`.
-4. Collect current Kubernetes evidence with `kubectl cce`: Pods, workloads, ReplicaSets, Services, Ingresses, Endpoints/EndpointSlices, Nodes, Events, PVC/PV/StorageClass, and NetworkPolicies when relevant.
+4. Collect current Kubernetes evidence with `kubectl cce`: Pods, workloads, ReplicaSets, Services, Ingresses, Endpoints/EndpointSlices, Nodes, Events,
+   PVC/PV/StorageClass, and NetworkPolicies when relevant.
 5. Build the timeline: user symptom, alarm, Event, rollout/change, metric/log, and recovery attempt.
 6. Route evidence to dependent skills:
    - workload/pod signals -> workload and pod diagnosers;

@@ -6,7 +6,8 @@ This workflow uses CCE `hcloud` commands only for Huawei Cloud cluster access an
 
 1. Confirm `region`, `project_id`, `cluster_id`, `namespace`, `kind`, and `name`.
 2. Use `hcloud CCE ListClusters` and `ShowCluster` to confirm the target cluster exists and is available.
-3. Read `references/kubectl-cce.md`, then use `kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id>` for authenticated read-only Kubernetes collection; do not generate kubeconfig.
+3. Read `references/kubectl-cce.md`, then use `kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id>` for authenticated read-only
+   Kubernetes collection; do not generate kubeconfig.
 4. If the default CCE API Gateway endpoint is not valid for the current environment, set `CCE_ENDPOINT` or pass `--endpoint`.
 5. Verify access with `kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> cluster-info` and `kubectl cce ... auth can-i`.
 6. When several workloads are failing at once, inspect Nodes and cluster events first to detect a shared scheduling or node readiness blocker.
@@ -85,7 +86,8 @@ This workflow uses CCE `hcloud` commands only for Huawei Cloud cluster access an
 
 ### Shared Node Or Scheduling Blocker
 
-- Signal: many workloads across namespaces are unavailable, Pods are Pending, and all candidate nodes are `Ready=Unknown`/`NotReady` or have untolerated taints such as `node.kubernetes.io/unreachable` or `node.cloudprovider.kubernetes.io/shutdown`.
+- Signal: many workloads across namespaces are unavailable, Pods are Pending, and all candidate nodes are `Ready=Unknown`/`NotReady` or have untolerated
+  taints such as `node.kubernetes.io/unreachable` or `node.cloudprovider.kubernetes.io/shutdown`.
 - Evidence: `kubectl cce ... get nodes`, `describe node`, Pod `FailedScheduling` events, and workload unavailable counts.
 - Next checks: whether the cluster was recently awakened, whether ECS worker nodes are still stopped/unreachable, node heartbeat recovery, and CCE node pool status.
 - Handoff: `huawei-cloud-cce-node-failure-diagnoser` or remediation runner for explicit node recovery actions.

@@ -1,24 +1,24 @@
 ---
-id: huawei-cloud-cce-observability-context-builder
 name: huawei-cloud-cce-observability-context-builder
-description: |
-  Build a read-only observability context package for Huawei Cloud CCE incidents before root-cause diagnosis. Use this skill to collect and summarize live Kubernetes state, Events, bounded Pod logs, AOM alarms, metrics, LTS/log context, topology hints, time windows, evidence gaps, and next diagnostic handoffs with hcloud CLI and kubectl-cce. Do not use Python SDK dispatcher actions, generated kubeconfig, or mutation commands.
-tags: [cce, observability, context, alarms, metrics, logs, events, hcloud, kubectl-cce, root-cause]
+description: Build read-only CCE observability context with hcloud and kubectl-cce. Use this skill whenever the user mentions incident scope, timeline, Events, logs, alarms, metrics, topology, or evidence gaps.
+version: 1.0.0
+tags: [huawei-cloud, cce, observability, kubectl, context]
 ---
 
 # Huawei Cloud CCE Observability Context Builder
 
 ## Overview
 
-This skill builds the first-pass observability context for an active or recent CCE incident. It does not decide the final root cause by itself. It collects a compact, evidence-based context package so `huawei-cloud-cce-root-cause-analyzer` and focused domain diagnosers can start with the same timeline, scope, signals, and data gaps.
+This skill builds the first-pass observability context for an active or recent CCE incident. It does not decide the final root cause by itself. It collects a
+compact evidence package so `huawei-cloud-cce-root-cause-analyzer` and focused domain diagnosers start with the same timeline, scope, signals, and data gaps.
 
-Think of it as the "現网可观测上下文" step:
+Think of it as the production observability context step:
 
 ```text
 scope + time window -> hcloud CCE/AOM/LTS context -> kubectl cce Events/logs/topology -> signal timeline -> root-cause handoff
 ```
 
-Do not use `scripts/huawei-cloud.py`, `skill action=exec`, `huawei_*` dispatcher actions, Huawei Cloud SDK imports, Kubernetes SDK clients, generated kubeconfig, or direct mutation commands.
+Do not use legacy Python dispatchers, old skill execution actions, Huawei Cloud SDK imports, Kubernetes SDK clients, generated kubeconfig, or mutation commands.
 
 ## Related Skills
 
@@ -35,7 +35,7 @@ Do not use `scripts/huawei-cloud.py`, `skill action=exec`, `huawei_*` dispatcher
 | `huawei-cloud-cce-network-failure-diagnoser` | Service, DNS, Ingress, ELB/EIP/NAT follow-up |
 | `huawei-cloud-cce-storage-failure-diagnoser` | PVC/PV/CSI follow-up |
 
-## Inputs
+## Parameters
 
 | Input | Required | Notes |
 | ----- | -------- | ----- |
@@ -49,7 +49,15 @@ Do not use `scripts/huawei-cloud.py`, `skill action=exec`, `huawei_*` dispatcher
 
 If the target is ambiguous, collect cluster/namespace-level context first and record ambiguity as a data gap.
 
-## Access Paths
+## Prerequisites
+
+1. `hcloud`, `kubectl`, and the kubectl-cce plugin are available as platform-native binaries.
+1. Credentials are provided through approved parameters, protected environment variables, or an approved credential provider.
+1. IAM and Kubernetes RBAC permit the required read-only cluster, Event, log, metric, alarm, and topology queries.
+1. If tooling is missing, use `huawei-cloud-kubectl-cce-installer`. This skill must not download or execute installer scripts.
+1. Never print AK, SK, tokens, Authorization headers, proxy credentials, or secrets found in logs.
+
+## Core Commands And Access Paths
 
 ### Cluster And Inventory Context
 
@@ -104,7 +112,7 @@ Do not hand-roll IAM signing or query raw cloud APIs from this skill.
 6. Summarize the context without over-diagnosing. Point to the most relevant next diagnoser or root-cause analyzer.
 7. Output a Markdown context package with summary, high-signal findings, timeline, gaps, and commands used.
 
-## Output Requirements
+## Output Format
 
 See [references/output-schema.md](references/output-schema.md). The output must put useful context first:
 
@@ -117,7 +125,14 @@ See [references/output-schema.md](references/output-schema.md). The output must 
 7. `## Recommended Handoff`
 8. `## Commands Used`
 
-## Guardrails
+## Best Practices
+
+- Fix the scope and time window before collecting evidence.
+- Keep logs and metrics bounded and preserve source timestamps for timeline correlation.
+- Distinguish observed facts, interpretations, and data gaps in the context package.
+- Route deep analysis to the matching domain skill instead of duplicating its workflow.
+
+## Notes And Guardrails
 
 Read [references/risk-rules.md](references/risk-rules.md) before acting.
 
@@ -139,7 +154,7 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 Repository checks:
 
 ```bash
-rg -n "scripts/huawei-cloud.py|skill action=exec|huawei_|huaweicloudsdk|KubernetesClusterCert|CreateKubernetesClusterCert|--kubeconfig" . --glob "!*.md"
+rg -n "huawei-cloud[.]py|skill action=ex[e]c|huawei[-_]|huaweicloudsdk|KubernetesClusterCert|CreateKubernetesClusterCert|--kubeconfig" . --glob "!*.md"
 rg -n -P "^kubectl (?!cce|version|plugin)" .
 git diff --check
 ```
