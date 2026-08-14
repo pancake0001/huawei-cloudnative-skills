@@ -1,12 +1,13 @@
 ---
-id: huawei-cloud-cce-pod-failure-diagnoser
 name: huawei-cloud-cce-pod-failure-diagnoser
-description: >
-  使用 hcloud CLI 发现华为云 CCE 集群，并通过 kubectl-cce 插件采集只读 Kubernetes 证据来诊断 Pod 故障。用户提到 CCE Pod CrashLoopBackOff、ImagePullBackOff、ErrImagePull、OOMKilled、Pending、Evicted、频繁重启、容器日志、Pod Events、Pod 指标，或要求不要使用 Python SDK dispatcher 排查华为云 CCE Pod 时使用本技能。
-tags: [huawei-cloud, cce, hcloud, koocli, kubectl, pod, diagnosis]
+description: 使用 hcloud 和只读 kubectl-cce 证据诊断华为云 CCE Pod 故障；用户提到 CrashLoopBackOff、ImagePullBackOff、OOMKilled、Pending 或 Evicted 时使用本技能。
+version: 1.0.0
+tags: [huawei-cloud, cce, kubectl, pod, diagnosis]
 ---
 
 # 华为云 CCE Pod 故障诊断
+
+## 概述
 
 本技能通过华为云 `hcloud` CLI 和 Kubernetes `kubectl` 诊断 CCE 集群中的单个 Pod 或一组 Pod 故障。
 
@@ -20,7 +21,7 @@ tags: [huawei-cloud, cce, hcloud, koocli, kubectl, pod, diagnosis]
 
 通过 kubectl-cce 插件接入后，Pods、Events、日志、Service、PVC、Node、metrics-server 指标等 Kubernetes 资源都用 `kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id>` 读取。
 
-禁止使用 Python SDK dispatcher、`scripts/huawei-cloud.py`、`skill action=exec`、`huawei_pod_*` action 或本 skill 包内旧 SDK 脚本。
+禁止使用 Python SDK dispatcher、旧 skill 执行动作、旧 Huawei Pod action 或本 skill 包内 SDK 脚本。
 
 **相关前置 skill**：如果需要安装或修复 `kubectl`/`kubectl-cce`，使用 `huawei-cloud-kubectl-cce-installer`。插件接入约束见 `references/kubectl-cce.md`。
 
@@ -35,7 +36,7 @@ tags: [huawei-cloud, cce, hcloud, koocli, kubectl, pod, diagnosis]
 
 本技能不执行变更操作。扩缩容、删除、重启、回滚、cordon、drain、taint、节点操作都只输出建议，并移交到对应恢复类 skill。
 
-## 必要输入
+## 参数确认
 
 | 输入 | 必填 | 说明 |
 | --- | --- | --- |
@@ -50,20 +51,20 @@ tags: [huawei-cloud, cce, hcloud, koocli, kubectl, pod, diagnosis]
 ## 前置条件
 
 1. `hcloud` 已安装并在 `PATH` 中。不同平台使用对应原生二进制，命令示例统一写 `hcloud ...`，不要硬编码 Windows 或 Linux 专属路径。
-2. `kubectl` 已安装，并与目标 Kubernetes 小版本兼容。很多 agent sandbox 运行在 Linux，即使开发机是 Windows，也不要在流程里写死 `kubectl.exe`。
-3. 如果 `hcloud` 或 `kubectl` 不在 `PATH` 中，先定位当前平台可执行的二进制，赋值给 shell 变量，并用 `version` 验证后再用。不要因为某个文件名叫 `kubectl.exe` 或 `hcloud.exe` 就假设它适配当前 OS。
-4. AK/SK 已配置到 hcloud。只用下面命令检查配置，不打印密钥：
+1. `kubectl` 已安装，并与目标 Kubernetes 小版本兼容。很多 agent sandbox 运行在 Linux，即使开发机是 Windows，也不要在流程里写死 `kubectl.exe`。
+1. 如果 `hcloud` 或 `kubectl` 不在 `PATH` 中，先定位当前平台可执行的二进制，赋值给 shell 变量，并用 `version` 验证后再用。不要因为某个文件名叫 `kubectl.exe` 或 `hcloud.exe` 就假设它适配当前 OS。
+1. AK/SK 已配置到 hcloud。只用下面命令检查配置，不打印密钥：
 
 ```bash
 hcloud configure list
 ```
 
-5. IAM 至少允许 list/show CCE 集群并使用 kubectl-cce API Gateway 接入。
-6. kubectl-cce 认证用户具备目标 namespace 中读取 Pod、Events、logs、Service、PVC、Node、metrics 的 RBAC 权限。
+1. IAM 至少允许 list/show CCE 集群并使用 kubectl-cce API Gateway 接入。
+1. kubectl-cce 认证用户具备目标 namespace 中读取 Pod、Events、logs、Service、PVC、Node、metrics 的 RBAC 权限。
 
 最终报告里不要输出 AK、SK、security token、kubectl-cce 代理凭据或 Authorization header。日志片段必须脱敏。
 
-## CCE hcloud 准备流程
+## 核心命令与准备流程
 
 ### 1. 确认 CLI 工具
 
@@ -73,27 +74,7 @@ hcloud configure list
 kubectl version --client
 ```
 
-缺少 `kubectl` 时先安装当前运行平台的原生二进制：
-
-```bash
-# Linux amd64 示例
-curl -LO "https://dl.k8s.io/release/v1.33.0/bin/linux/amd64/kubectl"
-chmod +x ./kubectl
-./kubectl version --client
-```
-
-Windows 使用 `kubectl.exe`；Linux/macOS 使用 `kubectl cce`。
-
-缺少 `hcloud` 时安装当前平台的 KooCLI：
-
-```bash
-# Linux/macOS 示例
-curl -sSL https://cn-north-4-hdn-koocli.obs.cn-north-4.myhuaweicloud.com/cli/latest/hcloud_install.sh -o ./hcloud_install.sh
-bash ./hcloud_install.sh -y
-hcloud version
-```
-
-Windows 解压后是 `hcloud.exe`，但技能示例仍写 `hcloud`，保持跨平台。
+如果缺少 `kubectl`、`kubectl-cce` 或 `hcloud`，停止当前诊断流程，改用 `huawei-cloud-kubectl-cce-installer` 或批准的平台安装流程。本诊断技能不得下载或执行安装脚本。安装流程必须选择当前平台的原生二进制、固定批准版本、校验官方发布的 checksum 或签名，然后重新执行上述版本检查。
 
 ### 2. 查找 CCE 集群
 
@@ -112,7 +93,10 @@ hcloud CCE ShowClusterEndpoints --cluster_id=<cluster-id> --project_id=<project-
 
 确认集群属于正确 region/project，状态可用，并判断当前网络能否访问 API Server。
 
-kubectl-cce 插件默认访问 CCE API Gateway endpoint `<cluster-id>.cce.<region>.myhuaweicloud.com`。如果该 endpoint 不适用于当前环境，设置 `CCE_ENDPOINT` 或传入 `--endpoint`。如果插件/API Gateway 访问失败，在报告中记录错误和访问缺口；不要默认退回 kubeconfig 生成或 SDK 调用。
+kubectl-cce 插件默认访问 CCE API Gateway endpoint
+`<cluster-id>.cce.<region>.myhuaweicloud.com`。如果该 endpoint 不适用于当前环境，
+设置 `CCE_ENDPOINT` 或传入 `--endpoint`。如果插件/API Gateway 访问失败，
+在报告中记录错误和访问缺口；不要默认退回 kubeconfig 生成或 SDK 调用。
 
 ### 4. 配置 kubectl-cce 插件
 
@@ -194,7 +178,7 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -n <namespace> --sort-by=.lastTimestamp
 ```
 
-可用 `events.k8s.io/v1` 时：
+Kubernetes Events v1 API 可用时：
 
 ```bash
 kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events.events.k8s.io -n <namespace> --sort-by=.eventTime -o yaml
@@ -255,12 +239,12 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 按 Pod 生命周期中最先失败的层级排序：
 
 1. Pod 未通过准入或 sandbox/network 创建失败。
-2. Pod 存在但无法调度。
-3. Pod 已调度但卷无法 attach/mount。
-4. 镜像无法拉取。
-5. 容器启动后退出或崩溃。
-6. 容器运行但 startup/liveness/readiness 探针失败。
-7. 节点压力或驱逐解释 Pod 故障。
+1. Pod 存在但无法调度。
+1. Pod 已调度但卷无法 attach/mount。
+1. 镜像无法拉取。
+1. 容器启动后退出或崩溃。
+1. 容器运行但 startup/liveness/readiness 探针失败。
+1. 节点压力或驱逐解释 Pod 故障。
 
 常见原因标签：
 
@@ -277,7 +261,7 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 | `QuotaOrAdmissionRejected` | Events 提到 quota、LimitRange、webhook、denied、forbidden |
 | `SandboxOrCNIBlocked` | `FailedCreatePodSandBox`、CNI、IP 分配或 runtime sandbox 错误 |
 
-## 报告格式
+## 输出格式
 
 用户侧报告要把决策信息放前面；命令轨迹和支撑证据放在读者已经看到结论之后。
 
@@ -295,11 +279,23 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 - CLI 路径：使用过的 hcloud CCE 和 kubectl 证据命令。
 - 明确说明没有执行变更命令。
 
-识别 Top Cause 后，读取 `references/scenario-guides.md` 并套用对应场景。这个规则适用于所有明确故障类型，不只适用于镜像拉取失败。场景指南覆盖 ImagePullBackOff、CrashLoopBackOff、OOMKilled、Pending、存储挂载、Evicted、探针失败、CNI/sandbox、Admission/Quota 等场景，并给出每类的解释、反向证据、下一步检查、候选修复和移交建议。
+识别 Top Cause 后，读取 `references/scenario-guides.md` 并套用对应场景。
+这个规则适用于所有明确故障类型，不只适用于镜像拉取失败。场景指南覆盖
+ImagePullBackOff、CrashLoopBackOff、OOMKilled、Pending、存储挂载、Evicted、
+探针失败、CNI/sandbox、Admission/Quota 等场景，并给出每类的解释、反向证据、
+下一步检查、候选修复和移交建议。
 
 详细结构见 `references/output-schema.md`。
 
-## 安全边界
+## 最佳实践
+
+- 从 Pod 生命周期最先失败的层级开始，依据直接证据排序候选根因。
+- 将 Events、日志和指标采集限制在目标范围和相关时间窗口内。
+- 明确记录反向证据和验证缺口，不推测无法获得的数据。
+- 命令示例始终使用参数占位符，并脱敏凭据、令牌、请求头和镜像仓库密钥。
+- 将只读诊断与变更修复分离，为每项拟议变更注明移交对象。
+
+## 注意事项与安全边界
 
 诊断前阅读 `references/risk-rules.md`。本技能只读，禁止执行：
 

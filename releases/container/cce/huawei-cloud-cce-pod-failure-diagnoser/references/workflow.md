@@ -45,7 +45,11 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 - Signals: waiting reason `ImagePullBackOff` or `ErrImagePull`, Events such as `FailedPullImage`, `BackOffPullImage`, failed pull, or back-off pulling image.
 - Evidence: image string, imagePullSecrets, Event message, repository/tag/auth/network hints.
 - Common causes: wrong image/tag, missing secret, SWR/registry permission, repository deleted, node egress or DNS issue, registry rate limit.
-- Important: do not keep requesting container logs when the image was never pulled. Errors like `container is waiting to start: trying and failing to pull image` and `previous terminated container ... not found` are expected supporting evidence.
+- Important: do not keep requesting container logs when the image was never
+  pulled. Errors like
+  `container is waiting to start: trying and failing to pull image` and
+  `previous terminated container ... not found` are expected supporting
+  evidence.
 
 ### OOMKilled
 
@@ -79,4 +83,6 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 
 ## Scenario-Specific Report Guidance
 
-After matching a failure rule above, read `scenario-guides.md` for the corresponding scenario. Use it to fill in interpretation, negative evidence, next checks, candidate fixes, and handoff guidance in the final report.
+After matching a failure rule above, read `scenario-guides.md` for the
+corresponding scenario. Use it to fill in interpretation, negative evidence,
+next checks, candidate fixes, and handoff guidance in the final report.
