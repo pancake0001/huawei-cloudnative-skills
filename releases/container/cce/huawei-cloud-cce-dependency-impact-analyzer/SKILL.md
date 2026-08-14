@@ -1,14 +1,22 @@
 ---
-id: huawei-cloud-cce-dependency-impact-analyzer
 name: huawei-cloud-cce-dependency-impact-analyzer
 description: >
-  Analyze Huawei Cloud CCE service topology impact with hcloud CLI for cluster discovery and kubectl-cce plugin commands for read-only Pod, Service, Ingress, EndpointSlice, and Node evidence. Use this skill when a CCE incident needs dependency impact analysis, blast radius, propagation paths, affected entrypoints, upstream/downstream impact, or a complete Markdown impact report. Do not use Python SDK dispatcher actions.
-tags: [cce, dependency, impact, cascade, hcloud, kubectl-cce]
+  Analyze Huawei Cloud CCE dependency topology and blast radius using hcloud and
+  read-only kubectl-cce evidence. Use this skill whenever the user asks which
+  workloads, Pods, Services, Ingresses, EndpointSlices, Nodes, entrypoints, or
+  upstream/downstream paths are affected by an incident and needs propagation paths,
+  confidence limits, or a complete impact report.
+version: 1.0.0
+tags: [huawei-cloud, cce, kubectl, dependency, impact]
 ---
 
 # Huawei Cloud CCE Dependency Impact Analyzer
 
-This skill maps service topology and blast radius for CCE incidents. It explains how a failing workload or Pod set propagates through Service, EndpointSlice, Ingress, and Node placement.
+## Overview
+
+Map CCE service topology and estimate incident blast radius. Explain how an unhealthy
+workload or Pod set can affect Services, EndpointSlices, Ingress entrypoints, and Node
+placement without confusing a possible static path with observed user traffic loss.
 
 Execution model:
 
@@ -16,87 +24,161 @@ Execution model:
 hcloud CCE discovery -> kubectl cce topology snapshot -> target matching -> propagation paths -> impact report -> diagnosis handoff
 ```
 
-Do not use Python SDK dispatcher commands, `scripts/huawei-cloud.py`, `skill action=exec`, `huawei_dependency_impact_*`, `huawei_get_cce_*`, bundled SDK scripts, kubeconfig generation, or Huawei Cloud SDK imports.
+Do not use Python SDK dispatchers, legacy skill execution actions, bundled SDK scripts,
+kubeconfig generation, direct IAM HTTP calls, or Huawei Cloud SDK imports.
 
-**Related prerequisite skill**: use `huawei-cloud-kubectl-cce-installer` to install or repair `kubectl`/`kubectl-cce`. Read `references/kubectl-cce.md` before running Kubernetes commands.
+## Prerequisites
+
+1. `hcloud`, `kubectl`, and kubectl-cce are available as platform-native binaries.
+2. Credentials and project context are provided through approved protected channels.
+3. IAM permits read-only CCE cluster discovery, and Kubernetes RBAC permits the
+   required workload, Pod, Service, Ingress, EndpointSlice, Node, and Event reads.
+4. Read `references/kubectl-cce.md` before Kubernetes access. If a tool or plugin is
+   missing, use `huawei-cloud-kubectl-cce-installer`; this skill must not install tools.
+5. Never print credentials, Authorization headers, plugin credential material, registry
+   secrets, application secrets, or sensitive values found in object data.
 
 ## Related Skills
 
 | Skill | When To Use |
 | --- | --- |
+| `huawei-cloud-cce-observability-context-builder` | Alarms, logs, metrics, Events, and timeline context are needed to confirm observed impact |
 | `huawei-cloud-cce-workload-failure-diagnoser` | Target workload is unavailable, rollout is stuck, or Pods are not Ready |
-| `huawei-cloud-cce-pod-failure-diagnoser` | Individual Pods show CrashLoopBackOff, ImagePullBackOff, OOMKilled, Pending, or Evicted |
-| `huawei-cloud-cce-network-failure-diagnoser` | Service, Ingress, EndpointSlice, DNS, NetworkPolicy, ELB, or EIP evidence suggests network failure |
-| `huawei-cloud-cce-change-impact-analyzer` | Impact began after a deployment, config, route, policy, or node/infrastructure change |
-| `huawei-cloud-cce-root-cause-analyzer` | Multiple domains need final root cause ranking |
-| `huawei-cloud-cce-auto-remediation-runner` | Remediation preview/execution after confirmation |
+| `huawei-cloud-cce-pod-failure-diagnoser` | Individual Pods show startup, image, scheduling, volume, probe, or eviction failures |
+| `huawei-cloud-cce-node-failure-diagnoser` | Impact is concentrated on a Node or availability zone |
+| `huawei-cloud-cce-network-failure-diagnoser` | Service, Ingress, EndpointSlice, DNS, policy, ELB, or EIP evidence suggests network failure |
+| `huawei-cloud-cce-storage-failure-diagnoser` | Shared PVC, PV, CSI, attach, mount, or storage-backend dependencies are involved |
+| `huawei-cloud-cce-change-impact-analyzer` | Impact began after a deployment, configuration, route, policy, Node, or infrastructure change |
+| `huawei-cloud-cce-root-cause-analyzer` | Multiple domains need final root-cause ranking |
 
-## Required Inputs
+## Parameters
 
 | Input | Required | Notes |
 | --- | --- | --- |
 | `region` | Yes | Example: `cn-north-4` |
-| `project_id` | Usually | Required by kubectl-cce |
+| `project_id` | Yes | Pass explicitly to hcloud and kubectl-cce |
 | `cluster_id` | Preferred | Resolve by name with hcloud if absent |
-| `namespace` | Recommended | Target namespace or `-A` for broad scan |
-| `target_name` | Recommended | Workload, Service, Pod, or app label value |
-| `label_selector` | Optional | Prefer this when provided because it is more precise than name-prefix matching |
-| `failure_symptom` | Optional | Service unavailable, ingress failure, pod unavailable, node concentration, etc. |
+| `namespace` | Recommended | Target namespace; use cluster-wide scope only when necessary |
+| `target_name` | Recommended | Workload, Service, Pod, Ingress, or stable app label value |
+| `label_selector` | Optional | Prefer an explicit selector over name-prefix matching |
+| `failure_symptom` | Optional | User-visible failure or suspected affected path |
+| `fault_time` | Recommended | Correlates topology with observability evidence |
 
-## Collection
+## Core Commands
 
-1. Discover and verify the cluster:
+### 1. Verify Tools And Plugin
 
 ```bash
-hcloud CCE ListClusters --cli-region=<region> --cli-output=json
-hcloud CCE ShowCluster --cluster_id=<cluster-id> --cli-region=<region> --cli-output=json
+hcloud version
+hcloud configure list
+kubectl version --client
+kubectl plugin list
 ```
 
-2. Collect topology through kubectl-cce. Use a namespace when known; otherwise collect all namespaces and keep the result bounded in the report:
+If a tool or plugin is missing, stop and use `huawei-cloud-kubectl-cce-installer`.
+Do not download installers or fall back to SDK or kubeconfig access.
+
+### 2. Discover Cluster Context
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods,svc,ingress,endpoints,endpointslices -n <namespace> -o json
+hcloud CCE ListClusters --project_id=<project-id> --cli-region=<region> --cli-output=json
+hcloud CCE ShowCluster --cluster_id=<cluster-id> --project_id=<project-id> --cli-region=<region> --cli-output=json
+```
+
+### 3. Collect Namespace Topology
+
+```bash
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get namespace <namespace> -o json
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get deploy,sts,ds,rs,pods,svc,ingress,endpoints,endpointslices -n <namespace> -o json
 kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get nodes -o json
 kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -n <namespace> --sort-by=.lastTimestamp
 ```
 
-Use `-A` only when the namespace is unknown or the incident is cluster-wide. If `endpointslices` is unavailable due to Kubernetes version or RBAC, fall back to `endpoints` and record the gap.
+Use `-A` only when the namespace is unknown or the incident is cluster-wide, and keep
+the report bounded. If EndpointSlice is unavailable because of Kubernetes version or
+RBAC, use Endpoints and record the data gap.
+
+### 4. Add Corroborating Evidence
+
+Use the observability context builder or dedicated alarm, event, metric, and log skills
+when actual traffic or historical impact must be proved. Static object relationships
+show possible propagation paths only.
+
+### 5. Record Collection Gaps
+
+Record the denied resource, scope, sanitized error, fallback used, and confidence impact.
+Do not bypass kubectl-cce with kubeconfig or SDK access.
 
 ## Analysis Workflow
 
-1. Scope: confirm region, cluster, namespace, target object, selector, and failure symptom.
-2. Target matching: find target Pods by `label_selector` first, then ownerReference, Pod prefix, app labels, or Service selector.
-3. Upstream mapping: find Services whose selectors match target Pod labels. Flag selector mismatches and Services with zero ready endpoints.
-4. Entrypoint mapping: find Ingress rules and default backends pointing to those Services. Include host, path, backend Service, and class/controller when available.
-5. Node distribution: map affected Pods to Nodes. Highlight single-node concentration, NotReady/pressure nodes, and zone concentration.
-6. Propagation paths: model external traffic as `Ingress -> Service -> EndpointSlice/Endpoints -> Pods -> Nodes`; model cluster traffic as `Service DNS -> EndpointSlice/Endpoints -> Pods -> Nodes`.
-7. Impact scoring: combine target Pod readiness, number of affected Services/Ingresses, endpoint availability, node concentration, and known user-visible symptoms.
-8. Handoff: use workload/pod/node/network/change diagnosers for cause-level evidence; this skill focuses on impact and topology.
+1. Confirm region, project, cluster, namespace, target object, selector, symptom, and
+   incident time.
+2. Match the target using `label_selector` first, then workload ownership, Service
+   selector, Pod name, or stable labels. Follow Pod -> ReplicaSet -> Deployment and
+   equivalent StatefulSet/DaemonSet ownership chains.
+3. Find Services whose selectors match target Pod labels. For selectorless or
+   `ExternalName` Services, inspect type and associated Endpoints/EndpointSlices instead
+   of treating the missing selector as an error.
+4. Find Ingress rules and default backends that reference matched Services. Include host,
+   path, backend Service/port, ingress class, and controller when available.
+5. Map target and endpoint Pods to Nodes and zones. Highlight single-Node concentration,
+   NotReady or pressured Nodes, and availability-zone concentration.
+6. Model external paths as `Ingress -> Service -> EndpointSlice/Endpoints -> Pods ->
+   Nodes` and internal paths as `Service DNS -> EndpointSlice/Endpoints -> Pods -> Nodes`.
+7. Score impact using Pod readiness, exposed entrypoints, ready endpoint ratios, Node or
+   zone concentration, and corroborating alarms, logs, metrics, Events, or user symptoms.
+8. Hand cause-level evidence to focused workload, Pod, Node, network, storage, change,
+   or root-cause skills. This skill owns topology and impact analysis, not remediation.
 
-## Output Requirements
+## Output Format
 
 The Markdown report must start with:
 
-1. `## Summary`: impacted entrypoints, affected backend, estimated blast radius, confidence.
-2. `## Impact Paths`: path table from Ingress/Service to Pods and Nodes.
-3. `## Next Actions`: most useful verification and domain handoff.
-4. `## Evidence`: Pod readiness, Service selectors, EndpointSlice/Endpoints, Ingress backends, Node distribution, Events.
-5. `## Confidence Limits`: missing namespace, RBAC denial, missing EndpointSlice, no traffic logs, or unknown upstream consumers.
+1. `## Summary`: affected entrypoints/backends, estimated blast radius, confidence, and
+   whether impact is observed or only possible.
+2. `## Impact Paths`: path table from Ingress or Service to workloads, Pods, and Nodes.
+3. `## Next Actions`: highest-value verification and focused diagnosis handoff.
+4. `## Evidence`: workload ownership, Pod readiness, Service selectors/types,
+   EndpointSlice/Endpoints, Ingress backends, Node distribution, and Events.
+5. `## Confidence Limits`: missing scope, RBAC denial, unavailable EndpointSlice,
+   absent traffic evidence, unknown consumers, or stale topology.
+6. `## Appendix`: bounded command trace and sanitized collection failures.
 
-Do not claim real user traffic impact from static topology alone unless logs, metrics, alarms, or user symptoms support it.
+Do not claim real user traffic impact from static topology alone. Require logs, metrics,
+alarms, synthetic checks from an approved test path, or explicit user symptoms.
+
+## Best Practices
+
+- Separate possible propagation paths from observed impact.
+- Prefer stable selectors and owner references over name-prefix matching.
+- Treat selectorless and `ExternalName` Services as special cases, not automatic errors.
+- Keep cluster-wide snapshots bounded and state the snapshot time.
+- Preserve negative evidence and unknown upstream consumers when assigning confidence.
+
+## Notes And Safety Rules
+
+- Use only read-only hcloud and kubectl-cce operations.
+- Do not run apply, create, patch, edit, delete, scale, rollout undo, restart, exec,
+  attach, port-forward, packet capture, stress tests, or active traffic generation.
+- Do not generate kubeconfig or call cloud/Kubernetes SDK clients.
+- Do not expose credentials, Secret values, ConfigMap-sensitive values, or application
+  data in evidence or reports.
+- Hand remediation to the approved remediation workflow after explicit confirmation.
 
 ## Verification
 
 ```bash
-rg -n "scripts/huawei-cloud.py|skill action=exec|huawei_dependency_impact|huawei_get_cce_|huaweicloudsdk|KubernetesClusterCertRequest|CreateKubernetesClusterCert" . --glob "!*.md"
+rg -n "huawei-cloud[.]py|skill action=ex[e]c|huawei[-_]dependency[-_]impact|huawei[-_]get[-_]cce|huaweicloudsdk|KubernetesClusterCertRequest|CreateKubernetesClusterCert" . --glob "!*.md"
 rg -n -P "^kubectl (?!cce|version|plugin)" .
+git diff --check
 ```
 
-Expected result: no executable SDK dispatcher entrypoints or bare Kubernetes access paths remain. Markdown hits should be prohibitions or verification checks only.
+Expected result: no executable SDK dispatcher entrypoint, bare Kubernetes access path,
+or mutating command remains. Markdown matches must be prohibitions or verification text.
 
 ## References
 
 - `references/kubectl-cce.md`: plugin access contract.
-- `references/workflow.md`: topology and impact workflow.
+- `references/workflow.md`: topology matching, propagation, and handoff workflow.
 - `references/output-schema.md`: structured output and Markdown layout.
 - `references/risk-rules.md`: read-only boundaries and confidence limits.

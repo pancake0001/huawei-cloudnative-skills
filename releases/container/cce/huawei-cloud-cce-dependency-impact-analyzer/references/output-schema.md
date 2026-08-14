@@ -4,6 +4,7 @@
 {
   "success": true,
   "analysis_trace_id": "DEP-...",
+  "execution_model": "hcloud CCE + kubectl-cce + delegated observability skills",
   "scope": {
     "region": "cn-north-4",
     "project_id": "project-id",
@@ -15,6 +16,7 @@
   "summary": {
     "headline": "impact summary",
     "risk_level": "High|Medium|Low|Unknown",
+    "impact_status": "observed|possible|not_observed|unknown",
     "affected_entrypoints": [],
     "affected_backends": [],
     "confidence": 0.78,
@@ -33,6 +35,11 @@
   "ingress_mapping": [],
   "node_distribution": [],
   "next_actions": [],
+  "commands": {
+    "read_only_commands": [],
+    "mutating_commands_run": false,
+    "collection_errors": []
+  },
   "report_markdown": "# CCE Dependency Impact Report..."
 }
 ```

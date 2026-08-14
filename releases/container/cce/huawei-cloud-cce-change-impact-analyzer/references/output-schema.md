@@ -4,6 +4,7 @@
 {
   "success": true,
   "analysis_trace_id": "CHG-...",
+  "execution_model": "hcloud CCE + kubectl-cce + delegated observability skills",
   "scope": {
     "region": "cn-north-4",
     "project_id": "project-id",
@@ -37,6 +38,16 @@
   "evidence_timeline": [],
   "blast_radius": [],
   "next_actions": [],
+  "evidence_controls": {
+    "secret_values_collected": false,
+    "configmap_values_collected": false,
+    "current_state_labeled_as_history": false
+  },
+  "commands": {
+    "read_only_commands": [],
+    "mutating_commands_run": false,
+    "collection_errors": []
+  },
   "report_markdown": "# CCE Change Impact Report..."
 }
 ```
