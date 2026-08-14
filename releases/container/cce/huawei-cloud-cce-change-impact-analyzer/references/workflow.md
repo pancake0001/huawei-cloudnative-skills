@@ -14,7 +14,7 @@
 Retain changes or change signals that can plausibly affect the incident:
 
 - Workload: image, command/args, env, resources, probes, volumes, selector, affinity, tolerations.
-- Config: ConfigMap/Secret data, CoreDNS Corefile, kube-proxy or core add-on config.
+- Config: ConfigMap/Secret metadata or user-provided sanitized before/after summaries, CoreDNS Corefile, kube-proxy, or core add-on config. Never retrieve Secret values.
 - Network: Service ports/selectors, Ingress/Gateway backend/rules/TLS, NetworkPolicy ingress/egress.
 - Security: RBAC, ServiceAccount, or policy changes that alter access boundaries.
 - Infrastructure: node taints, cordon/drain, node pool scale, upgrade, security group/ACL/route changes.
@@ -24,7 +24,7 @@ Retain changes or change signals that can plausibly affect the incident:
 Ignore low-signal control-plane noise unless other evidence links it to the incident:
 
 - Lease, Event, TokenReview, SubjectAccessReview, and short-lifecycle token Secret churn.
-- Pod binding, `/status` writes, Node status patches, NPD/kubelet heartbeat.
+- Pod binding, status-subresource writes, Node status patches, NPD/kubelet heartbeat.
 - HPA-only replica adjustments without saturation or failed scaling evidence.
 - Deployment/ReplicaSet/StatefulSet/DaemonSet controller status advancement.
 - Platform-managed RBAC such as `system:cce:*` when the actor is clearly a CCE/platform component.
@@ -37,7 +37,10 @@ Ignore low-signal control-plane noise unless other evidence links it to the inci
 4. Score topology overlap: changes touching the affected object, namespace, entrypoint, node, or dependency path are stronger.
 5. Score focused diagnosis: workload/pod/node/network/storage findings that match the changed field increase confidence.
 6. Preserve counter-evidence: healthy rollout, unaffected endpoints, no post-change Events, unrelated namespace, or alarm before change.
+7. Treat numeric risk scores as comparative ranking only; they do not prove causality.
 
 ## 5. Reporting
 
-The report must include Summary, Change Impact Analysis, Next Actions, Evidence Timeline, Blast Radius, Data Gaps, and Appendix. Do not state that a change caused the incident unless temporal order plus response evidence or focused diagnosis supports it.
+The report must include Summary, Change Impact Analysis, Next Actions, Evidence Timeline,
+Blast Radius, Data Gaps, and Appendix. Do not state that a change caused the incident
+unless temporal order plus response evidence or focused diagnosis supports it.
