@@ -3,15 +3,16 @@ level: L2
 domain: observability
 description: Query and analyze Kubernetes stdout logs and Huawei Cloud LTS logs for CCE workloads.
 tools:
-  - huawei_get_pod_logs
-  - huawei_list_log_groups
-  - huawei_list_log_streams
-  - huawei_query_lts_logs
+  - huawei_get_pod_stdout_logs
+  - huawei_analyze_pod_stdout_realtime_logs
+  - huawei_list_lts_access_configs
+  - huawei_create_lts_access_config
+  - huawei_delete_lts_access_config
   - huawei_get_cce_logconfigs
   - huawei_create_cce_logconfig
   - huawei_delete_cce_logconfig
-  - huawei_get_application_logconfigs
   - huawei_query_cce_audit_logs
+  - huawei_analyze_cce_audit_timeline
   - huawei_query_application_logs
   - huawei_analyze_application_logs
 references:

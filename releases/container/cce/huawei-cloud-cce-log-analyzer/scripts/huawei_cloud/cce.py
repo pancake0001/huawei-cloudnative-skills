@@ -17,7 +17,7 @@ def get_pod_logs(
     namespace: str = "default",
     container: Optional[str] = None,
     previous: bool = False,
-    tail_lines: int = 100,
+    tail_lines: int = 1000,
 ) -> Dict[str, Any]:
     """Read Pod stdout/stderr through kubectl or the kubectl-cce plugin."""
     result = kubectl_client.get_pod_logs(

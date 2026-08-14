@@ -6,12 +6,12 @@ This skill is read-only by default: it may query Kubernetes stdout logs, LogConf
 
 ## Mutating Operations
 
-- Creating LogConfig resources is allowed only through `huawei_create_cce_logconfig`. The tool must preview first and requires `confirm=true` before it changes the cluster.
-- Deleting LogConfig resources is allowed only through `huawei_delete_cce_logconfig`. The tool must preview the exact target first and requires `confirm=true`.
+- Creating LogConfig or LTS Access Config resources is allowed only through `huawei_create_cce_logconfig` or `huawei_create_lts_access_config`. The tool must preview first and requires `confirm=true` before it changes collection configuration.
+- Deleting LogConfig or LTS Access Config resources is allowed only through `huawei_delete_cce_logconfig` or `huawei_delete_lts_access_config`. The tool must preview the exact target first and requires `confirm=true`.
 
 ## Scope Boundaries
 
-- Do not update workloads, LogConfig resources, log groups, log streams, or LTS data.
+- Do not update workloads, LogConfig resources, log groups, log streams, LTS Access Config resources, or LTS data outside the dedicated confirmed tools.
 - If a user asks for remediation based on logs, provide evidence and hand off to the relevant diagnosis or remediation skill instead of changing resources here.
 
 ## Credential Security
@@ -37,6 +37,6 @@ Call without confirm=true → Preview output → User reviews → User confirms 
 ```
 
 **No exceptions**:
-- Do not skip preview for "simple" LogConfig operations
+- Do not skip preview for "simple" LogConfig or LTS Access Config operations
 - Do not call with confirm=true without showing preview first
 - Do not assume the preview is correct without user verification

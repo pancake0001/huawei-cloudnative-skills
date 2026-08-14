@@ -55,8 +55,26 @@ def redact_command(command: list[str]) -> list[str]:
     ]
 
 
+def _parse_hcloud_output(output: str) -> Any:
+    """Parse hcloud JSON while tolerating diagnostics appended after the payload."""
+    candidate = output.strip()
+    try:
+        return json.loads(candidate)
+    except json.JSONDecodeError:
+        # LTS log content can contain literal backslashes (for example, regexes)
+        # that hcloud emits without JSON escaping.
+        candidate = re.sub(r'\\(?!["\\/bfnrt]|u[0-9a-fA-F]{4})', r"\\\\", candidate)
+        try:
+            return json.loads(candidate)
+        except json.JSONDecodeError:
+            # Some hcloud releases append terminal diagnostics after a valid JSON
+            # response. Keep only the first JSON value in that case.
+            value, _ = json.JSONDecoder().raw_decode(candidate)
+            return value
+
+
 def run_hcloud(command: list[str]) -> dict[str, Any]:
-    """Run hcloud and require a complete JSON response."""
+    """Run hcloud and parse its JSON response."""
     safe_command = redact_command(command)
     try:
         process = subprocess.run(command, text=True, capture_output=True, timeout=75, check=False)
@@ -70,14 +88,22 @@ def run_hcloud(command: list[str]) -> dict[str, Any]:
             "error": (process.stderr or process.stdout or f"hcloud exited with code {process.returncode}")[:2000],
             "command": safe_command,
         }
+    output = (process.stdout or "").strip() or "{}"
     try:
-        return {"success": True, "data": json.loads((process.stdout or "").strip() or "{}")}
-    except json.JSONDecodeError as exc:
+        data = _parse_hcloud_output(output)
+    except json.JSONDecodeError as error:
         return {
             "success": False,
-            "error": f"hcloud returned non-JSON output: {exc}",
+            "error": f"hcloud returned non-JSON output: {error}",
             "command": safe_command,
         }
+    if isinstance(data, dict) and data.get("error_code"):
+        return {
+            "success": False,
+            "error": f"{data['error_code']}: {data.get('error_msg', 'hcloud request failed')}",
+            "command": safe_command,
+        }
+    return {"success": True, "data": data}
 
 
 def hcloud_command(

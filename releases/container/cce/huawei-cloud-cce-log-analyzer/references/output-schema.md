@@ -18,15 +18,15 @@ When querying logs (Pod stdout, application logs, or audit logs), prefer this ou
 | `total` | Number of returned log entries |
 | `has_more` | Whether an LTS scroll id indicates more data |
 
-## LogConfig Discovery Summary
+## Application Log Collection Rule
 
 | Field | Description |
 |------|-------------|
-| `matched_streams` | List of matched LogConfig policies with group/stream IDs |
-| `policy_name` | LogConfig policy name |
+| `collection_mode` | `cce_logconfig` or `lts_access_config` |
+| `rule_name` / `rule_id` | Collection-rule identity; LTS Access Config has an ID |
 | `source_type` | `container_stdout` or `container_file` |
-| `log_group_id` | LTS group ID for the policy |
-| `log_stream_id` | LTS stream ID for the policy |
+| `log_group_id` / `log_group_name` | LTS destination log group |
+| `log_stream_id` / `log_stream_name` | LTS destination log stream |
 
 ## LogConfig Preview Summary
 

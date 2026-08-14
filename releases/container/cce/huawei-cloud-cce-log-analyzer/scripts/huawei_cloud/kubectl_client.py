@@ -130,8 +130,11 @@ class KubectlCustomObjectsApi:
     def _resource(self, group: str, plural: str) -> str:
         return f"{plural}.{group}"
 
-    def _run(self, arguments: List[str], *, stdin: Optional[str] = None) -> Dict[str, Any]:
-        result = run_kubectl(self.params["region"], self.params["cluster_id"], arguments, ak=self.params.get("ak"), sk=self.params.get("sk"), project_id=self.params.get("project_id"), stdin=stdin)
+    def _run(self, arguments: List[str], *, stdin: Optional[str] = None, expect_json: bool = True) -> Dict[str, Any]:
+        result = run_kubectl(
+            self.params["region"], self.params["cluster_id"], arguments, ak=self.params.get("ak"),
+            sk=self.params.get("sk"), project_id=self.params.get("project_id"), stdin=stdin, expect_json=expect_json,
+        )
         if not result.get("success"):
             raise RuntimeError(result.get("error", "kubectl command failed"))
         return result.get("data") or {}
@@ -146,7 +149,9 @@ class KubectlCustomObjectsApi:
         return self._run(["get", self._resource(group, plural), name, "--namespace", namespace, "--output=json"])
 
     def create_namespaced_custom_object(self, group: str, version: str, namespace: str, plural: str, body: Dict[str, Any]) -> Dict[str, Any]:
-        return self._run(["apply", "--namespace", namespace, "--filename=-", "--output=json"], stdin=json.dumps(body))
+        # CCE does not expose OpenAPI schemas for every custom resource; let the API server validate the object.
+        return self._run(["apply", "--namespace", namespace, "--filename=-", "--output=json", "--validate=false"], stdin=json.dumps(body))
 
     def delete_namespaced_custom_object(self, group: str, version: str, namespace: str, plural: str, name: str) -> Dict[str, Any]:
-        return self._run(["delete", self._resource(group, plural), name, "--namespace", namespace, "--output=json"])
+        self._run(["delete", self._resource(group, plural), name, "--namespace", namespace, "--output=name"], expect_json=False)
+        return {"metadata": {"name": name, "namespace": namespace}}

@@ -4,10 +4,20 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import datetime, timedelta
+import time
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
-from . import kubectl_client, lts
+from . import cce, common, kubectl_client, lts
+
+
+DEFAULT_ERROR_PATTERNS = [
+    r"\berror\b", r"\bexception\b", r"\btraceback\b", r"\bpanic\b", r"\bfatal\b",
+    r"\bfailed?\b", r"\bfailure\b", r"\btimeout\b", r"\btimed out\b",
+    r"\bconnection refused\b", r"\bunavailable\b", r"\boom\b", r"out of memory",
+    r"segmentation fault", r"stacktrace",
+]
+DEFAULT_WARNING_PATTERNS = [r"\bwarn(?:ing)?\b", r"\bdeprecated\b", r"\bretry(?:ing)?\b", r"\bslow\b"]
 
 
 def _get_policy_name(params: Dict[str, str]) -> Optional[str]:
@@ -58,6 +68,16 @@ def _format_ts(timestamp_ms: Optional[int]) -> Optional[str]:
     if timestamp_ms is None:
         return None
     return datetime.fromtimestamp(timestamp_ms / 1000).strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _recent_lts_window(hours: int) -> Tuple[str, str]:
+    """Return a UTC time range compatible with the LTS timestamp parser."""
+    end_time = datetime.now(timezone.utc)
+    start_time = end_time - timedelta(hours=hours)
+    return (
+        start_time.strftime("%Y-%m-%d %H:%M:%S"),
+        end_time.strftime("%Y-%m-%d %H:%M:%S"),
+    )
 
 
 def _content_of(log: Dict[str, Any]) -> str:
@@ -225,6 +245,27 @@ def _classify_log(
     return False, severity, [], status_code
 
 
+def _analysis_options(params: Dict[str, str]) -> Tuple[List[str], List[str], int, bool, int, int]:
+    return (
+        _parse_text_list(params.get("error_patterns"), DEFAULT_ERROR_PATTERNS),
+        _parse_text_list(params.get("warning_patterns"), DEFAULT_WARNING_PATTERNS),
+        _to_int(params.get("http_error_status_threshold"), 500),
+        _to_bool(params.get("include_http_4xx"), False),
+        _to_int(params.get("incident_gap_minutes"), 5),
+        _to_int(params.get("sample_limit"), 20),
+    )
+
+
+def _new_log_lines(initial_logs: str, followup_logs: str) -> Tuple[List[str], int]:
+    """Return follow-up lines that do not overlap with the initial tail sample."""
+    initial_lines = initial_logs.splitlines()
+    followup_lines = followup_logs.splitlines()
+    for overlap in range(min(len(initial_lines), len(followup_lines)), -1, -1):
+        if not overlap or initial_lines[-overlap:] == followup_lines[:overlap]:
+            return followup_lines[overlap:], overlap
+    return followup_lines, 0
+
+
 def _build_incident_windows(anomalies: List[Dict[str, Any]], gap_minutes: int) -> List[Dict[str, Any]]:
     if not anomalies:
         return []
@@ -388,8 +429,11 @@ def get_cce_logconfigs_action(params: Dict[str, str]) -> Dict[str, Any]:
 
         logconfigs = []
         tried = []
+        probe_errors = []
+        successful_probes = 0
         for group, version, plural in _logconfig_cr_combinations():
-            tried.append(f"{group}/{version}/{plural}")
+            api_version = f"{group}/{version}/{plural}"
+            tried.append(api_version)
             try:
                 if namespace:
                     api_result = custom_api.list_namespaced_custom_object(group=group, version=version, namespace=namespace, plural=plural)
@@ -414,10 +458,28 @@ def get_cce_logconfigs_action(params: Dict[str, str]) -> Dict[str, Any]:
                             "api_version": f"{group}/{version}",
                         }
                     )
+                successful_probes += 1
                 if logconfigs:
                     break
-            except Exception:
+            except Exception as exc:
+                probe_errors.append(
+                    {
+                        "api_version": api_version,
+                        "error_type": type(exc).__name__,
+                        "error": str(exc)[:1000],
+                    }
+                )
                 continue
+
+        if not successful_probes:
+            return {
+                "success": False,
+                "error": "unable to query CCE LogConfig resources through the available CRD APIs",
+                "cluster_id": cluster_id,
+                "namespace": namespace or "all",
+                "tried_api_combinations": tried,
+                "probe_errors": probe_errors,
+            }
 
         return {
             "success": True,
@@ -425,10 +487,28 @@ def get_cce_logconfigs_action(params: Dict[str, str]) -> Dict[str, Any]:
             "namespace": namespace or "all",
             "count": len(logconfigs),
             "tried_api_combinations": tried,
+            "probe_errors": probe_errors,
             "logconfigs": logconfigs,
         }
     except Exception as exc:
         return {"success": False, "error": str(exc), "error_type": type(exc).__name__}
+
+
+def _build_file_spec(params: Dict[str, str]) -> Dict[str, str]:
+    log_path = params.get("log_path")
+    if not log_path:
+        raise ValueError("log_path is required for file LogConfig")
+    file_pattern = params.get("file_pattern")
+    if not file_pattern:
+        is_directory_path = log_path.endswith("/")
+        normalized_path = log_path.rstrip("/")
+        parent, separator, basename = normalized_path.rpartition("/")
+        if not is_directory_path and separator and basename:
+            log_path = parent or "/"
+            file_pattern = basename
+        else:
+            file_pattern = "*.log"
+    return {"logPath": log_path, "filePattern": file_pattern}
 
 
 def _build_logconfig_workloads(params: Dict[str, str], source_type: str) -> List[Dict[str, Any]]:
@@ -452,13 +532,9 @@ def _build_logconfig_workloads(params: Dict[str, str], source_type: str) -> List
         workload["container"] = container_name
 
     if source_type == "container_file":
-        log_path = params.get("log_path")
-        file_pattern = params.get("file_pattern", "*.log")
-        if not log_path:
-            raise ValueError("log_path is required for container_file LogConfig")
         workload["files"] = _parse_json_value(
             params.get("files"),
-            [{"logPath": log_path, "filePattern": file_pattern}],
+            [_build_file_spec(params)],
         )
     return [workload]
 
@@ -468,8 +544,8 @@ def _build_logconfig_body(params: Dict[str, str]) -> Dict[str, Any]:
     if not name:
         raise ValueError("logconfig_name or name is required")
     source_type = params.get("source_type") or params.get("input_type") or "container_stdout"
-    if source_type not in {"container_stdout", "container_file"}:
-        raise ValueError("source_type must be container_stdout or container_file")
+    if source_type not in {"container_stdout", "container_file", "host_file"}:
+        raise ValueError("source_type must be container_stdout, container_file, or host_file")
 
     log_group_id = params.get("log_group_id")
     log_stream_id = params.get("log_stream_id")
@@ -498,7 +574,10 @@ def _build_logconfig_body(params: Dict[str, str]) -> Dict[str, Any]:
         else:
             input_detail["containerStdout"] = {"allContainers": False, "workloads": _build_logconfig_workloads(params, source_type)}
     else:
-        input_detail["containerFile"]["workloads"] = _build_logconfig_workloads(params, source_type)
+        if source_type == "container_file":
+            input_detail["containerFile"]["workloads"] = _build_logconfig_workloads(params, source_type)
+        else:
+            input_detail["hostFile"] = {"file": _build_file_spec(params)}
 
     return {
         "apiVersion": f"{params.get('api_group', 'logging.openvessel.io')}/{params.get('api_version', 'v1')}",
@@ -530,6 +609,9 @@ def _build_logconfig_body(params: Dict[str, str]) -> Dict[str, Any]:
 
 
 def create_cce_logconfig_action(params: Dict[str, str]) -> Dict[str, Any]:
+    destination_check = lts.require_explicit_cluster_log_destination(params)
+    if destination_check:
+        return destination_check
     try:
         body = _build_logconfig_body(params)
         group = params.get("api_group", "logging.openvessel.io")
@@ -665,18 +747,38 @@ def delete_cce_logconfig_action(params: Dict[str, str]) -> Dict[str, Any]:
 
 
 def _discover_audit_log_stream(params: Dict[str, str]) -> Dict[str, Any]:
+    cluster_id = params["cluster_id"]
+    config_command = common.hcloud_command(
+        "CCE", "ShowClusterConfig", params["region"], params.get("ak"), params.get("sk"), params.get("project_id")
+    )
+    config_command.append(f"--cluster_id={cluster_id}")
+    if params.get("project_id"):
+        config_command.append(f"--project_id={params['project_id']}")
+    config_result = common.run_hcloud(config_command)
+    if not config_result.get("success"):
+        return config_result
+    audit_config = next(
+        (item for item in config_result.get("data", {}).get("log_configs", []) if item.get("name") == "audit"),
+        None,
+    )
+    if not audit_config or not audit_config.get("enable"):
+        return {
+            "success": False,
+            "error": "CCE audit log collection is not enabled",
+            "note": "Enable the audit log configuration before querying or analyzing Kubernetes audit logs.",
+        }
+
     if params.get("log_group_id") and params.get("log_stream_id"):
         return {
             "success": True,
             "log_group_id": params["log_group_id"],
             "log_stream_id": params["log_stream_id"],
             "match_type": "explicit_ids",
+            "cluster_audit_enabled": True,
         }
 
-    group_name_filter = (params.get("log_group_name") or "").lower()
-    stream_name_filter = (params.get("log_stream_name") or "").lower()
-    audit_terms = [term.lower() for term in _parse_text_list(params.get("audit_stream_keywords"), ["audit", "apiserver", "api-server", "kube-apiserver"])]
-    cluster_hint = (params.get("cluster_id") or "").lower()
+    expected_group_name = f"k8s-log-{cluster_id}"
+    expected_stream_name = f"audit-{cluster_id}"
 
     groups_result = lts.list_log_groups(
         params["region"],
@@ -686,75 +788,43 @@ def _discover_audit_log_stream(params: Dict[str, str]) -> Dict[str, Any]:
     )
     if not groups_result.get("success"):
         return groups_result
-
-    candidates = []
-    for group in groups_result.get("log_groups", []):
-        group_name = str(group.get("log_group_name") or "").lower()
-        group_id = group.get("log_group_id")
-        if params.get("log_group_id") and group_id != params["log_group_id"]:
-            continue
-        if group_name_filter and group_name_filter not in group_name:
-            continue
-        if not group_name_filter and cluster_hint and cluster_hint not in group_name and not any(term in group_name for term in audit_terms):
-            # Keep scanning other groups, but avoid opening every unrelated group when names give no hint.
-            continue
-
-        streams_result = lts.list_log_streams(
-            params["region"],
-            group_id,
-            ak=params.get("ak"),
-            sk=params.get("sk"),
-            project_id=params.get("project_id"),
-        )
-        if not streams_result.get("success"):
-            continue
-        for stream in streams_result.get("log_streams", []):
-            stream_name = str(stream.get("log_stream_name") or "").lower()
-            if stream_name_filter and stream_name_filter not in stream_name:
-                continue
-            score = 0
-            if cluster_hint and cluster_hint in stream_name:
-                score += 6
-            elif cluster_hint and cluster_hint in group_name:
-                score += 2
-            for term in audit_terms:
-                if term in stream_name:
-                    score += 5
-                if term in group_name:
-                    score += 2
-            if stream_name_filter:
-                score += 10
-            if group_name_filter:
-                score += 4
-            if score > 0:
-                candidates.append({"score": score, "log_group": group, "log_stream": stream})
-
-    candidates.sort(key=lambda item: item["score"], reverse=True)
-    if not candidates:
+    group = next(
+        (item for item in groups_result.get("log_groups", []) if item.get("log_group_name") == expected_group_name),
+        None,
+    )
+    if not group:
         return {
             "success": False,
-            "error": "未自动发现CCE审计日志流",
-            "note": "请传入 log_group_id/log_stream_id，或使用 log_group_name/log_stream_name/audit_stream_keywords 指定审计日志流名称特征。",
-            "searched_group_count": len(groups_result.get("log_groups", [])),
+            "error": f"CCE audit log group {expected_group_name} was not found",
+            "note": "Audit is enabled, but the expected LTS log group is unavailable or has not been created yet.",
         }
-    selected = candidates[0]
+    streams_result = lts.list_log_streams(
+        params["region"],
+        group["log_group_id"],
+        ak=params.get("ak"),
+        sk=params.get("sk"),
+        project_id=params.get("project_id"),
+    )
+    if not streams_result.get("success"):
+        return streams_result
+    stream = next(
+        (item for item in streams_result.get("log_streams", []) if item.get("log_stream_name") == expected_stream_name),
+        None,
+    )
+    if not stream:
+        return {
+            "success": False,
+            "error": f"CCE audit log stream {expected_stream_name} was not found",
+            "note": "Audit is enabled, but the expected LTS log stream is unavailable or has not been created yet.",
+        }
     return {
         "success": True,
-        "log_group_id": selected["log_group"].get("log_group_id"),
-        "log_stream_id": selected["log_stream"].get("log_stream_id"),
-        "log_group_name": selected["log_group"].get("log_group_name"),
-        "log_stream_name": selected["log_stream"].get("log_stream_name"),
-        "match_type": "auto_discovered",
-        "candidates": [
-            {
-                "score": item["score"],
-                "log_group_id": item["log_group"].get("log_group_id"),
-                "log_group_name": item["log_group"].get("log_group_name"),
-                "log_stream_id": item["log_stream"].get("log_stream_id"),
-                "log_stream_name": item["log_stream"].get("log_stream_name"),
-            }
-            for item in candidates[:10]
-        ],
+        "log_group_id": group.get("log_group_id"),
+        "log_stream_id": stream.get("log_stream_id"),
+        "log_group_name": expected_group_name,
+        "log_stream_name": expected_stream_name,
+        "match_type": "cluster_config_name",
+        "cluster_audit_enabled": True,
     }
 
 
@@ -841,10 +911,7 @@ def query_cce_audit_logs_action(params: Dict[str, str]) -> Dict[str, Any]:
         query_params["keywords"] = " ".join(filters["content_keywords"])
     if not query_params.get("start_time") and not query_params.get("end_time"):
         hours = _to_int(query_params.get("hours"), 1)
-        end_time_dt = datetime.now()
-        start_time_dt = end_time_dt - timedelta(hours=hours)
-        query_params["start_time"] = start_time_dt.strftime("%Y-%m-%d %H:%M:%S")
-        query_params["end_time"] = end_time_dt.strftime("%Y-%m-%d %H:%M:%S")
+        query_params["start_time"], query_params["end_time"] = _recent_lts_window(hours)
 
     labels = _parse_labels(query_params.get("labels")) or {}
     if query_params.get("cluster_id") and _to_bool(query_params.get("add_cluster_label"), False):
@@ -913,187 +980,322 @@ def query_cce_audit_logs_action(params: Dict[str, str]) -> Dict[str, Any]:
     }
 
 
-def get_application_logconfigs_action(params: Dict[str, str]) -> Dict[str, Any]:
-    cluster_id = params["cluster_id"]
-    app_name = params["app_name"]
-    namespace = params.get("namespace")  # 不设置默认值，用于匹配逻辑
-    requested_policy_name = _get_policy_name(params)
+def _audit_timeline_event_matches(
+    event: Dict[str, Any],
+    resource_names: List[str],
+    namespaces: List[str],
+    resources: List[str],
+    verbs: List[str],
+) -> bool:
+    if resource_names and str(event.get("name") or "") not in resource_names:
+        return False
+    if namespaces and str(event.get("namespace") or "") not in namespaces:
+        return False
+    if resources and str(event.get("resource") or "").lower() not in {item.lower() for item in resources}:
+        return False
+    if verbs and str(event.get("verb") or "").lower() not in {item.lower() for item in verbs}:
+        return False
+    return True
 
-    # 去掉 namespace 参数，让 get_cce_logconfigs_action 搜索所有命名空间
-    search_params = {k: v for k, v in params.items() if k != "namespace"}
-    logconfig_result = get_cce_logconfigs_action(search_params)
-    if not logconfig_result.get("success"):
-        return logconfig_result
 
-    logconfigs = logconfig_result.get("logconfigs", [])
-    if not logconfigs:
-        return {"success": False, "error": "集群中未找到任何LogConfig采集规则", "note": "请先配置日志采集规则或确认日志采集组件已安装"}
+def analyze_cce_audit_timeline_action(params: Dict[str, str]) -> Dict[str, Any]:
+    """Group CCE audit events into resource change timelines and lifecycle summaries."""
+    resource_names = _parse_text_list(
+        params.get("resource_names") or params.get("resource_name") or params.get("pod_name") or params.get("workload_name") or params.get("app_name"),
+        [],
+    )
+    namespaces = _parse_text_list(params.get("namespaces") or params.get("namespace"), [])
+    resources = _parse_text_list(params.get("resources") or params.get("resource"), [])
+    requested_verbs = _parse_text_list(params.get("verbs") or params.get("verb"), [])
+    include_read_events = _to_bool(params.get("include_read_events"), False)
+    mutation_verbs = {"create", "update", "patch", "delete", "deletecollection"}
+    effective_verbs = requested_verbs or ([] if include_read_events else sorted(mutation_verbs))
+    query_params = dict(params)
+    # LTS keywords combine terms conjunctively. Apply multi-value resource and verb
+    # filters after retrieval so a timeline can include either Pods or Deployments.
+    if len(resources) > 1:
+        query_params.pop("resources", None)
+        query_params.pop("resource", None)
+    if len(requested_verbs) > 1:
+        query_params.pop("verbs", None)
+        query_params.pop("verb", None)
+    query_params.setdefault("auto_paginate", "true")
+    query_params.setdefault("max_pages", "10")
+    query_params.setdefault("limit", "500")
+    query_params.setdefault("sample_limit", str(_to_int(params.get("timeline_limit"), 500)))
+    query_results = []
+    events = []
+    seen_events = set()
+    for verb in effective_verbs or [None]:
+        verb_query_params = dict(query_params)
+        if verb:
+            verb_query_params["verb"] = verb
+        query_result = query_cce_audit_logs_action(verb_query_params)
+        if not query_result.get("success"):
+            return query_result
+        query_results.append(query_result)
+        for event in query_result.get("events", []):
+            key = (
+                event.get("timestamp_ms"), event.get("verb"), event.get("resource"),
+                event.get("namespace"), event.get("name"), event.get("request_uri"),
+            )
+            if key not in seen_events:
+                seen_events.add(key)
+                events.append(event)
 
-    def _extract_lts_stream(logconfig: Dict[str, Any]) -> Dict[str, Optional[str]]:
-        lts_config = logconfig.get("spec", {}).get("outputDetail", {}).get("LTS", {})
-        log_group_id = lts_config.get("ltsGroupID")
-        log_stream_id = lts_config.get("ltsStreamID", lts_config.get("streamID"))
-        if not log_stream_id:
-            log_stream_id = logconfig.get("spec", {}).get("logConfigStatus", {}).get("LTS", {}).get("streamID")
-        return {"log_group_id": log_group_id, "log_stream_id": log_stream_id}
+    source_result = query_results[0]
 
-    matched_streams = []
-    stdout_primary = None
+    filtered_events = [
+        event
+        for event in events
+        if _audit_timeline_event_matches(event, resource_names, namespaces, resources, effective_verbs)
+    ]
+    filtered_events.sort(key=lambda item: (item.get("timestamp_ms") is None, item.get("timestamp_ms") or 0))
 
-    # 1) container_stdout: 精确工作负载匹配
-    for logconfig in logconfigs:
-        try:
-            if logconfig.get("spec", {}).get("inputDetail", {}).get("type") != "container_stdout":
-                continue
-            workloads = logconfig.get("spec", {}).get("inputDetail", {}).get("containerStdout", {}).get("workloads", [])
-            for workload in workloads:
-                if workload.get("namespace") == namespace and workload.get("name") == app_name:
-                    stream = _extract_lts_stream(logconfig)
-                    if stream.get("log_group_id") and stream.get("log_stream_id"):
-                        entry = {
-                            "source_type": "container_stdout",
-                            "match_type": "精确匹配应用LogConfig",
-                            "logconfig_name": logconfig.get("name"),
-                            "policy_name": logconfig.get("name"),
-                            "log_group_id": stream["log_group_id"],
-                            "log_stream_id": stream["log_stream_id"],
-                        }
-                        matched_streams.append(entry)
-                        stdout_primary = stdout_primary or entry
-                    break
-        except Exception:
-            continue
-
-    # 2) container_stdout: 全容器规则匹配
-    if not stdout_primary:
-        for logconfig in logconfigs:
-            try:
-                if logconfig.get("spec", {}).get("inputDetail", {}).get("type") != "container_stdout":
-                    continue
-                container_stdout = logconfig.get("spec", {}).get("inputDetail", {}).get("containerStdout", {})
-                if container_stdout.get("allContainers") is not True:
-                    continue
-                allowed_namespaces = container_stdout.get("namespaces", [])
-                if allowed_namespaces and namespace not in allowed_namespaces:
-                    continue
-                stream = _extract_lts_stream(logconfig)
-                if stream.get("log_group_id") and stream.get("log_stream_id"):
-                    entry = {
-                        "source_type": "container_stdout",
-                        "match_type": "命名空间全局LogConfig匹配",
-                        "logconfig_name": logconfig.get("name"),
-                        "policy_name": logconfig.get("name"),
-                        "log_group_id": stream["log_group_id"],
-                        "log_stream_id": stream["log_stream_id"],
-                    }
-                    matched_streams.append(entry)
-                    stdout_primary = entry
-                    break
-            except Exception:
-                continue
-
-    # 3) container_stdout: default-stdout 兜底
-    if not stdout_primary:
-        for logconfig in logconfigs:
-            try:
-                if logconfig.get("name") != "default-stdout":
-                    continue
-                if logconfig.get("spec", {}).get("inputDetail", {}).get("type") != "container_stdout":
-                    continue
-                stream = _extract_lts_stream(logconfig)
-                if stream.get("log_group_id") and stream.get("log_stream_id"):
-                    entry = {
-                        "source_type": "container_stdout",
-                        "match_type": "默认default-stdout LogConfig匹配",
-                        "logconfig_name": logconfig.get("name"),
-                        "policy_name": logconfig.get("name"),
-                        "log_group_id": stream["log_group_id"],
-                        "log_stream_id": stream["log_stream_id"],
-                    }
-                    matched_streams.append(entry)
-                    stdout_primary = entry
-                    break
-            except Exception:
-                continue
-
-    # 4) container_file: workloads匹配（补充返回文件日志采集策略）
-    for logconfig in logconfigs:
-        try:
-            if logconfig.get("spec", {}).get("inputDetail", {}).get("type") != "container_file":
-                continue
-            workloads = logconfig.get("spec", {}).get("inputDetail", {}).get("containerFile", {}).get("workloads", [])
-            for workload in workloads:
-                if workload.get("namespace") == namespace and workload.get("name") == app_name:
-                    stream = _extract_lts_stream(logconfig)
-                    if stream.get("log_group_id") and stream.get("log_stream_id"):
-                        matched_streams.append(
-                            {
-                                "source_type": "container_file",
-                                "match_type": "容器文件采集策略匹配",
-                                "logconfig_name": logconfig.get("name"),
-                                "policy_name": logconfig.get("name"),
-                                "log_group_id": stream["log_group_id"],
-                                "log_stream_id": stream["log_stream_id"],
-                                "workload": workload,
-                            }
-                        )
-                    break
-        except Exception:
-            continue
-
-    if not matched_streams:
-        return {
-            "success": False,
-            "error": "未匹配到任何日志采集规则",
-            "note": "请检查应用是否配置了stdout/container_file采集规则，或集群是否存在default-stdout默认采集规则",
-        }
-
-    primary = stdout_primary or matched_streams[0]
-    if requested_policy_name:
-        primary = next(
-            (
-                stream
-                for stream in matched_streams
-                if stream.get("logconfig_name") == requested_policy_name or stream.get("policy_name") == requested_policy_name
-            ),
-            None,
+    lifecycles: Dict[Tuple[str, str, str, str], Dict[str, Any]] = {}
+    for event in filtered_events:
+        key = (
+            str(event.get("resource") or "unknown"),
+            str(event.get("namespace") or ""),
+            str(event.get("name") or ""),
+            str(event.get("api_group") or ""),
         )
-        if not primary:
-            return {
-                "success": False,
-                "error": f"未找到名称为 {requested_policy_name} 的日志采集策略",
-                "available_policies": [stream.get("policy_name") for stream in matched_streams],
-                "matched_streams": matched_streams,
-            }
+        lifecycle = lifecycles.setdefault(
+            key,
+            {
+                "resource": key[0],
+                "namespace": key[1] or None,
+                "name": key[2] or None,
+                "api_group": key[3] or None,
+                "event_count": 0,
+                "observed_create_time": None,
+                "observed_delete_time": None,
+                "last_change_time": None,
+                "last_verb": None,
+                "actors": {},
+                "status_codes": {},
+            },
+        )
+        lifecycle["event_count"] += 1
+        verb = str(event.get("verb") or "").lower()
+        event_time = event.get("time")
+        if verb == "create" and lifecycle["observed_create_time"] is None:
+            lifecycle["observed_create_time"] = event_time
+        if verb in {"delete", "deletecollection"}:
+            lifecycle["observed_delete_time"] = event_time
+        lifecycle["last_change_time"] = event_time
+        lifecycle["last_verb"] = event.get("verb")
+        actor = str(event.get("user") or "unknown")
+        lifecycle["actors"][actor] = lifecycle["actors"].get(actor, 0) + 1
+        status_code = str(event.get("status_code") or "unknown")
+        lifecycle["status_codes"][status_code] = lifecycle["status_codes"].get(status_code, 0) + 1
+
+    lifecycle_items = []
+    for lifecycle in lifecycles.values():
+        lifecycle["actors"] = [
+            {"user": user, "count": count}
+            for user, count in sorted(lifecycle["actors"].items(), key=lambda item: item[1], reverse=True)
+        ]
+        lifecycle["status_codes"] = [
+            {"status_code": code, "count": count}
+            for code, count in sorted(lifecycle["status_codes"].items(), key=lambda item: item[1], reverse=True)
+        ]
+        lifecycle_items.append(lifecycle)
+    lifecycle_items.sort(key=lambda item: (item.get("last_change_time") is None, item.get("last_change_time") or ""))
+
+    timeline = [
+        {
+            "time": event.get("time"),
+            "verb": event.get("verb"),
+            "resource": event.get("resource"),
+            "namespace": event.get("namespace"),
+            "name": event.get("name"),
+            "user": event.get("user"),
+            "status_code": event.get("status_code"),
+            "status_reason": event.get("status_reason"),
+            "request_uri": event.get("request_uri"),
+        }
+        for event in filtered_events
+    ]
     return {
         "success": True,
-        "match_type": primary.get("match_type"),
-        "logconfig_name": primary.get("logconfig_name"),
-        "policy_name": primary.get("policy_name"),
-        "source_type": primary.get("source_type"),
-        "app_name": app_name,
-        "namespace": namespace,
-        "log_group_id": primary.get("log_group_id"),
-        "log_stream_id": primary.get("log_stream_id"),
-        "cluster_id": cluster_id,
-        "matched_streams": matched_streams,
+        "action": "analyze_cce_audit_timeline",
+        "cluster_id": params["cluster_id"],
+        "analysis_window": source_result.get("analysis_window"),
+        "audit_source": {
+            "log_group_id": source_result.get("log_group_id"),
+            "log_stream_id": source_result.get("log_stream_id"),
+            "log_group_name": source_result.get("log_group_name"),
+            "log_stream_name": source_result.get("log_stream_name"),
+        },
+        "filters": {
+            "resource_names": resource_names,
+            "namespaces": namespaces,
+            "resources": resources,
+            "verbs": effective_verbs,
+            "include_read_events": include_read_events,
+        },
+        "summary": {
+            "queried_audit_events": sum(result.get("summary", {}).get("matched_events", 0) for result in query_results),
+            "timeline_events": len(timeline),
+            "resources_observed": len(lifecycle_items),
+        },
+        "resource_lifecycles": lifecycle_items,
+        "timeline": timeline,
+        "note": "Creation and deletion times are inferred only from retained audit records; they do not establish the resource's current existence.",
+        "query_summary": {
+            "query_count": len(query_results),
+            "per_verb": [
+                {"verb": verb, "matched_events": result.get("summary", {}).get("matched_events", 0)}
+                for verb, result in zip(effective_verbs or [None], query_results)
+            ],
+        },
+    }
+
+
+def _extract_logconfig_lts_destination(logconfig: Dict[str, Any]) -> Dict[str, Optional[str]]:
+    lts_config = logconfig.get("spec", {}).get("outputDetail", {}).get("LTS", {})
+    log_stream_id = lts_config.get("ltsStreamID", lts_config.get("streamID"))
+    if not log_stream_id:
+        log_stream_id = logconfig.get("spec", {}).get("logConfigStatus", {}).get("LTS", {}).get("streamID")
+    return {"log_group_id": lts_config.get("ltsGroupID"), "log_stream_id": log_stream_id}
+
+
+def _resolve_application_log_source(params: Dict[str, str]) -> Dict[str, Any]:
+    """Resolve one user-selected collection rule to its LTS destination."""
+    logconfig_name = _get_policy_name(params)
+    access_config_name = params.get("access_config_name")
+    access_config_id = params.get("access_config_id")
+    selected = [value for value in (logconfig_name, access_config_name, access_config_id) if value]
+    if len(selected) != 1:
+        return {
+            "success": False,
+            "error": "exactly one collection rule is required: logconfig_name, access_config_name, or access_config_id",
+            "note": "First list CCE LogConfigs and LTS Access Configs for the target cluster, then provide the rule selected by the user. The tool never selects a rule automatically.",
+        }
+
+    if logconfig_name:
+        lookup_params = dict(params)
+        if params.get("logconfig_namespace"):
+            lookup_params["namespace"] = params["logconfig_namespace"]
+        else:
+            lookup_params.pop("namespace", None)
+        result = get_cce_logconfigs_action(lookup_params)
+        if not result.get("success"):
+            return result
+        matches = [
+            item for item in result.get("logconfigs", [])
+            if item.get("name") == logconfig_name
+            and (not params.get("logconfig_namespace") or item.get("namespace") == params["logconfig_namespace"])
+        ]
+        if not matches:
+            return {
+                "success": False,
+                "error": f"CCE LogConfig {logconfig_name} was not found in cluster {params['cluster_id']}",
+            }
+        if len(matches) > 1:
+            return {
+                "success": False,
+                "error": f"multiple CCE LogConfigs named {logconfig_name} were found; logconfig_namespace is required",
+            }
+        logconfig = matches[0]
+        destination = _extract_logconfig_lts_destination(logconfig)
+        if logconfig.get("spec", {}).get("outputDetail", {}).get("type") != "LTS" or not all(destination.values()):
+            return {
+                "success": False,
+                "error": f"CCE LogConfig {logconfig_name} does not have a usable LTS log group and stream destination",
+            }
+        return {
+            "success": True,
+            "collection_rule": {
+                "collection_mode": "cce_logconfig",
+                "rule_name": logconfig.get("name"),
+                "rule_namespace": logconfig.get("namespace"),
+                "rule_id": None,
+                "source_type": logconfig.get("spec", {}).get("inputDetail", {}).get("type"),
+            },
+            **destination,
+        }
+
+    result = lts.list_access_configs(
+        params["region"],
+        access_config_name=access_config_name,
+        ak=params.get("ak"),
+        sk=params.get("sk"),
+        project_id=params.get("project_id"),
+    )
+    if not result.get("success"):
+        return result
+    matches = [
+        item for item in result.get("access_configs", [])
+        if item.get("cluster_id") == params["cluster_id"]
+        and (not access_config_name or item.get("access_config_name") == access_config_name)
+        and (not access_config_id or item.get("access_config_id") == access_config_id)
+    ]
+    if not matches:
+        selector = access_config_id or access_config_name
+        return {
+            "success": False,
+            "error": f"LTS Access Config {selector} was not found for cluster {params['cluster_id']}",
+        }
+    if len(matches) > 1:
+        return {
+            "success": False,
+            "error": "multiple LTS Access Config rules matched; provide access_config_id",
+        }
+    access_config = matches[0]
+    if not access_config.get("log_group_id") or not access_config.get("log_stream_id"):
+        return {
+            "success": False,
+            "error": f"LTS Access Config {access_config.get('access_config_name')} does not have a usable LTS log group and stream destination",
+        }
+    return {
+        "success": True,
+        "collection_rule": {
+            "collection_mode": "lts_access_config",
+            "rule_name": access_config.get("access_config_name"),
+            "rule_namespace": None,
+            "rule_id": access_config.get("access_config_id"),
+            "source_type": str(access_config.get("path_type") or "").lower(),
+        },
+        "log_group_id": access_config["log_group_id"],
+        "log_stream_id": access_config["log_stream_id"],
     }
 
 
 def query_application_logs_action(params: Dict[str, str]) -> Dict[str, Any]:
-    namespace = params.get("namespace", "default")
-    app_name = params["app_name"]
-    policy_name = _get_policy_name(params)
-    custom_labels = _parse_labels(params.get("labels"))
-    stream_result = get_application_logconfigs_action(params)
-    if not stream_result.get("success"):
-        return stream_result
+    source_result = _resolve_application_log_source(params)
+    if not source_result.get("success"):
+        return source_result
 
-    # CCE/LTS uses nameSpace and logconfig as label keys in collected container logs.
-    system_labels = {"clusterId": params["cluster_id"], "appName": app_name, "nameSpace": namespace}
+    app_name = params.get("app_name")
+    policy_name = _get_policy_name(params)
+    namespace = params.get("namespace")
+    custom_labels = _parse_labels(params.get("labels"))
+    auto_label_candidates = {"clusterId": params["cluster_id"]}
+    if app_name:
+        auto_label_candidates["appName"] = app_name
+    if namespace:
+        auto_label_candidates["nameSpace"] = namespace
     if policy_name:
-        system_labels["logconfig"] = policy_name
-    final_labels = system_labels.copy()
+        auto_label_candidates["logconfig"] = policy_name
+
+    index_result = lts.list_log_stream_index(
+        params["region"],
+        source_result["log_group_id"],
+        source_result["log_stream_id"],
+        ak=params.get("ak"),
+        sk=params.get("sk"),
+        project_id=params.get("project_id"),
+    )
+    indexed_fields = index_result.get("indexed_fields", set()) if index_result.get("success") else set()
+    auto_label_filter = {
+        key: value for key, value in auto_label_candidates.items()
+        if key in indexed_fields
+    }
+    # Explicit labels remain caller-controlled. Automatic filters are used only
+    # when the stream index confirms they can be queried safely.
+    final_labels = dict(auto_label_filter)
     if custom_labels:
         final_labels.update(custom_labels)
 
@@ -1102,15 +1304,12 @@ def query_application_logs_action(params: Dict[str, str]) -> Dict[str, Any]:
     hours = None
     if not start_time and not end_time:
         hours = _to_int(params.get("hours"), 1)
-        end_time_dt = datetime.now()
-        start_time_dt = end_time_dt - timedelta(hours=hours)
-        start_time = start_time_dt.strftime("%Y-%m-%d %H:%M:%S")
-        end_time = end_time_dt.strftime("%Y-%m-%d %H:%M:%S")
+        start_time, end_time = _recent_lts_window(hours)
 
     result = _query_logs_with_pagination(
         params=params,
-        log_group_id=stream_result["log_group_id"],
-        log_stream_id=stream_result["log_stream_id"],
+        log_group_id=source_result["log_group_id"],
+        log_stream_id=source_result["log_stream_id"],
         start_time=start_time,
         end_time=end_time,
         labels=final_labels,
@@ -1122,14 +1321,15 @@ def query_application_logs_action(params: Dict[str, str]) -> Dict[str, Any]:
             "cluster_id": params["cluster_id"],
             "namespace": namespace,
             "app_name": app_name,
-            "match_type": stream_result.get("match_type"),
-            "logconfig_name": stream_result.get("logconfig_name"),
-            "policy_name": stream_result.get("policy_name"),
-            "source_type": stream_result.get("source_type"),
-            "auto_label_filter": system_labels,
+            "log_group_id": source_result["log_group_id"],
+            "log_stream_id": source_result["log_stream_id"],
+            "collection_rule": source_result["collection_rule"],
+            "policy_name": policy_name,
+            "auto_label_filter": auto_label_filter,
+            "log_stream_index_available": index_result.get("success", False),
+            "log_stream_index_error": None if index_result.get("success") else index_result.get("error"),
             "custom_labels": custom_labels,
             "final_labels": final_labels,
-            "matched_streams": stream_result.get("matched_streams"),
         }
     )
     return result
@@ -1147,30 +1347,14 @@ def analyze_application_logs_action(params: Dict[str, str]) -> Dict[str, Any]:
     if not query_result.get("success"):
         return query_result
 
-    default_error_patterns = [
-        r"\berror\b",
-        r"\bexception\b",
-        r"\btraceback\b",
-        r"\bpanic\b",
-        r"\bfatal\b",
-        r"\bfailed?\b",
-        r"\bfailure\b",
-        r"\btimeout\b",
-        r"\btimed out\b",
-        r"\bconnection refused\b",
-        r"\bunavailable\b",
-        r"\boom\b",
-        r"out of memory",
-        r"segmentation fault",
-        r"stacktrace",
-    ]
-    default_warning_patterns = [r"\bwarn(?:ing)?\b", r"\bdeprecated\b", r"\bretry(?:ing)?\b", r"\bslow\b"]
-    error_patterns = _parse_text_list(params.get("error_patterns"), default_error_patterns)
-    warning_patterns = _parse_text_list(params.get("warning_patterns"), default_warning_patterns)
-    http_error_status_threshold = _to_int(params.get("http_error_status_threshold"), 500)
-    include_http_4xx = _to_bool(params.get("include_http_4xx"), False)
-    incident_gap_minutes = _to_int(params.get("incident_gap_minutes"), 5)
-    sample_limit = _to_int(params.get("sample_limit"), 20)
+    (
+        error_patterns,
+        warning_patterns,
+        http_error_status_threshold,
+        include_http_4xx,
+        incident_gap_minutes,
+        sample_limit,
+    ) = _analysis_options(params)
 
     logs = query_result.get("logs", [])
     analyzed_logs = []
@@ -1245,9 +1429,11 @@ def analyze_application_logs_action(params: Dict[str, str]) -> Dict[str, Any]:
         "cluster_id": query_result.get("cluster_id"),
         "namespace": query_result.get("namespace"),
         "app_name": query_result.get("app_name"),
-        "logconfig_name": query_result.get("logconfig_name"),
+        "logconfig_name": query_result.get("collection_rule", {}).get("rule_name")
+        if query_result.get("collection_rule", {}).get("collection_mode") == "cce_logconfig" else None,
         "policy_name": query_result.get("policy_name"),
-        "source_type": query_result.get("source_type"),
+        "source_type": query_result.get("collection_rule", {}).get("source_type"),
+        "collection_rule": query_result.get("collection_rule"),
         "log_group_id": query_result.get("log_group_id"),
         "log_stream_id": query_result.get("log_stream_id"),
         "analysis_window": {
@@ -1296,6 +1482,120 @@ def analyze_application_logs_action(params: Dict[str, str]) -> Dict[str, Any]:
             "keywords": params.get("keywords"),
             "keywords_scope_note": "When keywords is set, ratios are calculated only over logs matched by that keyword filter." if params.get("keywords") else None,
         },
+    }
+
+
+def analyze_pod_realtime_logs_action(params: Dict[str, str]) -> Dict[str, Any]:
+    """Sample a running Pod twice and analyze only the newly observed log lines."""
+    if _to_bool(params.get("previous"), False):
+        return {"success": False, "error": "previous=true is not supported for realtime Pod log analysis"}
+
+    wait_seconds = _to_int(params.get("wait_seconds"), 30)
+    if not 1 <= wait_seconds <= 300:
+        return {"success": False, "error": "wait_seconds must be between 1 and 300"}
+    tail_lines = max(1, _to_int(params.get("tail_lines"), 100))
+    namespace = params.get("namespace", "default")
+    pod_name = params["pod_name"]
+    container = params.get("container")
+    pod_args = {
+        "region": params["region"],
+        "cluster_id": params["cluster_id"],
+        "pod_name": pod_name,
+        "namespace": namespace,
+        "container": container,
+        "tail_lines": tail_lines,
+        "ak": params.get("ak"),
+        "sk": params.get("sk"),
+        "project_id": params.get("project_id"),
+    }
+
+    initial = cce.get_pod_logs(**pod_args)
+    if not initial.get("success"):
+        return initial
+    time.sleep(wait_seconds)
+    followup = cce.get_pod_logs(**pod_args)
+    if not followup.get("success"):
+        return followup
+
+    new_lines, overlap_lines = _new_log_lines(initial.get("logs", ""), followup.get("logs", ""))
+    (
+        error_patterns,
+        warning_patterns,
+        http_error_status_threshold,
+        include_http_4xx,
+        incident_gap_minutes,
+        sample_limit,
+    ) = _analysis_options(params)
+    anomalies = []
+    severity_counts = {"critical": 0, "error": 0, "warning": 0, "normal": 0}
+    reason_counts: Dict[str, int] = {}
+    status_code_counts: Dict[str, int] = {}
+
+    for index, content in enumerate(new_lines):
+        timestamp_ms = _extract_log_time_ms({"content": content})
+        is_abnormal, severity, reasons, status_code = _classify_log(
+            content, error_patterns, warning_patterns, http_error_status_threshold, include_http_4xx
+        )
+        severity_counts[severity] = severity_counts.get(severity, 0) + 1
+        if status_code is not None:
+            code = str(status_code)
+            status_code_counts[code] = status_code_counts.get(code, 0) + 1
+        for reason in reasons:
+            reason_counts[reason] = reason_counts.get(reason, 0) + 1
+        if is_abnormal:
+            anomalies.append(
+                {
+                    "index": index,
+                    "timestamp_ms": timestamp_ms,
+                    "time": _format_ts(timestamp_ms),
+                    "severity": severity,
+                    "reasons": reasons,
+                    "status_code": status_code,
+                    "content": content[:500],
+                }
+            )
+
+    total_lines = len(new_lines)
+    abnormal_lines = len(anomalies)
+    abnormal_ratio = round(abnormal_lines / total_lines, 6) if total_lines else 0.0
+    return {
+        "success": True,
+        "action": "analyze_pod_realtime_logs",
+        "region": params["region"],
+        "cluster_id": params["cluster_id"],
+        "namespace": namespace,
+        "pod_name": pod_name,
+        "container": container,
+        "access_method": followup.get("access_method"),
+        "sampling": {
+            "tail_lines": tail_lines,
+            "wait_seconds": wait_seconds,
+            "initial_line_count": len(initial.get("logs", "").splitlines()),
+            "followup_line_count": len(followup.get("logs", "").splitlines()),
+            "overlap_lines": overlap_lines,
+            "new_line_count": total_lines,
+        },
+        "summary": {
+            "abnormal_lines": abnormal_lines,
+            "normal_lines": total_lines - abnormal_lines,
+            "abnormal_ratio": abnormal_ratio,
+            "abnormal_percent": round(abnormal_ratio * 100, 4),
+            "critical_lines": severity_counts["critical"],
+            "error_lines": severity_counts["error"],
+            "warning_lines": severity_counts["warning"],
+            "http_4xx_count": sum(count for code, count in status_code_counts.items() if 400 <= int(code) < 500),
+            "http_5xx_count": sum(count for code, count in status_code_counts.items() if int(code) >= 500),
+        },
+        "incident_windows": _build_incident_windows(anomalies, incident_gap_minutes),
+        "top_patterns": [
+            {"pattern": pattern, "count": count}
+            for pattern, count in sorted(reason_counts.items(), key=lambda item: item[1], reverse=True)[:20]
+        ],
+        "top_status_codes": [
+            {"status_code": code, "count": count}
+            for code, count in sorted(status_code_counts.items(), key=lambda item: item[1], reverse=True)[:10]
+        ],
+        "abnormal_samples": anomalies[:sample_limit],
     }
 
 
