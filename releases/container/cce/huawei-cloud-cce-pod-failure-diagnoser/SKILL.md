@@ -1,7 +1,12 @@
 ---
 name: huawei-cloud-cce-pod-failure-diagnoser
-description: Diagnose CCE Pod failures with hcloud and read-only kubectl-cce. Use this skill whenever the user mentions CrashLoopBackOff, ImagePullBackOff, OOMKilled, Pending, or Evicted.
-version: 1.0.0
+description: >
+  Diagnose Huawei Cloud CCE Pod failures using hcloud and read-only kubectl-cce evidence.
+  Use this skill whenever the user mentions CrashLoopBackOff, ImagePullBackOff,
+  ErrImagePull, OOMKilled, Pending, FailedScheduling, FailedMount, FailedAttachVolume,
+  probe, sandbox, or CNI failures, frequent restarts, Error, RunContainerError,
+  or Evicted Pods.
+version: 1.0.1
 tags: [huawei-cloud, cce, kubectl, pod, diagnosis]
 ---
 
@@ -64,23 +69,19 @@ Collect these values before diagnosis:
    KooCLI installer or tarball; macOS and Windows should use their corresponding
    packages. Write skill commands as `hcloud ...`, without a platform-specific
    executable path.
-1. `kubectl` is installed and compatible with the target Kubernetes minor
+2. `kubectl` is installed and compatible with the target Kubernetes minor
    version. Use the native binary for the runtime platform (`linux-amd64`,
    `linux-arm64`, `darwin-*`, or `windows-amd64`). Many agent sandboxes run on
    Linux even when the authoring workstation is Windows, so never hard-code a
    Windows-only `kubectl.exe` path in the skill workflow.
-1. If either tool is not in `PATH`, locate a platform-native binary, assign it
+3. If either tool is not in `PATH`, locate a platform-native binary, assign it
    to a shell variable, and validate it with `version` before using it. Do not
    assume a file named `kubectl.exe` or `hcloud.exe` is valid for the current OS
    just because it exists.
-1. AK/SK credentials are configured in hcloud. Verify presence only with:
-
-```bash
-hcloud configure list
-```
-
-1. The caller has Huawei Cloud IAM permission to list/show CCE clusters and use kubectl-cce plugin access.
-1. The kubectl-cce authenticated user has Kubernetes RBAC permission to read Pods, Events, logs, Services, PVCs, Nodes, and metrics in the target namespace.
+4. AK/SK credentials are configured in hcloud. Verify presence only with
+   `hcloud configure list`; do not print credential values.
+5. The caller has Huawei Cloud IAM permission to list/show CCE clusters and use kubectl-cce plugin access.
+6. The kubectl-cce authenticated user has Kubernetes RBAC permission to read Pods, Events, logs, Services, PVCs, Nodes, and metrics in the target namespace.
 
 Never print AK, SK, security token, kubectl-cce proxy credentials, or Authorization headers in the final report. Redact secrets in logs.
 
@@ -285,12 +286,12 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 Rank causes with direct evidence. Prefer the first failing layer in the Pod lifecycle:
 
 1. Pod was not admitted or sandbox/network setup failed.
-1. Pod exists but cannot schedule.
-1. Pod scheduled but volumes cannot attach or mount.
-1. Image cannot be pulled.
-1. Container starts and exits or crashes.
-1. Container runs but readiness/liveness/startup probes fail.
-1. Node pressure or eviction explains the Pod failure.
+2. Pod exists but cannot schedule.
+3. Pod scheduled but volumes cannot attach or mount.
+4. Image cannot be pulled.
+5. Container starts and exits or crashes.
+6. Container runs but readiness/liveness/startup probes fail.
+7. Node pressure or eviction explains the Pod failure.
 
 Common cause labels:
 
@@ -322,7 +323,7 @@ The user-facing report should include, in this order:
 - Current/previous log findings when available.
 - Metrics and node/storage gaps when unavailable.
 - Detailed evidence: relevant Events, status fields, owner/workload details, and selected command evidence.
-- CLI path used: hcloud CCE operations and kubectl evidence commands.
+- CLI path used: hcloud CCE operations and kubectl-cce evidence commands.
 - Explicit note that no mutating command was run.
 
 After identifying the top cause, read `references/scenario-guides.md` and apply

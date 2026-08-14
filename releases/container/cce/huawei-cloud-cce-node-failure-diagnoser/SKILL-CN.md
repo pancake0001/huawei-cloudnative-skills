@@ -1,6 +1,10 @@
 ---
 name: huawei-cloud-cce-node-failure-diagnoser
-description: 使用 hcloud 和只读 kubectl-cce 诊断 CCE 节点故障；用户提到 NodeNotReady、节点压力、lease 过期、kubelet、runtime、CNI、驱逐或节点级影响时使用本技能。
+description: >
+  使用 hcloud 获取华为云 CCE 集群和节点元数据，并通过只读 kubectl-cce 证据诊断节点故障。
+  适用于 NodeNotReady、Ready=Unknown、kube-node-lease 过期、DiskPressure、
+  MemoryPressure、PIDPressure、NetworkUnavailable、CNI、kubelet 或 runtime 故障、
+  驱逐或节点级工作负载影响。
 version: 1.0.0
 tags: [huawei-cloud, cce, kubectl, node, diagnosis]
 ---
@@ -61,14 +65,9 @@ Kubernetes 节点状态、kube-node-lease、Events、节点上的 Pods、必要�
 
 1. `hcloud` 已安装并在 `PATH` 中，或已找到平台原生二进制并用 `hcloud version` 验证。
 2. `kubectl` 已安装并兼容目标 Kubernetes 版本。Linux sandbox 使用 Linux kubectl；Windows 工作站使用 `kubectl.exe`。
-3. hcloud 已具备认证配置，或本次命令通过临时参数传入凭据。只用下面命令做脱敏验证：
-
-```bash
-hcloud configure list
-```
-
-1. IAM 允许读取 CCE 集群/节点并使用 kubectl-cce API Gateway 接入。
-2. Kubernetes RBAC 允许读取 nodes、leases、events、pods、pod logs 和 metrics。
+3. hcloud 已具备认证配置，或本次命令通过临时参数传入凭据。只用 `hcloud configure list` 做脱敏验证。
+4. IAM 允许读取 CCE 集群/节点并使用 kubectl-cce API Gateway 接入。
+5. Kubernetes RBAC 允许读取 nodes、leases、events、pods、pod logs 和 metrics。
 
 不要打印 AK、SK、security token、kubectl-cce 代理凭据、Authorization header 或镜像仓库密钥。
 
@@ -184,6 +183,20 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 5. 节点上集中的 Pod 症状：Evicted、ContainerStatusUnknown、FailedCreatePodSandBox、挂载失败、重启风暴。
 6. allocatable/request 汇总和 metrics 指标显示的资源饱和。
 
+常见原因标签：
+
+| 原因 | 证据 |
+| --- | --- |
+| `ControlPlaneDisconnected` | Ready=Unknown、lease 过期、NodeStatusUnknown conditions |
+| `NodeNotReady` | Ready=False，且存在 kubelet/节点问题 Events |
+| `MemoryPressure` | MemoryPressure=True、驱逐、内存指标或 allocatable 压力 |
+| `DiskPressure` | DiskPressure=True、ephemeral-storage 驱逐或磁盘问题 conditions |
+| `PIDPressure` | PIDPressure=True 或 PID 问题 Events |
+| `NetworkUnavailableOrCNI` | NetworkUnavailable=True，或节点集中出现 CNIProblem、FailedCreatePodSandBox |
+| `KubeletOrRuntimeProblem` | KUBELETProblem、CRIProblem、containerd/kubelet 重启信号 |
+| `SchedulingDisabledOrTainted` | 节点不可调度，或 taint 已影响调度 |
+| `HealthyOrNoNodeFault` | 节点 Ready、lease 新鲜，且无压力或问题信号 |
+
 ## 输出格式
 
 按 `references/output-schema.md` 输出用户报告。报告要先给结论和行动建议，再放命令轨迹和原始条件表。
@@ -199,7 +212,7 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 - 反向证据：相邻原因为什么不优先。
 - Node condition 表和 kube-node-lease 结论。
 - 指标缺口和验证缺口。
-- CLI 路径：hcloud CCE 操作和 kubectl 证据命令。
+- CLI 路径：hcloud CCE 操作和 kubectl-cce 证据命令。
 - 明确说明没有执行任何变更命令。
 
 ## 最佳实践

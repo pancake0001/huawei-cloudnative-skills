@@ -1,6 +1,12 @@
 ---
 name: huawei-cloud-cce-root-cause-analyzer
-description: Analyze cross-domain CCE incidents with hcloud, kubectl-cce, and domain evidence. Use this skill whenever the user mentions root cause ranking, evidence chains, impact scope, confidence, or next actions.
+description: >
+  Analyze cross-domain Huawei Cloud CCE incidents using hcloud, kubectl-cce,
+  an observability context package, and related diagnosis skills. Use this skill
+  whenever the user mentions a cross-domain incident spanning alarms, workload
+  rollouts, Pod Events or logs, recent changes, service topology, nodes, network,
+  storage, or metrics and needs ranked root causes, evidence chains, impact scope,
+  confidence, next actions, or remediation handoff.
 version: 1.0.0
 tags: [huawei-cloud, cce, root-cause, kubectl, diagnosis]
 ---
@@ -26,10 +32,10 @@ Do not use Python SDK dispatchers, legacy skill execution actions, old Huawei di
 ## Prerequisites
 
 1. `hcloud`, `kubectl`, and kubectl-cce are available as platform-native binaries.
-1. Credentials and project context are available through approved protected channels.
-1. IAM and Kubernetes RBAC permit the read-only evidence required by selected domain skills.
-1. Build or reuse an observability context package before assigning high-confidence root causes.
-1. If tooling is missing, use `huawei-cloud-kubectl-cce-installer`; do not download or execute installers in this skill.
+2. Credentials and project context are available through approved protected channels.
+3. IAM and Kubernetes RBAC permit the read-only evidence required by selected domain skills.
+4. Build or reuse an observability context package before assigning high-confidence root causes.
+5. If tooling is missing, use `huawei-cloud-kubectl-cce-installer`; do not download or execute installers in this skill.
 
 ## Evidence Dependency Skills
 
@@ -68,17 +74,35 @@ If the target is ambiguous, first collect a broad read-only snapshot and state w
 
 ## Core Commands And Evidence Collection
 
-1. Build or reuse an observability context package with `huawei-cloud-cce-observability-context-builder` unless the user provided equivalent alarms, Events,
-   logs, metrics, scope, timeline, and data gaps.
-2. Verify `hcloud`, `kubectl`, and `kubectl-cce` availability. If the plugin is missing, use `huawei-cloud-kubectl-cce-installer`.
-3. Discover cluster metadata with read-only hcloud commands:
+### 1. Build Or Reuse Context
+
+Build or reuse an observability context package with
+`huawei-cloud-cce-observability-context-builder` unless the user provided equivalent
+alarms, Events, logs, metrics, scope, timeline, and data gaps.
+
+### 2. Verify Tools
+
+Verify `hcloud`, `kubectl`, and `kubectl-cce` availability. If the plugin is missing,
+use `huawei-cloud-kubectl-cce-installer`.
+
+```bash
+hcloud version
+kubectl version --client
+kubectl plugin list
+```
+
+### 3. Discover Cluster Metadata
+
+Use read-only hcloud commands:
 
 ```bash
 hcloud CCE ListClusters --project_id=<project-id> --cli-region=<region> --cli-output=json
 hcloud CCE ShowCluster --cluster_id=<cluster-id> --project_id=<project-id> --cli-region=<region> --cli-output=json
 ```
 
-1. Collect current Kubernetes evidence through the plugin. Always pass cluster, region, and project explicitly:
+### 4. Collect Current Kubernetes Evidence
+
+Use the plugin and always pass cluster, region, and project explicitly:
 
 ```bash
 kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -A -o wide
@@ -87,9 +111,20 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -A --sort-by=.lastTimestamp
 ```
 
-1. Add focused evidence through dependent skills when a signal crosses domains. Do not duplicate full domain logic inside this skill.
-2. Use AOM/LTS/metrics skills for historical alarms, historical events, logs, and time-series when current Kubernetes state is insufficient.
-3. Record every failed collector as a data gap with the command category, object scope, sanitized error, and impact on confidence.
+### 5. Add Focused Domain Evidence
+
+Use dependent skills when a signal crosses domains. Do not duplicate full domain logic
+inside this skill.
+
+### 6. Add Historical Evidence
+
+Use AOM/LTS/metrics skills for historical alarms, historical Events, logs, and
+time-series when current Kubernetes state is insufficient.
+
+### 7. Record Data Gaps
+
+Record every failed collector with the command category, object scope, sanitized error,
+and impact on confidence.
 
 ## Root Cause Workflow
 

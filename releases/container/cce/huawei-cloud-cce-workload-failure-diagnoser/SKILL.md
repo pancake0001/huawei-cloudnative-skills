@@ -1,6 +1,11 @@
 ---
 name: huawei-cloud-cce-workload-failure-diagnoser
-description: Diagnose CCE workload rollout failures with hcloud and read-only kubectl-cce. Use this skill whenever the user mentions unavailable replicas or a stalled Deployment, StatefulSet, or DaemonSet.
+description: >
+  Diagnose Huawei Cloud CCE Deployment, StatefulSet, and DaemonSet rollout or
+  availability failures using hcloud cluster discovery and read-only kubectl-cce evidence.
+  Use this skill whenever the user mentions stalled rollouts, unavailable replicas,
+  Pods not ready, ImagePullBackOff, CrashLoopBackOff, probe or scheduling failures,
+  PVC mount failures, or workload Events.
 version: 1.0.0
 tags: [huawei-cloud, cce, kubectl, workload, diagnosis]
 ---
@@ -60,14 +65,10 @@ Collect these values before diagnosis:
    installer or tarball; macOS and Windows should use their corresponding packages. Write skill commands as `hcloud ...`, without a platform-specific path.
 2. `kubectl` is installed and compatible with the target Kubernetes minor version. Use the native binary for the runtime platform (`linux-amd64`,
    `linux-arm64`, `darwin-*`, or `windows-amd64`). Agent sandboxes often run on Linux, so never hard-code a Windows-only `kubectl.exe` path.
-3. AK/SK credentials are configured in hcloud. Verify presence only with:
-
-```bash
-hcloud configure list
-```
-
-1. The caller has Huawei Cloud IAM permission to list/show CCE clusters and use kubectl-cce plugin access.
-2. The kubectl-cce authenticated user has Kubernetes RBAC permission to read the required namespace resources.
+3. AK/SK credentials are configured in hcloud. Verify presence only with
+   `hcloud configure list`; do not print credential values.
+4. The caller has Huawei Cloud IAM permission to list/show CCE clusters and use kubectl-cce plugin access.
+5. The kubectl-cce authenticated user has Kubernetes RBAC permission to read the required namespace resources.
 
 Never print AK, SK, security token, kubectl-cce proxy credentials, or Authorization headers in the final report. Redact secrets in logs.
 
@@ -286,7 +287,7 @@ Common cause labels:
 Use `references/output-schema.md` as the detailed schema. The user-facing report should include:
 
 - Target: region, project, cluster, namespace, kind, name.
-- CLI path used: hcloud CCE operations and kubectl evidence commands.
+- CLI path used: hcloud CCE operations and kubectl-cce evidence commands.
 - Summary status and confidence.
 - Rollout funnel with pass/fail layers.
 - Top causes ranked with direct evidence snippets.

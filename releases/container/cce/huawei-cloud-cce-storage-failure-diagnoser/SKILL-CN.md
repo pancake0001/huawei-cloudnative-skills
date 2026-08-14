@@ -1,6 +1,10 @@
 ---
 name: huawei-cloud-cce-storage-failure-diagnoser
-description: 使用 hcloud 和只读 kubectl-cce 诊断 CCE 存储故障；用户提到 PVC Pending、供应、绑定、attach、mount、CSI、EVS、SFS、OBS、容量、I/O 或删除故障时使用本技能。
+description: >
+  使用 hcloud 获取华为云 CCE 集群和云存储元数据，并通过只读 kubectl-cce 证据诊断存储故障。
+  适用于 PVC Pending、供应或绑定失败、EVS 拓扑冲突、FailedAttach、FailedMount、
+  CSI 错误、SFS/SFS Turbo NFS 超时、OBS 403 或凭据错误、运行期 I/O、只读文件系统、
+  容量或 inode 耗尽、subPath 问题或 PVC 删除异常。
 version: 1.0.0
 tags: [huawei-cloud, cce, kubectl, storage, diagnosis]
 ---
@@ -24,10 +28,10 @@ hcloud CCE/云侧存储查询 -> kubectl cce 存储证据 -> 可选 CSI 日志/�
 ## 前置条件
 
 1. `hcloud`、`kubectl` 和 kubectl-cce 均为当前平台可执行的原生二进制。
-1. 凭据和项目上下文通过批准的受保护渠道提供。
-1. IAM 和 Kubernetes RBAC 允许所需的集群、存储、Event、Pod、Node 和 CSI 日志只读查询。
-1. 工具缺失时使用 `huawei-cloud-kubectl-cce-installer`，本技能不得下载或执行安装脚本。
-1. 不得打印凭据、token、header、代理信息、存储密钥或 CSI 日志中的敏感值。
+2. 凭据和项目上下文通过批准的受保护渠道提供。
+3. IAM 和 Kubernetes RBAC 允许所需的集群、存储、Event、Pod、Node 和 CSI 日志只读查询。
+4. 工具缺失时使用 `huawei-cloud-kubectl-cce-installer`，本技能不得下载或执行安装脚本。
+5. 不得打印凭据、token、header、代理信息、存储密钥或 CSI 日志中的敏感值。
 
 ## 相关 Skill
 
@@ -55,14 +59,27 @@ hcloud CCE/云侧存储查询 -> kubectl cce 存储证据 -> 可选 CSI 日志/�
 
 ## 核心命令与证据采集
 
-1. 查询集群：
+### 1. 验证工具和插件
+
+先读 `references/kubectl-cce.md`，再验证当前平台的原生工具和插件发现：
+
+```bash
+hcloud version
+kubectl version --client
+kubectl plugin list
+```
+
+工具或插件缺失时停止当前流程，使用 `huawei-cloud-kubectl-cce-installer`；
+不得下载安装器，也不得回退到 SDK 或 kubeconfig 接入。
+
+### 2. 查询集群
 
 ```bash
 hcloud CCE ListClusters --project_id=<project-id> --cli-region=<region> --cli-output=json
 hcloud CCE ShowCluster --cluster_id=<cluster-id> --project_id=<project-id> --cli-region=<region> --cli-output=json
 ```
 
-1. 通过 kubectl-cce 采集 Kubernetes 存储证据：
+### 3. 采集 Kubernetes 存储证据
 
 ```bash
 kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pvc,pv,storageclass,volumeattachments -A -o json
@@ -72,15 +89,22 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -n <namespace> --sort-by=.lastTimestamp
 ```
 
-1. RBAC 允许时采集 CSI 证据，日志必须限量并脱敏：
+### 4. 采集 CSI 证据
+
+RBAC 允许时采集 CSI 证据。不同 CCE 版本的 CSI label 可能不同，先发现实际
+Pod 名称和 label，再选择目标；日志必须限量并脱敏：
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n kube-system -l app=everest-csi-driver -o wide
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> logs -n kube-system -l app=everest-csi-driver --tail=200
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n kube-system --show-labels
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pod <csi-pod-name> -n kube-system -o json
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> logs <csi-pod-name> -n kube-system -c <csi-container-name> --tail=200
 ```
 
-1. 云侧只读证据只在标识明确或可安全关联时采集。EVS/SFS/SFS Turbo/OBS/VPC/安全组/ACL 用 hcloud；时间序列指标交给 metric analyzer。
-   不确定 operation 或标识时先查 help 或写成数据缺口。
+### 5. 采集云侧证据
+
+云侧只读证据只在标识明确或可安全关联时采集。EVS/SFS/SFS Turbo/OBS/VPC/安全组/ACL
+使用 hcloud；时间序列指标交给 metric analyzer。不确定 operation 或标识时先查 help，
+否则记录为数据缺口。
 
 ## 诊断流程
 

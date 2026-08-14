@@ -149,8 +149,8 @@ Review terminal output or saved verification logs:
 The skill passes verification when:
 
 1. `hcloud` can list/show the target CCE cluster.
-1. `kubectl cce ...` can reach the target cluster through the CCE API Gateway.
-1. `kubectl cce ...` can read the target Pod/namespace or reports explicit RBAC gaps.
-1. The package contains no SDK dispatcher scripts, skill profile tool mapping,
+2. `kubectl cce ...` can reach the target cluster through the CCE API Gateway.
+3. `kubectl cce ...` can read the target Pod/namespace or reports explicit RBAC gaps.
+4. The package contains no SDK dispatcher scripts, skill profile tool mapping,
    or obsolete Huawei Pod actions.
-1. The diagnosis workflow remains read-only.
+5. The diagnosis workflow remains read-only.

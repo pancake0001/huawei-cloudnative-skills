@@ -1,6 +1,12 @@
 ---
 name: huawei-cloud-cce-storage-failure-diagnoser
-description: Diagnose CCE storage failures with hcloud and read-only kubectl-cce. Use this skill whenever the user mentions PVC Pending, provisioning, binding, attach, mount, CSI, EVS, SFS, OBS, or I/O failures.
+description: >
+  Diagnose Huawei Cloud CCE storage failures using hcloud for cluster and
+  cloud-storage metadata plus read-only kubectl-cce evidence. Use this skill whenever
+  the user mentions PVC Pending, provisioning or binding failures, EVS topology
+  conflicts, FailedAttach, FailedMount, CSI errors, SFS or SFS Turbo NFS timeouts,
+  OBS 403 or credential errors, runtime I/O, read-only filesystems, capacity or inode
+  exhaustion, subPath issues, or PVC termination.
 version: 1.0.0
 tags: [huawei-cloud, cce, kubectl, storage, diagnosis]
 ---
@@ -24,10 +30,10 @@ Do not use Python SDK dispatchers, legacy skill execution actions, old Huawei st
 ## Prerequisites
 
 1. `hcloud`, `kubectl`, and kubectl-cce are available as platform-native binaries.
-1. Credentials and project context are provided through approved protected channels.
-1. IAM and Kubernetes RBAC permit the required read-only cluster, storage, Event, Pod, Node, and CSI log queries.
-1. If tooling is missing, use `huawei-cloud-kubectl-cce-installer`; this skill must not download or execute installers.
-1. Never print credentials, tokens, headers, proxy details, storage secrets, or sensitive CSI log values.
+2. Credentials and project context are provided through approved protected channels.
+3. IAM and Kubernetes RBAC permit the required read-only cluster, storage, Event, Pod, Node, and CSI log queries.
+4. If tooling is missing, use `huawei-cloud-kubectl-cce-installer`; this skill must not download or execute installers.
+5. Never print credentials, tokens, headers, proxy details, storage secrets, or sensitive CSI log values.
 
 ## Related Skills
 
@@ -55,14 +61,27 @@ Do not use Python SDK dispatchers, legacy skill execution actions, old Huawei st
 
 ## Core Commands And Evidence Collection
 
-1. Discover cluster context:
+### 1. Verify Tools And Plugin
+
+Read `references/kubectl-cce.md`, then verify platform-native tools and plugin discovery:
+
+```bash
+hcloud version
+kubectl version --client
+kubectl plugin list
+```
+
+If a tool or plugin is missing, stop and use `huawei-cloud-kubectl-cce-installer`.
+Do not download an installer or fall back to SDK or kubeconfig access.
+
+### 2. Discover Cluster Context
 
 ```bash
 hcloud CCE ListClusters --project_id=<project-id> --cli-region=<region> --cli-output=json
 hcloud CCE ShowCluster --cluster_id=<cluster-id> --project_id=<project-id> --cli-region=<region> --cli-output=json
 ```
 
-1. Collect Kubernetes storage evidence through kubectl-cce:
+### 3. Collect Kubernetes Storage Evidence
 
 ```bash
 kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pvc,pv,storageclass,volumeattachments -A -o json
@@ -72,15 +91,23 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -n <namespace> --sort-by=.lastTimestamp
 ```
 
-1. Collect CSI evidence when RBAC allows. Keep logs bounded and sanitized:
+### 4. Collect CSI Evidence
+
+When RBAC allows, discover the deployed CSI Pod names and labels before selecting a
+target; CCE versions may use different labels. Keep logs bounded and sanitized:
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n kube-system -l app=everest-csi-driver -o wide
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> logs -n kube-system -l app=everest-csi-driver --tail=200
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n kube-system --show-labels
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pod <csi-pod-name> -n kube-system -o json
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> logs <csi-pod-name> -n kube-system -c <csi-container-name> --tail=200
 ```
 
-1. Collect cloud-side read-only evidence only when identifiers are known or safely derived. Use hcloud for EVS/SFS/SFS Turbo/OBS/VPC/security-group/ACL
-   context and metric skills for time-series evidence. If an operation name or identifier is uncertain, run help or record a data gap.
+### 5. Collect Cloud-Side Evidence
+
+Collect cloud-side read-only evidence only when identifiers are known or safely derived.
+Use hcloud for EVS/SFS/SFS Turbo/OBS/VPC/security-group/ACL context and metric skills
+for time-series evidence. If an operation name or identifier is uncertain, run help or
+record a data gap.
 
 ## Diagnosis Workflow
 

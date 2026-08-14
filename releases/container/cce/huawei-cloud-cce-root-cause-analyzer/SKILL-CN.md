@@ -1,6 +1,10 @@
 ---
 name: huawei-cloud-cce-root-cause-analyzer
-description: 使用 hcloud、kubectl-cce、可观测上下文和域诊断 Skill 分析 CCE 跨域故障；用户需要根因排序、证据链、影响面、置信度和下一步措施时使用本技能。
+description: >
+  使用 hcloud、kubectl-cce、可观测上下文包和相关诊断 Skill 分析华为云 CCE 跨域故障。
+  适用于同时涉及告警、工作负载发布、Pod Events 或日志、近期变更、服务拓扑、
+  节点、网络、存储或指标，且需要根因排序、证据链、影响面、置信度、下一步措施
+  和恢复交接的场景。
 version: 1.0.0
 tags: [huawei-cloud, cce, root-cause, kubectl, diagnosis]
 ---
@@ -24,10 +28,10 @@ tags: [huawei-cloud, cce, root-cause, kubectl, diagnosis]
 ## 前置条件
 
 1. `hcloud`、`kubectl` 和 kubectl-cce 均为当前平台可执行的原生二进制。
-1. 凭据和项目上下文通过批准的受保护渠道提供。
-1. IAM 和 Kubernetes RBAC 允许所选域 Skill 所需的只读证据采集。
-1. 给出高置信度根因前，先构建或复用可观测上下文包。
-1. 工具缺失时使用 `huawei-cloud-kubectl-cce-installer`，本技能不得下载或执行安装脚本。
+2. 凭据和项目上下文通过批准的受保护渠道提供。
+3. IAM 和 Kubernetes RBAC 允许所选域 Skill 所需的只读证据采集。
+4. 给出高置信度根因前，先构建或复用可观测上下文包。
+5. 工具缺失时使用 `huawei-cloud-kubectl-cce-installer`，本技能不得下载或执行安装脚本。
 
 ## 证据依赖 Skill
 
@@ -65,16 +69,34 @@ tags: [huawei-cloud, cce, root-cause, kubectl, diagnosis]
 
 ## 核心命令与证据采集
 
-1. 优先使用 `huawei-cloud-cce-observability-context-builder` 构建可观测上下文包；如果用户已经提供等价的告警、Events、日志、指标、范围、时间线和数据缺口，可以直接复用。
-2. 验证 `hcloud`、`kubectl` 和 `kubectl-cce`。缺插件时使用 `huawei-cloud-kubectl-cce-installer`。
-3. 使用只读 hcloud 命令发现集群：
+### 1. 构建或复用上下文
+
+优先使用 `huawei-cloud-cce-observability-context-builder` 构建可观测上下文包；
+如果用户已经提供等价的告警、Events、日志、指标、范围、时间线和数据缺口，可以直接复用。
+
+### 2. 验证工具
+
+验证 `hcloud`、`kubectl` 和 `kubectl-cce`。缺插件时使用
+`huawei-cloud-kubectl-cce-installer`。
+
+```bash
+hcloud version
+kubectl version --client
+kubectl plugin list
+```
+
+### 3. 发现集群元数据
+
+使用只读 hcloud 命令：
 
 ```bash
 hcloud CCE ListClusters --project_id=<project-id> --cli-region=<region> --cli-output=json
 hcloud CCE ShowCluster --cluster_id=<cluster-id> --project_id=<project-id> --cli-region=<region> --cli-output=json
 ```
 
-1. 通过插件采集当前 Kubernetes 证据。必须显式传入集群、区域和项目：
+### 4. 采集当前 Kubernetes 证据
+
+通过插件采集，并且必须显式传入集群、区域和项目：
 
 ```bash
 kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -A -o wide
@@ -83,9 +105,17 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -A --sort-by=.lastTimestamp
 ```
 
-1. 信号跨域时调用或参考对应依赖 skill 的报告，不在本 skill 里重复完整域诊断逻辑。
-2. 当前 Kubernetes 状态不足时，用告警、事件、指标、日志类 skill 补充 AOM/LTS/历史证据。
-3. 所有采集失败都要作为数据缺口记录：命令类别、对象范围、脱敏错误和对置信度的影响。
+### 5. 补充专项证据
+
+信号跨域时调用或参考对应依赖 skill 的报告，不在本 skill 里重复完整域诊断逻辑。
+
+### 6. 补充历史证据
+
+当前 Kubernetes 状态不足时，用告警、事件、指标、日志类 skill 补充 AOM/LTS/历史证据。
+
+### 7. 记录数据缺口
+
+所有采集失败都要记录命令类别、对象范围、脱敏错误和对置信度的影响。
 
 ## 根因分析流程
 

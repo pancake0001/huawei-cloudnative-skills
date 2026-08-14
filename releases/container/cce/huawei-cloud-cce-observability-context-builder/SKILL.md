@@ -1,6 +1,10 @@
 ---
 name: huawei-cloud-cce-observability-context-builder
-description: Build read-only CCE observability context with hcloud and kubectl-cce. Use this skill whenever the user mentions incident scope, timeline, Events, logs, alarms, metrics, topology, or evidence gaps.
+description: >
+  Build a read-only observability context package for Huawei Cloud CCE incidents
+  using hcloud and kubectl-cce before root-cause diagnosis. Use this skill whenever
+  the user needs live Kubernetes state, Events, bounded Pod logs, AOM alarms, metrics,
+  LTS context, topology, time windows, evidence gaps, or the next diagnostic handoff.
 version: 1.0.0
 tags: [huawei-cloud, cce, observability, kubectl, context]
 ---
@@ -52,12 +56,23 @@ If the target is ambiguous, collect cluster/namespace-level context first and re
 ## Prerequisites
 
 1. `hcloud`, `kubectl`, and the kubectl-cce plugin are available as platform-native binaries.
-1. Credentials are provided through approved parameters, protected environment variables, or an approved credential provider.
-1. IAM and Kubernetes RBAC permit the required read-only cluster, Event, log, metric, alarm, and topology queries.
-1. If tooling is missing, use `huawei-cloud-kubectl-cce-installer`. This skill must not download or execute installer scripts.
-1. Never print AK, SK, tokens, Authorization headers, proxy credentials, or secrets found in logs.
+2. Credentials are provided through approved parameters, protected environment variables, or an approved credential provider.
+3. IAM and Kubernetes RBAC permit the required read-only cluster, Event, log, metric, alarm, and topology queries.
+4. If tooling is missing, use `huawei-cloud-kubectl-cce-installer`. This skill must not download or execute installer scripts.
+5. Never print AK, SK, tokens, Authorization headers, proxy credentials, or secrets found in logs.
 
 ## Core Commands And Access Paths
+
+### Access Preflight
+
+```bash
+hcloud version
+kubectl version --client
+kubectl plugin list
+```
+
+If a tool or plugin is missing, stop and use `huawei-cloud-kubectl-cce-installer`.
+Do not download an installer or fall back to SDK or kubeconfig access in this skill.
 
 ### Cluster And Inventory Context
 

@@ -1,6 +1,11 @@
 ---
 name: huawei-cloud-cce-node-failure-diagnoser
-description: Diagnose CCE node failures with hcloud and read-only kubectl-cce. Use this skill whenever the user mentions NodeNotReady, node pressure, stale leases, kubelet, runtime, CNI, or eviction.
+description: >
+  Diagnose Huawei Cloud CCE node failures using hcloud for cluster and node
+  metadata plus read-only kubectl-cce evidence. Use this skill whenever the user
+  mentions NodeNotReady, Ready=Unknown, stale kube-node-lease, DiskPressure,
+  MemoryPressure, PIDPressure, NetworkUnavailable, CNI, kubelet or runtime failures,
+  eviction, or node-level workload impact.
 version: 1.0.0
 tags: [huawei-cloud, cce, kubectl, node, diagnosis]
 ---
@@ -62,14 +67,10 @@ At least one of `node_name` or `node_ip` should be provided. If both are missing
 
 1. `hcloud` is installed and available in `PATH`, or a platform-native binary has been located and validated with `hcloud version`.
 2. `kubectl` is installed and compatible with the target Kubernetes version. Linux sandboxes must use a Linux kubectl binary; Windows workstations use `kubectl.exe`.
-3. Credentials are available to hcloud through a profile, environment, or one-off CLI parameters. Verify only masked configuration with:
-
-```bash
-hcloud configure list
-```
-
-1. IAM allows CCE cluster/node read and kubectl-cce API Gateway access.
-2. Kubernetes RBAC allows read access to nodes, leases, events, pods, pod logs, and metrics when available.
+3. Credentials are available to hcloud through a profile, environment, or one-off
+   CLI parameters. Verify only masked configuration with `hcloud configure list`.
+4. IAM allows CCE cluster/node read and kubectl-cce API Gateway access.
+5. Kubernetes RBAC allows read access to nodes, leases, events, pods, pod logs, and metrics when available.
 
 Never print AK, SK, security tokens, kubectl-cce proxy credentials, Authorization headers, or registry secrets.
 
@@ -222,7 +223,7 @@ The user-facing report should include, in this order:
 - Negative evidence: adjacent causes that were checked and are less likely.
 - Node condition table and kube-node-lease finding.
 - Metrics and verification gaps.
-- CLI path used: hcloud CCE operations and kubectl evidence commands.
+- CLI path used: hcloud CCE operations and kubectl-cce evidence commands.
 - Explicit statement that no mutating command was run.
 
 ## Best Practices

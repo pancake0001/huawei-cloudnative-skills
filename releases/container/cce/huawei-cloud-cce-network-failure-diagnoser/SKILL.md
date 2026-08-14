@@ -1,6 +1,11 @@
 ---
 name: huawei-cloud-cce-network-failure-diagnoser
-description: Diagnose CCE network failures with hcloud and read-only kubectl-cce. Use this skill whenever the user mentions Service, DNS, Ingress, NetworkPolicy, ELB, EIP, NAT, VPC, or security-group failures.
+description: >
+  Diagnose Huawei Cloud CCE network failures using hcloud for cluster and
+  cloud-network metadata plus read-only kubectl-cce evidence. Use this skill whenever
+  the user mentions unreachable Services, DNS or CoreDNS errors, Ingress 502/504,
+  NetworkPolicy blocks, EndpointSlice or backend readiness, ELB health, EIP, NAT,
+  VPC, security-group, or ACL issues.
 version: 1.0.0
 tags: [huawei-cloud, cce, kubectl, network, diagnosis]
 ---
@@ -80,14 +85,10 @@ If the target is vague, start with a namespace scan and ask for the specific ser
 
 1. `hcloud` is installed and available in `PATH`, or a platform-native binary has been located and validated with `hcloud version`.
 2. `kubectl` is installed and compatible with the target Kubernetes version. Linux sandboxes must use Linux kubectl; Windows workstations use `kubectl.exe`.
-3. hcloud credentials are available through a profile, environment, or one-off CLI parameters. Verify only masked configuration with:
-
-```bash
-hcloud configure list
-```
-
-1. IAM allows CCE cluster read and kubectl-cce API Gateway access. ELB/VPC/EIP/NAT read permissions are needed only for cloud-side network objects.
-2. Kubernetes RBAC allows read access to Services, Endpoints, EndpointSlices, Ingresses, NetworkPolicies, Pods, Nodes, Events, and relevant logs.
+3. hcloud credentials are available through a profile, environment, or one-off CLI
+   parameters. Verify only masked configuration with `hcloud configure list`.
+4. IAM allows CCE cluster read and kubectl-cce API Gateway access. ELB/VPC/EIP/NAT read permissions are needed only for cloud-side network objects.
+5. Kubernetes RBAC allows read access to Services, Endpoints, EndpointSlices, Ingresses, NetworkPolicies, Pods, Nodes, Events, and relevant logs.
 
 Never print AK, SK, security tokens, kubectl-cce proxy credentials, Authorization headers, or registry/application secrets.
 
@@ -216,8 +217,11 @@ Use `hcloud <service> <operation> --help` when a filter parameter differs by API
 
 ## Active Test Boundary
 
-By default, do not run `kubectl exec`, packet capture, stress tests, or synthetic traffic generation. If the user explicitly requests an active connectivity test,
-explain the scope and risk, then prefer the least invasive command and include it in the report.
+The kubectl-cce plugin blocks `exec`, `attach`, and `port-forward`; this read-only skill
+must not bypass that boundary with kubeconfig, SDK, packet capture, stress tests, or
+synthetic traffic generation. If the user requests an active connectivity test, record
+the source, destination, scope, risk, and expected signal, then hand it off to an approved
+test path after explicit authorization.
 
 ## Cause Ranking
 
@@ -263,14 +267,14 @@ The user-facing report should include, in this order:
 - Key object snapshot: Service, EndpointSlice, Pods, Ingress, NetworkPolicy, CoreDNS, ELB/VPC objects when relevant.
 - Verification gaps.
 - Evidence matrix and detailed supporting evidence.
-- CLI path used: hcloud CCE, kubectl, and optional hcloud ELB/VPC/EIP/NAT reads.
+- CLI path used: hcloud CCE, kubectl-cce, and optional hcloud ELB/VPC/EIP/NAT reads.
 - Explicit statement that no mutating command was run.
 
 ## Best Practices
 
 - Trace the path from client entrypoint to ready backend and stop at the first failed hop.
 - Correlate selectors, endpoints, policies, DNS, Ingress, and cloud network identifiers.
-- Keep active tests opt-in and record their scope, risk, and expected signal before execution.
+- Treat active connectivity testing as a separate authorized handoff and record its scope, risk, and expected signal.
 - Separate read-only diagnosis from network or workload changes and name the handoff.
 
 ## Notes And Safety Rules
@@ -278,7 +282,7 @@ The user-facing report should include, in this order:
 Read `references/risk-rules.md` before making recommendations. This skill is read-only. Do not run:
 
 - `kubectl cce ... apply`, `create`, `patch`, `edit`, `delete`, `scale`, `rollout undo`, or component restarts
-- `kubectl exec`, packet capture, or traffic generation unless explicitly requested and acknowledged
+- `kubectl exec`, packet capture, stress tests, or active traffic generation
 - hcloud create/update/delete operations
 - Any SDK dispatcher action
 

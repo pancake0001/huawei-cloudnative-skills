@@ -1,6 +1,9 @@
 ---
 name: huawei-cloud-cce-observability-context-builder
-description: 使用 hcloud 和 kubectl-cce 构建只读 CCE 可观测上下文；用户需要故障范围、时间线、Events、有界日志、告警、指标、拓扑或证据缺口收集时使用本技能。
+description: >
+  在根因诊断前，使用 hcloud 和 kubectl-cce 为华为云 CCE 故障构建只读可观测上下文包。
+  适用于需要实时 Kubernetes 状态、Events、有界 Pod 日志、AOM 告警、指标、
+  LTS 上下文、拓扑、时间窗口、证据缺口或下一步诊断交接的场景。
 version: 1.0.0
 tags: [huawei-cloud, cce, observability, kubectl, context]
 ---
@@ -51,12 +54,22 @@ tags: [huawei-cloud, cce, observability, kubectl, context]
 ## 前置条件
 
 1. `hcloud`、`kubectl` 和 kubectl-cce 插件均为当前平台可执行的原生二进制。
-1. 凭据通过批准的参数、受保护的环境变量或凭据提供方传入。
-1. IAM 和 Kubernetes RBAC 允许所需的集群、Event、日志、指标、告警和拓扑只读查询。
-1. 工具缺失时使用 `huawei-cloud-kubectl-cce-installer`，本技能不得下载或执行安装脚本。
-1. 不得打印 AK、SK、token、Authorization header、代理凭据或日志中的密钥。
+2. 凭据通过批准的参数、受保护的环境变量或凭据提供方传入。
+3. IAM 和 Kubernetes RBAC 允许所需的集群、Event、日志、指标、告警和拓扑只读查询。
+4. 工具缺失时使用 `huawei-cloud-kubectl-cce-installer`，本技能不得下载或执行安装脚本。
+5. 不得打印 AK、SK、token、Authorization header、代理凭据或日志中的密钥。
 
 ## 核心命令与访问方式
+
+### 访问预检
+
+```bash
+hcloud version
+kubectl version --client
+kubectl plugin list
+```
+
+工具或插件缺失时停止当前流程，使用 `huawei-cloud-kubectl-cce-installer`；本技能不得下载安装器，也不得回退到 SDK 或 kubeconfig 接入。
 
 ### 集群和资源清单
 
@@ -66,17 +79,28 @@ hcloud CCE ShowCluster --cli-region=<region> --cli-output=json --cluster_id=<clu
 hcloud CCE ListNodes --cli-region=<region> --cli-output=json --cluster_id=<cluster-id> --project_id=<project-id>
 ```
 
+本地 KooCLI 版本的参数名不一致时，用已安装的 `hcloud` help 确认。证据来源仍须是 hcloud，不得切换到 SDK。
+
 ### 当前 Kubernetes 上下文
 
 执行 Kubernetes 命令前先读 [references/kubectl-cce.md](references/kubectl-cce.md)。
 
 ```bash
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get ns
 kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -A -o wide
 kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get deploy,sts,ds,rs,svc,ingress,endpoints,endpointslices -A -o wide
 kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get nodes,pv,pvc,storageclass -A -o wide
 kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -A --sort-by=.lastTimestamp
+```
+
+对明确目标继续采集：
+
+```bash
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe pod <pod-name> -n <namespace>
 kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> logs <pod-name> -n <namespace> --all-containers --tail=200
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> logs <pod-name> -n <namespace> --all-containers --previous --tail=200
 kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> top pods -n <namespace>
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> top nodes
 ```
 
 `top`、logs、previous logs 可能因为 Metrics API、RBAC、容器重启历史或插件限制失败。失败要写成数据缺口，不要改用 kubeconfig。
@@ -136,6 +160,8 @@ hcloud CCE ShowCluster --cli-region=<region> --cli-output=json --cluster_id=<clu
 kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get ns
 kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -A --sort-by=.lastTimestamp
 rg -n "huawei-cloud[.]py|skill action=ex[e]c|huawei[-_]|huaweicloudsdk|KubernetesClusterCert|CreateKubernetesClusterCert|--kubeconfig" . --glob "!*.md"
+rg -n -P "^kubectl (?!cce|version|plugin)" .
+git diff --check
 ```
 
 ## 参考文档

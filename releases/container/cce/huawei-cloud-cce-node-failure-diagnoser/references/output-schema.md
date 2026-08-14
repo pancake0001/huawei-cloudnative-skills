@@ -6,7 +6,7 @@ The final report may be Markdown, but it should map cleanly to this JSON shape. 
 {
   "success": true,
   "action": "node_failure_diagnose_cli",
-  "execution_model": "hcloud CCE + kubectl",
+  "execution_model": "hcloud CCE + kubectl-cce",
   "target": {
     "region": "cn-north-4",
     "project_id": "optional",

@@ -1,6 +1,10 @@
 ---
 name: huawei-cloud-cce-workload-failure-diagnoser
-description: 使用 hcloud 和只读 kubectl-cce 诊断 CCE 工作负载发布故障；用户提到副本不可用、Deployment、StatefulSet、DaemonSet 发布卡住或工作负载 Pod 异常时使用本技能。
+description: >
+  使用 hcloud 发现华为云 CCE 集群，并通过只读 kubectl-cce 证据诊断 Deployment、
+  StatefulSet 和 DaemonSet 发布或可用性故障。适用于发布卡住、副本不可用、
+  Pod 未 Ready、ImagePullBackOff、CrashLoopBackOff、探针或调度失败、
+  PVC 挂载失败或工作负载 Events。
 version: 1.0.0
 tags: [huawei-cloud, cce, kubectl, workload, diagnosis]
 ---
@@ -57,14 +61,9 @@ tags: [huawei-cloud, cce, kubectl, workload, diagnosis]
 1. `hcloud`（华为云 KooCLI）已安装并可在 `PATH` 中访问。使用运行环境对应平台的原生二进制。Linux sandbox 应使用 Linux 版 KooCLI 安装脚本或 tar 包；macOS 和 Windows 使用对应安装包。skill 命令应写成 `hcloud ...`，不要写平台专属的可执行文件路径。
 2. `kubectl` 已安装，并与目标 Kubernetes 小版本兼容。使用运行环境对应平台的原生二进制（`linux-amd64`、`linux-arm64`、`darwin-*` 或
    `windows-amd64`）。很多 agent sandbox 会运行在 Linux 上，所以不要在 skill 流程中硬编码 Windows 专属 `kubectl.exe` 路径。
-3. AK/SK 凭据已配置到 hcloud。只检查配置是否存在：
-
-```bash
-hcloud configure list
-```
-
-1. 调用方拥有华为云 IAM 权限，可以列出/查看 CCE 集群并使用 kubectl-cce API Gateway 接入。
-2. kubectl-cce 认证用户拥有 Kubernetes RBAC 权限，可以读取目标命名空间中的必要资源。
+3. AK/SK 凭据已配置到 hcloud。只用 `hcloud configure list` 检查配置是否存在，不打印密钥。
+4. 调用方拥有华为云 IAM 权限，可以列出/查看 CCE 集群并使用 kubectl-cce API Gateway 接入。
+5. kubectl-cce 认证用户拥有 Kubernetes RBAC 权限，可以读取目标命名空间中的必要资源。
 
 最终报告中不要打印 AK、SK、安全令牌、kubectl-cce 代理凭据或 Authorization header。日志中必须脱敏密钥。
 
@@ -275,7 +274,7 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 使用 `references/output-schema.md` 作为详细 schema。面向用户的报告应包含：
 
 - 目标：region、project、cluster、namespace、kind、name。
-- CLI 路径：使用过的 hcloud CCE 操作和 kubectl 证据命令。
+- CLI 路径：使用过的 hcloud CCE 操作和 kubectl-cce 证据命令。
 - 摘要状态和置信度。
 - 发布漏斗及各层通过/失败情况。
 - Top causes 排序，并附直接证据片段。
