@@ -1,174 +1,101 @@
-﻿---
-name: log-analyzer
-description: Use this skill to query and analyze Kubernetes Pod stdout logs, CCE LogConfig-collected application logs, and Huawei Cloud LTS logs.
+---
+name: huawei-cloud-cce-log-analyzer
+description: >-
+  查询和分析华为云 CCE 工作负载、审计和控制面日志。适用于 Pod 标准输出、由 CCE LogConfig 或 LTS Access Config 采集的应用日志、Kubernetes 审计证据、kube-apiserver API 错误和时延、kube-scheduler 调度失败，以及日志采集规则管理。
+metadata:
+  tags: [cce, kubernetes, logs, lts, observability]
 ---
 
-# Log Analyzer
+# Huawei Cloud CCE Log Analyzer
 
-Query and analyze Kubernetes standard output logs and Huawei Cloud LTS logs for CCE workloads.
+## 适用范围
 
-This skill reuses the shared Huawei Cloud dispatcher in `scripts/huawei-cloud.py`; implementation code lives in:
+该技能用于只读日志查询和分析，以及经确认后的 CCE LogConfig、LTS Access Config 日志采集规则管理。不修改工作负载、日志组、日志流、LTS 日志数据或其他云资源。
 
-- `scripts/huawei_cloud/cce.py` for Kubernetes Pod stdout logs (`huawei_get_pod_logs`)
-- `scripts/huawei_cloud/cce_app_logs.py` for CCE LogConfig discovery and application log stream matching
-- `scripts/huawei_cloud/lts.py` for LTS log group, stream, and log queries
+| 用户目标 | 使用方式 |
+|---|---|
+| Pod 标准输出、标准错误或已终止容器日志 | Pod 日志工具 |
+| 已采集到 LTS 的应用日志 | 应用日志流程，由用户选择采集规则 |
+| 查询资源何时被谁创建、更新或删除 | 审计日志工具 |
+| 分析 API 状态码和时延 | kube-apiserver 日志工具 |
+| 分析 Pod Pending 和调度决策 | kube-scheduler 日志工具 |
+| 创建或删除日志采集规则 | LogConfig 或 LTS Access Config 工具，先预览再确认 |
 
-## Scope
+## 前置条件
 
-Use this skill when the user asks to:
+- 需要 Python 3.8+、`hcloud` 以及 CCE、LTS 所需 IAM 权限。
+- Pod 标准输出和 CCE LogConfig 工具需要 `kubectl`；外网 kubeconfig 不可用时使用 `kubectl cce`。安装方式见 `huawei-cloud-kubectl-cce-installer`。
+- CCE LogConfig 依赖集群的云原生日志采集插件；LTS `AGENT` 采集依赖健康的 iCagent。
+- 审计、kube-apiserver、kube-scheduler 工具分别要求 CCE Log Center 中对应的控制面日志开关已开启。工具会通过 `CCE ShowClusterConfig` 检查开关，不会自动开启。
+- 传入 `--cli-access-key`、`--cli-secret-key` 和可选的 `--cli-security-token` 时，只使用这些显式凭据，并透传给 hcloud、`kubectl cce`；不会回退到 profile 或认证环境变量。需要 project ID 时可传 `--cli-project-id` 或 `project_id`。未传显式 CLI 凭据时，认证优先级为 `ak`、`sk`、`project_id`，其次本机 hcloud profile，最后环境变量 `HUAWEI_AK`、`HUAWEI_SK`、`HUAWEI_PROJECT_ID`。
+- LTS 的 `start_time`、`end_time` 必须使用 UTC `YYYY-MM-DD HH:MM:SS`；未传时按 UTC 生成最近时间窗口。
 
-- Query Kubernetes Pod standard output or previous container logs
-- Inspect CCE LogConfig resources for stdout collection
-- Create CCE LogConfig resources for container stdout or container file collection
-- Delete CCE LogConfig resources when the user explicitly asks to remove log collection rules
-- Find the LTS log group/stream for an application or namespace
-- Query CCE Kubernetes audit logs for Pod deletion or workload change events
-- Query LTS logs by time range, recent hours, keywords, or labels
-- Analyze returned logs for repeated errors, stack traces, restarts, or failure clues
+## 工具路由
 
-Do not use this skill to modify workloads, LTS groups/streams, or other cloud resources. Creating or deleting LogConfig resources is supported only through the LogConfig tools and must use `confirm=true` after preview.
+| 工具 | 风险级别 | 用途 |
+|---|---:|---|
+| `huawei_get_pod_stdout_logs` | R3 | 获取当前或已终止容器的 stdout/stderr |
+| `huawei_analyze_pod_stdout_realtime_logs` | R3 | 两次采样并分析新增 stdout |
+| `huawei_get_cce_logconfigs` | R3 | 查询 CCE LogConfig |
+| `huawei_list_lts_access_configs` | R3 | 查询 LTS Access Config |
+| `huawei_query_application_logs` | R3 | 查询一条由用户选择的采集规则对应的日志 |
+| `huawei_analyze_application_logs` | R3 | 分析一条由用户选择的采集规则对应的日志 |
+| `huawei_query_cce_audit_logs` | R3 | 查询保留的 Kubernetes 审计事件 |
+| `huawei_analyze_cce_audit_timeline` | R3 | 从审计事件构建资源变更时间线 |
+| `huawei_query_kube_apiserver_logs` | R3 | 查询 kube-apiserver 控制面日志 |
+| `huawei_analyze_kube_apiserver_logs` | R3 | 分析 API 状态码、错误和时延 |
+| `huawei_query_kube_scheduler_logs` | R3 | 查询 kube-scheduler 控制面日志 |
+| `huawei_analyze_kube_scheduler_logs` | R3 | 分析调度、绑定、抢占和 Leader Election 日志 |
+| `huawei_create_cce_logconfig` | R2 | 预览并创建 CCE LogConfig |
+| `huawei_create_lts_access_config` | R2 | 预览并创建 LTS Access Config |
+| `huawei_delete_cce_logconfig` | R1 | 预览并删除 CCE LogConfig |
+| `huawei_delete_lts_access_config` | R1 | 预览并删除 LTS Access Config |
 
-## Tools
+执行 `python3 scripts/huawei-cloud.py help` 可查看全部工具和必填入参。完整命令和参数说明见 [references/tool-reference.md](references/tool-reference.md)。
 
-| Tool | Purpose | Required parameters |
-|------|---------|---------------------|
-| `huawei_get_pod_logs` | Query Kubernetes Pod stdout/stderr through the Kubernetes API | `region`, `cluster_id`, `pod_name` |
-| `huawei_get_cce_logconfigs` | List CCE LogConfig resources in a cluster | `region`, `cluster_id` |
-| `huawei_create_cce_logconfig` | Create a CCE LogConfig for container stdout or container file collection; preview by default, create with `confirm=true` | `region`, `cluster_id`, `logconfig_name`, `source_type`, `log_group_id`, `log_stream_id` |
-| `huawei_delete_cce_logconfig` | Delete a CCE LogConfig by name; preview by default, delete with `confirm=true` | `region`, `cluster_id`, `logconfig_name` |
-| `huawei_get_application_logconfigs` | Match app/workload to LTS log group and stream, including stdout and container file LogConfig policies | `region`, `cluster_id`, `app_name` |
-| `huawei_query_cce_audit_logs` | Query CCE audit logs from LTS and summarize Pod deletion, workload changes, verbs, users, resources, namespaces, and response codes | `region`, `cluster_id` |
-| `huawei_query_application_logs` | Query application logs from matched LTS stream; optionally specify `logconfig_name`/`policy_name` | `region`, `cluster_id`, `app_name` |
-| `huawei_query_application_recent_logs` | Query recent application logs from matched LTS stream; optionally specify `logconfig_name`/`policy_name` | `region`, `cluster_id`, `app_name` |
-| `huawei_analyze_application_logs` | Analyze application logs in a time range for abnormal keywords, HTTP errors, incident windows, recovery time, and abnormal ratios | `region`, `cluster_id`, `app_name` |
+## 日志采集范围
 
-## Examples
+需要通过控制采集源范围的参数指定命名空间，不要混淆 LogConfig 资源保存所在的命名空间。
 
-```bash
-# Query recent stdout from a Pod
-python3 scripts/huawei-cloud.py huawei_get_pod_logs \
-  region=cn-north-4 \
-  cluster_id=<cluster-id> \
-  namespace=default \
-  pod_name=<pod-name> \
-  tail_lines=200
+| 采集方式 | 命名空间参数 | 采集范围 |
+|---|---|---|
+| CCE LogConfig：单个工作负载的标准输出或容器文件 | `workload_namespace`（或 `namespace`），配合 `workload_name`/`app_name` | 一个命名空间中的一个工作负载。 |
+| CCE LogConfig：指定命名空间内所有容器标准输出 | `all_containers=true` 和 `namespaces='["default"]'` | 列出的命名空间内所有容器标准输出；仅在确实需要全量采集时省略 `namespaces`。 |
+| LTS Access Config：`K8S_CCE` 容器标准输出或文件 | `namespace_regex`，例如 `^default$` | 命名空间正则；还必须提供 `pod_name_regex`。 |
+| 节点文件采集 | 不适用 | `host_file` 会采集绑定主机组内所有符合条件的节点，不能按 namespace 过滤。 |
 
-# Query previous terminated container logs
-python3 scripts/huawei-cloud.py huawei_get_pod_logs \
-  region=cn-north-4 \
-  cluster_id=<cluster-id> \
-  namespace=default \
-  pod_name=<pod-name> \
-  container=<container-name> \
-  previous=true \
-  tail_lines=200
+`logconfig_namespace` 仅表示 LogConfig 自定义资源保存的 Kubernetes 命名空间，通常为 `kube-system`，不会限制应用日志采集范围。确认前必须检查预览返回的 `request_body`。
 
-# Discover app LTS stream from LogConfig
-python3 scripts/huawei-cloud.py huawei_get_application_logconfigs \
-  region=cn-north-4 \
-  cluster_id=<cluster-id> \
-  namespace=default \
-  app_name=<workload-name>
+## 使用步骤
 
-# Preview then create a workload stdout LogConfig
-python3 scripts/huawei-cloud.py huawei_create_cce_logconfig \
-  region=cn-north-4 \
-  cluster_id=<cluster-id> \
-  logconfig_name=<policy-name> \
-  source_type=container_stdout \
-  workload_namespace=default \
-  workload_name=<workload-name> \
-  workload_kind=Deployment \
-  log_group_id=<lts-group-id> \
-  log_stream_id=<lts-stream-id>
+### 1. 确定日志来源
 
-# Preview then delete a LogConfig
-python3 scripts/huawei-cloud.py huawei_delete_cce_logconfig \
-  region=cn-north-4 \
-  cluster_id=<cluster-id> \
-  logconfig_name=<policy-name> \
-  logconfig_namespace=kube-system
+- 用户指定 Pod 时，先用 `huawei_get_pod_stdout_logs`。
+- 用户指定应用时，先查询 CCE LogConfig 和 LTS Access Config，展示目标集群相关规则，等待用户明确选择一条。
+- 需要操作人、资源变更证据时，优先查询审计日志；apiserver 日志只能作为 HTTP 请求补充证据。
+- 需要 API 可用性或时延时，使用 apiserver 分析；性能结论使用 `non_success_status_count` 和 `non_watch_latency`。
+- 需要分析 Pending 或无法调度的 Pod 时，使用 scheduler 分析；重复出现的调度和抢占日志通常表示重试，不代表多个 Pod。
 
-# Query Pod deletion audit events
-python3 scripts/huawei-cloud.py huawei_query_cce_audit_logs \
-  region=cn-north-4 \
-  cluster_id=<cluster-id> \
-  audit_type=pod_delete \
-  namespace=default \
-  hours=6 \
-  log_group_id=<audit-lts-group-id> \
-  log_stream_id=<audit-lts-stream-id>
+### 2. 先小范围查询
 
-# Query workload change audit events
-python3 scripts/huawei-cloud.py huawei_query_cce_audit_logs \
-  region=cn-north-4 \
-  cluster_id=<cluster-id> \
-  audit_type=workload_change \
-  namespace=default \
-  start_time="2026-05-30 10:00:00" \
-  end_time="2026-05-30 11:00:00"
+优先使用 `hours=1`、具体 namespace、Pod 或用户已选择的采集规则。仅在结果不足时启用 `auto_paginate=true` 并设置 `limit`、`max_pages`。除非用户明确要求关键字范围内的比例，否则应用日志异常率分析不要传 `keywords`。
 
-# Preview then create a container file LogConfig
-python3 scripts/huawei-cloud.py huawei_create_cce_logconfig \
-  region=cn-north-4 \
-  cluster_id=<cluster-id> \
-  logconfig_name=<policy-name> \
-  source_type=container_file \
-  workload_namespace=default \
-  workload_name=<workload-name> \
-  workload_kind=Deployment \
-  container=<container-name> \
-  log_path=/var/log \
-  file_pattern="*.log" \
-  log_group_id=<lts-group-id> \
-  log_stream_id=<lts-stream-id>
+### 3. 解释结果
 
-# Query recent application logs from a specific LogConfig policy
-python3 scripts/huawei-cloud.py huawei_query_application_recent_logs \
-  region=cn-north-4 \
-  cluster_id=<cluster-id> \
-  namespace=default \
-  app_name=<workload-name> \
-  logconfig_name=<policy-name> \
-  hours=1 \
-  keywords=ERROR \
-  auto_paginate=true \
-  max_pages=5 \
-  limit=100
+- 审计日志没有记录不代表操作未发生，可能超出保留周期或未投递。若对应控制面日志已开启，可补充查询 apiserver 请求日志；不要仅凭 user agent 推断操作者身份。
+- apiserver 的 `WATCH` 时延表示连接持续时间，不代表普通请求处理慢；性能判断使用 `summary.non_watch_latency`。
+- scheduler 的 `preemption_issue` 常与 PV 节点亲和性、Pod 反亲和性等硬约束同时出现。先检查约束，再建议扩容或抢占。
+- 输出中必须脱敏令牌、密码、Authorization、Cookie 和个人信息。
 
-# Analyze an application log window for abnormal logs
-python3 scripts/huawei-cloud.py huawei_analyze_application_logs \
-  region=cn-north-4 \
-  cluster_id=<cluster-id> \
-  namespace=default \
-  app_name=<workload-name> \
-  logconfig_name=<policy-name> \
-  start_time="2026-05-30 10:00:00" \
-  end_time="2026-05-30 11:00:00" \
-  auto_paginate=true \
-  max_pages=5 \
-  limit=1000
+### 4. 变更前必须确认
 
-```
+R2、R1 工具必须先发现目标或日志目的端、执行不带 `confirm=true` 的预览、展示预览并等待用户明确确认，之后才能带 `confirm=true` 执行。工具不会自动创建或选择 LTS 日志组和日志流，用户必须明确提供所选的目的端 ID。
 
-## Analysis Guidance
+## 参考文档
 
-- Start with the narrowest useful scope: pod/container stdout first when the user names a pod, application LTS logs when they name a workload.
-- Prefer recent windows (`hours=1`, `tail_lines=100-500`) before broad historical searches.
-- For workload-level LTS queries, first call `huawei_get_application_logconfigs` to discover the application's matched LogConfig policies. Then pass the desired `logconfig_name` or `policy_name` to `huawei_query_application_recent_logs` or `huawei_query_application_logs`.
-- For LogConfig creation, first call without `confirm=true` and inspect `request_body`. Only call again with `confirm=true` after the user confirms the generated LogConfig.
-- For LogConfig deletion, first call without `confirm=true` and inspect the returned `existing` target summary. Only call again with `confirm=true` after the user confirms the exact `logconfig_name` and namespace.
-- Use `huawei_query_cce_audit_logs` for Kubernetes audit questions. It is pure keyword search over audit log content: `pod_name`, `resource_name`, `workload_name`, `namespace`, `user`, `verb`, `resource`, and `status_code` are all converted into query/content keywords instead of parsed-field filters.
-- Use `audit_type=pod_delete` or `audit_type=workload_change` only as keyword presets. For example `pod_delete` adds `delete` and `pods`; the result is still based on keyword matching.
-- Use the stdout policy for container standard output, and use a `container_file` policy when the user asks for application file logs collected from paths such as `/var/log/*.log`.
-- Use `auto_paginate=true` when the user needs more than one LTS page. Keep `limit` as the per-page size and set `max_pages` to cap total work.
-- Use `huawei_analyze_application_logs` when the user asks whether a time range contains exceptions, errors, recovery, abnormal proportions, or incident timing. Avoid adding `keywords` unless the user wants to analyze only logs matched by that keyword, because ratios are calculated over the queried log set.
-- When summarizing logs, group repeated lines by pattern and include counts when possible.
-- Redact tokens, passwords, cookies, authorization headers, and personally identifiable data.
-- If logs point to Pod startup, image pull, scheduling, node, or network failures, recommend the corresponding diagnosis skill with the exact evidence found.
-
-## References
-
-- Workflow: `references/workflow.md`
-- Risk rules: `references/risk-rules.md`
-- Output schema: `references/output-schema.md`
+| 文档 | 使用场景 |
+|---|---|
+| [workflow.md](references/workflow.md) | Pod、应用、审计、控制面和采集规则完整流程 |
+| [tool-reference.md](references/tool-reference.md) | 工具参数和命令示例 |
+| [risk-rules.md](references/risk-rules.md) | 风险、确认和数据安全边界 |
+| [output-schema.md](references/output-schema.md) | 查询与分析结果字段解释 |
