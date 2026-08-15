@@ -49,6 +49,11 @@ ACTION_SPECS: Dict[str, tuple[tuple[str, ...], Handler]] = {
 }
 
 
+def list_actions() -> Dict[str, tuple[str, ...]]:
+    """Return public actions with their required parameters."""
+    return {action: required for action, (required, _) in sorted(ACTION_SPECS.items())}
+
+
 def is_registered_action(action: str) -> bool:
     return action in ACTION_SPECS
 

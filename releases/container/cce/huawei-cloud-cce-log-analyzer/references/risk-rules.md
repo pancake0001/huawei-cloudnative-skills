@@ -1,13 +1,20 @@
 # Risk Rules
 
-## Read-Only Default
+## Risk Levels
 
-This skill is read-only by default: it may query Kubernetes stdout logs, LogConfig resources, and LTS log records.
+| Level | Tools | Rule |
+|---|---|---|
+| R3 | All query and analysis tools | Read-only; may run automatically. |
+| R2 | `huawei_create_cce_logconfig`, `huawei_create_lts_access_config` | Preview the exact collection scope and destination, then wait for explicit user confirmation. |
+| R1 | `huawei_delete_cce_logconfig`, `huawei_delete_lts_access_config` | Preview the exact existing rule, then wait for explicit user confirmation. |
+
+There are no R0 tools in this skill.
 
 ## Mutating Operations
 
 - Creating LogConfig or LTS Access Config resources is allowed only through `huawei_create_cce_logconfig` or `huawei_create_lts_access_config`. The tool must preview first and requires `confirm=true` before it changes collection configuration.
 - Deleting LogConfig or LTS Access Config resources is allowed only through `huawei_delete_cce_logconfig` or `huawei_delete_lts_access_config`. The tool must preview the exact target first and requires `confirm=true`.
+- Never select a LogConfig, Access Config, log group, or log stream for the user. Present candidates and wait for the user's explicit choice.
 
 ## Scope Boundaries
 

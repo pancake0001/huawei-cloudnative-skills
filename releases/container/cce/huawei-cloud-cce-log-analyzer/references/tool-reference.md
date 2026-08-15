@@ -1,0 +1,63 @@
+# Tool Reference
+
+Run every command from this skill directory:
+
+```bash
+python3 scripts/huawei-cloud.py help
+python3 scripts/huawei-cloud.py <action> key=value ...
+```
+
+All actions require `region`; cluster-scoped actions also require `cluster_id`. Pass `ak`, `sk`, and `project_id` only when the local hcloud profile is not the intended credential source. Do not print credential values.
+
+## Read and Analyze
+
+| Tool | Required parameters | Useful optional parameters | Notes |
+|---|---|---|---|
+| `huawei_get_pod_stdout_logs` | `region`, `cluster_id`, `pod_name` | `namespace`, `container`, `previous`, `tail_lines` | `tail_lines` defaults to 1000; `previous=true` reads a terminated container instance. |
+| `huawei_analyze_pod_stdout_realtime_logs` | `region`, `cluster_id`, `pod_name` | `namespace`, `container`, `wait_seconds`, `tail_lines` | Samples twice; `wait_seconds` defaults to 30. |
+| `huawei_get_cce_logconfigs` | `region`, `cluster_id` | - | Requires Cloud Native Logging add-on. |
+| `huawei_list_lts_access_configs` | `region` | `access_config_name` | Filter returned rules by target `cluster_id` before showing users application-log choices. |
+| `huawei_query_application_logs` | `region`, `cluster_id`, one rule selector | `hours`, `start_time`, `end_time`, `keywords`, `auto_paginate`, `max_pages`, `limit` | Selector is `logconfig_name` or `access_config_id`/`access_config_name`. User must choose it first. |
+| `huawei_analyze_application_logs` | `region`, `cluster_id`, one rule selector | Same as query plus `sample_limit` | Avoid `keywords` when reporting an unscoped abnormal ratio. |
+| `huawei_query_cce_audit_logs` | `region`, `cluster_id` | `audit_type`, `pod_name`, `resource_name`, `namespace`, `hours`, `start_time`, `end_time` | Convenience filters are LTS keyword filters, not structured API filters. |
+| `huawei_analyze_cce_audit_timeline` | `region`, `cluster_id` | `resource_name`, `resources`, `namespace`, `verbs`, `hours`, `timeline_limit` | Defaults to mutating verbs; use `include_read_events=true` only when needed. |
+| `huawei_query_kube_apiserver_logs` | `region`, `cluster_id` | `hours`, `start_time`, `end_time`, `keywords`, pagination parameters | Requires kube-apiserver control-plane logging. |
+| `huawei_analyze_kube_apiserver_logs` | `region`, `cluster_id` | `hours`, `slow_latency_ms`, pagination parameters, `sample_limit` | Use `non_success_status_count` and `non_watch_latency` for health conclusions. |
+| `huawei_query_kube_scheduler_logs` | `region`, `cluster_id` | `hours`, `start_time`, `end_time`, `keywords`, pagination parameters | Requires kube-scheduler control-plane logging. |
+| `huawei_analyze_kube_scheduler_logs` | `region`, `cluster_id` | `hours`, pagination parameters, `sample_limit` | Reports scheduling, binding, preemption, and leader-election categories. |
+
+### Examples
+
+```bash
+# Pod stdout
+python3 scripts/huawei-cloud.py huawei_get_pod_stdout_logs \
+  region=cn-north-4 cluster_id=<cluster-id> namespace=default \
+  pod_name=<pod-name> tail_lines=200
+
+# Application logs after the user selects a LogConfig
+python3 scripts/huawei-cloud.py huawei_query_application_logs \
+  region=cn-north-4 cluster_id=<cluster-id> \
+  logconfig_name=<selected-logconfig> logconfig_namespace=kube-system \
+  hours=1 auto_paginate=true max_pages=5 limit=100
+
+# API server latency and status analysis
+python3 scripts/huawei-cloud.py huawei_analyze_kube_apiserver_logs \
+  region=cn-north-4 cluster_id=<cluster-id> hours=1 slow_latency_ms=1000
+
+# Scheduler diagnosis
+python3 scripts/huawei-cloud.py huawei_analyze_kube_scheduler_logs \
+  region=cn-north-4 cluster_id=<cluster-id> hours=1
+```
+
+## Collection Rule Changes
+
+| Tool | Required parameters | Additional parameters | Execution rule |
+|---|---|---|---|
+| `huawei_create_cce_logconfig` | `region`, `cluster_id`, `logconfig_name`, `source_type` | Workload or file-source parameters, `log_group_id`, `log_stream_id` | Preview first; use `confirm=true` only after user approval. |
+| `huawei_delete_cce_logconfig` | `region`, `cluster_id`, `logconfig_name` | `logconfig_namespace` | Preview exact target first; require confirmation. |
+| `huawei_create_lts_access_config` | `region`, `access_config_name` | `access_config_type`, collection-source parameters, destination IDs | Preview first; require confirmation. |
+| `huawei_delete_lts_access_config` | `region`, `access_config_id` | - | Preview exact target first; require confirmation. |
+
+`source_type` for CCE LogConfig is one of `container_stdout`, `container_file`, or `host_file`. `host_file` applies to all eligible cluster nodes; no node selector exists. For LTS Access Config, `K8S_CCE` supports container stdout and file collection through the LTS SDK; `AGENT` collection requires iCagent.
+
+When destination IDs are omitted during a create preview, the tools list the dedicated `k8s-log-<cluster-id>` destination when available and otherwise list existing LTS alternatives. The user must explicitly choose and provide both `log_group_id` and `log_stream_id` before creation.

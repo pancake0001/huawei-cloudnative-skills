@@ -359,6 +359,10 @@ python3 scripts/huawei-cloud.py huawei_analyze_cce_audit_timeline \
   hours=24
 ```
 
+### Audit and Apiserver Evidence
+
+Use audit logs first when the question asks who changed a resource. Audit records include the user and object reference when retained. If a matching audit event is absent, query kube-apiserver logs for the same resource name and time window to confirm HTTP request evidence. Apiserver logs can show verb, URI, response, user agent, and source address, but they are not a replacement for an audit actor record.
+
 ### Additional Audit Filter Parameters
 
 All of these are converted into LTS keyword search terms, not structured filters:

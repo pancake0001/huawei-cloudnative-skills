@@ -66,6 +66,15 @@ When analyzing logs, prefer this structure:
 | `evidence` | Short redacted examples, not full raw logs |
 | `next_steps` | Suggested follow-up query or diagnosis skill |
 
+## Control-Plane Log Summary
+
+| Component | Important fields | Interpretation |
+|---|---|---|
+| kube-apiserver | `non_200_count`, `successful_non_200_count`, `non_success_status_count`, `watch_latency`, `non_watch_latency`, `slow_watch_count` | `non_200_count` is literal. Use `non_success_status_count` and `non_watch_latency` for health conclusions. WATCH duration is connection lifetime. |
+| kube-scheduler | `successful_assignment_count`, `leader_renewal_count`, `scheduling_failure`, `binding_failure`, `preemption_issue`, `leader_election_issue`, `generic_abnormal_count` | Repeated scheduler messages can be retries for one Pod. Group samples by Pod and constraint before reporting impact. |
+
+Control-plane query outputs include `component`, `log_group_name`, `log_stream_name`, `analysis_window`, and `query_summary`. When a control-plane switch is disabled, the output contains `requires_control_plane_log` and no log query is attempted.
+
 ## Abnormality Analysis Output
 
 | Field | Description |

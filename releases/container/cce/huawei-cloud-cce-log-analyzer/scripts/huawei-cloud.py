@@ -33,14 +33,17 @@ def _parse_params(args: List[str]) -> Dict[str, str]:
 
 def main() -> int:
     if len(sys.argv) < 2:
-        print(json.dumps({"success": False, "error": "action is required"}))
+        print(json.dumps({"success": False, "error": "action is required; run 'python3 scripts/huawei-cloud.py help'"}))
         return 1
     script_dir = str(Path(__file__).resolve().parent)
     if script_dir not in sys.path:
         sys.path.insert(0, script_dir)
-    from huawei_cloud.dispatcher import dispatch_action, is_registered_action
+    from huawei_cloud.dispatcher import dispatch_action, is_registered_action, list_actions
 
     action = sys.argv[1]
+    if action in {"help", "--help", "-h", "list"}:
+        print(json.dumps({"success": True, "usage": "python3 scripts/huawei-cloud.py <action> key=value ...", "actions": list_actions()}, ensure_ascii=True, indent=2))
+        return 0
     if not is_registered_action(action):
         print(json.dumps({"success": False, "error": f"unknown action: {action}"}))
         return 1
