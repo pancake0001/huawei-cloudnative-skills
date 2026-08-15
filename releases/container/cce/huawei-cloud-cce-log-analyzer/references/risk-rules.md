@@ -24,6 +24,7 @@ There are no R0 tools in this skill.
 ## Credential Security
 
 - Never expose AK/SK, tokens, kubeconfig certificates, or full sensitive log payloads in summaries.
+- When `--cli-access-key` and `--cli-secret-key` are supplied, use only those explicit credentials (and the optional `--cli-security-token`) for hcloud and `kubectl cce`; never fall back to a local profile or credential environment variables.
 - Prefer time-bounded queries. If no time range is provided, use recent logs and keep limits small.
 
 ## Data Privacy

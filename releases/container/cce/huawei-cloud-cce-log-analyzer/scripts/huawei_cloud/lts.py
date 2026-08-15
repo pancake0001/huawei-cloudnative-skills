@@ -63,8 +63,9 @@ def list_access_configs(
     ak: Optional[str] = None,
     sk: Optional[str] = None,
     project_id: Optional[str] = None,
+    security_token: Optional[str] = None,
 ) -> Dict[str, Any]:
-    command = common.hcloud_command("LTS", "ListAccessConfig", region, ak, sk, project_id)
+    command = common.hcloud_command("LTS", "ListAccessConfig", region, ak, sk, project_id, security_token)
     if access_config_name:
         command.append(f"--access_config_name_list.1={access_config_name}")
     result = common.run_hcloud(command)
@@ -136,7 +137,7 @@ def _resolve_k8s_host_group_id(params: Dict[str, str], cluster_id: str) -> str:
         return params["host_group_id"]
     expected_name = f"k8s-log-{cluster_id}"
     command = common.hcloud_command(
-        "LTS", "ListHostGroup", params["region"], params.get("ak"), params.get("sk"), params.get("project_id")
+        "LTS", "ListHostGroup", params["region"], params.get("ak"), params.get("sk"), params.get("project_id"), params.get("security_token")
     )
     result = common.run_hcloud(command)
     if not result.get("success"):
@@ -205,7 +206,10 @@ def _k8s_cce_access_config_body(params: Dict[str, str]) -> Dict[str, Any]:
 
 def _create_k8s_cce_access_config(params: Dict[str, str], body: Dict[str, Any]) -> Dict[str, Any]:
     """Create K8S_CCE collection through the LTS SDK because hcloud rejects this enum."""
-    ak, sk, project_id = common.get_credentials(params.get("ak"), params.get("sk"), params.get("project_id"))
+    if params.get("_explicit_cli_credentials") == "true":
+        ak, sk, project_id = params.get("ak"), params.get("sk"), params.get("project_id")
+    else:
+        ak, sk, project_id = common.get_credentials(params.get("ak"), params.get("sk"), params.get("project_id"))
     if not ak or not sk or not project_id:
         return {"success": False, "error": "AK, SK, and project_id are required for K8S_CCE API creation"}
     try:
@@ -250,7 +254,10 @@ def _create_k8s_cce_access_config(params: Dict[str, str], body: Dict[str, Any]) 
         )
     )
     try:
-        client = LtsClient.new_builder().with_credentials(BasicCredentials(ak, sk, project_id)).with_region(
+        credentials = BasicCredentials(ak, sk, project_id)
+        if params.get("security_token"):
+            credentials = credentials.with_security_token(params["security_token"])
+        client = LtsClient.new_builder().with_credentials(credentials).with_region(
             LtsRegion.value_of(params["region"])
         ).build()
         return {"success": True, "data": client.create_access_config(request).to_dict()}
@@ -274,7 +281,7 @@ def _create_access_config_command(params: Dict[str, str]) -> List[str]:
         raise ValueError("K8S_CCE access configs use the LTS API, not hcloud")
     path_type = _access_config_path_type(params)
     command = common.hcloud_command(
-        "LTS", "CreateAccessConfig", params["region"], params.get("ak"), params.get("sk"), params.get("project_id")
+        "LTS", "CreateAccessConfig", params["region"], params.get("ak"), params.get("sk"), params.get("project_id"), params.get("security_token")
     )
     command.extend(
         [
@@ -386,7 +393,7 @@ def require_explicit_cluster_log_destination(params: Dict[str, str]) -> Optional
 
     expected_group_name = f"k8s-log-{cluster_id}"
     groups_result = list_log_groups(
-        params["region"], ak=params.get("ak"), sk=params.get("sk"), project_id=params.get("project_id")
+        params["region"], ak=params.get("ak"), sk=params.get("sk"), project_id=params.get("project_id"), security_token=params.get("security_token")
     )
     if not groups_result.get("success"):
         return {
@@ -396,7 +403,7 @@ def require_explicit_cluster_log_destination(params: Dict[str, str]) -> Optional
         }
     all_log_groups = groups_result.get("log_groups", [])
     all_streams_result = list_log_streams(
-        params["region"], ak=params.get("ak"), sk=params.get("sk"), project_id=params.get("project_id")
+        params["region"], ak=params.get("ak"), sk=params.get("sk"), project_id=params.get("project_id"), security_token=params.get("security_token")
     )
     if not all_streams_result.get("success"):
         return {
@@ -430,7 +437,7 @@ def require_explicit_cluster_log_destination(params: Dict[str, str]) -> Optional
 
     log_group = log_groups[0]
     streams_result = list_log_streams(
-        params["region"], log_group["log_group_id"], ak=params.get("ak"), sk=params.get("sk"), project_id=params.get("project_id")
+        params["region"], log_group["log_group_id"], ak=params.get("ak"), sk=params.get("sk"), project_id=params.get("project_id"), security_token=params.get("security_token")
     )
     if not streams_result.get("success"):
         return {
@@ -466,7 +473,7 @@ def delete_access_config_action(params: Dict[str, str]) -> Dict[str, Any]:
     if not access_config_id:
         return {"success": False, "error": "access_config_id is required"}
     listed = list_access_configs(
-        params["region"], ak=params.get("ak"), sk=params.get("sk"), project_id=params.get("project_id")
+        params["region"], ak=params.get("ak"), sk=params.get("sk"), project_id=params.get("project_id"), security_token=params.get("security_token")
     )
     if not listed.get("success"):
         return listed
@@ -474,7 +481,7 @@ def delete_access_config_action(params: Dict[str, str]) -> Dict[str, Any]:
     if not existing:
         return {"success": False, "error": f"LTS access config {access_config_id} was not found"}
     command = common.hcloud_command(
-        "LTS", "DeleteAccessConfig", params["region"], params.get("ak"), params.get("sk"), params.get("project_id")
+        "LTS", "DeleteAccessConfig", params["region"], params.get("ak"), params.get("sk"), params.get("project_id"), params.get("security_token")
     )
     command.append(f"--access_config_id_list.1={access_config_id}")
     if not _to_bool(params.get("confirm"), False):
@@ -500,8 +507,8 @@ def _timestamp(value: Optional[str], default: datetime) -> int:
     return int(value)
 
 
-def _groups(region: str, ak: Optional[str], sk: Optional[str], project_id: Optional[str]) -> Dict[str, Any]:
-    return common.run_hcloud(common.hcloud_command("LTS", "ListLogGroups", region, ak, sk, project_id))
+def _groups(region: str, ak: Optional[str], sk: Optional[str], project_id: Optional[str], security_token: Optional[str] = None) -> Dict[str, Any]:
+    return common.run_hcloud(common.hcloud_command("LTS", "ListLogGroups", region, ak, sk, project_id, security_token))
 
 
 def list_log_groups(
@@ -510,8 +517,9 @@ def list_log_groups(
     ak: Optional[str] = None,
     sk: Optional[str] = None,
     project_id: Optional[str] = None,
+    security_token: Optional[str] = None,
 ) -> Dict[str, Any]:
-    result = _groups(region, ak, sk, project_id)
+    result = _groups(region, ak, sk, project_id, security_token)
     if not result.get("success"):
         return result
     groups = [group for group in (result["data"].get("log_groups") or []) if isinstance(group, dict)]
@@ -539,10 +547,11 @@ def list_log_streams(
     ak: Optional[str] = None,
     sk: Optional[str] = None,
     project_id: Optional[str] = None,
+    security_token: Optional[str] = None,
 ) -> Dict[str, Any]:
     group_name = None
     if log_group_id:
-        groups_result = _groups(region, ak, sk, project_id)
+        groups_result = _groups(region, ak, sk, project_id, security_token)
         if not groups_result.get("success"):
             return groups_result
         group = next(
@@ -553,7 +562,7 @@ def list_log_streams(
             return {"success": False, "error": f"LTS log group {log_group_id} was not found"}
         group_name = group.get("log_group_name")
 
-    command = common.hcloud_command("LTS", "ListLogStreams", region, ak, sk, project_id)
+    command = common.hcloud_command("LTS", "ListLogStreams", region, ak, sk, project_id, security_token)
     if group_name:
         command.append(f"--log_group_name={group_name}")
     result = common.run_hcloud(command)
@@ -584,9 +593,10 @@ def list_log_stream_index(
     ak: Optional[str] = None,
     sk: Optional[str] = None,
     project_id: Optional[str] = None,
+    security_token: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Return the configured field-index names for one LTS log stream."""
-    command = common.hcloud_command("LTS", "ListLogStreamIndex", region, ak, sk, project_id)
+    command = common.hcloud_command("LTS", "ListLogStreamIndex", region, ak, sk, project_id, security_token)
     command.extend([f"--group_id={log_group_id}", f"--stream_id={log_stream_id}"])
     if project_id:
         command.append(f"--project_id={project_id}")
@@ -620,9 +630,10 @@ def query_logs(
     ak: Optional[str] = None,
     sk: Optional[str] = None,
     project_id: Optional[str] = None,
+    security_token: Optional[str] = None,
 ) -> Dict[str, Any]:
     now = datetime.now(timezone.utc)
-    command = common.hcloud_command("LTS", "ListLogs", region, ak, sk, project_id)
+    command = common.hcloud_command("LTS", "ListLogs", region, ak, sk, project_id, security_token)
     command.extend(
         [
             f"--log_group_id={log_group_id}",

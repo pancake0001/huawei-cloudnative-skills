@@ -371,6 +371,7 @@ def _query_logs_with_pagination(
             ak=params.get("ak"),
             sk=params.get("sk"),
             project_id=params.get("project_id"),
+            security_token=params.get("security_token"),
         )
         if not page.get("success"):
             if not all_logs:
@@ -749,7 +750,7 @@ def delete_cce_logconfig_action(params: Dict[str, str]) -> Dict[str, Any]:
 def _discover_audit_log_stream(params: Dict[str, str]) -> Dict[str, Any]:
     cluster_id = params["cluster_id"]
     config_command = common.hcloud_command(
-        "CCE", "ShowClusterConfig", params["region"], params.get("ak"), params.get("sk"), params.get("project_id")
+        "CCE", "ShowClusterConfig", params["region"], params.get("ak"), params.get("sk"), params.get("project_id"), params.get("security_token")
     )
     config_command.append(f"--cluster_id={cluster_id}")
     if params.get("project_id"):
@@ -785,6 +786,7 @@ def _discover_audit_log_stream(params: Dict[str, str]) -> Dict[str, Any]:
         ak=params.get("ak"),
         sk=params.get("sk"),
         project_id=params.get("project_id"),
+        security_token=params.get("security_token"),
     )
     if not groups_result.get("success"):
         return groups_result
@@ -804,6 +806,7 @@ def _discover_audit_log_stream(params: Dict[str, str]) -> Dict[str, Any]:
         ak=params.get("ak"),
         sk=params.get("sk"),
         project_id=params.get("project_id"),
+        security_token=params.get("security_token"),
     )
     if not streams_result.get("success"):
         return streams_result
@@ -986,7 +989,7 @@ def _discover_control_plane_log_stream(
     """Verify a control-plane log switch and resolve its standard LTS stream."""
     cluster_id = params["cluster_id"]
     command = common.hcloud_command(
-        "CCE", "ShowClusterConfig", params["region"], params.get("ak"), params.get("sk"), params.get("project_id")
+        "CCE", "ShowClusterConfig", params["region"], params.get("ak"), params.get("sk"), params.get("project_id"), params.get("security_token")
     )
     command.append(f"--cluster_id={cluster_id}")
     config_result = common.run_hcloud(command)
@@ -1006,13 +1009,13 @@ def _discover_control_plane_log_stream(
         }
     group_name = f"k8s-log-{cluster_id}"
     stream_name = f"{component}-{cluster_id}"
-    groups = lts.list_log_groups(params["region"], ak=params.get("ak"), sk=params.get("sk"), project_id=params.get("project_id"))
+    groups = lts.list_log_groups(params["region"], ak=params.get("ak"), sk=params.get("sk"), project_id=params.get("project_id"), security_token=params.get("security_token"))
     if not groups.get("success"):
         return groups
     group = next((item for item in groups.get("log_groups", []) if item.get("log_group_name") == group_name), None)
     if not group:
         return {"success": False, "error": f"CCE {component} log group {group_name} was not found"}
-    streams = lts.list_log_streams(params["region"], group["log_group_id"], ak=params.get("ak"), sk=params.get("sk"), project_id=params.get("project_id"))
+    streams = lts.list_log_streams(params["region"], group["log_group_id"], ak=params.get("ak"), sk=params.get("sk"), project_id=params.get("project_id"), security_token=params.get("security_token"))
     if not streams.get("success"):
         return streams
     stream = next((item for item in streams.get("log_streams", []) if item.get("log_stream_name") == stream_name), None)
@@ -1497,6 +1500,7 @@ def _resolve_application_log_source(params: Dict[str, str]) -> Dict[str, Any]:
         ak=params.get("ak"),
         sk=params.get("sk"),
         project_id=params.get("project_id"),
+        security_token=params.get("security_token"),
     )
     if not result.get("success"):
         return result
@@ -1561,6 +1565,7 @@ def query_application_logs_action(params: Dict[str, str]) -> Dict[str, Any]:
         ak=params.get("ak"),
         sk=params.get("sk"),
         project_id=params.get("project_id"),
+        security_token=params.get("security_token"),
     )
     indexed_fields = index_result.get("indexed_fields", set()) if index_result.get("success") else set()
     auto_label_filter = {
@@ -1781,6 +1786,8 @@ def analyze_pod_realtime_logs_action(params: Dict[str, str]) -> Dict[str, Any]:
         "ak": params.get("ak"),
         "sk": params.get("sk"),
         "project_id": params.get("project_id"),
+        "security_token": params.get("security_token"),
+        "explicit_cli_credentials": params.get("_explicit_cli_credentials") == "true",
     }
 
     initial = cce.get_pod_logs(**pod_args)

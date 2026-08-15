@@ -38,13 +38,15 @@ def resolve_hcloud_credentials(
     ak: Optional[str] = None,
     sk: Optional[str] = None,
     project_id: Optional[str] = None,
-) -> tuple[Optional[str], Optional[str], Optional[str]]:
+    security_token: Optional[str] = None,
+) -> tuple[Optional[str], Optional[str], Optional[str], Optional[str]]:
     """Resolve hcloud authentication: arguments, profile, then environment."""
-    if ak or sk or project_id:
-        return ak, sk, project_id
+    if ak or sk or project_id or security_token:
+        return ak, sk, project_id, security_token
     if has_hcloud_profile():
-        return None, None, None
-    return get_credentials()
+        return None, None, None, None
+    access_key, secret_key, resolved_project_id = get_credentials()
+    return access_key, secret_key, resolved_project_id, os.environ.get("HUAWEI_SECURITY_TOKEN") or os.environ.get("HW_SECURITY_TOKEN")
 
 
 def redact_command(command: list[str]) -> list[str]:
@@ -113,9 +115,12 @@ def hcloud_command(
     ak: Optional[str] = None,
     sk: Optional[str] = None,
     project_id: Optional[str] = None,
+    security_token: Optional[str] = None,
 ) -> list[str]:
     """Build an hcloud command with the shared authentication priority."""
-    access_key, secret_key, resolved_project_id = resolve_hcloud_credentials(ak, sk, project_id)
+    access_key, secret_key, resolved_project_id, resolved_security_token = resolve_hcloud_credentials(
+        ak, sk, project_id, security_token
+    )
     command = [
         "hcloud", service, operation, f"--cli-region={region}", "--cli-output=json",
         "--cli-connect-timeout=10", "--cli-read-timeout=60",
@@ -126,4 +131,6 @@ def hcloud_command(
         command.append(f"--cli-access-key={access_key}")
     if secret_key:
         command.append(f"--cli-secret-key={secret_key}")
+    if resolved_security_token:
+        command.append(f"--cli-security-token={resolved_security_token}")
     return command

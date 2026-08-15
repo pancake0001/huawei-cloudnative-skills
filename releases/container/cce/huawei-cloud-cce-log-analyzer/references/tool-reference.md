@@ -9,6 +9,17 @@ python3 scripts/huawei-cloud.py <action> key=value ...
 
 All actions require `region`; cluster-scoped actions also require `cluster_id`. Pass `ak`, `sk`, and `project_id` only when the local hcloud profile is not the intended credential source. Do not print credential values.
 
+### Explicit CLI Credentials
+
+For an isolated credential path, pass `--cli-access-key`, `--cli-secret-key`, and optionally `--cli-security-token`. Both key parameters are required together. The skill forwards them to every hcloud and `kubectl cce` invocation and does not read profile or credential environment-variable values for that call. Use `--cli-project-id` when the target project must be explicit.
+
+```bash
+python3 scripts/huawei-cloud.py huawei_query_kube_apiserver_logs \
+  region=cn-north-4 cluster_id=<cluster-id> hours=1 \
+  --cli-access-key=<ak> --cli-secret-key=<sk> \
+  --cli-security-token=<sts-token> --cli-project-id=<project-id>
+```
+
 ## Read and Analyze
 
 | Tool | Required parameters | Useful optional parameters | Notes |
