@@ -4,22 +4,23 @@
 
 Node pool lifecycle management, including creating node pools, querying node pool lists, and adjusting node counts.
 
-> **Note:** `huawei_create_cce_nodepool` uses the Python SDK fallback due to a known hcloud `CreateNodePool` metadata parsing defect. See [cce-api-guide.md](cce-api-guide.md#hcloud-defect-createcluster--createnodepool-sdk-fallback).
+> **Note:** `huawei_create_cce_nodepool` uses the Python SDK fallback due to a known hcloud `CreateNodePool` metadata parsing defect. See
+> [cce-api-guide.md](cce-api-guide.md#hcloud-defect-createcluster--createnodepool-sdk-fallback).
 
 ## Create Node Pool Parameters
 
 ### Required Parameters
 
-| Parameter | Description | Example Value |
-|------|------|-------|
-| `region` | Huawei Cloud region | `cn-north-4` |
-| `cluster_id` | Cluster ID | `xxx` |
-| `nodepool_name` | Node pool name | `dev-worker-pool` |
-| `flavor` | Node specification | `c7.large.2` |
-| `availability_zone` | Availability zone | `cn-north-4a` |
-| `root_volume_size` | System disk size (GB) | `40` |
-| `root_volume_type` | System disk type | `GPSSD` |
-| `initial_node_count` | Initial node count | `1` |
+| Parameter            | Description           | Example Value     |
+| -------------------- | --------------------- | ----------------- |
+| `region`             | Huawei Cloud region   | `cn-north-4`      |
+| `cluster_id`         | Cluster ID            | `xxx`             |
+| `nodepool_name`      | Node pool name        | `dev-worker-pool` |
+| `flavor`             | Node specification    | `c7.large.2`      |
+| `availability_zone`  | Availability zone     | `cn-north-4a`     |
+| `root_volume_size`   | System disk size (GB) | `40`              |
+| `root_volume_type`   | System disk type      | `GPSSD`           |
+| `initial_node_count` | Initial node count    | `1`               |
 
 ### Login Authentication — Three-Level Priority
 
@@ -30,7 +31,8 @@ The node login credential is resolved with the following priority:
 3. **`CCE_NODE_PASSWORD` environment variable** — used when neither `ssh_key` nor `password` is provided.
 4. **Auto-generated random password** — when none of the above is supplied.
 
-> ⚠️ **The auto-generated password is NEVER returned in the tool response.** To access the nodes afterwards, reset the password via the CCE console or the ECS API. The success message only contains a hint to reset the password.
+> ⚠️ **The auto-generated password is NEVER returned in the tool response.** To access the nodes afterwards, reset the password via the CCE console or the ECS
+> API. The success message only contains a hint to reset the password.
 
 The script automatically performs SHA-512 salted encryption + base64 encoding on the password — no manual processing required.
 
@@ -48,41 +50,41 @@ data_volumes='[{"size":100,"type":"SSD"}]'
 Node pools in Turbo (ENI network) clusters must use ENI-compatible flavors. Incompatible flavors will result in the error:
 `Flavor [xxx] 's subeni quota is 0, Eni network is not supported`
 
-| Flavor Series | ENI Support | Recommended Scenario |
-|-------------|---------|---------|
-| `c7` series (e.g., `c7.large.2`) | ✅ Supported | Recommended for Turbo clusters |
-| `s7` series | ✅ Supported | Turbo clusters |
-| `s6` series (e.g., `s6.large.2`) | ❌ Not supported | Standard clusters only |
-| `c6` series (e.g., `c6.large.2`) | ❌ Not supported | Standard clusters only |
+| Flavor Series                    | ENI Support      | Recommended Scenario           |
+| -------------------------------- | ---------------- | ------------------------------ |
+| `c7` series (e.g., `c7.large.2`) | ✅ Supported     | Recommended for Turbo clusters |
+| `s7` series                      | ✅ Supported     | Turbo clusters                 |
+| `s6` series (e.g., `s6.large.2`) | ❌ Not supported | Standard clusters only         |
+| `c6` series (e.g., `c6.large.2`) | ❌ Not supported | Standard clusters only         |
 
 ### Optional Parameters
 
-| Parameter | Description | Default Value |
-|------|------|-------|
-| `os_type` | Operating system | `EulerOS` |
-| `subnet_id` | Subnet ID | Uses cluster subnet |
-| `autoscaling_enabled` | Enable auto-scaling | `false` |
-| `min_node_count` | Minimum node count | 0 |
-| `max_node_count` | Maximum node count | 0 |
+| Parameter             | Description         | Default Value       |
+| --------------------- | ------------------- | ------------------- |
+| `os_type`             | Operating system    | `EulerOS`           |
+| `subnet_id`           | Subnet ID           | Uses cluster subnet |
+| `autoscaling_enabled` | Enable auto-scaling | `false`             |
+| `min_node_count`      | Minimum node count  | 0                   |
+| `max_node_count`      | Maximum node count  | 0                   |
 
 ## Scaling Parameters
 
-| Parameter | Description | Required |
-|------|------|-----|
-| `region` | Huawei Cloud region | Yes |
-| `cluster_id` | Cluster ID | Yes |
-| `nodepool_id` | Node pool ID **or name** (resolved to UID automatically) | Yes |
-| `node_count` | Target node count | Yes |
-| `confirm` | Confirm execution | Yes |
+| Parameter     | Description                                              | Required |
+| ------------- | -------------------------------------------------------- | -------- |
+| `region`      | Huawei Cloud region                                      | Yes      |
+| `cluster_id`  | Cluster ID                                               | Yes      |
+| `nodepool_id` | Node pool ID **or name** (resolved to UID automatically) | Yes      |
+| `node_count`  | Target node count                                        | Yes      |
+| `confirm`     | Confirm execution                                        | Yes      |
 
 ## Node Pool States
 
-| State | Description |
-|------|------|
-| Active | Running normally |
-| Scaling | Scaling in progress |
-| Deleting | Being deleted |
-| Error | Abnormal state |
+| State    | Description         |
+| -------- | ------------------- |
+| Active   | Running normally    |
+| Scaling  | Scaling in progress |
+| Deleting | Being deleted       |
+| Error    | Abnormal state      |
 
 ## Operation Instructions
 

@@ -45,7 +45,10 @@ kubectl plugin list
 kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get ns
 ```
 
-The plugin uses `HUAWEICLOUD_SDK_AK`/`HUAWEICLOUD_SDK_SK` plus `CCE_PROJECT_ID`, temporary `HUAWEICLOUD_SECURITY_TOKEN` when needed, or `HUAWEI_IAM_TOKEN`. It starts a short-lived local proxy for the CCE API Gateway and does not generate or store kubeconfig. Use `CCE_ENDPOINT` or `--endpoint` only when the default `<cluster-id>.cce.<region>.myhuaweicloud.com` endpoint is not valid.
+The plugin uses `HUAWEICLOUD_SDK_AK`/`HUAWEICLOUD_SDK_SK` plus `CCE_PROJECT_ID`, temporary `HUAWEICLOUD_SECURITY_TOKEN` when needed, or `HUAWEI_IAM_TOKEN`. It
+starts a short-lived local proxy for the CCE API Gateway and does not generate or store kubeconfig. Use `CCE_ENDPOINT` or `--endpoint` only when the default
+`<cluster-id>.cce.<region>.myhuaweicloud.com` endpoint is not valid.
+
 ## 3. Run Read-Only Kubernetes Preflight
 
 Verify cluster and RBAC:
@@ -129,7 +132,8 @@ Use local k6 when the current runtime can reach the target:
 k6 run --vus <vus> --duration <duration> <script.js>
 ```
 
-Use an in-cluster k6 Job when the target is internal or local reachability is not available. This requires approval because it creates resources and sends traffic. Read `manifest-templates.md`, write a manifest, show it to the user, and only then run:
+Use an in-cluster k6 Job when the target is internal or local reachability is not available. This requires approval because it creates resources and sends
+traffic. Read `manifest-templates.md`, write a manifest, show it to the user, and only then run:
 
 ```bash
 kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> apply -f <approved-k6-manifest.yaml>
@@ -177,9 +181,9 @@ If a local k6 process is used, save stdout/stderr and the script.
 
 Use at least two phases:
 
-| Phase | Purpose |
-| --- | --- |
-| Baseline | Establish traffic, latency, error rate, Pod metrics, and current replicas. |
+| Phase      | Purpose                                                                                             |
+| ---------- | --------------------------------------------------------------------------------------------------- |
+| Baseline   | Establish traffic, latency, error rate, Pod metrics, and current replicas.                          |
 | Elasticity | Apply an approved HPA or replica change, repeat traffic, and compare scale-up delay and saturation. |
 
 Manual scaling requires an approved command:

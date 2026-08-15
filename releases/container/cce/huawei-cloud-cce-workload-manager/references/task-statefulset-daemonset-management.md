@@ -2,9 +2,11 @@
 
 ## Overview
 
-**StatefulSet**: Manages stateful applications with stable network identities, persistent storage, and ordered deployment/scaling. Ideal for databases, message queues, and distributed storage systems.
+**StatefulSet**: Manages stateful applications with stable network identities, persistent storage, and ordered deployment/scaling. Ideal for databases, message
+queues, and distributed storage systems.
 
-**DaemonSet**: Ensures a copy of a Pod runs on every node (or selected nodes). Ideal for node-level agents like logging collectors, monitoring agents, and network proxies.
+**DaemonSet**: Ensures a copy of a Pod runs on every node (or selected nodes). Ideal for node-level agents like logging collectors, monitoring agents, and
+network proxies.
 
 All commands use `kubectl --kubeconfig=<kubeconfig-file> -n <namespace>` pattern.
 
@@ -12,13 +14,13 @@ All commands use `kubectl --kubeconfig=<kubeconfig-file> -n <namespace>` pattern
 
 ### Operations Catalog
 
-| Operation ID | Operation Name            | kubectl Command                          | Key Parameters                    |
-| ------------ | ------------------------- | ---------------------------------------- | --------------------------------- |
-| OP-STS-1     | Create StatefulSet        | `kubectl apply -f`                       | `-f`                              |
-| OP-STS-2     | Query StatefulSet Status  | `kubectl get` / `kubectl describe`       | `-o wide`, `-o yaml`              |
-| OP-STS-3     | Scale StatefulSet         | `kubectl scale`                          | `--replicas`                      |
-| OP-STS-4     | Rollout Update/Undo       | `kubectl rollout`                        | `--image`, `--to-revision`       |
-| OP-STS-5     | Delete StatefulSet        | `kubectl delete`                         | `--cascade`                       |
+| Operation ID | Operation Name           | kubectl Command                    | Key Parameters             |
+| ------------ | ------------------------ | ---------------------------------- | -------------------------- |
+| OP-STS-1     | Create StatefulSet       | `kubectl apply -f`                 | `-f`                       |
+| OP-STS-2     | Query StatefulSet Status | `kubectl get` / `kubectl describe` | `-o wide`, `-o yaml`       |
+| OP-STS-3     | Scale StatefulSet        | `kubectl scale`                    | `--replicas`               |
+| OP-STS-4     | Rollout Update/Undo      | `kubectl rollout`                  | `--image`, `--to-revision` |
+| OP-STS-5     | Delete StatefulSet       | `kubectl delete`                   | `--cascade`                |
 
 ### OP-STS-1: Create StatefulSet
 
@@ -46,24 +48,25 @@ spec:
         app: mysql
     spec:
       containers:
-      - name: mysql
-        image: mysql:8.0
-        ports:
-        - containerPort: 3306
-        volumeMounts:
-        - name: mysql-data
-          mountPath: /var/lib/mysql
+        - name: mysql
+          image: mysql:8.0
+          ports:
+            - containerPort: 3306
+          volumeMounts:
+            - name: mysql-data
+              mountPath: /var/lib/mysql
   volumeClaimTemplates:
-  - metadata:
-      name: mysql-data
-    spec:
-      accessModes: ["ReadWriteOnce"]
-      resources:
-        requests:
-          storage: 10Gi
+    - metadata:
+        name: mysql-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 10Gi
 ```
 
 **Key Differences from Deployment**:
+
 - `serviceName` is required (links to a headless Service)
 - `volumeClaimTemplates` creates persistent volumes per Pod
 - Pods get stable names: `mysql-0`, `mysql-1`, `mysql-2`
@@ -117,6 +120,7 @@ kubectl --kubeconfig=~/.kube/cce-kubeconfig.yaml rollout undo statefulset/mysql 
 ```
 
 **StatefulSet Rolling Update Strategy**:
+
 - `OnDelete`: Manual update; new Pod template is applied only when old Pod is deleted
 - `RollingUpdate`: Automatic update; Pods are updated in reverse ordinal order (highest index first)
 - `Partition` (RollingUpdate): Only update Pods with ordinal >= partition value (useful for canary updates)
@@ -140,12 +144,12 @@ kubectl --kubeconfig=~/.kube/cce-kubeconfig.yaml delete pvc mysql-data-mysql-0 m
 
 ### Operations Catalog
 
-| Operation ID | Operation Name            | kubectl Command                          | Key Parameters                    |
-| ------------ | ------------------------- | ---------------------------------------- | --------------------------------- |
-| OP-DS-1      | Create DaemonSet          | `kubectl apply -f`                       | `-f`                              |
-| OP-DS-2      | Query DaemonSet Status    | `kubectl get` / `kubectl describe`       | `-o wide`, `-o yaml`              |
-| OP-DS-3      | Rollout Update/Undo       | `kubectl rollout`                        | `--to-revision`                   |
-| OP-DS-4      | Delete DaemonSet          | `kubectl delete`                         | N/A                               |
+| Operation ID | Operation Name         | kubectl Command                    | Key Parameters       |
+| ------------ | ---------------------- | ---------------------------------- | -------------------- |
+| OP-DS-1      | Create DaemonSet       | `kubectl apply -f`                 | `-f`                 |
+| OP-DS-2      | Query DaemonSet Status | `kubectl get` / `kubectl describe` | `-o wide`, `-o yaml` |
+| OP-DS-3      | Rollout Update/Undo    | `kubectl rollout`                  | `--to-revision`      |
+| OP-DS-4      | Delete DaemonSet       | `kubectl delete`                   | N/A                  |
 
 ### OP-DS-1: Create DaemonSet
 
@@ -173,27 +177,28 @@ spec:
         app: log-agent
     spec:
       tolerations:
-      - key: node-role.kubernetes.io/control-plane
-        effect: NoSchedule
+        - key: node-role.kubernetes.io/control-plane
+          effect: NoSchedule
       containers:
-      - name: log-agent
-        image: fluentd:v1.16
-        volumeMounts:
-        - name: varlog
-          mountPath: /var/log
-        - name: containers
-          mountPath: /var/lib/docker/containers
-          readOnly: true
+        - name: log-agent
+          image: fluentd:v1.16
+          volumeMounts:
+            - name: varlog
+              mountPath: /var/log
+            - name: containers
+              mountPath: /var/lib/docker/containers
+              readOnly: true
       volumes:
-      - name: varlog
-        hostPath:
-          path: /var/log
-      - name: containers
-        hostPath:
-          path: /var/lib/docker/containers
+        - name: varlog
+          hostPath:
+            path: /var/log
+        - name: containers
+          hostPath:
+            path: /var/lib/docker/containers
 ```
 
 **Key Differences from Deployment**:
+
 - No `replicas` field (runs on every eligible node)
 - `tolerations` can be used to run on control-plane nodes
 - `nodeSelector` can restrict to specific nodes
@@ -235,6 +240,7 @@ kubectl --kubeconfig=~/.kube/cce-kubeconfig.yaml rollout undo daemonset/log-agen
 ```
 
 **DaemonSet Rolling Update Strategy**:
+
 - `OnDelete`: Manual update; new Pod template applied only when old Pod is deleted
 - `RollingUpdate`: Automatic update; `maxUnavailable` controls how many Pods can be updated simultaneously
 - Default `maxUnavailable` is 1 (one node at a time)

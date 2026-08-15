@@ -36,10 +36,7 @@
     "is_direct": true,
     "current_to_target": "v1.23 → v1.25",
     "intermediate_hops": [],
-    "upgrade_path_rules": [
-      "v1.23 → v1.25 is a direct upgrade",
-      "Patch version must be latest before major upgrade"
-    ]
+    "upgrade_path_rules": ["v1.23 → v1.25 is a direct upgrade", "Patch version must be latest before major upgrade"]
   },
   "pre_check_result": {
     "status": "pass|fail|warning",
@@ -101,9 +98,7 @@
       "risk": "Nodes temporarily unschedulable"
     },
     "phase_3_addons": {
-      "commands": [
-        "hcloud CCE UpdateAddonInstance --cluster_id=xxx --addon_id=nginx-ingress-id --body.version=2.4.5 --cli-region=cn-north-4"
-      ],
+      "commands": ["hcloud CCE UpdateAddonInstance --cluster_id=xxx --addon_id=nginx-ingress-id --body.version=2.4.5 --cli-region=cn-north-4"],
       "estimated_time": "10 min per addon",
       "risk": "Brief service interruption for NGINX Ingress"
     }

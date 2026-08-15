@@ -2,7 +2,8 @@
 
 ## 1. Collection Scope
 
-Prefer `huawei_analyze_cce_cost_optimization` as the combined action. Only use individual tools below when supplementing details, reviewing specific metrics, or manually generating a specific HPA YAML.
+Prefer `huawei_analyze_cce_cost_optimization` as the combined action. Only use individual tools below when supplementing details, reviewing specific metrics, or
+manually generating a specific HPA YAML.
 
 1. Confirm region, cluster_id, namespace range, business exclusion rules, and statistical window.
 2. By default, exclude Pods and workloads under `kube-system`; treat other namespaces as business workloads unless the user specifies additional exclusions.
@@ -20,8 +21,10 @@ Calculate for each window separately:
 Trigger conditions:
 
 - Cluster average CPU or memory utilization below 30% → signal overall resource over-provisioning.
-- Single node CPU or memory utilization clearly below cluster average. Default criteria: 20 percentage points below cluster average, or below 60% of cluster average.
-- If low utilization appears only in the 24-hour window but not in the 7-day window, mark as short-term fluctuation. If both windows match, mark as a stable optimization opportunity.
+- Single node CPU or memory utilization clearly below cluster average. Default criteria: 20 percentage points below cluster average, or below 60% of cluster
+  average.
+- If low utilization appears only in the 24-hour window but not in the 7-day window, mark as short-term fluctuation. If both windows match, mark as a stable
+  optimization opportunity.
 
 Output suggestions:
 
@@ -43,7 +46,8 @@ Trigger conditions:
 - Request exceeds actual p95 by 3x (300% overhead) → mark as high-priority optimization.
 - Only the 24-hour window matches → mark as observation item, do not recommend immediate request change.
 
-If the tool response lacks request fields, ask the user to provide Deployment/Pod YAML or use supplementary tools to retrieve them. Do not suggest request modification values based solely on current Pod usage.
+If the tool response lacks request fields, ask the user to provide Deployment/Pod YAML or use supplementary tools to retrieve them. Do not suggest request
+modification values based solely on current Pod usage.
 
 ## 4. Elasticity Policy Optimization
 
@@ -57,7 +61,8 @@ Check HPA:
 
 - Use `huawei_list_cce_hpas` to query existing HPA in business namespaces. Default: do not analyze `kube-system`.
 - If no HPA exists, use `huawei_generate_cce_hpa_manifest` to generate an `autoscaling/v2` HPA YAML recommendation based on workload metrics.
-- To actually create or update HPA, first call `huawei_configure_cce_hpa` without `confirm=true` to get a preview. Only after explicit user confirmation, call with `confirm=true` to apply.
+- To actually create or update HPA, first call `huawei_configure_cce_hpa` without `confirm=true` to get a preview. Only after explicit user confirmation, call
+  with `confirm=true` to apply.
 - HPA recommendations must be based on request sizing. If requests are clearly oversized, first recommend calibrating requests before configuring HPA.
 
 ## 5. Output Order

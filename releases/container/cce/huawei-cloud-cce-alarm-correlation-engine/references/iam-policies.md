@@ -2,23 +2,24 @@
 
 ## Overview
 
-This skill queries and manages AOM alarms, AOM alarm rules, AOM notification action rules, and CCE cluster metadata. The executing IAM user must have least-privilege permissions for the requested operation.
+This skill queries and manages AOM alarms, AOM alarm rules, AOM notification action rules, and CCE cluster metadata. The executing IAM user must have
+least-privilege permissions for the requested operation.
 
 ## Required Permissions
 
-| Permission | Purpose | Risk Scope |
-| ---------- | ------- | ---------- |
-| `aom:event:list` | Query active and historical alarms | Read-only |
-| `aom:alarmRule:list` | Query AOM alarm rules | Read-only |
-| `aom:alarmRule:create` | Create metric and event alarm rules | R2 mutation |
-| `aom:alarmRule:update` | Update, enable, or disable alarm rules | R1/R2 mutation |
-| `aom:alarmRule:delete` | Delete alarm rules or clean CCE template rules | R0 mutation |
-| `aom:actionRule:list` | Query notification action rules | Read-only |
-| `aom:actionRule:create` | Create notification action rules from user-provided SMN topics | R2 mutation |
-| `aom:actionRule:delete` | Delete notification action rules | R0 mutation |
-| `aom:muteRule:list` | Query mute rules | Read-only |
-| `cce:cluster:get` | Resolve CCE cluster metadata and AOM Prometheus binding | Read-only |
-| `iam:projects:list` | Resolve project ID for the target region when not provided | Read-only |
+| Permission              | Purpose                                                        | Risk Scope     |
+| ----------------------- | -------------------------------------------------------------- | -------------- |
+| `aom:event:list`        | Query active and historical alarms                             | Read-only      |
+| `aom:alarmRule:list`    | Query AOM alarm rules                                          | Read-only      |
+| `aom:alarmRule:create`  | Create metric and event alarm rules                            | R2 mutation    |
+| `aom:alarmRule:update`  | Update, enable, or disable alarm rules                         | R1/R2 mutation |
+| `aom:alarmRule:delete`  | Delete alarm rules or clean CCE template rules                 | R0 mutation    |
+| `aom:actionRule:list`   | Query notification action rules                                | Read-only      |
+| `aom:actionRule:create` | Create notification action rules from user-provided SMN topics | R2 mutation    |
+| `aom:actionRule:delete` | Delete notification action rules                               | R0 mutation    |
+| `aom:muteRule:list`     | Query mute rules                                               | Read-only      |
+| `cce:cluster:get`       | Resolve CCE cluster metadata and AOM Prometheus binding        | Read-only      |
+| `iam:projects:list`     | Resolve project ID for the target region when not provided     | Read-only      |
 
 ## Recommended Policy Model
 
@@ -43,4 +44,3 @@ When a command fails due to IAM permissions:
 - Do not store credentials in this skill directory.
 - Do not use permissions outside the listed operations to modify AOM, CCE, ECS, ELB, VPC, or Kubernetes resources.
 - R2/R1/R0 operations must use preview-first execution and explicit user confirmation.
-

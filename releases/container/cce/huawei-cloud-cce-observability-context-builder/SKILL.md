@@ -1,10 +1,9 @@
 ---
 name: huawei-cloud-cce-observability-context-builder
 description: >
-  Build a read-only observability context package for Huawei Cloud CCE incidents
-  using hcloud and kubectl-cce before root-cause diagnosis. Use this skill whenever
-  the user needs live Kubernetes state, Events, bounded Pod logs, AOM alarms, metrics,
-  LTS context, topology, time windows, evidence gaps, or the next diagnostic handoff.
+  Build a read-only observability context package for Huawei Cloud CCE incidents using hcloud and kubectl-cce before root-cause diagnosis. Use this skill
+  whenever the user needs live Kubernetes state, Events, bounded Pod logs, AOM alarms, metrics, LTS context, topology, time windows, evidence gaps, or the next
+  diagnostic handoff.
 version: 1.0.0
 tags: [huawei-cloud, cce, observability, kubectl, context]
 ---
@@ -26,30 +25,30 @@ Do not use legacy Python dispatchers, old skill execution actions, Huawei Cloud 
 
 ## Related Skills
 
-| Skill | Role |
-| ----- | ---- |
-| `huawei-cloud-cce-root-cause-analyzer` | Main consumer of the context package |
-| `huawei-cloud-cce-alarm-correlation-engine` | Deep AOM alarm grouping when alarms dominate the context |
-| `huawei-cloud-cce-kubernetes-event-analyzer` | Deep Event analysis when Events dominate the context |
-| `huawei-cloud-cce-metric-analyzer` | Deep AOM/CES metrics when metrics dominate the context |
-| `huawei-cloud-cce-log-analyzer` | Deep log pattern analysis when logs dominate the context |
-| `huawei-cloud-cce-pod-failure-diagnoser` | Pod-specific follow-up |
-| `huawei-cloud-cce-workload-failure-diagnoser` | Workload rollout and readiness follow-up |
-| `huawei-cloud-cce-node-failure-diagnoser` | Node pressure or node readiness follow-up |
-| `huawei-cloud-cce-network-failure-diagnoser` | Service, DNS, Ingress, ELB/EIP/NAT follow-up |
-| `huawei-cloud-cce-storage-failure-diagnoser` | PVC/PV/CSI follow-up |
+| Skill                                         | Role                                                     |
+| --------------------------------------------- | -------------------------------------------------------- |
+| `huawei-cloud-cce-root-cause-analyzer`        | Main consumer of the context package                     |
+| `huawei-cloud-cce-alarm-correlation-engine`   | Deep AOM alarm grouping when alarms dominate the context |
+| `huawei-cloud-cce-kubernetes-event-analyzer`  | Deep Event analysis when Events dominate the context     |
+| `huawei-cloud-cce-metric-analyzer`            | Deep AOM/CES metrics when metrics dominate the context   |
+| `huawei-cloud-cce-log-analyzer`               | Deep log pattern analysis when logs dominate the context |
+| `huawei-cloud-cce-pod-failure-diagnoser`      | Pod-specific follow-up                                   |
+| `huawei-cloud-cce-workload-failure-diagnoser` | Workload rollout and readiness follow-up                 |
+| `huawei-cloud-cce-node-failure-diagnoser`     | Node pressure or node readiness follow-up                |
+| `huawei-cloud-cce-network-failure-diagnoser`  | Service, DNS, Ingress, ELB/EIP/NAT follow-up             |
+| `huawei-cloud-cce-storage-failure-diagnoser`  | PVC/PV/CSI follow-up                                     |
 
 ## Parameters
 
-| Input | Required | Notes |
-| ----- | -------- | ----- |
-| `region` | Yes | Example: `cn-north-4` |
-| `project_id` | Recommended | Required for reliable AK/SK and `kubectl cce` execution |
-| `cluster_id` | Preferred | Resolve by exact cluster name when absent |
-| `namespace` | Optional | Narrow app-level collection |
-| `workload`, `pod`, `node`, `service`, `ingress` | Optional | Target object hints |
-| `fault_time`, `start_time`, `end_time`, `hours` | Recommended | Default to recent 1 hour if unclear |
-| `symptoms` | Recommended | User-visible symptom, alert text, or affected business |
+| Input                                           | Required    | Notes                                                   |
+| ----------------------------------------------- | ----------- | ------------------------------------------------------- |
+| `region`                                        | Yes         | Example: `cn-north-4`                                   |
+| `project_id`                                    | Recommended | Required for reliable AK/SK and `kubectl cce` execution |
+| `cluster_id`                                    | Preferred   | Resolve by exact cluster name when absent               |
+| `namespace`                                     | Optional    | Narrow app-level collection                             |
+| `workload`, `pod`, `node`, `service`, `ingress` | Optional    | Target object hints                                     |
+| `fault_time`, `start_time`, `end_time`, `hours` | Recommended | Default to recent 1 hour if unclear                     |
+| `symptoms`                                      | Recommended | User-visible symptom, alert text, or affected business  |
 
 If the target is ambiguous, collect cluster/namespace-level context first and record ambiguity as a data gap.
 
@@ -71,8 +70,8 @@ kubectl version --client
 kubectl plugin list
 ```
 
-If a tool or plugin is missing, stop and use `huawei-cloud-kubectl-cce-installer`.
-Do not download an installer or fall back to SDK or kubeconfig access in this skill.
+If a tool or plugin is missing, stop and use `huawei-cloud-kubectl-cce-installer`. Do not download an installer or fall back to SDK or kubeconfig access in this
+skill.
 
 ### Cluster And Inventory Context
 
@@ -112,7 +111,8 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 
 - Use `huawei-cloud-cce-alarm-correlation-engine` for AOM active/history alarm grouping.
 - Use `huawei-cloud-cce-metric-analyzer` for AOM/CES time-series and cloud-resource metrics.
-- Use `huawei-cloud-cce-log-analyzer` or `hcloud LTS` read-only queries when LTS log context is required and the local hcloud service model supports the needed operation.
+- Use `huawei-cloud-cce-log-analyzer` or `hcloud LTS` read-only queries when LTS log context is required and the local hcloud service model supports the needed
+  operation.
 - If an AOM/LTS source is unavailable, record the source, time window, and missing permission/source as a data gap.
 
 Do not hand-roll IAM signing or query raw cloud APIs from this skill.
@@ -121,7 +121,8 @@ Do not hand-roll IAM signing or query raw cloud APIs from this skill.
 
 1. Confirm incident scope: symptom, time window, region, project ID, cluster, namespace, and target objects.
 2. Resolve cluster identity and health with `hcloud CCE`.
-3. Collect current Kubernetes state with `kubectl cce`: Pods, workloads, Services/Ingress, Endpoints/EndpointSlices, Nodes, PVC/PV, Events, and bounded logs when needed.
+3. Collect current Kubernetes state with `kubectl cce`: Pods, workloads, Services/Ingress, Endpoints/EndpointSlices, Nodes, PVC/PV, Events, and bounded logs
+   when needed.
 4. Collect observability signals through dedicated read-only skills: alarms, metrics, Events, and logs.
 5. Normalize all signals into one timeline. Preserve source, timestamp, object, severity, message, and confidence.
 6. Summarize the context without over-diagnosing. Point to the most relevant next diagnoser or root-cause analyzer.
@@ -176,9 +177,9 @@ git diff --check
 
 ## References
 
-| Document | Description |
-| -------- | ----------- |
-| [Workflow](references/workflow.md) | Context collection sequence |
-| [Risk Rules](references/risk-rules.md) | Read-only safety rules |
-| [Output Schema](references/output-schema.md) | Context package report format |
+| Document                                       | Description                          |
+| ---------------------------------------------- | ------------------------------------ |
+| [Workflow](references/workflow.md)             | Context collection sequence          |
+| [Risk Rules](references/risk-rules.md)         | Read-only safety rules               |
+| [Output Schema](references/output-schema.md)   | Context package report format        |
 | [kubectl-cce Usage](references/kubectl-cce.md) | Plugin setup and command constraints |

@@ -1,10 +1,8 @@
 ---
 name: huawei-cloud-cce-node-failure-diagnoser
 description: >
-  使用 hcloud 获取华为云 CCE 集群和节点元数据，并通过只读 kubectl-cce 证据诊断节点故障。
-  适用于 NodeNotReady、Ready=Unknown、kube-node-lease 过期、DiskPressure、
-  MemoryPressure、PIDPressure、NetworkUnavailable、CNI、kubelet 或 runtime 故障、
-  驱逐或节点级工作负载影响。
+  使用 hcloud 获取华为云 CCE 集群和节点元数据，并通过只读 kubectl-cce 证据诊断节点故障。 适用于 NodeNotReady、Ready=Unknown、kube-node-lease
+  过期、DiskPressure、 MemoryPressure、PIDPressure、NetworkUnavailable、CNI、kubelet 或 runtime 故障、 驱逐或节点级工作负载影响。
 version: 1.0.0
 tags: [huawei-cloud, cce, kubectl, node, diagnosis]
 ---
@@ -29,7 +27,8 @@ CCE hcloud 只用于集群级和 CCE 节点元数据：
 - `hcloud CCE ListNodes`
 - `hcloud CCE ShowNode`
 
-Kubernetes 节点状态、kube-node-lease、Events、节点上的 Pods、必要时的 Pod 日志，以及 metrics-server 指标，都使用 `kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id>` 采集。
+Kubernetes 节点状态、kube-node-lease、Events、节点上的 Pods、必要时的 Pod 日志，以及 metrics-server 指标，都使用
+`kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id>` 采集。
 
 不要使用 Python SDK dispatcher、旧 skill 执行动作、旧 Huawei node action 或 Huawei Cloud SDK import。
 
@@ -49,15 +48,15 @@ Kubernetes 节点状态、kube-node-lease、Events、节点上的 Pods、必要�
 
 ## 参数确认
 
-| 输入 | 必填 | 说明 |
-| --- | --- | --- |
-| `region` | 是 | 例如 `cn-north-4` |
-| `project_id` | 通常需要 | 大多数 hcloud CCE 操作需要 |
-| `cluster_id` | 推荐 | 如果没有，用集群名通过 `ListClusters` 解析 |
-| `cluster_name` | 可选 | 仅用于定位 `cluster_id` |
-| `node_name` | 推荐 | Kubernetes 节点名，CCE 中常见为内网 IP |
-| `node_ip` | 可选 | 用于匹配 `kubectl cce ... get nodes -o wide` 或 CCE 节点元数据 |
-| `namespace` | 可选 | 缩小受影响 Pod 或日志范围时使用 |
+| 输入           | 必填     | 说明                                                           |
+| -------------- | -------- | -------------------------------------------------------------- |
+| `region`       | 是       | 例如 `cn-north-4`                                              |
+| `project_id`   | 通常需要 | 大多数 hcloud CCE 操作需要                                     |
+| `cluster_id`   | 推荐     | 如果没有，用集群名通过 `ListClusters` 解析                     |
+| `cluster_name` | 可选     | 仅用于定位 `cluster_id`                                        |
+| `node_name`    | 推荐     | Kubernetes 节点名，CCE 中常见为内网 IP                         |
+| `node_ip`      | 可选     | 用于匹配 `kubectl cce ... get nodes -o wide` 或 CCE 节点元数据 |
+| `namespace`    | 可选     | 缩小受影响 Pod 或日志范围时使用                                |
 
 `node_name` 和 `node_ip` 至少提供一个。两者都没有时，先列出节点，让用户选择目标节点或症状范围。
 
@@ -82,8 +81,7 @@ kubectl version --client
 ```
 
 如果工具缺失，停止当前诊断流程，改用 `huawei-cloud-kubectl-cce-installer`
-或批准的平台安装流程。本诊断技能不得下载或执行安装脚本。安装时固定批准版本、
-校验官方 checksum 或签名，再重新执行上述检查。
+或批准的平台安装流程。本诊断技能不得下载或执行安装脚本。安装时固定批准版本、校验官方 checksum 或签名，再重新执行上述检查。
 
 ### 2. 定位并检查集群
 
@@ -93,7 +91,8 @@ hcloud CCE ShowCluster --cluster_id=<cluster-id> --project_id=<project-id> --det
 hcloud CCE ShowClusterEndpoints --cluster_id=<cluster-id> --project_id=<project-id> --cli-region=<region> --cli-output=json
 ```
 
-确认集群在目标 region/project 中。kubectl-cce 插件默认访问 CCE API Gateway endpoint `<cluster-id>.cce.<region>.myhuaweicloud.com`；如果该 endpoint 不适用于当前环境，设置 `CCE_ENDPOINT` 或传入 `--endpoint`。
+确认集群在目标 region/project 中。kubectl-cce 插件默认访问 CCE API Gateway endpoint
+`<cluster-id>.cce.<region>.myhuaweicloud.com`；如果该 endpoint 不适用于当前环境，设置 `CCE_ENDPOINT` 或传入 `--endpoint`。
 
 ### 3. 可选 CCE 节点元数据
 
@@ -108,9 +107,11 @@ hcloud CCE ShowNode --cluster_id=<cluster-id> --node_id=<node-id> --project_id=<
 
 ### 4. 配置 kubectl-cce 插件
 
-执行 Kubernetes 命令前先阅读 `references/kubectl-cce.md`。本 skill 以 kubectl CCE 插件作为主要 Kubernetes 访问路径；不要生成 kubeconfig、不要改写 kubeconfig server 字段、不要调用 Kubernetes SDK，也不要退回 SDK dispatcher 动作。
+执行 Kubernetes 命令前先阅读 `references/kubectl-cce.md`。本 skill 以 kubectl CCE 插件作为主要 Kubernetes 访问路径；不要生成 kubeconfig、不要改写 kubeconfig
+server 字段、不要调用 Kubernetes SDK，也不要退回 SDK dispatcher 动作。
 
-如果缺少 `kubectl` 或 `kubectl-cce`，使用 `huawei-cloud-kubectl-cce-installer` 安装或修复本地前置工具。本诊断 skill 只负责验证和使用插件，不负责定义插件安装策略。
+如果缺少 `kubectl` 或 `kubectl-cce`，使用 `huawei-cloud-kubectl-cce-installer`
+安装或修复本地前置工具。本诊断 skill 只负责验证和使用插件，不负责定义插件安装策略。
 
 先验证本地工具和插件发现：
 
@@ -125,7 +126,8 @@ kubectl plugin list
 kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get namespaces
 ```
 
-仅当默认 `<cluster-id>.cce.<region>.myhuaweicloud.com` endpoint 不适用于当前环境时，才设置 `CCE_ENDPOINT` 或传入 `--endpoint`。如果插件访问失败，在报告中记录脱敏后的安装、凭据、API Gateway 可达性或 Kubernetes RBAC 缺口；不要切换到 kubeconfig 生成或 SDK 调用。
+仅当默认 `<cluster-id>.cce.<region>.myhuaweicloud.com` endpoint 不适用于当前环境时，才设置 `CCE_ENDPOINT` 或传入
+`--endpoint`。如果插件访问失败，在报告中记录脱敏后的安装、凭据、API Gateway 可达性或 Kubernetes RBAC 缺口；不要切换到 kubeconfig 生成或 SDK 调用。
 
 插件会阻断 `exec`、`attach`、`port-forward` 等流式命令；`logs -f` 和 `watch` 未强化，诊断报告中使用有限 `logs --tail` 和普通 `get` 命令。
 
@@ -185,17 +187,17 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 
 常见原因标签：
 
-| 原因 | 证据 |
-| --- | --- |
-| `ControlPlaneDisconnected` | Ready=Unknown、lease 过期、NodeStatusUnknown conditions |
-| `NodeNotReady` | Ready=False，且存在 kubelet/节点问题 Events |
-| `MemoryPressure` | MemoryPressure=True、驱逐、内存指标或 allocatable 压力 |
-| `DiskPressure` | DiskPressure=True、ephemeral-storage 驱逐或磁盘问题 conditions |
-| `PIDPressure` | PIDPressure=True 或 PID 问题 Events |
-| `NetworkUnavailableOrCNI` | NetworkUnavailable=True，或节点集中出现 CNIProblem、FailedCreatePodSandBox |
-| `KubeletOrRuntimeProblem` | KUBELETProblem、CRIProblem、containerd/kubelet 重启信号 |
-| `SchedulingDisabledOrTainted` | 节点不可调度，或 taint 已影响调度 |
-| `HealthyOrNoNodeFault` | 节点 Ready、lease 新鲜，且无压力或问题信号 |
+| 原因                          | 证据                                                                       |
+| ----------------------------- | -------------------------------------------------------------------------- |
+| `ControlPlaneDisconnected`    | Ready=Unknown、lease 过期、NodeStatusUnknown conditions                    |
+| `NodeNotReady`                | Ready=False，且存在 kubelet/节点问题 Events                                |
+| `MemoryPressure`              | MemoryPressure=True、驱逐、内存指标或 allocatable 压力                     |
+| `DiskPressure`                | DiskPressure=True、ephemeral-storage 驱逐或磁盘问题 conditions             |
+| `PIDPressure`                 | PIDPressure=True 或 PID 问题 Events                                        |
+| `NetworkUnavailableOrCNI`     | NetworkUnavailable=True，或节点集中出现 CNIProblem、FailedCreatePodSandBox |
+| `KubeletOrRuntimeProblem`     | KUBELETProblem、CRIProblem、containerd/kubelet 重启信号                    |
+| `SchedulingDisabledOrTainted` | 节点不可调度，或 taint 已影响调度                                          |
+| `HealthyOrNoNodeFault`        | 节点 Ready、lease 新鲜，且无压力或问题信号                                 |
 
 ## 输出格式
 

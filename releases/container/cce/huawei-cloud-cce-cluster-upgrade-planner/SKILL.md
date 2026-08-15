@@ -1,8 +1,10 @@
 ---
 name: huawei-cloud-cce-cluster-upgrade-planner
 description: >-
-  Use when planning CCE Kubernetes cluster version upgrades, evaluating upgrade path compatibility, addon compatibility, pre-upgrade difference checks, and estimating upgrade window duration to avoid insufficient upgrade windows. Covers version-specific breaking changes, deprecated APIs, 76-item pre-check checklist, in-place upgrade vs migration strategy comparison, and execution preview with two-step confirmation.
-  Triggers: CCE 集群升级, 升级评估, 版本兼容, 升级窗口, 升级前检查, Kubernetes升级, addon升级, 差异检查, 升级方案, cluster upgrade, version upgrade, upgrade window, compatibility check
+  Use when planning CCE Kubernetes cluster version upgrades, evaluating upgrade path compatibility, addon compatibility, pre-upgrade difference checks, and
+  estimating upgrade window duration to avoid insufficient upgrade windows. Covers version-specific breaking changes, deprecated APIs, 76-item pre-check
+  checklist, in-place upgrade vs migration strategy comparison, and execution preview with two-step confirmation. Triggers: CCE 集群升级, 升级评估, 版本兼容,
+  升级窗口, 升级前检查, Kubernetes升级, addon升级, 差异检查, 升级方案, cluster upgrade, version upgrade, upgrade window, compatibility check
 tags: [cce, kubernetes, upgrade, compatibility, assessment]
 ---
 
@@ -10,13 +12,15 @@ tags: [cce, kubernetes, upgrade, compatibility, assessment]
 
 ## Overview
 
-Plan and assess CCE (Cloud Container Engine) Kubernetes cluster version upgrades using hcloud CLI. Covers upgrade path validation, 76-item pre-check checklist, addon compatibility, version-specific breaking changes, deprecated APIs, upgrade window estimation, and execution preview with two-step confirmation.
+Plan and assess CCE (Cloud Container Engine) Kubernetes cluster version upgrades using hcloud CLI. Covers upgrade path validation, 76-item pre-check checklist,
+addon compatibility, version-specific breaking changes, deprecated APIs, upgrade window estimation, and execution preview with two-step confirmation.
 
 **Architecture**: hcloud CLI → CCE OpenAPI → Cluster Info / Upgrade Paths / Upgrade Workflow / Addon Info / Node Pool Info
 
- Nodes
+Nodes
 
 **Standard workflow**:
+
 ```
 1. Collect cluster current state (version, nodes, addons, node pools)
 2. Query upgrade paths via ListClusterUpgradePaths
@@ -29,8 +33,7 @@ Plan and assess CCE (Cloud Container Engine) Kubernetes cluster version upgrades
 
 ## Prerequisites
 
-> **Prerequisite check: hcloud (KooCLI) >= 7.2.2 required**
-> Run `hcloud version` to verify, and `hcloud configure list` to check profile exists.
+> **Prerequisite check: hcloud (KooCLI) >= 7.2.2 required** Run `hcloud version` to verify, and `hcloud configure list` to check profile exists.
 
 ```bash
 hcloud version
@@ -51,11 +54,11 @@ All upgrade execution previews require explicit user confirmation before any cha
 
 #### Operations Requiring Confirmation
 
-| Operation | Risk Level | Description |
-|-----------|------------|-------------|
-| UpgradeCluster | 🔴 Critical | Upgrades Kubernetes control plane, irreversible once started |
-| UpgradeNodePool | 🟠 High | Upgrades node pool Kubernetes version, nodes become temporarily unschedulable |
-| CreateUpgradeWorkFlow | 🟠 High | Creates upgrade workflow with pre-check, cluster upgrade, and post-check phases |
+| Operation             | Risk Level  | Description                                                                     |
+| --------------------- | ----------- | ------------------------------------------------------------------------------- |
+| UpgradeCluster        | 🔴 Critical | Upgrades Kubernetes control plane, irreversible once started                    |
+| UpgradeNodePool       | 🟠 High     | Upgrades node pool Kubernetes version, nodes become temporarily unschedulable   |
+| CreateUpgradeWorkFlow | 🟠 High     | Creates upgrade workflow with pre-check, cluster upgrade, and post-check phases |
 
 ### Credential Security
 
@@ -78,26 +81,28 @@ hcloud CCE <Operation> --param=value --cli-region=<region> --cli-output=json
 2. **Target version required**: upgrade operations need `--spec.clusterUpgradeAction.targetVersion=v1.XX`
 3. **Addon upgrade uses array format**: `--spec.clusterUpgradeAction.addons.1.addonTemplateName=<name> --spec.clusterUpgradeAction.addons.1.version=<ver>`
 4. **Node pool priority uses key-value format**: `--spec.clusterUpgradeAction.nodePoolOrder.key1=value1`
-5. **Node selector uses nested format**: `--spec.clusterUpgradeAction.nodeOrder.key1.1.nodeSelector.key=<label-key> --spec.clusterUpgradeAction.nodeOrder.key1.1.nodeSelector.operator=In --spec.clusterUpgradeAction.nodeOrder.key1.1.nodeSelector.value.1=<val>`
+5. **Node selector uses nested format**:
+   `--spec.clusterUpgradeAction.nodeOrder.key1.1.nodeSelector.key=<label-key> --spec.clusterUpgradeAction.nodeOrder.key1.1.nodeSelector.operator=In --spec.clusterUpgradeAction.nodeOrder.key1.1.nodeSelector.value.1=<val>`
 6. **Upgrade strategy**: `--spec.clusterUpgradeAction.strategy.type=inPlaceRollingUpdate` (only in-place supported)
 7. **Batch size**: `--spec.clusterUpgradeAction.strategy.inPlaceRollingUpdate.userDefinedStep=<1-40>` (default 20, recommended)
 8. **Batch scope**: `--spec.clusterUpgradeAction.strategy.inPlaceRollingUpdate.scope=Cluster` or `NodePool`
 
-> **⚠️ Critical**: Before constructing any upgrade command, always run `hcloud CCE <Operation> --help` to verify exact parameter names. CCE upgrade APIs have hundreds of parameters; the help output is the authoritative source.
+> **⚠️ Critical**: Before constructing any upgrade command, always run `hcloud CCE <Operation> --help` to verify exact parameter names. CCE upgrade APIs have
+> hundreds of parameters; the help output is the authoritative source.
 
 ## Scenario Routing
 
-| User Intent | Reference Document |
-|---|---|
-| Full upgrade assessment (7-step workflow) | [references/upgrade-workflow.md](references/upgrade-workflow.md) |
-| Pre-upgrade checklist (76 items) | [references/pre-upgrade-checklist.md](references/pre-upgrade-checklist.md) |
-| Addon compatibility matrix & upgrade order | [references/addon-compatibility.md](references/addon-compatibility.md) |
-| K8s version upgrade path rules | [references/k8s-version-matrix.md](references/k8s-version-matrix.md) |
-| Upgrade window time estimation | [references/upgrade-window-estimation.md](references/upgrade-window-estimation.md) |
-| Version-specific breaking changes | [references/pre-upgrade-checklist.md](references/pre-upgrade-checklist.md) |
-| Deprecated API migration | [references/pre-upgrade-checklist.md](references/pre-upgrade-checklist.md) |
-| Risk constraints & rollback | [references/risk-rules.md](references/risk-rules.md) |
-| Output schema | [references/output-schema.md](references/output-schema.md) |
+| User Intent                                | Reference Document                                                                 |
+| ------------------------------------------ | ---------------------------------------------------------------------------------- |
+| Full upgrade assessment (7-step workflow)  | [references/upgrade-workflow.md](references/upgrade-workflow.md)                   |
+| Pre-upgrade checklist (76 items)           | [references/pre-upgrade-checklist.md](references/pre-upgrade-checklist.md)         |
+| Addon compatibility matrix & upgrade order | [references/addon-compatibility.md](references/addon-compatibility.md)             |
+| K8s version upgrade path rules             | [references/k8s-version-matrix.md](references/k8s-version-matrix.md)               |
+| Upgrade window time estimation             | [references/upgrade-window-estimation.md](references/upgrade-window-estimation.md) |
+| Version-specific breaking changes          | [references/pre-upgrade-checklist.md](references/pre-upgrade-checklist.md)         |
+| Deprecated API migration                   | [references/pre-upgrade-checklist.md](references/pre-upgrade-checklist.md)         |
+| Risk constraints & rollback                | [references/risk-rules.md](references/risk-rules.md)                               |
+| Output schema                              | [references/output-schema.md](references/output-schema.md)                         |
 
 ## Core Commands
 
@@ -168,6 +173,7 @@ hcloud CCE UpgradeCluster \
 ```
 
 **With addons** (specify addon upgrade during cluster upgrade):
+
 ```bash
 hcloud CCE UpgradeCluster \
   --cluster_id=<cluster-id> \
@@ -184,6 +190,7 @@ hcloud CCE UpgradeCluster \
 ```
 
 **With node pool priority** (control upgrade order):
+
 ```bash
 hcloud CCE UpgradeCluster \
   --cluster_id=<cluster-id> \
@@ -247,19 +254,20 @@ T_buffer = 20% * (T_control_plane + T_node_batch + T_addon)
 ```
 
 **Example**: 3-node-pool cluster (10 nodes, 5 addons) upgrading v1.23→v1.25:
+
 - Control plane: 15 min
 - Node batches: 10/4 = 3 batches (1+4+5 nodes), ~9 min each = 9 min total (first batch 1 node at 5 min, second 4 nodes at 8 min, third 5 nodes at 10 min)
-- Addon upgrade: 5 * 10 min = 50 min
+- Addon upgrade: 5 \* 10 min = 50 min
 - Verification: 30 min
 - Buffer (20%): ~19 min
 - **Total: ~123 min (2h 3min)**
 
 ## Upgrade Methods
 
-| Method | Advantages | Constraints | Recommended |
-|--------|------------|------------|------------|
-| **In-place upgrade** | Business pods not interrupted during control plane upgrade; nodes upgraded in batches; addons auto-upgraded | Nodes temporarily unschedulable during upgrade; Docker→Containerd runtime switch needed for v1.27+ | Most scenarios (default) |
-| **Migration** | Clean slate; no compatibility risk accumulation; skip multiple intermediate upgrades | Full workload redeployment; requires double resources; longer downtime | Cross-version jumps (e.g. v1.15→v1.28); incompatible runtime |
+| Method               | Advantages                                                                                                  | Constraints                                                                                        | Recommended                                                  |
+| -------------------- | ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| **In-place upgrade** | Business pods not interrupted during control plane upgrade; nodes upgraded in batches; addons auto-upgraded | Nodes temporarily unschedulable during upgrade; Docker→Containerd runtime switch needed for v1.27+ | Most scenarios (default)                                     |
+| **Migration**        | Clean slate; no compatibility risk accumulation; skip multiple intermediate upgrades                        | Full workload redeployment; requires double resources; longer downtime                             | Cross-version jumps (e.g. v1.15→v1.28); incompatible runtime |
 
 ## Key Constraints
 
@@ -274,28 +282,28 @@ T_buffer = 20% * (T_control_plane + T_node_batch + T_addon)
 
 ### CCE Upgrade API Parameters
 
-| Parameter | Command | Required | Description | Constraints |
-|-----------|---------|----------|-------------|-------------|
-| `--cluster_id` | All upgrade operations | Yes | CCE cluster ID | Must reference existing cluster |
-| `--spec.clusterUpgradeAction.targetVersion` | UpgradeCluster, CreateUpgradeWorkFlow | Yes | Target Kubernetes version | Must follow upgrade path rules (no skip-version) |
-| `--spec.clusterUpgradeAction.strategy.type` | UpgradeCluster | Yes | Upgrade strategy type | Only `inPlaceRollingUpdate` supported |
-| `--spec.clusterUpgradeAction.strategy.inPlaceRollingUpdate.userDefinedStep` | UpgradeCluster | No | Batch size per upgrade step | 1-40, default 20 |
-| `--spec.clusterUpgradeAction.strategy.inPlaceRollingUpdate.scope` | UpgradeCluster | No | Batch upgrade scope | `Cluster` or `NodePool` |
-| `--spec.clusterUpgradeAction.addons.N.addonTemplateName` | UpgradeCluster | No | Addon template name | Must match installed addon name |
-| `--spec.clusterUpgradeAction.addons.N.version` | UpgradeCluster | No | Target addon version | Must be compatible with target K8s version |
-| `--spec.clusterUpgradeAction.nodePoolOrder.key` | UpgradeCluster | No | Node pool upgrade priority | key=nodepool-id, value=priority number |
-| `--metadata.apiVersion` | UpgradeCluster | Yes | API version | `v3` |
-| `--metadata.kind` | UpgradeCluster | Yes | Resource kind | `UpgradeTask` |
-| `--cli-region` | All hcloud commands | Required | Region ID | Config value or env variable |
-| `--cli-output` | All hcloud commands | Recommended | Output format | `json` recommended |
+| Parameter                                                                   | Command                               | Required    | Description                 | Constraints                                      |
+| --------------------------------------------------------------------------- | ------------------------------------- | ----------- | --------------------------- | ------------------------------------------------ |
+| `--cluster_id`                                                              | All upgrade operations                | Yes         | CCE cluster ID              | Must reference existing cluster                  |
+| `--spec.clusterUpgradeAction.targetVersion`                                 | UpgradeCluster, CreateUpgradeWorkFlow | Yes         | Target Kubernetes version   | Must follow upgrade path rules (no skip-version) |
+| `--spec.clusterUpgradeAction.strategy.type`                                 | UpgradeCluster                        | Yes         | Upgrade strategy type       | Only `inPlaceRollingUpdate` supported            |
+| `--spec.clusterUpgradeAction.strategy.inPlaceRollingUpdate.userDefinedStep` | UpgradeCluster                        | No          | Batch size per upgrade step | 1-40, default 20                                 |
+| `--spec.clusterUpgradeAction.strategy.inPlaceRollingUpdate.scope`           | UpgradeCluster                        | No          | Batch upgrade scope         | `Cluster` or `NodePool`                          |
+| `--spec.clusterUpgradeAction.addons.N.addonTemplateName`                    | UpgradeCluster                        | No          | Addon template name         | Must match installed addon name                  |
+| `--spec.clusterUpgradeAction.addons.N.version`                              | UpgradeCluster                        | No          | Target addon version        | Must be compatible with target K8s version       |
+| `--spec.clusterUpgradeAction.nodePoolOrder.key`                             | UpgradeCluster                        | No          | Node pool upgrade priority  | key=nodepool-id, value=priority number           |
+| `--metadata.apiVersion`                                                     | UpgradeCluster                        | Yes         | API version                 | `v3`                                             |
+| `--metadata.kind`                                                           | UpgradeCluster                        | Yes         | Resource kind               | `UpgradeTask`                                    |
+| `--cli-region`                                                              | All hcloud commands                   | Required    | Region ID                   | Config value or env variable                     |
+| `--cli-output`                                                              | All hcloud commands                   | Recommended | Output format               | `json` recommended                               |
 
 ### Upgrade Workflow Parameters
 
-| Parameter | Command | Required | Description | Constraints |
-|-----------|---------|----------|-------------|-------------|
-| `--spec.targetVersion` | CreateUpgradeWorkFlow | Yes | Target version for pre-check | Must follow upgrade path |
-| `--spec.clusterVersion` | CreateUpgradeWorkFlow | Yes | Current cluster version | Must match actual cluster version |
-| `--upgrade_workflow_id` | ShowUpgradeWorkFlow, UpgradeWorkFlowUpdate | Yes | Workflow task ID | Obtained from CreateUpgradeWorkFlow response |
+| Parameter               | Command                                    | Required | Description                  | Constraints                                  |
+| ----------------------- | ------------------------------------------ | -------- | ---------------------------- | -------------------------------------------- |
+| `--spec.targetVersion`  | CreateUpgradeWorkFlow                      | Yes      | Target version for pre-check | Must follow upgrade path                     |
+| `--spec.clusterVersion` | CreateUpgradeWorkFlow                      | Yes      | Current cluster version      | Must match actual cluster version            |
+| `--upgrade_workflow_id` | ShowUpgradeWorkFlow, UpgradeWorkFlowUpdate | Yes      | Workflow task ID             | Obtained from CreateUpgradeWorkFlow response |
 
 ## Output Format
 
@@ -309,9 +317,7 @@ T_buffer = 20% * (T_control_plane + T_node_batch + T_addon)
   "upgrade_paths": ["v1.23 → v1.24 → v1.25"],
   "pre_check_status": "passed|failed|warning",
   "pre_check_items": { "total": 76, "passed": 72, "failed": 4 },
-  "addon_compatibility": [
-    { "addon": "coredns", "current": "1.23", "compatible": true }
-  ],
+  "addon_compatibility": [{ "addon": "coredns", "current": "1.23", "compatible": true }],
   "estimated_window_minutes": 123,
   "risk_level": "low|medium|high",
   "recommended_strategy": "inPlaceRollingUpdate",
@@ -383,12 +389,12 @@ kubectl get pods -A
 
 ## References
 
-| Document | Description |
-|----------|-------------|
-| [upgrade-workflow.md](references/upgrade-workflow.md) | Full 7-step upgrade workflow detail |
-| [pre-upgrade-checklist.md](references/pre-upgrade-checklist.md) | 76-item pre-check checklist and version-specific breaking changes |
-| [addon-compatibility.md](references/addon-compatibility.md) | Addon compatibility matrix, DaemonSet plugins, upgrade order |
-| [k8s-version-matrix.md](references/k8s-version-matrix.md) | Official CCE upgrade path table and patch version rules |
-| [upgrade-window-estimation.md](references/upgrade-window-estimation.md) | Upgrade window estimation formula, batch strategy, examples |
-| [risk-rules.md](references/risk-rules.md) | Risk constraints, rollback strategies, guardrails |
-| [output-schema.md](references/output-schema.md) | Assessment report and execution preview JSON schema |
+| Document                                                                | Description                                                       |
+| ----------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| [upgrade-workflow.md](references/upgrade-workflow.md)                   | Full 7-step upgrade workflow detail                               |
+| [pre-upgrade-checklist.md](references/pre-upgrade-checklist.md)         | 76-item pre-check checklist and version-specific breaking changes |
+| [addon-compatibility.md](references/addon-compatibility.md)             | Addon compatibility matrix, DaemonSet plugins, upgrade order      |
+| [k8s-version-matrix.md](references/k8s-version-matrix.md)               | Official CCE upgrade path table and patch version rules           |
+| [upgrade-window-estimation.md](references/upgrade-window-estimation.md) | Upgrade window estimation formula, batch strategy, examples       |
+| [risk-rules.md](references/risk-rules.md)                               | Risk constraints, rollback strategies, guardrails                 |
+| [output-schema.md](references/output-schema.md)                         | Assessment report and execution preview JSON schema               |

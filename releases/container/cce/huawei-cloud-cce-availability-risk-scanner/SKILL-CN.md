@@ -1,6 +1,9 @@
 ﻿---
 name: availability-risk-scanner
-description: Use this skill for Huawei Cloud CCE availability risk scanning, including master HA and utilization, node and workload AZ balance, single replicas, missing PodDisruptionBudgets, health probes, unreasonable affinity or nodepool pinning, core addon anti-affinity, gateway workload distribution, and request/limit overcommit.
+description:
+  Use this skill for Huawei Cloud CCE availability risk scanning, including master HA and utilization, node and workload AZ balance, single replicas, missing
+  PodDisruptionBudgets, health probes, unreasonable affinity or nodepool pinning, core addon anti-affinity, gateway workload distribution, and request/limit
+  overcommit.
 ---
 
 # availability-risk-scanner

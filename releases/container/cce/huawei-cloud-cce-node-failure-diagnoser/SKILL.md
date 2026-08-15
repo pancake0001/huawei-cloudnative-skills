@@ -1,10 +1,8 @@
 ---
 name: huawei-cloud-cce-node-failure-diagnoser
 description: >
-  Diagnose Huawei Cloud CCE node failures using hcloud for cluster and node
-  metadata plus read-only kubectl-cce evidence. Use this skill whenever the user
-  mentions NodeNotReady, Ready=Unknown, stale kube-node-lease, DiskPressure,
-  MemoryPressure, PIDPressure, NetworkUnavailable, CNI, kubelet or runtime failures,
+  Diagnose Huawei Cloud CCE node failures using hcloud for cluster and node metadata plus read-only kubectl-cce evidence. Use this skill whenever the user
+  mentions NodeNotReady, Ready=Unknown, stale kube-node-lease, DiskPressure, MemoryPressure, PIDPressure, NetworkUnavailable, CNI, kubelet or runtime failures,
   eviction, or node-level workload impact.
 version: 1.0.0
 tags: [huawei-cloud, cce, kubectl, node, diagnosis]
@@ -30,11 +28,13 @@ Use CCE hcloud commands for cluster-level and CCE node metadata. Use kubectl-cce
 - `hcloud CCE ListNodes`
 - `hcloud CCE ShowNode`
 
-Use `kubectl cce` through the kubectl-cce plugin for Kubernetes node state, kube-node-lease, Events, Pods on the node, logs from affected Pods when needed, and metrics from metrics-server.
+Use `kubectl cce` through the kubectl-cce plugin for Kubernetes node state, kube-node-lease, Events, Pods on the node, logs from affected Pods when needed, and
+metrics from metrics-server.
 
 Do not use Python SDK dispatchers, legacy skill execution actions, old Huawei node actions, or Huawei Cloud SDK imports for this skill.
 
-**Related prerequisite skill**: use `huawei-cloud-kubectl-cce-installer` to install or repair `kubectl`/`kubectl-cce`. Read `references/kubectl-cce.md` for the plugin access contract.
+**Related prerequisite skill**: use `huawei-cloud-kubectl-cce-installer` to install or repair `kubectl`/`kubectl-cce`. Read `references/kubectl-cce.md` for the
+plugin access contract.
 
 ## When To Use
 
@@ -51,24 +51,24 @@ must be handed off to a remediation skill after confirmation.
 
 ## Parameters
 
-| Input | Required | Notes |
-| --- | --- | --- |
-| `region` | Yes | Example: `cn-north-4` |
-| `project_id` | Usually | Required by most hcloud CCE operations |
-| `cluster_id` | Preferred | If absent, resolve by cluster name with `ListClusters` |
-| `cluster_name` | Optional | Use only to locate `cluster_id` |
-| `node_name` | Preferred | Kubernetes node name, often the internal IP in CCE |
-| `node_ip` | Optional | Use to match `kubectl cce ... get nodes -o wide` or CCE node metadata |
-| `namespace` | Optional | Needed when narrowing affected Pods or logs |
+| Input          | Required  | Notes                                                                 |
+| -------------- | --------- | --------------------------------------------------------------------- |
+| `region`       | Yes       | Example: `cn-north-4`                                                 |
+| `project_id`   | Usually   | Required by most hcloud CCE operations                                |
+| `cluster_id`   | Preferred | If absent, resolve by cluster name with `ListClusters`                |
+| `cluster_name` | Optional  | Use only to locate `cluster_id`                                       |
+| `node_name`    | Preferred | Kubernetes node name, often the internal IP in CCE                    |
+| `node_ip`      | Optional  | Use to match `kubectl cce ... get nodes -o wide` or CCE node metadata |
+| `namespace`    | Optional  | Needed when narrowing affected Pods or logs                           |
 
 At least one of `node_name` or `node_ip` should be provided. If both are missing, first list nodes and ask the user which node or symptom to focus on.
 
 ## Prerequisites
 
 1. `hcloud` is installed and available in `PATH`, or a platform-native binary has been located and validated with `hcloud version`.
-2. `kubectl` is installed and compatible with the target Kubernetes version. Linux sandboxes must use a Linux kubectl binary; Windows workstations use `kubectl.exe`.
-3. Credentials are available to hcloud through a profile, environment, or one-off
-   CLI parameters. Verify only masked configuration with `hcloud configure list`.
+2. `kubectl` is installed and compatible with the target Kubernetes version. Linux sandboxes must use a Linux kubectl binary; Windows workstations use
+   `kubectl.exe`.
+3. Credentials are available to hcloud through a profile, environment, or one-off CLI parameters. Verify only masked configuration with `hcloud configure list`.
 4. IAM allows CCE cluster/node read and kubectl-cce API Gateway access.
 5. Kubernetes RBAC allows read access to nodes, leases, events, pods, pod logs, and metrics when available.
 
@@ -84,10 +84,8 @@ hcloud configure list
 kubectl version --client
 ```
 
-If a tool is missing, stop this diagnosis flow and use
-`huawei-cloud-kubectl-cce-installer` or an approved platform-specific procedure.
-This diagnoser must not download or execute installer scripts. Pin an approved
-version, verify its published checksum or signature, and then rerun the checks.
+If a tool is missing, stop this diagnosis flow and use `huawei-cloud-kubectl-cce-installer` or an approved platform-specific procedure. This diagnoser must not
+download or execute installer scripts. Pin an approved version, verify its published checksum or signature, and then rerun the checks.
 
 ### 2. Locate And Check The Cluster
 
@@ -117,8 +115,8 @@ Do not use CCE node update/delete/reset operations.
 Read `references/kubectl-cce.md` before running Kubernetes commands. Use the kubectl CCE plugin as the primary Kubernetes access path. Do not generate or patch
 kubeconfig, call the Kubernetes SDK, or fall back to SDK dispatcher actions.
 
-If `kubectl` or `kubectl-cce` is missing, use `huawei-cloud-kubectl-cce-installer` to install or repair local prerequisites. This diagnoser only verifies and uses
-the plugin; it does not own plugin installation policy.
+If `kubectl` or `kubectl-cce` is missing, use `huawei-cloud-kubectl-cce-installer` to install or repair local prerequisites. This diagnoser only verifies and
+uses the plugin; it does not own plugin installation policy.
 
 Verify local tooling and plugin discovery:
 
@@ -137,8 +135,8 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 Use `CCE_ENDPOINT` or `--endpoint` only when the default `<cluster-id>.cce.<region>.myhuaweicloud.com` endpoint is invalid. If plugin access fails, report the
 sanitized installation, credential, API Gateway reachability, or Kubernetes RBAC gap; do not switch to kubeconfig generation or SDK calls.
 
-The plugin blocks streaming commands such as `exec`, `attach`, and `port-forward`. `logs -f` and `watch` are not hardened, so use bounded `logs --tail` and normal
-`get` commands in diagnosis reports.
+The plugin blocks streaming commands such as `exec`, `attach`, and `port-forward`. `logs -f` and `watch` are not hardened, so use bounded `logs --tail` and
+normal `get` commands in diagnosis reports.
 
 ### 5. Verify Kubernetes Read Access
 
@@ -196,21 +194,22 @@ Rank causes by direct evidence and the first failing layer:
 
 Common cause labels:
 
-| Cause | Evidence |
-| --- | --- |
-| `ControlPlaneDisconnected` | Ready=Unknown, stale lease, NodeStatusUnknown conditions |
-| `NodeNotReady` | Ready=False with kubelet/node problem Events |
-| `MemoryPressure` | MemoryPressure=True, evictions, memory metrics or allocatable pressure |
-| `DiskPressure` | DiskPressure=True, ephemeral-storage evictions, disk problem conditions |
-| `PIDPressure` | PIDPressure=True or PID problem Events |
-| `NetworkUnavailableOrCNI` | NetworkUnavailable=True, CNIProblem, FailedCreatePodSandBox concentrated on node |
-| `KubeletOrRuntimeProblem` | KUBELETProblem, CRIProblem, containerd/kubelet restart signals |
-| `SchedulingDisabledOrTainted` | unschedulable node or taints causing scheduling impact |
-| `HealthyOrNoNodeFault` | Node Ready, lease fresh, no pressure/problem signals |
+| Cause                         | Evidence                                                                         |
+| ----------------------------- | -------------------------------------------------------------------------------- |
+| `ControlPlaneDisconnected`    | Ready=Unknown, stale lease, NodeStatusUnknown conditions                         |
+| `NodeNotReady`                | Ready=False with kubelet/node problem Events                                     |
+| `MemoryPressure`              | MemoryPressure=True, evictions, memory metrics or allocatable pressure           |
+| `DiskPressure`                | DiskPressure=True, ephemeral-storage evictions, disk problem conditions          |
+| `PIDPressure`                 | PIDPressure=True or PID problem Events                                           |
+| `NetworkUnavailableOrCNI`     | NetworkUnavailable=True, CNIProblem, FailedCreatePodSandBox concentrated on node |
+| `KubeletOrRuntimeProblem`     | KUBELETProblem, CRIProblem, containerd/kubelet restart signals                   |
+| `SchedulingDisabledOrTainted` | unschedulable node or taints causing scheduling impact                           |
+| `HealthyOrNoNodeFault`        | Node Ready, lease fresh, no pressure/problem signals                             |
 
 ## Output Format
 
-Use `references/output-schema.md` as the detailed schema. Put decision-critical information first; command traces and raw condition tables come after the conclusion and next steps.
+Use `references/output-schema.md` as the detailed schema. Put decision-critical information first; command traces and raw condition tables come after the
+conclusion and next steps.
 
 The user-facing report should include, in this order:
 

@@ -1,11 +1,9 @@
 ---
 name: huawei-cloud-cce-network-failure-diagnoser
 description: >
-  Diagnose Huawei Cloud CCE network failures using hcloud for cluster and
-  cloud-network metadata plus read-only kubectl-cce evidence. Use this skill whenever
-  the user mentions unreachable Services, DNS or CoreDNS errors, Ingress 502/504,
-  NetworkPolicy blocks, EndpointSlice or backend readiness, ELB health, EIP, NAT,
-  VPC, security-group, or ACL issues.
+  Diagnose Huawei Cloud CCE network failures using hcloud for cluster and cloud-network metadata plus read-only kubectl-cce evidence. Use this skill whenever
+  the user mentions unreachable Services, DNS or CoreDNS errors, Ingress 502/504, NetworkPolicy blocks, EndpointSlice or backend readiness, ELB health, EIP,
+  NAT, VPC, security-group, or ACL issues.
 version: 1.0.0
 tags: [huawei-cloud, cce, kubectl, network, diagnosis]
 ---
@@ -47,7 +45,8 @@ Use cloud network hcloud commands only for read-only north-south evidence when i
 
 Do not use Python SDK dispatchers, legacy skill execution actions, old Huawei network actions, or Huawei Cloud SDK imports for this skill.
 
-**Related prerequisite skill**: use `huawei-cloud-kubectl-cce-installer` to install or repair `kubectl`/`kubectl-cce`. Read `references/kubectl-cce.md` for the plugin access contract.
+**Related prerequisite skill**: use `huawei-cloud-kubectl-cce-installer` to install or repair `kubectl`/`kubectl-cce`. Read `references/kubectl-cce.md` for the
+plugin access contract.
 
 ## When To Use
 
@@ -65,28 +64,28 @@ scaling workloads, or restarting components must be handed off as recommendation
 
 ## Parameters
 
-| Input | Required | Notes |
-| --- | --- | --- |
-| `region` | Yes | Example: `cn-north-4` |
-| `project_id` | Usually | Required by most hcloud operations |
-| `cluster_id` | Preferred | Resolve by name with `ListClusters` if absent |
-| `namespace` | Usually | Required for namespaced K8s objects |
+| Input             | Required    | Notes                                                                                                                     |
+| ----------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `region`          | Yes         | Example: `cn-north-4`                                                                                                     |
+| `project_id`      | Usually     | Required by most hcloud operations                                                                                        |
+| `cluster_id`      | Preferred   | Resolve by name with `ListClusters` if absent                                                                             |
+| `namespace`       | Usually     | Required for namespaced K8s objects                                                                                       |
 | `failure_symptom` | Recommended | `dns_failure`, `service_unreachable`, `ingress_502_504`, `external_access_failed`, `network_policy_block`, `intermittent` |
-| `service_name` | Optional | Target Service |
-| `ingress_name` | Optional | Target Ingress |
-| `source_pod` | Optional | Source Pod name or selector |
-| `destination_pod` | Optional | Destination Pod name or selector |
-| `domain` | Optional | Domain involved in DNS/Ingress failure |
-| `elb_id` | Optional | ELB load balancer ID for north-south checks |
+| `service_name`    | Optional    | Target Service                                                                                                            |
+| `ingress_name`    | Optional    | Target Ingress                                                                                                            |
+| `source_pod`      | Optional    | Source Pod name or selector                                                                                               |
+| `destination_pod` | Optional    | Destination Pod name or selector                                                                                          |
+| `domain`          | Optional    | Domain involved in DNS/Ingress failure                                                                                    |
+| `elb_id`          | Optional    | ELB load balancer ID for north-south checks                                                                               |
 
-If the target is vague, start with a namespace scan and ask for the specific service, ingress, source, destination, or domain before drawing a strong conclusion.
+If the target is vague, start with a namespace scan and ask for the specific service, ingress, source, destination, or domain before drawing a strong
+conclusion.
 
 ## Prerequisites
 
 1. `hcloud` is installed and available in `PATH`, or a platform-native binary has been located and validated with `hcloud version`.
 2. `kubectl` is installed and compatible with the target Kubernetes version. Linux sandboxes must use Linux kubectl; Windows workstations use `kubectl.exe`.
-3. hcloud credentials are available through a profile, environment, or one-off CLI
-   parameters. Verify only masked configuration with `hcloud configure list`.
+3. hcloud credentials are available through a profile, environment, or one-off CLI parameters. Verify only masked configuration with `hcloud configure list`.
 4. IAM allows CCE cluster read and kubectl-cce API Gateway access. ELB/VPC/EIP/NAT read permissions are needed only for cloud-side network objects.
 5. Kubernetes RBAC allows read access to Services, Endpoints, EndpointSlices, Ingresses, NetworkPolicies, Pods, Nodes, Events, and relevant logs.
 
@@ -102,10 +101,8 @@ hcloud configure list
 kubectl version --client
 ```
 
-If a tool is missing, stop this diagnosis flow and use
-`huawei-cloud-kubectl-cce-installer` or an approved platform-specific procedure.
-This diagnoser must not download or execute installer scripts. Pin an approved
-version, verify its published checksum or signature, and then rerun the checks.
+If a tool is missing, stop this diagnosis flow and use `huawei-cloud-kubectl-cce-installer` or an approved platform-specific procedure. This diagnoser must not
+download or execute installer scripts. Pin an approved version, verify its published checksum or signature, and then rerun the checks.
 
 ### 2. Locate And Check The Cluster
 
@@ -123,8 +120,8 @@ set `CCE_ENDPOINT` or pass `--endpoint`. If access fails, report the error as an
 Read `references/kubectl-cce.md` before running Kubernetes commands. Use the kubectl CCE plugin as the primary Kubernetes access path. Do not generate or patch
 kubeconfig, call the Kubernetes SDK, or fall back to SDK dispatcher actions.
 
-If `kubectl` or `kubectl-cce` is missing, use `huawei-cloud-kubectl-cce-installer` to install or repair local prerequisites. This diagnoser only verifies and uses
-the plugin; it does not own plugin installation policy.
+If `kubectl` or `kubectl-cce` is missing, use `huawei-cloud-kubectl-cce-installer` to install or repair local prerequisites. This diagnoser only verifies and
+uses the plugin; it does not own plugin installation policy.
 
 Verify local tooling and plugin discovery:
 
@@ -143,8 +140,8 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 Use `CCE_ENDPOINT` or `--endpoint` only when the default `<cluster-id>.cce.<region>.myhuaweicloud.com` endpoint is invalid. If plugin access fails, report the
 sanitized installation, credential, API Gateway reachability, or Kubernetes RBAC gap; do not switch to kubeconfig generation or SDK calls.
 
-The plugin blocks streaming commands such as `exec`, `attach`, and `port-forward`. `logs -f` and `watch` are not hardened, so use bounded `logs --tail` and normal
-`get` commands in diagnosis reports.
+The plugin blocks streaming commands such as `exec`, `attach`, and `port-forward`. `logs -f` and `watch` are not hardened, so use bounded `logs --tail` and
+normal `get` commands in diagnosis reports.
 
 ### 4. Verify Kubernetes Read Access
 
@@ -217,11 +214,9 @@ Use `hcloud <service> <operation> --help` when a filter parameter differs by API
 
 ## Active Test Boundary
 
-The kubectl-cce plugin blocks `exec`, `attach`, and `port-forward`; this read-only skill
-must not bypass that boundary with kubeconfig, SDK, packet capture, stress tests, or
-synthetic traffic generation. If the user requests an active connectivity test, record
-the source, destination, scope, risk, and expected signal, then hand it off to an approved
-test path after explicit authorization.
+The kubectl-cce plugin blocks `exec`, `attach`, and `port-forward`; this read-only skill must not bypass that boundary with kubeconfig, SDK, packet capture,
+stress tests, or synthetic traffic generation. If the user requests an active connectivity test, record the source, destination, scope, risk, and expected
+signal, then hand it off to an approved test path after explicit authorization.
 
 ## Cause Ranking
 
@@ -239,22 +234,23 @@ Rank causes by the first failing layer:
 
 Common cause labels:
 
-| Cause | Evidence |
-| --- | --- |
-| `NodeOrCNIUnhealthy` | Node NotReady, CNIProblem, FailedCreatePodSandBox |
-| `DnsCoreDNSFailure` | kube-dns/CoreDNS has no ready endpoints, restarting, timeout, NXDOMAIN evidence |
-| `ServiceNoReadyEndpoint` | Service exists but EndpointSlice has no ready addresses |
-| `ServiceSelectorMismatch` | Service selector matches no Pods |
-| `NetworkPolicyBlocked` | NetworkPolicy selects destination and does not allow source/port |
-| `IngressBackendMismatch` | Ingress routes to missing Service/port or unhealthy backend |
-| `ELBBackendUnhealthy` | ELB member unhealthy while K8s object mapping is present |
-| `SecurityPolicyBlocked` | Security group, ACL, or route evidence blocks traffic |
-| `EgressNatOrEipIssue` | NAT/EIP missing or abnormal for external egress/ingress path |
-| `BackendApplicationIssue` | Network path exists but backend Pods are not ready or logs show app errors |
+| Cause                     | Evidence                                                                        |
+| ------------------------- | ------------------------------------------------------------------------------- |
+| `NodeOrCNIUnhealthy`      | Node NotReady, CNIProblem, FailedCreatePodSandBox                               |
+| `DnsCoreDNSFailure`       | kube-dns/CoreDNS has no ready endpoints, restarting, timeout, NXDOMAIN evidence |
+| `ServiceNoReadyEndpoint`  | Service exists but EndpointSlice has no ready addresses                         |
+| `ServiceSelectorMismatch` | Service selector matches no Pods                                                |
+| `NetworkPolicyBlocked`    | NetworkPolicy selects destination and does not allow source/port                |
+| `IngressBackendMismatch`  | Ingress routes to missing Service/port or unhealthy backend                     |
+| `ELBBackendUnhealthy`     | ELB member unhealthy while K8s object mapping is present                        |
+| `SecurityPolicyBlocked`   | Security group, ACL, or route evidence blocks traffic                           |
+| `EgressNatOrEipIssue`     | NAT/EIP missing or abnormal for external egress/ingress path                    |
+| `BackendApplicationIssue` | Network path exists but backend Pods are not ready or logs show app errors      |
 
 ## Output Format
 
-Use `references/output-schema.md` as the detailed schema. Put decision-critical information first; topology, object snapshots, and command traces come after the conclusion and next steps.
+Use `references/output-schema.md` as the detailed schema. Put decision-critical information first; topology, object snapshots, and command traces come after the
+conclusion and next steps.
 
 The user-facing report should include, in this order:
 

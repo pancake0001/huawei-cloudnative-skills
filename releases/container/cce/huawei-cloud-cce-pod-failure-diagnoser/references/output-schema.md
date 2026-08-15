@@ -18,10 +18,7 @@ The final user-facing report may be Markdown, but it should be easy to map to th
     "selector": "optional"
   },
   "cli_path": {
-    "hcloud_commands": [
-      "hcloud CCE ShowCluster ...",
-      "kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get ns"
-    ],
+    "hcloud_commands": ["hcloud CCE ShowCluster ...", "kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get ns"],
     "kubectl_commands": [
       "kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe pod ...",
       "kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events ..."
@@ -76,10 +73,7 @@ The final user-facing report may be Markdown, but it should be easy to map to th
             "Scheduling is unlikely because PodScheduled=True and nodeName is set.",
             "OOM is unlikely because the container never started and restartCount is 0."
           ],
-          "evidence": [
-            "Previous logs show startup exception",
-            "Event BackOff restarting failed container"
-          ],
+          "evidence": ["Previous logs show startup exception", "Event BackOff restarting failed container"],
           "follow_up_checks": [
             {
               "check": "Verify the referenced image repository and tag exist.",
@@ -87,9 +81,7 @@ The final user-facing report may be Markdown, but it should be easy to map to th
               "command_or_location": "Registry console, release manifest, or image build pipeline"
             }
           ],
-          "recommendation": [
-            "Fix application startup config and redeploy through the appropriate deployment workflow"
-          ]
+          "recommendation": ["Fix application startup config and redeploy through the appropriate deployment workflow"]
         }
       ],
       "events": [
@@ -171,17 +163,15 @@ When writing a human-readable report, put the action-driving sections first:
 
 ## Scenario-Specific Recommendation Requirements
 
-After identifying `top_causes[].type`, load `references/scenario-guides.md` and
-apply the matching scenario section. Do not reserve detailed recommendations for
-one special case; every concrete failure type should include scenario-specific
-interpretation, ruled-out causes, next checks, and candidate fix paths.
+After identifying `top_causes[].type`, load `references/scenario-guides.md` and apply the matching scenario section. Do not reserve detailed recommendations for
+one special case; every concrete failure type should include scenario-specific interpretation, ruled-out causes, next checks, and candidate fix paths.
 
 Each top cause should include:
 
-- `scenario`: the matched scenario guide section, such as `ImagePullBackOff`,
-  `CrashLoopBackOff`, `OOMKilled`, `Pending`, `StorageMountFailure`, `Evicted`,
+- `scenario`: the matched scenario guide section, such as `ImagePullBackOff`, `CrashLoopBackOff`, `OOMKilled`, `Pending`, `StorageMountFailure`, `Evicted`,
   `ProbeFailure`, `SandboxOrCNIBlocked`, or `QuotaOrAdmissionRejected`.
-- `subtype`: a more precise class derived from Events/logs/status, such as `repository_or_tag_missing`, `app_startup_error`, `memory_limit_too_low`, `failed_scheduling_taint`, or `pvc_pending`.
+- `subtype`: a more precise class derived from Events/logs/status, such as `repository_or_tag_missing`, `app_startup_error`, `memory_limit_too_low`,
+  `failed_scheduling_taint`, or `pvc_pending`.
 - `interpretation`: plain-language explanation of what the evidence means.
 - `ruled_out`: adjacent causes that are less likely and why.
 - `follow_up_checks`: concrete checks with expected confirming/refuting signals.

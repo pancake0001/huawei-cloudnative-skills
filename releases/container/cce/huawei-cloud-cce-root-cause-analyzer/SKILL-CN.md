@@ -1,10 +1,8 @@
 ---
 name: huawei-cloud-cce-root-cause-analyzer
 description: >
-  使用 hcloud、kubectl-cce、可观测上下文包和相关诊断 Skill 分析华为云 CCE 跨域故障。
-  适用于同时涉及告警、工作负载发布、Pod Events 或日志、近期变更、服务拓扑、
-  节点、网络、存储或指标，且需要根因排序、证据链、影响面、置信度、下一步措施
-  和恢复交接的场景。
+  使用 hcloud、kubectl-cce、可观测上下文包和相关诊断 Skill 分析华为云 CCE 跨域故障。 适用于同时涉及告警、工作负载发布、Pod Events 或日志、近期变更、服务拓扑、
+  节点、网络、存储或指标，且需要根因排序、证据链、影响面、置信度、下一步措施 和恢复交接的场景。
 version: 1.0.0
 tags: [huawei-cloud, cce, root-cause, kubectl, diagnosis]
 ---
@@ -13,7 +11,8 @@ tags: [huawei-cloud, cce, root-cause, kubectl, diagnosis]
 
 ## 概述
 
-本 skill 负责把 CCE 多域证据收敛成可交付的根因结论和 Markdown 报告。它是编排与综合分析 skill：通过 `hcloud`、`kubectl cce` 和聚焦的只读诊断 skill 采集证据，再按时间吻合度、证据强度、影响范围、反证和可恢复性排序根因。
+本 skill 负责把 CCE 多域证据收敛成可交付的根因结论和 Markdown 报告。它是编排与综合分析 skill：通过 `hcloud`、`kubectl cce`
+和聚焦的只读诊断 skill 采集证据，再按时间吻合度、证据强度、影响范围、反证和可恢复性排序根因。
 
 执行模型：
 
@@ -23,7 +22,8 @@ tags: [huawei-cloud, cce, root-cause, kubectl, diagnosis]
 
 不要使用 Python SDK dispatcher、旧 skill 执行动作、旧 Huawei 诊断 action、捆绑 SDK 脚本、kubeconfig 生成或 Huawei Cloud SDK import。
 
-**相关前置 skill**：如果需要安装或修复 `kubectl`/`kubectl-cce`，使用 `huawei-cloud-kubectl-cce-installer`。执行 Kubernetes 命令前先读 `references/kubectl-cce.md`。
+**相关前置 skill**：如果需要安装或修复 `kubectl`/`kubectl-cce`，使用 `huawei-cloud-kubectl-cce-installer`。执行 Kubernetes 命令前先读
+`references/kubectl-cce.md`。
 
 ## 前置条件
 
@@ -37,33 +37,33 @@ tags: [huawei-cloud, cce, root-cause, kubectl, diagnosis]
 
 按证据类型使用这些只读 skill 作为证据来源：
 
-| Skill | 作用 |
-| --- | --- |
-| `huawei-cloud-cce-observability-context-builder` | 第一轮告警、Events、日志、指标、拓扑、时间窗口和数据缺口上下文包 |
-| `huawei-cloud-cce-workload-failure-diagnoser` | Deployment/StatefulSet/DaemonSet 发布漏斗、ReplicaSet、探针、镜像、启动命令、Ready 异常 |
-| `huawei-cloud-cce-pod-failure-diagnoser` | Pod CrashLoopBackOff、ImagePullBackOff、OOMKilled、Pending、Evicted、日志和事件 |
-| `huawei-cloud-cce-node-failure-diagnoser` | NodeNotReady、资源压力、污点、lease 超时、kubelet/runtime、节点级影响 |
-| `huawei-cloud-cce-network-failure-diagnoser` | Service、EndpointSlice、DNS/CoreDNS、Ingress、NetworkPolicy、ELB/EIP/NAT/VPC 证据 |
-| `huawei-cloud-cce-storage-failure-diagnoser` | PVC/PV、StorageClass、CSI、attach/mount、存储供应异常 |
-| `huawei-cloud-cce-dependency-impact-analyzer` | Service/Ingress/Pod/Node 传播路径和影响面 |
-| `huawei-cloud-cce-change-impact-analyzer` | 近期发布、配置、路由、安全、节点和基础设施变更关联 |
-| `huawei-cloud-cce-alarm-correlation-engine` | AOM 当前/历史告警聚合、告警风暴和告警时间锚点 |
-| `huawei-cloud-cce-kubernetes-event-analyzer` | 当前和历史 Kubernetes Event 分析 |
-| `huawei-cloud-cce-metric-analyzer` | 需要指标证据时查询 AOM/Prometheus 和云资源指标 |
+| Skill                                            | 作用                                                                                    |
+| ------------------------------------------------ | --------------------------------------------------------------------------------------- |
+| `huawei-cloud-cce-observability-context-builder` | 第一轮告警、Events、日志、指标、拓扑、时间窗口和数据缺口上下文包                        |
+| `huawei-cloud-cce-workload-failure-diagnoser`    | Deployment/StatefulSet/DaemonSet 发布漏斗、ReplicaSet、探针、镜像、启动命令、Ready 异常 |
+| `huawei-cloud-cce-pod-failure-diagnoser`         | Pod CrashLoopBackOff、ImagePullBackOff、OOMKilled、Pending、Evicted、日志和事件         |
+| `huawei-cloud-cce-node-failure-diagnoser`        | NodeNotReady、资源压力、污点、lease 超时、kubelet/runtime、节点级影响                   |
+| `huawei-cloud-cce-network-failure-diagnoser`     | Service、EndpointSlice、DNS/CoreDNS、Ingress、NetworkPolicy、ELB/EIP/NAT/VPC 证据       |
+| `huawei-cloud-cce-storage-failure-diagnoser`     | PVC/PV、StorageClass、CSI、attach/mount、存储供应异常                                   |
+| `huawei-cloud-cce-dependency-impact-analyzer`    | Service/Ingress/Pod/Node 传播路径和影响面                                               |
+| `huawei-cloud-cce-change-impact-analyzer`        | 近期发布、配置、路由、安全、节点和基础设施变更关联                                      |
+| `huawei-cloud-cce-alarm-correlation-engine`      | AOM 当前/历史告警聚合、告警风暴和告警时间锚点                                           |
+| `huawei-cloud-cce-kubernetes-event-analyzer`     | 当前和历史 Kubernetes Event 分析                                                        |
+| `huawei-cloud-cce-metric-analyzer`               | 需要指标证据时查询 AOM/Prometheus 和云资源指标                                          |
 
 **恢复交接目标**：`huawei-cloud-cce-auto-remediation-runner` 不是证据依赖。只有根因明确后，且用户要求预览或确认恢复动作时，才作为交接目标提及。
 
 ## 参数确认
 
-| 输入 | 必填 | 说明 |
-| --- | --- | --- |
-| `region` | 是 | 例如 `cn-north-4` |
-| `project_id` | 通常需要 | kubectl-cce 和多数 hcloud 操作需要 |
-| `cluster_id` | 推荐 | 没有时先用 `hcloud CCE ListClusters` 按名称定位 |
-| `namespace` | 可选 | 应用命名空间 |
-| `target_name` | 可选 | 工作负载、Service、Pod、Ingress 或业务对象 |
-| `fault_time` / `hours` | 推荐 | 用于事件、告警、指标和变更关联 |
-| `symptoms` | 推荐 | 用户可感知故障、已知告警和现象 |
+| 输入                   | 必填     | 说明                                            |
+| ---------------------- | -------- | ----------------------------------------------- |
+| `region`               | 是       | 例如 `cn-north-4`                               |
+| `project_id`           | 通常需要 | kubectl-cce 和多数 hcloud 操作需要              |
+| `cluster_id`           | 推荐     | 没有时先用 `hcloud CCE ListClusters` 按名称定位 |
+| `namespace`            | 可选     | 应用命名空间                                    |
+| `target_name`          | 可选     | 工作负载、Service、Pod、Ingress 或业务对象      |
+| `fault_time` / `hours` | 推荐     | 用于事件、告警、指标和变更关联                  |
+| `symptoms`             | 推荐     | 用户可感知故障、已知告警和现象                  |
 
 目标不明确时，先做只读广域快照，并在报告里说明还需要确认哪些对象，不能直接给高置信度结论。
 
@@ -71,13 +71,12 @@ tags: [huawei-cloud, cce, root-cause, kubectl, diagnosis]
 
 ### 1. 构建或复用上下文
 
-优先使用 `huawei-cloud-cce-observability-context-builder` 构建可观测上下文包；
-如果用户已经提供等价的告警、Events、日志、指标、范围、时间线和数据缺口，可以直接复用。
+优先使用 `huawei-cloud-cce-observability-context-builder`
+构建可观测上下文包；如果用户已经提供等价的告警、Events、日志、指标、范围、时间线和数据缺口，可以直接复用。
 
 ### 2. 验证工具
 
-验证 `hcloud`、`kubectl` 和 `kubectl-cce`。缺插件时使用
-`huawei-cloud-kubectl-cce-installer`。
+验证 `hcloud`、`kubectl` 和 `kubectl-cce`。缺插件时使用 `huawei-cloud-kubectl-cce-installer`。
 
 ```bash
 hcloud version

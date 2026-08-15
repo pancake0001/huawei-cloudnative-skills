@@ -1,10 +1,9 @@
 ---
 name: huawei-cloud-cce-storage-failure-diagnoser
 description: >
-  使用 hcloud 获取华为云 CCE 集群和云存储元数据，并通过只读 kubectl-cce 证据诊断存储故障。
-  适用于 PVC Pending、供应或绑定失败、EVS 拓扑冲突、FailedAttach、FailedMount、
-  CSI 错误、SFS/SFS Turbo NFS 超时、OBS 403 或凭据错误、运行期 I/O、只读文件系统、
-  容量或 inode 耗尽、subPath 问题或 PVC 删除异常。
+  使用 hcloud 获取华为云 CCE 集群和云存储元数据，并通过只读 kubectl-cce 证据诊断存储故障。 适用于 PVC Pending、供应或绑定失败、EVS
+  拓扑冲突、FailedAttach、FailedMount、 CSI 错误、SFS/SFS Turbo NFS 超时、OBS 403 或凭据错误、运行期 I/O、只读文件系统、 容量或 inode 耗尽、subPath 问题或 PVC
+  删除异常。
 version: 1.0.0
 tags: [huawei-cloud, cce, kubectl, storage, diagnosis]
 ---
@@ -23,7 +22,8 @@ hcloud CCE/云侧存储查询 -> kubectl cce 存储证据 -> 可选 CSI 日志/�
 
 不要使用 Python SDK dispatcher、旧 skill 执行动作、旧 Huawei storage action、捆绑 SDK 脚本、kubeconfig 生成或 Huawei Cloud SDK import。
 
-**相关前置 skill**：如果需要安装或修复 `kubectl`/`kubectl-cce`，使用 `huawei-cloud-kubectl-cce-installer`。执行 Kubernetes 命令前先读 `references/kubectl-cce.md`。
+**相关前置 skill**：如果需要安装或修复 `kubectl`/`kubectl-cce`，使用 `huawei-cloud-kubectl-cce-installer`。执行 Kubernetes 命令前先读
+`references/kubectl-cce.md`。
 
 ## 前置条件
 
@@ -35,27 +35,27 @@ hcloud CCE/云侧存储查询 -> kubectl cce 存储证据 -> 可选 CSI 日志/�
 
 ## 相关 Skill
 
-| Skill | 使用场景 |
-| --- | --- |
-| `huawei-cloud-cce-pod-failure-diagnoser` | Pod Pending、ContainerCreating、CrashLooping 或 FailedMount/FailedAttach 事件 |
-| `huawei-cloud-cce-node-failure-diagnoser` | 存储症状与节点压力、污点、NotReady、kubelet 或单节点限制有关 |
-| `huawei-cloud-cce-network-failure-diagnoser` | SFS/SFS Turbo/NFS 或 OBS 访问涉及网络、安全组、ACL、NAT 或 DNS |
-| `huawei-cloud-cce-metric-analyzer` | 需要 EVS/SFS/节点文件系统容量、I/O 或延迟指标 |
-| `huawei-cloud-cce-root-cause-analyzer` | 存储只是跨域故障的候选之一 |
-| `huawei-cloud-cce-auto-remediation-runner` | 用户确认后的恢复预览和执行 |
+| Skill                                        | 使用场景                                                                      |
+| -------------------------------------------- | ----------------------------------------------------------------------------- |
+| `huawei-cloud-cce-pod-failure-diagnoser`     | Pod Pending、ContainerCreating、CrashLooping 或 FailedMount/FailedAttach 事件 |
+| `huawei-cloud-cce-node-failure-diagnoser`    | 存储症状与节点压力、污点、NotReady、kubelet 或单节点限制有关                  |
+| `huawei-cloud-cce-network-failure-diagnoser` | SFS/SFS Turbo/NFS 或 OBS 访问涉及网络、安全组、ACL、NAT 或 DNS                |
+| `huawei-cloud-cce-metric-analyzer`           | 需要 EVS/SFS/节点文件系统容量、I/O 或延迟指标                                 |
+| `huawei-cloud-cce-root-cause-analyzer`       | 存储只是跨域故障的候选之一                                                    |
+| `huawei-cloud-cce-auto-remediation-runner`   | 用户确认后的恢复预览和执行                                                    |
 
 ## 参数确认
 
-| 输入 | 必填 | 说明 |
-| --- | --- | --- |
-| `region` | 是 | 例如 `cn-north-4` |
-| `project_id` | 通常需要 | kubectl-cce 和云资源 hcloud 命令需要 |
-| `cluster_id` | 推荐 | 没有时先用 hcloud 按名称定位 |
-| `namespace` | 推荐 | PVC/Pod 场景需要 |
-| `pvc_name` | 可选 | 指定 PVC |
-| `pod_name` | 可选 | 有挂载或 I/O 异常的 Pod |
-| `failure_symptom` | 推荐 | `pvc_pending`、`failed_mount`、`failed_attach`、`capacity`、`readonly_fs`、`nfs_timeout`、`obs_403`、`terminating` |
-| `volume_id` | 可选 | 已知 EVS/SFS/SFS Turbo/OBS 标识 |
+| 输入              | 必填     | 说明                                                                                                               |
+| ----------------- | -------- | ------------------------------------------------------------------------------------------------------------------ |
+| `region`          | 是       | 例如 `cn-north-4`                                                                                                  |
+| `project_id`      | 通常需要 | kubectl-cce 和云资源 hcloud 命令需要                                                                               |
+| `cluster_id`      | 推荐     | 没有时先用 hcloud 按名称定位                                                                                       |
+| `namespace`       | 推荐     | PVC/Pod 场景需要                                                                                                   |
+| `pvc_name`        | 可选     | 指定 PVC                                                                                                           |
+| `pod_name`        | 可选     | 有挂载或 I/O 异常的 Pod                                                                                            |
+| `failure_symptom` | 推荐     | `pvc_pending`、`failed_mount`、`failed_attach`、`capacity`、`readonly_fs`、`nfs_timeout`、`obs_403`、`terminating` |
+| `volume_id`       | 可选     | 已知 EVS/SFS/SFS Turbo/OBS 标识                                                                                    |
 
 ## 核心命令与证据采集
 
@@ -69,8 +69,7 @@ kubectl version --client
 kubectl plugin list
 ```
 
-工具或插件缺失时停止当前流程，使用 `huawei-cloud-kubectl-cce-installer`；
-不得下载安装器，也不得回退到 SDK 或 kubeconfig 接入。
+工具或插件缺失时停止当前流程，使用 `huawei-cloud-kubectl-cce-installer`；不得下载安装器，也不得回退到 SDK 或 kubeconfig 接入。
 
 ### 2. 查询集群
 
@@ -91,8 +90,7 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 
 ### 4. 采集 CSI 证据
 
-RBAC 允许时采集 CSI 证据。不同 CCE 版本的 CSI label 可能不同，先发现实际
-Pod 名称和 label，再选择目标；日志必须限量并脱敏：
+RBAC 允许时采集 CSI 证据。不同 CCE 版本的 CSI label 可能不同，先发现实际 Pod 名称和 label，再选择目标；日志必须限量并脱敏：
 
 ```bash
 kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n kube-system --show-labels
@@ -102,9 +100,8 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 
 ### 5. 采集云侧证据
 
-云侧只读证据只在标识明确或可安全关联时采集。EVS/SFS/SFS Turbo/OBS/VPC/安全组/ACL
-使用 hcloud；时间序列指标交给 metric analyzer。不确定 operation 或标识时先查 help，
-否则记录为数据缺口。
+云侧只读证据只在标识明确或可安全关联时采集。EVS/SFS/SFS Turbo/OBS/VPC/安全组/ACL 使用 hcloud；时间序列指标交给 metric
+analyzer。不确定 operation 或标识时先查 help，否则记录为数据缺口。
 
 ## 诊断流程
 
@@ -136,8 +133,7 @@ Markdown 报告必须从以下内容开始：
 
 ## 注意事项与安全规则
 
-本 skill 不修改资源，不执行 `exec`、节点 SSH、抓包、压测、`fsck`、
-finalizer 移除、强制 detach 或扩容。
+本 skill 不修改资源，不执行 `exec`、节点 SSH、抓包、压测、`fsck`、finalizer 移除、强制 detach 或扩容。
 
 ## 验证
 

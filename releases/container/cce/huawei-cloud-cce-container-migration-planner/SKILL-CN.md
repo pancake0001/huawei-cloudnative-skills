@@ -1,6 +1,8 @@
 ﻿---
 name: container-migration-planner
-description: Use this skill for Huawei Cloud CCE migration planning, resource inventory, delivery方案, dependency mapping, and migration risk assessment without executing changes.
+description:
+  Use this skill for Huawei Cloud CCE migration planning, resource inventory, delivery方案, dependency mapping, and migration risk assessment without executing
+  changes.
 ---
 
 # container-migration-planner
@@ -32,4 +34,3 @@ CCE：`huawei_list_cce_clusters`、`huawei_list_cce_nodes`、`huawei_list_cce_no
 ## 风险约束
 
 本 skill 只做盘点和方案。不创建目标资源，不修改网络，不迁移数据，不删除源资源。
-

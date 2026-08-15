@@ -2,34 +2,35 @@
 
 ## Overview
 
-ConfigMaps store non-sensitive configuration as key-value pairs or files. Secrets hold sensitive data (passwords, tokens) with base64 encoding. PersistentVolumeClaims (PVCs) request storage from the cluster.
+ConfigMaps store non-sensitive configuration as key-value pairs or files. Secrets hold sensitive data (passwords, tokens) with base64 encoding.
+PersistentVolumeClaims (PVCs) request storage from the cluster.
 
 ## ConfigMap Operations
 
-| Operation | Command |
-|-----------|---------|
-| Create from literal | `kubectl --kubeconfig=<kubeconfig-path> create configmap <name> --from-literal=key1=val1 -n <namespace>` |
-| Create from file | `kubectl --kubeconfig=<kubeconfig-path> create configmap <name> --from-file=config.yaml -n <namespace>` |
-| Get | `kubectl --kubeconfig=<kubeconfig-path> get configmap <name> -o yaml -n <namespace>` |
-| Update/delete | `kubectl --kubeconfig=<kubeconfig-path> apply -f cm.yaml -n <namespace>` / `delete configmap <name> -n <namespace>` |
+| Operation           | Command                                                                                                             |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Create from literal | `kubectl --kubeconfig=<kubeconfig-path> create configmap <name> --from-literal=key1=val1 -n <namespace>`            |
+| Create from file    | `kubectl --kubeconfig=<kubeconfig-path> create configmap <name> --from-file=config.yaml -n <namespace>`             |
+| Get                 | `kubectl --kubeconfig=<kubeconfig-path> get configmap <name> -o yaml -n <namespace>`                                |
+| Update/delete       | `kubectl --kubeconfig=<kubeconfig-path> apply -f cm.yaml -n <namespace>` / `delete configmap <name> -n <namespace>` |
 
 ## Secret Operations
 
-| Operation | Command |
-|-----------|---------|
-| Create generic | `kubectl --kubeconfig=<kubeconfig-path> create secret generic <name> --from-literal=password=s3cret -n <namespace>` |
+| Operation              | Command                                                                                                                                                                                          |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Create generic         | `kubectl --kubeconfig=<kubeconfig-path> create secret generic <name> --from-literal=password=s3cret -n <namespace>`                                                                              |
 | Create docker-registry | `kubectl --kubeconfig=<kubeconfig-path> create secret docker-registry regcred --docker-server=swr.cn-north-4.myhuaweicloud.com --docker-username=<user> --docker-password=<pass> -n <namespace>` |
-| Get/describe | `kubectl --kubeconfig=<kubeconfig-path> get secret <name> -n <namespace>` / `describe secret <name> -n <namespace>` (values are base64 encoded) |
-| Delete | `kubectl --kubeconfig=<kubeconfig-path> delete secret <name> -n <namespace>` |
+| Get/describe           | `kubectl --kubeconfig=<kubeconfig-path> get secret <name> -n <namespace>` / `describe secret <name> -n <namespace>` (values are base64 encoded)                                                  |
+| Delete                 | `kubectl --kubeconfig=<kubeconfig-path> delete secret <name> -n <namespace>`                                                                                                                     |
 
 ## PVC Operations
 
-| Operation | Command |
-|-----------|---------|
-| Create from YAML | `kubectl --kubeconfig=<kubeconfig-path> apply -f pvc.yaml -n <namespace>` |
-| Get/describe | `kubectl --kubeconfig=<kubeconfig-path> get pvc -n <namespace>` / `describe pvc <name> -n <namespace>` (check status: Bound/Pending) |
-| Delete | `kubectl --kubeconfig=<kubeconfig-path> delete pvc <name> -n <namespace>` |
-| List StorageClasses | `kubectl --kubeconfig=<kubeconfig-path> get storageclasses` |
+| Operation           | Command                                                                                                                              |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Create from YAML    | `kubectl --kubeconfig=<kubeconfig-path> apply -f pvc.yaml -n <namespace>`                                                            |
+| Get/describe        | `kubectl --kubeconfig=<kubeconfig-path> get pvc -n <namespace>` / `describe pvc <name> -n <namespace>` (check status: Bound/Pending) |
+| Delete              | `kubectl --kubeconfig=<kubeconfig-path> delete pvc <name> -n <namespace>`                                                            |
+| List StorageClasses | `kubectl --kubeconfig=<kubeconfig-path> get storageclasses`                                                                          |
 
 ## CCE StorageClass Reference
 
@@ -37,15 +38,15 @@ CCE clusters provide multiple CSI StorageClasses for different storage types. Us
 
 > **Important**: `cce-standard` is NOT a valid CCE StorageClass. Always use CSI-based StorageClasses listed below.
 
-| StorageClass | Storage Type | Access Mode | Use Case | Min Capacity |
-|-------------|-------------|-------------|----------|-------------|
-| `csi-disk` | Cloud disk (EVS) | RWO | General block storage, databases, single-Pod workloads | 10Gi |
-| `csi-disk-topology` | Cloud disk with topology | RWO | Cross-AZ scheduling with delayed binding | 10Gi |
-| `csi-disk-dss` | Dedicated storage disk | RWO | Dedicated distributed storage (DSS) pools | 10Gi |
-| `csi-sfsturbo` | SFS Turbo (extreme file storage) | RWX | High-performance shared file storage, AI/ML, multi-Pod shared data | 500Gi |
-| `csi-nas` | General file storage (SFS) | RWX | Shared file storage, multi-Pod read/write | 1Gi |
-| `csi-obs` | Object storage (OBS) | RWX | Object storage mount, log archiving, large unstructured data | 1Gi (no actual limit) |
-| `csi-sfs` | SFS 3.0 capacity file storage | RWX | High-bandwidth shared file storage | 1Gi |
+| StorageClass        | Storage Type                     | Access Mode | Use Case                                                           | Min Capacity          |
+| ------------------- | -------------------------------- | ----------- | ------------------------------------------------------------------ | --------------------- |
+| `csi-disk`          | Cloud disk (EVS)                 | RWO         | General block storage, databases, single-Pod workloads             | 10Gi                  |
+| `csi-disk-topology` | Cloud disk with topology         | RWO         | Cross-AZ scheduling with delayed binding                           | 10Gi                  |
+| `csi-disk-dss`      | Dedicated storage disk           | RWO         | Dedicated distributed storage (DSS) pools                          | 10Gi                  |
+| `csi-sfsturbo`      | SFS Turbo (extreme file storage) | RWX         | High-performance shared file storage, AI/ML, multi-Pod shared data | 500Gi                 |
+| `csi-nas`           | General file storage (SFS)       | RWX         | Shared file storage, multi-Pod read/write                          | 1Gi                   |
+| `csi-obs`           | Object storage (OBS)             | RWX         | Object storage mount, log archiving, large unstructured data       | 1Gi (no actual limit) |
+| `csi-sfs`           | SFS 3.0 capacity file storage    | RWX         | High-bandwidth shared file storage                                 | 1Gi                   |
 
 **Access Mode Reference**:
 
@@ -54,15 +55,15 @@ CCE clusters provide multiple CSI StorageClasses for different storage types. Us
 
 ### Storage Selection Guide
 
-| Scenario | Recommended StorageClass | Reason |
-|----------|-------------------------|--------|
-| Database (MySQL/PostgreSQL) | `csi-disk` | Block storage, low latency, RWO |
-| Web app static files | `csi-disk` | Simple, cost-effective |
-| Multi-Pod shared config/data | `csi-nas` or `csi-sfsturbo` | RWX, shared across Pods |
-| AI/ML training data | `csi-sfsturbo` | High bandwidth, low latency, RWX |
-| Log archiving / backup | `csi-obs` | Unlimited capacity, cost-effective |
-| CI/CD workspace | `csi-nas` | Shared across build agents |
-| Cross-AZ deployment | `csi-disk-topology` | Delayed binding ensures same AZ as Pod |
+| Scenario                     | Recommended StorageClass    | Reason                                 |
+| ---------------------------- | --------------------------- | -------------------------------------- |
+| Database (MySQL/PostgreSQL)  | `csi-disk`                  | Block storage, low latency, RWO        |
+| Web app static files         | `csi-disk`                  | Simple, cost-effective                 |
+| Multi-Pod shared config/data | `csi-nas` or `csi-sfsturbo` | RWX, shared across Pods                |
+| AI/ML training data          | `csi-sfsturbo`              | High bandwidth, low latency, RWX       |
+| Log archiving / backup       | `csi-obs`                   | Unlimited capacity, cost-effective     |
+| CI/CD workspace              | `csi-nas`                   | Shared across build agents             |
+| Cross-AZ deployment          | `csi-disk-topology`         | Delayed binding ensures same AZ as Pod |
 
 Reference: [CCE Storage Management Best Practices](https://support.huaweicloud.com/usermanual-cce/cce_10_0900.html)
 
@@ -80,10 +81,10 @@ Mount in Deployment:
 ```yaml
 spec:
   containers:
-  - name: app
-    envFrom:
-    - configMapRef:
-        name: app-config
+    - name: app
+      envFrom:
+        - configMapRef:
+            name: app-config
 ```
 
 ### Private image pull with Secret
@@ -97,7 +98,7 @@ Reference in Deployment:
 ```yaml
 spec:
   imagePullSecrets:
-  - name: regcred
+    - name: regcred
 ```
 
 ### Block storage PVC (csi-disk)
@@ -111,7 +112,7 @@ metadata:
   name: data-pvc
 spec:
   accessModes:
-  - ReadWriteOnce
+    - ReadWriteOnce
   resources:
     requests:
       storage: 10Gi
@@ -128,14 +129,14 @@ Mount in Deployment:
 ```yaml
 spec:
   containers:
-  - name: app
-    volumeMounts:
-    - name: data
-      mountPath: /data
+    - name: app
+      volumeMounts:
+        - name: data
+          mountPath: /data
   volumes:
-  - name: data
-    persistentVolumeClaim:
-      claimName: data-pvc
+    - name: data
+      persistentVolumeClaim:
+        claimName: data-pvc
 ```
 
 ### SFS Turbo shared storage PVC (csi-sfsturbo)
@@ -151,7 +152,7 @@ metadata:
   name: sfsturbo-pvc
 spec:
   accessModes:
-  - ReadWriteMany
+    - ReadWriteMany
   resources:
     requests:
       storage: 500Gi
@@ -175,7 +176,7 @@ metadata:
     everest.io/csi.enable-sfsturbo-dir-quota: "true"
 spec:
   accessModes:
-  - ReadWriteMany
+    - ReadWriteMany
   resources:
     requests:
       storage: 10Gi
@@ -183,6 +184,7 @@ spec:
 ```
 
 Key parameters:
+
 - `everest.io/volume-as: absolute-path` — required, indicates subdirectory mode
 - `everest.io/sfsturbo-share-id` — SFS Turbo instance ID (get from SFS Turbo console)
 - `everest.io/path` — subdirectory absolute path (e.g., `/my-app-data`)
@@ -205,7 +207,7 @@ metadata:
     csi.storage.k8s.io/fstype: obsfs
 spec:
   accessModes:
-  - ReadWriteMany
+    - ReadWriteMany
   resources:
     requests:
       storage: 1Gi
@@ -213,11 +215,13 @@ spec:
 ```
 
 Key parameters:
+
 - `everest.io/obs-volume-type` — `STANDARD` (standard) or `WARM` (infrequent access), only for `s3fs` fstype
 - `csi.storage.k8s.io/fstype` — `obsfs` (parallel filesystem, high performance) or `s3fs` (object bucket mount)
 - `storage: 1Gi` — only for validation, actual OBS has no capacity limit
 
 Constraints:
+
 - OBS mount does not support hard links (s3fs mode) or read-only mount
 - Each OBS volume creates a resident process per mount — recommend OBS volume count <= Pod memory GiB count
 - OBS limits 100 buckets per user — for many PVCs, use OBS API/SDK directly instead of mounting

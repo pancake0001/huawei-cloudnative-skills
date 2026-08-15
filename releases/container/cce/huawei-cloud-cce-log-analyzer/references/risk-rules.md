@@ -6,7 +6,8 @@ This skill is read-only by default: it may query Kubernetes stdout logs, LogConf
 
 ## Mutating Operations
 
-- Creating LogConfig resources is allowed only through `huawei_create_cce_logconfig`. The tool must preview first and requires `confirm=true` before it changes the cluster.
+- Creating LogConfig resources is allowed only through `huawei_create_cce_logconfig`. The tool must preview first and requires `confirm=true` before it changes
+  the cluster.
 - Deleting LogConfig resources is allowed only through `huawei_delete_cce_logconfig`. The tool must preview the exact target first and requires `confirm=true`.
 
 ## Scope Boundaries
@@ -26,8 +27,8 @@ This skill is read-only by default: it may query Kubernetes stdout logs, LogConf
 
 ## Guardrails
 
-| Guardrail | Rule | Rationale |
-|-----------|------|-----------|
+| Guardrail           | Rule                                                                                   | Rationale                                       |
+| ------------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------- |
 | `max_auto_risk: R1` | Only read operations proceed automatically; mutating operations require `confirm=true` | Prevents unintended LogConfig creation/deletion |
 
 ## Confirmation Flow
@@ -37,6 +38,7 @@ Call without confirm=true → Preview output → User reviews → User confirms 
 ```
 
 **No exceptions**:
+
 - Do not skip preview for "simple" LogConfig operations
 - Do not call with confirm=true without showing preview first
 - Do not assume the preview is correct without user verification

@@ -2,7 +2,8 @@
 id: huawei-cloud-cce-pressure-test
 name: huawei-cloud-cce-pressure-test
 description: >
-  使用 hcloud CLI 获取华为云 CCE 集群信息，并通过 `kubectl cce` 插件命令做 Kubernetes 预检、路由、压测 Job、日志和指标采集，使用 k6 发起受控流量。用户提到 CCE 压测、负载测试、压力测试、性能测试、k6、ELB 流量测试、全链路压测、弹性评估或流量生成时使用本技能。不要使用 Python SDK dispatcher。
+  使用 hcloud CLI 获取华为云 CCE 集群信息，并通过 `kubectl cce` 插件命令做 Kubernetes 预检、路由、压测 Job、日志和指标采集，使用 k6 发起受控流量。用户提到 CCE
+  压测、负载测试、压力测试、性能测试、k6、ELB 流量测试、全链路压测、弹性评估或流量生成时使用本技能。不要使用 Python SDK dispatcher。
 tags: [huawei-cloud, cce, hcloud, koocli, kubectl, k6, elb, pressure-test]
 ---
 
@@ -22,7 +23,8 @@ hcloud CCE 查询集群 -> kubectl cce 预检/路由/客户端证据 -> k6 发�
 - `hcloud CCE ShowCluster`
 - `hcloud CCE ShowClusterEndpoints`
 
-通过 kubectl-cce 插件接入后，Deployment、StatefulSet、DaemonSet、Pod、Service、EndpointSlice、Ingress、HPA、PDB、Event、Job 日志和 metrics-server 指标都用 `kubectl cce` 读取。
+通过 kubectl-cce 插件接入后，Deployment、StatefulSet、DaemonSet、Pod、Service、EndpointSlice、Ingress、HPA、PDB、Event、Job 日志和 metrics-server 指标都用
+`kubectl cce` 读取。
 
 需要南北向云侧上下文时，可以只读使用以下 hcloud 命令：
 
@@ -56,22 +58,22 @@ hcloud CCE 查询集群 -> kubectl cce 预检/路由/客户端证据 -> k6 发�
 
 准备发流前先收集：
 
-| 输入 | 必填 | 说明 |
-| --- | --- | --- |
-| `region` | 是 | 例如 `cn-north-4` |
-| `project_id` | 通常需要 | 多数 hcloud CCE 操作需要项目 ID |
-| `cluster_id` | 推荐 | 没有时用集群名从 `ListClusters` 定位 |
-| `cluster_name` | 可选 | 仅用于定位 `cluster_id` |
-| `namespace` | 通常需要 | 目标工作负载 namespace |
-| `workload_name` | 通常需要 | Deployment、StatefulSet 或 DaemonSet 名称 |
-| `workload_kind` | 可选 | 未指定时默认 Deployment |
-| `target_url` | 发流前必填 | 外部 URL、Ingress URL 或经批准创建的 Service URL |
-| `target_port` | 可选 | 容器或 Service 目标端口 |
-| `host_header` | 可选 | Ingress 使用 Host 规则时需要 |
-| `traffic_model` | 是 | `smoke`、`keepalive`、`short`、`ramp` 或用户自定义 k6 脚本 |
-| `vus`、`duration`、`rps` | 是 | 先小流量冒烟，再按批准范围提升 |
-| `test_window` | 生产或类生产目标必填 | 包含负责人和停止条件 |
-| `output_dir` | 推荐 | 保存压测摘要、日志、证据和报告 |
+| 输入                     | 必填                 | 说明                                                       |
+| ------------------------ | -------------------- | ---------------------------------------------------------- |
+| `region`                 | 是                   | 例如 `cn-north-4`                                          |
+| `project_id`             | 通常需要             | 多数 hcloud CCE 操作需要项目 ID                            |
+| `cluster_id`             | 推荐                 | 没有时用集群名从 `ListClusters` 定位                       |
+| `cluster_name`           | 可选                 | 仅用于定位 `cluster_id`                                    |
+| `namespace`              | 通常需要             | 目标工作负载 namespace                                     |
+| `workload_name`          | 通常需要             | Deployment、StatefulSet 或 DaemonSet 名称                  |
+| `workload_kind`          | 可选                 | 未指定时默认 Deployment                                    |
+| `target_url`             | 发流前必填           | 外部 URL、Ingress URL 或经批准创建的 Service URL           |
+| `target_port`            | 可选                 | 容器或 Service 目标端口                                    |
+| `host_header`            | 可选                 | Ingress 使用 Host 规则时需要                               |
+| `traffic_model`          | 是                   | `smoke`、`keepalive`、`short`、`ramp` 或用户自定义 k6 脚本 |
+| `vus`、`duration`、`rps` | 是                   | 先小流量冒烟，再按批准范围提升                             |
+| `test_window`            | 生产或类生产目标必填 | 包含负责人和停止条件                                       |
+| `output_dir`             | 推荐                 | 保存压测摘要、日志、证据和报告                             |
 
 目标、负责人或流量边界不清楚时，必须先停下来确认，不能直接发流。
 
@@ -82,12 +84,13 @@ hcloud CCE 查询集群 -> kubectl cce 预检/路由/客户端证据 -> k6 发�
 3. 本地已安装 k6，或准备使用经过用户批准的集群内 k6 Job 镜像。公网镜像拉取不稳定时，应先把 k6 镜像同步到同区域 SWR。
 4. AK/SK 已配置到 hcloud。只用下面命令检查脱敏配置：
 
-```bash
-hcloud configure list
-```
+   ```bash
+   hcloud configure list
+   ```
 
 5. IAM 至少允许 CCE 集群读取和使用 kubectl-cce API Gateway 接入。只有需要云侧网络证据时才需要 ELB/VPC/EIP/NAT 只读权限。
-6. Kubernetes RBAC 允许读取工作负载、Service、EndpointSlice、Ingress、HPA、Event、Pod、Pod 日志、Job 日志和指标。写权限只在用户批准路由、客户端 Job 或扩缩容变更时需要。
+6. Kubernetes
+   RBAC 允许读取工作负载、Service、EndpointSlice、Ingress、HPA、Event、Pod、Pod 日志、Job 日志和指标。写权限只在用户批准路由、客户端 Job 或扩缩容变更时需要。
 
 不要在报告、命令输出、manifest 或日志中打印 AK、SK、security token、kubectl-cce 代理凭据、Authorization header、镜像仓库密钥或应用密钥。
 
@@ -102,7 +105,8 @@ kubectl version --client
 k6 version
 ```
 
-本地没有 k6 时，只有在用户批准 Job manifest 和目标地址后，才使用集群内 k6 Job。缺少 hcloud 或 kubectl 时，先安装或定位当前平台原生二进制，并验证实际使用的二进制。
+本地没有 k6 时，只有在用户批准 Job manifest 和目标地址后，才使用集群内 k6
+Job。缺少 hcloud 或 kubectl 时，先安装或定位当前平台原生二进制，并验证实际使用的二进制。
 
 ### 2. 定位并检查集群
 
@@ -112,14 +116,17 @@ hcloud CCE ShowCluster --cluster_id=<cluster-id> --project_id=<project-id> --det
 hcloud CCE ShowClusterEndpoints --cluster_id=<cluster-id> --project_id=<project-id> --cli-region=<region> --cli-output=json
 ```
 
-确认集群属于预期 region/project。
-kubectl-cce 插件默认访问 CCE API Gateway endpoint `<cluster-id>.cce.<region>.myhuaweicloud.com`。如果该 endpoint 不适用于当前环境，设置 `CCE_ENDPOINT` 或传入 `--endpoint`。如果插件/API Gateway 访问失败，在报告中记录错误和访问缺口；不要默认退回 kubeconfig 生成或 SDK 调用。
+确认集群属于预期 region/project。kubectl-cce 插件默认访问 CCE API Gateway endpoint
+`<cluster-id>.cce.<region>.myhuaweicloud.com`。如果该 endpoint 不适用于当前环境，设置 `CCE_ENDPOINT` 或传入 `--endpoint`。如果插件/API
+Gateway 访问失败，在报告中记录错误和访问缺口；不要默认退回 kubeconfig 生成或 SDK 调用。
 
 ### 3. 配置 kubectl-cce 插件
 
-执行 Kubernetes 命令前先阅读 `references/kubectl-cce.md`。本 skill 以 kubectl CCE 插件作为主要 Kubernetes 访问路径；不要生成 kubeconfig、不要改写 kubeconfig server 字段、不要调用 Kubernetes SDK，也不要退回 SDK dispatcher 动作。
+执行 Kubernetes 命令前先阅读 `references/kubectl-cce.md`。本 skill 以 kubectl CCE 插件作为主要 Kubernetes 访问路径；不要生成 kubeconfig、不要改写 kubeconfig
+server 字段、不要调用 Kubernetes SDK，也不要退回 SDK dispatcher 动作。
 
-如果缺少 `kubectl` 或 `kubectl-cce`，使用 `huawei-cloud-kubectl-cce-installer` 安装或修复本地前置工具。本诊断 skill 只负责验证和使用插件，不负责定义插件安装策略。
+如果缺少 `kubectl` 或 `kubectl-cce`，使用 `huawei-cloud-kubectl-cce-installer`
+安装或修复本地前置工具。本诊断 skill 只负责验证和使用插件，不负责定义插件安装策略。
 
 先验证本地工具和插件发现：
 
@@ -134,7 +141,8 @@ kubectl plugin list
 kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get namespaces
 ```
 
-仅当默认 `<cluster-id>.cce.<region>.myhuaweicloud.com` endpoint 不适用于当前环境时，才设置 `CCE_ENDPOINT` 或传入 `--endpoint`。如果插件访问失败，在报告中记录脱敏后的安装、凭据、API Gateway 可达性或 Kubernetes RBAC 缺口；不要切换到 kubeconfig 生成或 SDK 调用。
+仅当默认 `<cluster-id>.cce.<region>.myhuaweicloud.com` endpoint 不适用于当前环境时，才设置 `CCE_ENDPOINT` 或传入
+`--endpoint`。如果插件访问失败，在报告中记录脱敏后的安装、凭据、API Gateway 可达性或 Kubernetes RBAC 缺口；不要切换到 kubeconfig 生成或 SDK 调用。
 
 插件会阻断 `exec`、`attach`、`port-forward` 等流式命令；`logs -f` 和 `watch` 未强化，诊断报告中使用有限 `logs --tail` 和普通 `get` 命令。
 

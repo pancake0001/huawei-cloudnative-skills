@@ -1,10 +1,8 @@
 ---
 name: huawei-cloud-cce-pod-failure-diagnoser
 description: >
-  使用 hcloud 和只读 kubectl-cce 证据诊断华为云 CCE Pod 故障。
-  适用于 CrashLoopBackOff、ImagePullBackOff、ErrImagePull、OOMKilled、Pending、
-  FailedScheduling、FailedMount、FailedAttachVolume、探针失败、sandbox 或 CNI 失败、
-  频繁重启、Error、RunContainerError 或 Evicted 等场景。
+  使用 hcloud 和只读 kubectl-cce 证据诊断华为云 CCE Pod 故障。 适用于 CrashLoopBackOff、ImagePullBackOff、ErrImagePull、OOMKilled、Pending、
+  FailedScheduling、FailedMount、FailedAttachVolume、探针失败、sandbox 或 CNI 失败、 频繁重启、Error、RunContainerError 或 Evicted 等场景。
 version: 1.0.1
 tags: [huawei-cloud, cce, kubectl, pod, diagnosis]
 ---
@@ -15,7 +13,8 @@ tags: [huawei-cloud, cce, kubectl, pod, diagnosis]
 
 本技能通过华为云 `hcloud` CLI 和 Kubernetes `kubectl` 诊断 CCE 集群中的单个 Pod 或一组 Pod 故障。
 
-**执行模型**：`hcloud CCE` 查询集群 -> `kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id>` 只读采集 Pod 证据 -> 原因排序与移交建议。
+**执行模型**：`hcloud CCE` 查询集群 -> `kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id>`
+只读采集 Pod 证据 -> 原因排序与移交建议。
 
 集群级操作使用 CCE hcloud 命令：
 
@@ -23,7 +22,8 @@ tags: [huawei-cloud, cce, kubectl, pod, diagnosis]
 - `hcloud CCE ShowCluster`
 - `hcloud CCE ShowClusterEndpoints`
 
-通过 kubectl-cce 插件接入后，Pods、Events、日志、Service、PVC、Node、metrics-server 指标等 Kubernetes 资源都用 `kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id>` 读取。
+通过 kubectl-cce 插件接入后，Pods、Events、日志、Service、PVC、Node、metrics-server 指标等 Kubernetes 资源都用
+`kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id>` 读取。
 
 禁止使用 Python SDK dispatcher、旧 skill 执行动作、旧 Huawei Pod action 或本 skill 包内 SDK 脚本。
 
@@ -42,21 +42,22 @@ tags: [huawei-cloud, cce, kubectl, pod, diagnosis]
 
 ## 参数确认
 
-| 输入 | 必填 | 说明 |
-| --- | --- | --- |
-| `region` | 是 | 例如 `cn-north-4` |
-| `project_id` | 通常需要 | hcloud 操作需要项目 ID 或存在多项目时应提供 |
-| `cluster_id` | 推荐 | 没有时先用 `ListClusters` 查找 |
-| `namespace` | 是 | Kubernetes namespace |
-| `pod_name` | 推荐 | 目标 Pod 名称 |
-| `workload_name` | 可选 | 不知道 Pod 名时用工作负载推导 selector |
-| `selector` | 可选 | 例如 `app=my-app` |
+| 输入            | 必填     | 说明                                        |
+| --------------- | -------- | ------------------------------------------- |
+| `region`        | 是       | 例如 `cn-north-4`                           |
+| `project_id`    | 通常需要 | hcloud 操作需要项目 ID 或存在多项目时应提供 |
+| `cluster_id`    | 推荐     | 没有时先用 `ListClusters` 查找              |
+| `namespace`     | 是       | Kubernetes namespace                        |
+| `pod_name`      | 推荐     | 目标 Pod 名称                               |
+| `workload_name` | 可选     | 不知道 Pod 名时用工作负载推导 selector      |
+| `selector`      | 可选     | 例如 `app=my-app`                           |
 
 ## 前置条件
 
 1. `hcloud` 已安装并在 `PATH` 中。不同平台使用对应原生二进制，命令示例统一写 `hcloud ...`，不要硬编码 Windows 或 Linux 专属路径。
 2. `kubectl` 已安装，并与目标 Kubernetes 小版本兼容。很多 agent sandbox 运行在 Linux，即使开发机是 Windows，也不要在流程里写死 `kubectl.exe`。
-3. 如果 `hcloud` 或 `kubectl` 不在 `PATH` 中，先定位当前平台可执行的二进制，赋值给 shell 变量，并用 `version` 验证后再用。不要因为某个文件名叫 `kubectl.exe` 或 `hcloud.exe` 就假设它适配当前 OS。
+3. 如果 `hcloud` 或 `kubectl` 不在 `PATH` 中，先定位当前平台可执行的二进制，赋值给 shell 变量，并用 `version` 验证后再用。不要因为某个文件名叫 `kubectl.exe` 或
+   `hcloud.exe` 就假设它适配当前 OS。
 4. AK/SK 已配置到 hcloud。只用 `hcloud configure list` 检查配置，不打印密钥。
 5. IAM 至少允许 list/show CCE 集群并使用 kubectl-cce API Gateway 接入。
 6. kubectl-cce 认证用户具备目标 namespace 中读取 Pod、Events、logs、Service、PVC、Node、metrics 的 RBAC 权限。
@@ -73,7 +74,8 @@ hcloud configure list
 kubectl version --client
 ```
 
-如果缺少 `kubectl`、`kubectl-cce` 或 `hcloud`，停止当前诊断流程，改用 `huawei-cloud-kubectl-cce-installer` 或批准的平台安装流程。本诊断技能不得下载或执行安装脚本。安装流程必须选择当前平台的原生二进制、固定批准版本、校验官方发布的 checksum 或签名，然后重新执行上述版本检查。
+如果缺少 `kubectl`、`kubectl-cce` 或 `hcloud`，停止当前诊断流程，改用 `huawei-cloud-kubectl-cce-installer`
+或批准的平台安装流程。本诊断技能不得下载或执行安装脚本。安装流程必须选择当前平台的原生二进制、固定批准版本、校验官方发布的 checksum 或签名，然后重新执行上述版本检查。
 
 ### 2. 查找 CCE 集群
 
@@ -92,16 +94,16 @@ hcloud CCE ShowClusterEndpoints --cluster_id=<cluster-id> --project_id=<project-
 
 确认集群属于正确 region/project，状态可用，并判断当前网络能否访问 API Server。
 
-kubectl-cce 插件默认访问 CCE API Gateway endpoint
-`<cluster-id>.cce.<region>.myhuaweicloud.com`。如果该 endpoint 不适用于当前环境，
-设置 `CCE_ENDPOINT` 或传入 `--endpoint`。如果插件/API Gateway 访问失败，
-在报告中记录错误和访问缺口；不要默认退回 kubeconfig 生成或 SDK 调用。
+kubectl-cce 插件默认访问 CCE API Gateway endpoint `<cluster-id>.cce.<region>.myhuaweicloud.com`。如果该 endpoint 不适用于当前环境，设置 `CCE_ENDPOINT` 或传入
+`--endpoint`。如果插件/API Gateway 访问失败，在报告中记录错误和访问缺口；不要默认退回 kubeconfig 生成或 SDK 调用。
 
 ### 4. 配置 kubectl-cce 插件
 
-执行 Kubernetes 命令前先阅读 `references/kubectl-cce.md`。本 skill 以 kubectl CCE 插件作为主要 Kubernetes 访问路径；不要生成 kubeconfig、不要改写 kubeconfig server 字段、不要调用 Kubernetes SDK，也不要退回 SDK dispatcher 动作。
+执行 Kubernetes 命令前先阅读 `references/kubectl-cce.md`。本 skill 以 kubectl CCE 插件作为主要 Kubernetes 访问路径；不要生成 kubeconfig、不要改写 kubeconfig
+server 字段、不要调用 Kubernetes SDK，也不要退回 SDK dispatcher 动作。
 
-如果缺少 `kubectl` 或 `kubectl-cce`，使用 `huawei-cloud-kubectl-cce-installer` 安装或修复本地前置工具。本诊断 skill 只负责验证和使用插件，不负责定义插件安装策略。
+如果缺少 `kubectl` 或 `kubectl-cce`，使用 `huawei-cloud-kubectl-cce-installer`
+安装或修复本地前置工具。本诊断 skill 只负责验证和使用插件，不负责定义插件安装策略。
 
 先验证本地工具和插件发现：
 
@@ -116,7 +118,8 @@ kubectl plugin list
 kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get namespaces
 ```
 
-仅当默认 `<cluster-id>.cce.<region>.myhuaweicloud.com` endpoint 不适用于当前环境时，才设置 `CCE_ENDPOINT` 或传入 `--endpoint`。如果插件访问失败，在报告中记录脱敏后的安装、凭据、API Gateway 可达性或 Kubernetes RBAC 缺口；不要切换到 kubeconfig 生成或 SDK 调用。
+仅当默认 `<cluster-id>.cce.<region>.myhuaweicloud.com` endpoint 不适用于当前环境时，才设置 `CCE_ENDPOINT` 或传入
+`--endpoint`。如果插件访问失败，在报告中记录脱敏后的安装、凭据、API Gateway 可达性或 Kubernetes RBAC 缺口；不要切换到 kubeconfig 生成或 SDK 调用。
 
 插件会阻断 `exec`、`attach`、`port-forward` 等流式命令；`logs -f` 和 `watch` 未强化，诊断报告中使用有限 `logs --tail` 和普通 `get` 命令。
 
@@ -203,7 +206,8 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 
 `ImagePullBackOff` 通常没有容器日志，不要反复查日志，优先看 Events。
 
-如果镜像拉取失败时日志命令返回 `container is waiting to start: trying and failing to pull image` 或 `previous terminated container ... not found`，这说明容器从未启动，是支持镜像拉取失败的证据，不是 kubectl 故障。
+如果镜像拉取失败时日志命令返回 `container is waiting to start: trying and failing to pull image` 或
+`previous terminated container ... not found`，这说明容器从未启动，是支持镜像拉取失败的证据，不是 kubectl 故障。
 
 ### 采集指标和节点上下文
 
@@ -216,7 +220,8 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> top node
 ```
 
-metrics-server 不可用且 `kubectl cce ... top` 返回 `Metrics API not available` 时，把指标缺失写进验证缺口，不要编造趋势。本技能内不要切换到 Python SDK、AOM SDK 或手写 API 来补这个缺口。
+metrics-server 不可用且 `kubectl cce ... top` 返回 `Metrics API not available` 时，把指标缺失写进验证缺口，不要编造趋势。本技能内不要切换到 Python SDK、AOM
+SDK 或手写 API 来补这个缺口。
 
 Pending、Evicted 或节点压力相关时：
 
@@ -247,18 +252,18 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 
 常见原因标签：
 
-| 原因 | 证据 |
-| --- | --- |
-| `CrashLoopOrAppExit` | `CrashLoopBackOff`、非零退出码、previous 日志 |
-| `ContainerCommandNotFound` | 启动错误显示命令不存在或无法执行 |
-| `ImagePullFailure` | `ImagePullBackOff`、`ErrImagePull`、镜像认证/标签/DNS 错误 |
-| `OOMKilled` | last state、退出码 137、内存限制或指标 |
-| `SchedulingBlocked` | Pod Pending 且有 `FailedScheduling` |
-| `StorageMountFailure` | `FailedMount`、`FailedAttachVolume`、PVC Pending |
-| `ProbeFailure` | startup/liveness/readiness probe 的 `Unhealthy` Events |
-| `NodePressureOrEviction` | Evicted、节点压力条件、taints、NotReady |
-| `QuotaOrAdmissionRejected` | Events 提到 quota、LimitRange、webhook、denied、forbidden |
-| `SandboxOrCNIBlocked` | `FailedCreatePodSandBox`、CNI、IP 分配或 runtime sandbox 错误 |
+| 原因                       | 证据                                                          |
+| -------------------------- | ------------------------------------------------------------- |
+| `CrashLoopOrAppExit`       | `CrashLoopBackOff`、非零退出码、previous 日志                 |
+| `ContainerCommandNotFound` | 启动错误显示命令不存在或无法执行                              |
+| `ImagePullFailure`         | `ImagePullBackOff`、`ErrImagePull`、镜像认证/标签/DNS 错误    |
+| `OOMKilled`                | last state、退出码 137、内存限制或指标                        |
+| `SchedulingBlocked`        | Pod Pending 且有 `FailedScheduling`                           |
+| `StorageMountFailure`      | `FailedMount`、`FailedAttachVolume`、PVC Pending              |
+| `ProbeFailure`             | startup/liveness/readiness probe 的 `Unhealthy` Events        |
+| `NodePressureOrEviction`   | Evicted、节点压力条件、taints、NotReady                       |
+| `QuotaOrAdmissionRejected` | Events 提到 quota、LimitRange、webhook、denied、forbidden     |
+| `SandboxOrCNIBlocked`      | `FailedCreatePodSandBox`、CNI、IP 分配或 runtime sandbox 错误 |
 
 ## 输出格式
 
@@ -278,11 +283,8 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 - CLI 路径：使用过的 hcloud CCE 和 kubectl-cce 证据命令。
 - 明确说明没有执行变更命令。
 
-识别 Top Cause 后，读取 `references/scenario-guides.md` 并套用对应场景。
-这个规则适用于所有明确故障类型，不只适用于镜像拉取失败。场景指南覆盖
-ImagePullBackOff、CrashLoopBackOff、OOMKilled、Pending、存储挂载、Evicted、
-探针失败、CNI/sandbox、Admission/Quota 等场景，并给出每类的解释、反向证据、
-下一步检查、候选修复和移交建议。
+识别 Top Cause 后，读取 `references/scenario-guides.md`
+并套用对应场景。这个规则适用于所有明确故障类型，不只适用于镜像拉取失败。场景指南覆盖 ImagePullBackOff、CrashLoopBackOff、OOMKilled、Pending、存储挂载、Evicted、探针失败、CNI/sandbox、Admission/Quota 等场景，并给出每类的解释、反向证据、下一步检查、候选修复和移交建议。
 
 详细结构见 `references/output-schema.md`。
 

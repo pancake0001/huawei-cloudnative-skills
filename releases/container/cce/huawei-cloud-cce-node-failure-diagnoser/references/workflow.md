@@ -5,10 +5,13 @@ This workflow is read-only and uses only `hcloud CCE` plus `kubectl`.
 ## Evidence Order
 
 1. Scope: confirm `region`, `project_id`, `cluster_id`, and one of `node_name` or `node_ip`.
-2. CLI setup: read `references/kubectl-cce.md`, verify hcloud, masked credentials, kubectl, cluster metadata, endpoint reachability, kubectl-cce plugin access, and read RBAC.
+2. CLI setup: read `references/kubectl-cce.md`, verify hcloud, masked credentials, kubectl, cluster metadata, endpoint reachability, kubectl-cce plugin access,
+   and read RBAC.
 3. Node inventory: list CCE nodes with hcloud when node ID metadata is useful; list Kubernetes nodes with kubectl for actual health state.
-4. Node snapshot: inspect Ready condition, pressure conditions, NetworkUnavailable, taints, unschedulable state, labels, capacity, allocatable, and allocated resource summary.
-5. Lease: inspect `kube-node-lease/<node-name>` and compare renew time with the current time. A stale lease plus Ready=Unknown is strong control-plane-to-node heartbeat evidence.
+4. Node snapshot: inspect Ready condition, pressure conditions, NetworkUnavailable, taints, unschedulable state, labels, capacity, allocatable, and allocated
+   resource summary.
+5. Lease: inspect `kube-node-lease/<node-name>` and compare renew time with the current time. A stale lease plus Ready=Unknown is strong control-plane-to-node
+   heartbeat evidence.
 6. Events: collect Node-specific Events first, then cluster Events sorted by time. Preserve reason, message, count, source, and timestamp.
 7. Workload impact: list all Pods on the node and classify Running, Pending, Failed, Evicted, Unknown, NotReady, and restart-heavy Pods.
 8. Concentrated symptoms: look for node-local patterns such as `FailedCreatePodSandBox`, `ContainerStatusUnknown`, volume mount failures, CNI errors, image pull
@@ -38,7 +41,8 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 ### Control Plane Disconnected
 
 - Signals: `Ready=Unknown`, reason `NodeStatusUnknown`, kube-node-lease renew time is stale, pressure conditions may also be `Unknown`.
-- Interpretation: the control plane is no longer receiving node heartbeats. Do not label kubelet, network, or runtime as the single root cause unless Events or node-side evidence identify it.
+- Interpretation: the control plane is no longer receiving node heartbeats. Do not label kubelet, network, or runtime as the single root cause unless Events or
+  node-side evidence identify it.
 - Next checks: node reachability from cluster network, kubelet status, container runtime status, CNI daemon state, and recent node maintenance or reboot events.
 
 ### Node NotReady
@@ -51,7 +55,8 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 
 - Signals: `MemoryPressure=True`, `DiskPressure=True`, `PIDPressure=True`, evicted Pods, ephemeral-storage messages, or allocatable/request saturation.
 - Interpretation: kubelet is protecting node stability or the node is near an operating limit.
-- Next checks: node `describe` allocated resources, `kubectl cce ... top`, affected Pod QoS classes, eviction messages, image/container log disk usage, and recent workload changes.
+- Next checks: node `describe` allocated resources, `kubectl cce ... top`, affected Pod QoS classes, eviction messages, image/container log disk usage, and
+  recent workload changes.
 
 ### Network Or CNI Node Issue
 

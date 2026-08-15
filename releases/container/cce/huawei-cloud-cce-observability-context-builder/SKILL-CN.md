@@ -1,9 +1,8 @@
 ---
 name: huawei-cloud-cce-observability-context-builder
 description: >
-  在根因诊断前，使用 hcloud 和 kubectl-cce 为华为云 CCE 故障构建只读可观测上下文包。
-  适用于需要实时 Kubernetes 状态、Events、有界 Pod 日志、AOM 告警、指标、
-  LTS 上下文、拓扑、时间窗口、证据缺口或下一步诊断交接的场景。
+  在根因诊断前，使用 hcloud 和 kubectl-cce 为华为云 CCE 故障构建只读可观测上下文包。 适用于需要实时 Kubernetes 状态、Events、有界 Pod 日志、AOM 告警、指标、 LTS
+  上下文、拓扑、时间窗口、证据缺口或下一步诊断交接的场景。
 version: 1.0.0
 tags: [huawei-cloud, cce, observability, kubectl, context]
 ---
@@ -12,7 +11,8 @@ tags: [huawei-cloud, cce, observability, kubectl, context]
 
 ## 概述
 
-本 skill 负责在根因分析前收集“现网可观测上下文”。它不直接给最终根因结论，而是把告警、事件、指标、日志、资源范围、时间窗口和数据缺口整理成上下文包，供 `huawei-cloud-cce-root-cause-analyzer` 和各专项诊断 skill 使用。
+本 skill 负责在根因分析前收集“现网可观测上下文”。它不直接给最终根因结论，而是把告警、事件、指标、日志、资源范围、时间窗口和数据缺口整理成上下文包，供
+`huawei-cloud-cce-root-cause-analyzer` 和各专项诊断 skill 使用。
 
 执行路径：
 
@@ -24,30 +24,30 @@ tags: [huawei-cloud, cce, observability, kubectl, context]
 
 ## 相关 Skill
 
-| Skill | 作用 |
-| ----- | ---- |
-| `huawei-cloud-cce-root-cause-analyzer` | 上下文包的主要消费方 |
-| `huawei-cloud-cce-alarm-correlation-engine` | 告警占主导时做 AOM 告警聚合 |
-| `huawei-cloud-cce-kubernetes-event-analyzer` | Event 占主导时做事件深挖 |
-| `huawei-cloud-cce-metric-analyzer` | 指标占主导时做 AOM/CES 指标深挖 |
-| `huawei-cloud-cce-log-analyzer` | 日志占主导时做日志模式分析 |
-| `huawei-cloud-cce-pod-failure-diagnoser` | Pod 级后续诊断 |
-| `huawei-cloud-cce-workload-failure-diagnoser` | 工作负载发布和 Ready 后续诊断 |
-| `huawei-cloud-cce-node-failure-diagnoser` | 节点压力和节点 Ready 后续诊断 |
-| `huawei-cloud-cce-network-failure-diagnoser` | Service、DNS、Ingress、ELB/EIP/NAT 后续诊断 |
-| `huawei-cloud-cce-storage-failure-diagnoser` | PVC/PV/CSI 后续诊断 |
+| Skill                                         | 作用                                        |
+| --------------------------------------------- | ------------------------------------------- |
+| `huawei-cloud-cce-root-cause-analyzer`        | 上下文包的主要消费方                        |
+| `huawei-cloud-cce-alarm-correlation-engine`   | 告警占主导时做 AOM 告警聚合                 |
+| `huawei-cloud-cce-kubernetes-event-analyzer`  | Event 占主导时做事件深挖                    |
+| `huawei-cloud-cce-metric-analyzer`            | 指标占主导时做 AOM/CES 指标深挖             |
+| `huawei-cloud-cce-log-analyzer`               | 日志占主导时做日志模式分析                  |
+| `huawei-cloud-cce-pod-failure-diagnoser`      | Pod 级后续诊断                              |
+| `huawei-cloud-cce-workload-failure-diagnoser` | 工作负载发布和 Ready 后续诊断               |
+| `huawei-cloud-cce-node-failure-diagnoser`     | 节点压力和节点 Ready 后续诊断               |
+| `huawei-cloud-cce-network-failure-diagnoser`  | Service、DNS、Ingress、ELB/EIP/NAT 后续诊断 |
+| `huawei-cloud-cce-storage-failure-diagnoser`  | PVC/PV/CSI 后续诊断                         |
 
 ## 参数确认
 
-| 输入 | 必填 | 说明 |
-| ---- | ---- | ---- |
-| `region` | 是 | 例如 `cn-north-4` |
-| `project_id` | 推荐 | AK/SK 和 `kubectl cce` 稳定执行通常需要 |
-| `cluster_id` | 推荐 | 没有时按集群名精确解析 |
-| `namespace` | 可选 | 限定应用命名空间 |
-| `workload`、`pod`、`node`、`service`、`ingress` | 可选 | 目标对象线索 |
-| `fault_time`、`start_time`、`end_time`、`hours` | 推荐 | 不明确时默认最近 1 小时 |
-| `symptoms` | 推荐 | 用户可感知故障、告警文本或受影响业务 |
+| 输入                                            | 必填 | 说明                                    |
+| ----------------------------------------------- | ---- | --------------------------------------- |
+| `region`                                        | 是   | 例如 `cn-north-4`                       |
+| `project_id`                                    | 推荐 | AK/SK 和 `kubectl cce` 稳定执行通常需要 |
+| `cluster_id`                                    | 推荐 | 没有时按集群名精确解析                  |
+| `namespace`                                     | 可选 | 限定应用命名空间                        |
+| `workload`、`pod`、`node`、`service`、`ingress` | 可选 | 目标对象线索                            |
+| `fault_time`、`start_time`、`end_time`、`hours` | 推荐 | 不明确时默认最近 1 小时                 |
+| `symptoms`                                      | 推荐 | 用户可感知故障、告警文本或受影响业务    |
 
 目标不明确时，先采集集群/命名空间级上下文，并把歧义写入数据缺口。
 
@@ -166,9 +166,9 @@ git diff --check
 
 ## 参考文档
 
-| 文档 | 说明 |
-| ---- | ---- |
-| [Workflow](references/workflow.md) | 上下文采集顺序 |
-| [Risk Rules](references/risk-rules.md) | 只读安全规则 |
-| [Output Schema](references/output-schema.md) | 上下文包报告格式 |
+| 文档                                           | 说明               |
+| ---------------------------------------------- | ------------------ |
+| [Workflow](references/workflow.md)             | 上下文采集顺序     |
+| [Risk Rules](references/risk-rules.md)         | 只读安全规则       |
+| [Output Schema](references/output-schema.md)   | 上下文包报告格式   |
 | [kubectl-cce Usage](references/kubectl-cce.md) | 插件接入和命令约束 |

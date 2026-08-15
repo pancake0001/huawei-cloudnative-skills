@@ -139,6 +139,7 @@ If the version command succeeds, kubectl is properly installed.
 ### Default Kubeconfig Location
 
 kubectl looks for kubeconfig in the following order:
+
 1. `--kubeconfig` flag (explicit path)
 2. `KUBECONFIG` environment variable
 3. `~/.kube/config` (default location)
@@ -178,7 +179,8 @@ cp cce-kubeconfig.yaml ~/.kube/config
 kubectl get nodes
 ```
 
-**Caution**: Using `~/.kube/config` as default can lead to accidental operations on the wrong cluster if you switch clusters frequently. Prefer `--kubeconfig` flag or `KUBECONFIG` environment variable.
+**Caution**: Using `~/.kube/config` as default can lead to accidental operations on the wrong cluster if you switch clusters frequently. Prefer `--kubeconfig`
+flag or `KUBECONFIG` environment variable.
 
 ### Prepare ~/.kube Directory
 

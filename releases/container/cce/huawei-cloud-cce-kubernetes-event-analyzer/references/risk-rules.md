@@ -6,17 +6,20 @@
 
 This skill only queries Kubernetes events and lists related resources. No modifications are made to any cluster resource.
 
-**Rationale**: Event analysis should never alter cluster state. Remediation must be handled by dedicated diagnosis/remediation skills with appropriate confirmation mechanisms.
+**Rationale**: Event analysis should never alter cluster state. Remediation must be handled by dedicated diagnosis/remediation skills with appropriate
+confirmation mechanisms.
 
 ### H2: Data Redaction
 
-Do not expose sensitive data such as node names, pod names, or workload names that could identify production systems in public outputs. Use redacted or fictional examples in summaries when possible.
+Do not expose sensitive data such as node names, pod names, or workload names that could identify production systems in public outputs. Use redacted or
+fictional examples in summaries when possible.
 
 **Rationale**: Production system identifiers in event summaries can leak infrastructure details to unauthorized parties.
 
 ### H3: Hand Off Remediation
 
-If event analysis reveals a clear remediation path, provide evidence and hand off to the appropriate diagnosis or remediation skill instead of executing recovery actions here.
+If event analysis reveals a clear remediation path, provide evidence and hand off to the appropriate diagnosis or remediation skill instead of executing
+recovery actions here.
 
 **Rationale**: This skill lacks confirmation mechanisms for write operations. Diagnosis skills have proper guardrails for remediation actions.
 
@@ -30,7 +33,8 @@ Keep event queries time-bounded. Prefer recent windows (1-24 hours) to avoid ove
 
 ### S1: Start with K8s API
 
-Use `huawei_get_cce_events` as the primary query method. Fall back to `huawei_query_k8s_events_from_lts` only when precise time-range filtering or keyword search is needed.
+Use `huawei_get_cce_events` as the primary query method. Fall back to `huawei_query_k8s_events_from_lts` only when precise time-range filtering or keyword
+search is needed.
 
 **Rationale**: K8s API is simpler. LTS provides server-side filtering and requires the log-agent default Event-to-LTS collection to be enabled.
 
@@ -49,7 +53,8 @@ Always group events by `reason` before examining individual events. This reveals
 ## Guardrails
 
 1. **Read-only**: This skill never modifies, deletes, or creates Kubernetes resources
-2. **No auto-remediation**: If the user asks to take action based on event findings, redirect to `huawei-cloud-cce-auto-remediation-runner` with the evidence summarized
+2. **No auto-remediation**: If the user asks to take action based on event findings, redirect to `huawei-cloud-cce-auto-remediation-runner` with the evidence
+   summarized
 3. **Data redaction**: Never expose production pod/node/workload names in summaries
 4. **Handoff required**: Event findings that indicate specific failures must be handed off to diagnosis skills with evidence
 5. **Time-bounded**: Default to recent 1-24 hour windows; never query without time bounds unless user explicitly requests

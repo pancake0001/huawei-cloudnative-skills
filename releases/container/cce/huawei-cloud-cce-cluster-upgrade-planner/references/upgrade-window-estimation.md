@@ -28,42 +28,42 @@ Batch 3+: max_batch_size nodes per batch (default 20, configurable 1-40)
 
 ### Per-Node Upgrade Time
 
-| Factor | Time | Description |
-|--------|------|-------------|
-| Base time | 5-15 min | Drain → upgrade components → uncordon → verify Ready |
-| OS upgrade | +10-30 min | If node OS needs upgrade (e.g., EulerOS patch) |
-| Runtime switch | +15-25 min | Docker → Containerd runtime migration |
-| Large image count | +5-10 min | If node has >1000 images, drain takes longer |
-| Certificate rotation | +3-5 min | If >1000 certificates on node |
+| Factor               | Time       | Description                                          |
+| -------------------- | ---------- | ---------------------------------------------------- |
+| Base time            | 5-15 min   | Drain → upgrade components → uncordon → verify Ready |
+| OS upgrade           | +10-30 min | If node OS needs upgrade (e.g., EulerOS patch)       |
+| Runtime switch       | +15-25 min | Docker → Containerd runtime migration                |
+| Large image count    | +5-10 min  | If node has >1000 images, drain takes longer         |
+| Certificate rotation | +3-5 min   | If >1000 certificates on node                        |
 
 **Typical per-node time**: 8-12 minutes for in-place upgrade without OS/runtime change.
 
 ### Control Plane Upgrade Time
 
-| Cluster Size | Estimated Time | Notes |
-|--------------|---------------|-------|
-| Small (≤3 nodes) | 10-15 min | Few etcd entries, fast API server restart |
-| Medium (3-10 nodes) | 15-20 min | More etcd data, longer component restart |
-| Large (10+ nodes) | 20-30 min | Large etcd dataset, extended upgrade process |
+| Cluster Size        | Estimated Time | Notes                                        |
+| ------------------- | -------------- | -------------------------------------------- |
+| Small (≤3 nodes)    | 10-15 min      | Few etcd entries, fast API server restart    |
+| Medium (3-10 nodes) | 15-20 min      | More etcd data, longer component restart     |
+| Large (10+ nodes)   | 20-30 min      | Large etcd dataset, extended upgrade process |
 
 ### Addon Upgrade Time
 
-| Addon Type | Time per Addon | Notes |
-|------------|----------------|-------|
-| Core addons (CoreDNS, Metrics) | 5-8 min | Quick version bump |
-| CSI drivers (Everest) | 8-12 min | Needs storage reconciliation |
-| Ingress controllers | 10-15 min | ELB configuration updates |
-| DaemonSet plugins | 5-10 min | Rolling update across all nodes |
+| Addon Type                     | Time per Addon | Notes                           |
+| ------------------------------ | -------------- | ------------------------------- |
+| Core addons (CoreDNS, Metrics) | 5-8 min        | Quick version bump              |
+| CSI drivers (Everest)          | 8-12 min       | Needs storage reconciliation    |
+| Ingress controllers            | 10-15 min      | ELB configuration updates       |
+| DaemonSet plugins              | 5-10 min       | Rolling update across all nodes |
 
 ### Verification Time
 
-| Verification Type | Time | Description |
-|-------------------|------|-------------|
-| Cluster status | 5 min | ShowCluster status.phase=Available |
-| Node status | 10 min | All nodes Ready, no NotReady |
-| Addon status | 5 min | All addons running |
+| Verification Type     | Time   | Description                                      |
+| --------------------- | ------ | ------------------------------------------------ |
+| Cluster status        | 5 min  | ShowCluster status.phase=Available               |
+| Node status           | 10 min | All nodes Ready, no NotReady                     |
+| Addon status          | 5 min  | All addons running                               |
 | Business verification | 10 min | Pod health, Service connectivity, DNS resolution |
-| New node scheduling | 5 min | Test Pod creation on upgraded nodes |
+| New node scheduling   | 5 min  | Test Pod creation on upgraded nodes              |
 
 ## Estimation Examples
 
@@ -116,12 +116,12 @@ Total = 10h+ (with 20% buffer per hop = 12h+)
 
 ## Buffer Recommendations
 
-| Scenario | Buffer % | Reason |
-|----------|----------|--------|
-| First-time upgrade | 30% | Unknown environment, higher risk |
-| Repeat upgrade (similar cluster) | 20% | Known baseline, moderate risk |
-| Patch-only upgrade | 10% | Low risk, minimal changes |
-| Emergency upgrade | 50% | High pressure, unexpected issues likely |
+| Scenario                         | Buffer % | Reason                                  |
+| -------------------------------- | -------- | --------------------------------------- |
+| First-time upgrade               | 30%      | Unknown environment, higher risk        |
+| Repeat upgrade (similar cluster) | 20%      | Known baseline, moderate risk           |
+| Patch-only upgrade               | 10%      | Low risk, minimal changes               |
+| Emergency upgrade                | 50%      | High pressure, unexpected issues likely |
 
 ## Window Scheduling Recommendations
 

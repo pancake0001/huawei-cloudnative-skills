@@ -1,12 +1,9 @@
 ---
 name: huawei-cloud-cce-storage-failure-diagnoser
 description: >
-  Diagnose Huawei Cloud CCE storage failures using hcloud for cluster and
-  cloud-storage metadata plus read-only kubectl-cce evidence. Use this skill whenever
-  the user mentions PVC Pending, provisioning or binding failures, EVS topology
-  conflicts, FailedAttach, FailedMount, CSI errors, SFS or SFS Turbo NFS timeouts,
-  OBS 403 or credential errors, runtime I/O, read-only filesystems, capacity or inode
-  exhaustion, subPath issues, or PVC termination.
+  Diagnose Huawei Cloud CCE storage failures using hcloud for cluster and cloud-storage metadata plus read-only kubectl-cce evidence. Use this skill whenever
+  the user mentions PVC Pending, provisioning or binding failures, EVS topology conflicts, FailedAttach, FailedMount, CSI errors, SFS or SFS Turbo NFS timeouts,
+  OBS 403 or credential errors, runtime I/O, read-only filesystems, capacity or inode exhaustion, subPath issues, or PVC termination.
 version: 1.0.0
 tags: [huawei-cloud, cce, kubectl, storage, diagnosis]
 ---
@@ -15,7 +12,8 @@ tags: [huawei-cloud, cce, kubectl, storage, diagnosis]
 
 ## Overview
 
-This skill diagnoses CCE/Kubernetes storage failures across provisioning, binding, scheduling, attach/mount, runtime I/O, capacity, permission, and teardown stages.
+This skill diagnoses CCE/Kubernetes storage failures across provisioning, binding, scheduling, attach/mount, runtime I/O, capacity, permission, and teardown
+stages.
 
 Execution model:
 
@@ -23,9 +21,11 @@ Execution model:
 hcloud CCE/cloud storage discovery -> kubectl cce storage evidence -> optional CSI logs/cloud metrics -> cause ranking -> Markdown report
 ```
 
-Do not use Python SDK dispatchers, legacy skill execution actions, old Huawei storage actions, bundled SDK scripts, kubeconfig generation, or Huawei Cloud SDK imports.
+Do not use Python SDK dispatchers, legacy skill execution actions, old Huawei storage actions, bundled SDK scripts, kubeconfig generation, or Huawei Cloud SDK
+imports.
 
-**Related prerequisite skill**: use `huawei-cloud-kubectl-cce-installer` to install or repair `kubectl`/`kubectl-cce`. Read `references/kubectl-cce.md` before running Kubernetes commands.
+**Related prerequisite skill**: use `huawei-cloud-kubectl-cce-installer` to install or repair `kubectl`/`kubectl-cce`. Read `references/kubectl-cce.md` before
+running Kubernetes commands.
 
 ## Prerequisites
 
@@ -37,27 +37,27 @@ Do not use Python SDK dispatchers, legacy skill execution actions, old Huawei st
 
 ## Related Skills
 
-| Skill | When To Use |
-| --- | --- |
-| `huawei-cloud-cce-pod-failure-diagnoser` | Pod is Pending, ContainerCreating, CrashLooping, or has FailedMount/FailedAttach events |
-| `huawei-cloud-cce-node-failure-diagnoser` | Storage symptoms correlate with node pressure, taints, NotReady, kubelet, or per-node limits |
+| Skill                                        | When To Use                                                                                   |
+| -------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `huawei-cloud-cce-pod-failure-diagnoser`     | Pod is Pending, ContainerCreating, CrashLooping, or has FailedMount/FailedAttach events       |
+| `huawei-cloud-cce-node-failure-diagnoser`    | Storage symptoms correlate with node pressure, taints, NotReady, kubelet, or per-node limits  |
 | `huawei-cloud-cce-network-failure-diagnoser` | SFS/SFS Turbo/NFS or OBS access depends on network, security group, ACL, NAT, or DNS evidence |
-| `huawei-cloud-cce-metric-analyzer` | EVS/SFS/node filesystem capacity, I/O, or latency metrics are needed |
-| `huawei-cloud-cce-root-cause-analyzer` | Storage is one candidate in a multi-domain incident |
-| `huawei-cloud-cce-auto-remediation-runner` | User-confirmed remediation preview/execution |
+| `huawei-cloud-cce-metric-analyzer`           | EVS/SFS/node filesystem capacity, I/O, or latency metrics are needed                          |
+| `huawei-cloud-cce-root-cause-analyzer`       | Storage is one candidate in a multi-domain incident                                           |
+| `huawei-cloud-cce-auto-remediation-runner`   | User-confirmed remediation preview/execution                                                  |
 
 ## Parameters
 
-| Input | Required | Notes |
-| --- | --- | --- |
-| `region` | Yes | Example: `cn-north-4` |
-| `project_id` | Usually | Required by kubectl-cce and hcloud cloud-resource commands |
-| `cluster_id` | Preferred | Resolve by name with hcloud if absent |
-| `namespace` | Recommended | Needed for PVC/Pod scope |
-| `pvc_name` | Optional | Specific PVC |
-| `pod_name` | Optional | Specific Pod with mount or I/O symptom |
+| Input             | Required    | Notes                                                                                                              |
+| ----------------- | ----------- | ------------------------------------------------------------------------------------------------------------------ |
+| `region`          | Yes         | Example: `cn-north-4`                                                                                              |
+| `project_id`      | Usually     | Required by kubectl-cce and hcloud cloud-resource commands                                                         |
+| `cluster_id`      | Preferred   | Resolve by name with hcloud if absent                                                                              |
+| `namespace`       | Recommended | Needed for PVC/Pod scope                                                                                           |
+| `pvc_name`        | Optional    | Specific PVC                                                                                                       |
+| `pod_name`        | Optional    | Specific Pod with mount or I/O symptom                                                                             |
 | `failure_symptom` | Recommended | `pvc_pending`, `failed_mount`, `failed_attach`, `capacity`, `readonly_fs`, `nfs_timeout`, `obs_403`, `terminating` |
-| `volume_id` | Optional | EVS/SFS/SFS Turbo/OBS identifier when known |
+| `volume_id`       | Optional    | EVS/SFS/SFS Turbo/OBS identifier when known                                                                        |
 
 ## Core Commands And Evidence Collection
 
@@ -71,8 +71,7 @@ kubectl version --client
 kubectl plugin list
 ```
 
-If a tool or plugin is missing, stop and use `huawei-cloud-kubectl-cce-installer`.
-Do not download an installer or fall back to SDK or kubeconfig access.
+If a tool or plugin is missing, stop and use `huawei-cloud-kubectl-cce-installer`. Do not download an installer or fall back to SDK or kubeconfig access.
 
 ### 2. Discover Cluster Context
 
@@ -93,8 +92,8 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 
 ### 4. Collect CSI Evidence
 
-When RBAC allows, discover the deployed CSI Pod names and labels before selecting a
-target; CCE versions may use different labels. Keep logs bounded and sanitized:
+When RBAC allows, discover the deployed CSI Pod names and labels before selecting a target; CCE versions may use different labels. Keep logs bounded and
+sanitized:
 
 ```bash
 kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n kube-system --show-labels
@@ -104,21 +103,22 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 
 ### 5. Collect Cloud-Side Evidence
 
-Collect cloud-side read-only evidence only when identifiers are known or safely derived.
-Use hcloud for EVS/SFS/SFS Turbo/OBS/VPC/security-group/ACL context and metric skills
-for time-series evidence. If an operation name or identifier is uncertain, run help or
-record a data gap.
+Collect cloud-side read-only evidence only when identifiers are known or safely derived. Use hcloud for EVS/SFS/SFS Turbo/OBS/VPC/security-group/ACL context and
+metric skills for time-series evidence. If an operation name or identifier is uncertain, run help or record a data gap.
 
 ## Diagnosis Workflow
 
-1. PVC Pending/provisioning: inspect PVC conditions/events, StorageClass provisioner/parameters, access mode, volumeBindingMode, quota/capacity, and CSI provisioner logs.
+1. PVC Pending/provisioning: inspect PVC conditions/events, StorageClass provisioner/parameters, access mode, volumeBindingMode, quota/capacity, and CSI
+   provisioner logs.
 2. Binding/topology: compare PVC, PV node affinity, Pod nodeSelector/affinity, selected node, StorageClass allowed topologies, and available zones.
-3. FailedAttach/VolumeAttachment: inspect VolumeAttachment status, attachError/detachError, target node, EVS volume state, residual attachments, and per-node disk limits.
+3. FailedAttach/VolumeAttachment: inspect VolumeAttachment status, attachError/detachError, target node, EVS volume state, residual attachments, and per-node
+   disk limits.
 4. FailedMount/ContainerCreating: inspect Pod events, kubelet mount messages, Secret/ConfigMap references, filesystem type, NFS endpoint/DNS, and CSI logs.
 5. Runtime I/O/capacity: inspect Pod restart/events/log hints, PVC capacity, node filesystem pressure, inode/capacity evidence, and metrics if available.
 6. SFS/SFS Turbo/NFS: correlate mount timeout with DNS, route, security group, ACL, and network diagnoser evidence.
 7. OBS/IAM/credential: inspect Events and CSI logs for 403, delegation, AK/SK Secret, bucket, endpoint, and policy errors without printing secrets.
-8. Terminating/finalizer: inspect deletionTimestamp, finalizers, bound Pods, VolumeAttachment, and protection state. Recommend remediation only; do not remove finalizers.
+8. Terminating/finalizer: inspect deletionTimestamp, finalizers, bound Pods, VolumeAttachment, and protection state. Recommend remediation only; do not remove
+   finalizers.
 
 ## Output Format
 
@@ -139,8 +139,8 @@ The Markdown report must start with:
 
 ## Notes And Safety Rules
 
-Do not mutate resources. Do not run `exec`, node SSH, packet capture, stress tests,
-`fsck`, finalizer removal, force detach, or storage expansion from this skill.
+Do not mutate resources. Do not run `exec`, node SSH, packet capture, stress tests, `fsck`, finalizer removal, force detach, or storage expansion from this
+skill.
 
 ## Verification
 
@@ -149,7 +149,8 @@ rg -n "huawei-cloud[.]py|skill action=ex[e]c|huawei[-_]storage|huawei[-_]get[-_]
 rg -n -P "^kubectl (?!cce|version|plugin)" .
 ```
 
-Expected result: no executable SDK dispatcher entrypoints or bare Kubernetes access paths remain. Markdown hits should be prohibitions or verification checks only.
+Expected result: no executable SDK dispatcher entrypoints or bare Kubernetes access paths remain. Markdown hits should be prohibitions or verification checks
+only.
 
 ## References
 

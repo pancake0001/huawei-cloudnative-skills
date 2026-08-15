@@ -40,7 +40,8 @@ python3 scripts/huawei-cloud.py huawei_get_cce_node_metrics_topN \
   region=<region> cluster_id=<cluster-id> top_n=3 hours=1
 ```
 
-Expected result: `success=true`, a resolved `aom_instance_id`, and populated `metrics` keys. Empty metric series can be acceptable only when the required AOM collection is not enabled; do not treat empty data as proof of health.
+Expected result: `success=true`, a resolved `aom_instance_id`, and populated `metrics` keys. Empty metric series can be acceptable only when the required AOM
+collection is not enabled; do not treat empty data as proof of health.
 
 ### Component Metrics
 
@@ -71,7 +72,8 @@ python3 scripts/huawei-cloud.py huawei_cce_cluster_monitoring_aggregation \
   start_time="YYYY-MM-DD HH:MM:SS" end_time="YYYY-MM-DD HH:MM:SS" top_n=5
 ```
 
-Expected result: `success=true`, `summary`, `pod_metrics`, `node_metrics`, `component_metrics`, and cloud resource sections. If LoadBalancer Service discovery fails, report the kubectl/kubectl-cce error.
+Expected result: `success=true`, `summary`, `pod_metrics`, `node_metrics`, `component_metrics`, and cloud resource sections. If LoadBalancer Service discovery
+fails, report the kubectl/kubectl-cce error.
 
 ## Regression Rules
 

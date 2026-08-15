@@ -2,14 +2,14 @@
 
 ## Operations Catalog
 
-| Operation ID | Operation Name            | kubectl Command                          | Key Parameters                    |
-| ------------ | ------------------------- | ---------------------------------------- | --------------------------------- |
-| OP-DEP-1     | Create Deployment         | `kubectl apply -f` / `kubectl create`   | `-f`, `--image`, `--replicas`     |
-| OP-DEP-2     | Query Deployment Status   | `kubectl get` / `kubectl describe`       | `-o wide`, `-o yaml`              |
-| OP-DEP-3     | Scale Deployment          | `kubectl scale`                          | `--replicas`                      |
-| OP-DEP-4     | Update/Rollout Deployment | `kubectl set image` / `rollout`          | `--image`, `--revision`           |
-| OP-DEP-5     | Rollback Deployment       | `kubectl rollout undo`                  | `--to-revision`                   |
-| OP-DEP-6     | Delete Deployment         | `kubectl delete`                         | `--grace-period`, `--force`       |
+| Operation ID | Operation Name            | kubectl Command                       | Key Parameters                |
+| ------------ | ------------------------- | ------------------------------------- | ----------------------------- |
+| OP-DEP-1     | Create Deployment         | `kubectl apply -f` / `kubectl create` | `-f`, `--image`, `--replicas` |
+| OP-DEP-2     | Query Deployment Status   | `kubectl get` / `kubectl describe`    | `-o wide`, `-o yaml`          |
+| OP-DEP-3     | Scale Deployment          | `kubectl scale`                       | `--replicas`                  |
+| OP-DEP-4     | Update/Rollout Deployment | `kubectl set image` / `rollout`       | `--image`, `--revision`       |
+| OP-DEP-5     | Rollback Deployment       | `kubectl rollout undo`                | `--to-revision`               |
+| OP-DEP-6     | Delete Deployment         | `kubectl delete`                      | `--grace-period`, `--force`   |
 
 All commands use `kubectl --kubeconfig=<kubeconfig-file> -n <namespace>` pattern.
 
@@ -42,17 +42,17 @@ spec:
         app: my-app
     spec:
       containers:
-      - name: my-app
-        image: myapp:v1
-        ports:
-        - containerPort: 8080
-        resources:
-          requests:
-            cpu: 100m
-            memory: 128Mi
-          limits:
-            cpu: 500m
-            memory: 512Mi
+        - name: my-app
+          image: myapp:v1
+          ports:
+            - containerPort: 8080
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
 ```
 
 ### Inline Creation (Quick Testing)
@@ -95,12 +95,12 @@ kubectl --kubeconfig=~/.kube/cce-kubeconfig.yaml get deployment my-app -o json -
 
 ### Key Status Fields
 
-| Field             | Description                              | Healthy Value              |
-| ----------------- | ---------------------------------------- | -------------------------- |
-| `READY`           | Ready replicas / desired replicas        | 3/3                        |
-| `UP-TO-DATE`      | Updated replicas count                   | Equals desired             |
-| `AVAILABLE`       | Available replicas count                 | Equals desired             |
-| `Conditions`      | Deployment progress conditions           | `Progressing=True`, `Available=True` |
+| Field        | Description                       | Healthy Value                        |
+| ------------ | --------------------------------- | ------------------------------------ |
+| `READY`      | Ready replicas / desired replicas | 3/3                                  |
+| `UP-TO-DATE` | Updated replicas count            | Equals desired                       |
+| `AVAILABLE`  | Available replicas count          | Equals desired                       |
+| `Conditions` | Deployment progress conditions    | `Progressing=True`, `Available=True` |
 
 ## W3: Scale Deployment
 

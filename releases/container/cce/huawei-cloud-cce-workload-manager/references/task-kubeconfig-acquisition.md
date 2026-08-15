@@ -2,12 +2,13 @@
 
 ## Operations Catalog
 
-| Operation ID | Operation Name                   | hcloud Command                                   | Key Parameters                     |
-| ------------ | -------------------------------- | ------------------------------------------------ | ---------------------------------- |
-| OP-KC-1      | Obtain CCE Cluster Kubeconfig    | `hcloud CCE CreateKubernetesClusterCert`         | `--cluster_id`, `--duration`       |
-| OP-KC-2      | Obtain UCS Federation Kubeconfig | `hcloud UCS DownloadFederationKubeconfig`        | `--clustergroupid`, `--duration`   |
+| Operation ID | Operation Name                   | hcloud Command                            | Key Parameters                   |
+| ------------ | -------------------------------- | ----------------------------------------- | -------------------------------- |
+| OP-KC-1      | Obtain CCE Cluster Kubeconfig    | `hcloud CCE CreateKubernetesClusterCert`  | `--cluster_id`, `--duration`     |
+| OP-KC-2      | Obtain UCS Federation Kubeconfig | `hcloud UCS DownloadFederationKubeconfig` | `--clustergroupid`, `--duration` |
 
-> **Note**: This skill focuses on CCE direct cluster access and UCS fleet (federation) operations. UCS single-cluster kubeconfig (CreateClusterKubeconfig) is out of scope — it only applies to clusters registered in UCS but not yet joined a fleet, which is a transitional state.
+> **Note**: This skill focuses on CCE direct cluster access and UCS fleet (federation) operations. UCS single-cluster kubeconfig (CreateClusterKubeconfig) is
+> out of scope — it only applies to clusters registered in UCS but not yet joined a fleet, which is a transitional state.
 
 ## W1: Obtain CCE Cluster Kubeconfig
 
@@ -62,6 +63,7 @@ If `cluster-info` returns cluster details, the kubeconfig is valid and the conne
 ## W2: Obtain UCS Federation Kubeconfig
 
 UCS federation kubeconfig provides multi-cluster fleet access. It contains two contexts:
+
 - `federation`: Operates on fleet-level resources (propagated workloads, policies)
 - `karmada-aggregated-apiserver`: Proxy access to individual member clusters via URL path `/clusters/<cluster-name>/proxy`
 
@@ -108,7 +110,9 @@ kubectl --kubeconfig=~/.kube/ucs-federation-kubeconfig.yaml get deployments
 kubectl --kubeconfig=~/.kube/ucs-federation-kubeconfig.yaml --context=karmada-aggregated-apiserver get nodes
 ```
 
-**Network Prerequisite**: UCS federation API server uses `<fleet-name>.fleet.ucs.<region>.myhuaweicloud.com` domain, which resolves via VPC Endpoint (VPCEP). If DNS resolution fails (`no such host` error), ensure your network environment can reach the UCS VPCEP — this typically requires:
+**Network Prerequisite**: UCS federation API server uses `<fleet-name>.fleet.ucs.<region>.myhuaweicloud.com` domain, which resolves via VPC Endpoint (VPCEP). If
+DNS resolution fails (`no such host` error), ensure your network environment can reach the UCS VPCEP — this typically requires:
+
 - Running from within a Huawei Cloud VPC (ECS/Cloud Desktop)
 - VPN access to Huawei Cloud VPC
 - VPC peering with the UCS fleet's VPC
@@ -175,21 +179,21 @@ kubectl --kubeconfig=~/.kube/ucs-kubeconfig.yaml get pods -n production
 
 ### CCE vs UCS Kubeconfig Choice
 
-| Scenario                        | Use Which Kubeconfig             | Reason                                      |
-| ------------------------------- | -------------------------------- | ------------------------------------------- |
-| CCE cluster workload management | CCE CreateKubernetesClusterCert  | Direct CCE cluster access                   |
-| UCS multi-cluster fleet ops     | UCS DownloadFederationKubeconfig | Single kubeconfig for all fleet clusters    |
-| UCS proxy to specific member    | UCS Federation + karmada context | Proxy access via `/clusters/<name>/proxy`   |
-| CI/CD pipeline deployment        | CCE CreateKubernetesClusterCert  | Short-lived cert for automated deployments  |
+| Scenario                        | Use Which Kubeconfig             | Reason                                     |
+| ------------------------------- | -------------------------------- | ------------------------------------------ |
+| CCE cluster workload management | CCE CreateKubernetesClusterCert  | Direct CCE cluster access                  |
+| UCS multi-cluster fleet ops     | UCS DownloadFederationKubeconfig | Single kubeconfig for all fleet clusters   |
+| UCS proxy to specific member    | UCS Federation + karmada context | Proxy access via `/clusters/<name>/proxy`  |
+| CI/CD pipeline deployment       | CCE CreateKubernetesClusterCert  | Short-lived cert for automated deployments |
 
 ### Duration Selection
 
-| Use Case          | CCE Duration (days) | UCS Federation Duration (days) |
-| ----------------- | -------------------- | --------------------------------- |
-| Quick inspection  | 1                    | 1                                 |
-| Daily operations  | 7                    | 7                                 |
-| CI/CD pipeline    | 1                    | 1                                 |
-| Long-term access  | 30 (max recommended) | 30 (max recommended)              |
+| Use Case         | CCE Duration (days)  | UCS Federation Duration (days) |
+| ---------------- | -------------------- | ------------------------------ |
+| Quick inspection | 1                    | 1                              |
+| Daily operations | 7                    | 7                              |
+| CI/CD pipeline   | 1                    | 1                              |
+| Long-term access | 30 (max recommended) | 30 (max recommended)           |
 
 ### CI/CD Integration
 
