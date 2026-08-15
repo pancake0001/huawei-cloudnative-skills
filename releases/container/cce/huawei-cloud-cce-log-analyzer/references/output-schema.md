@@ -18,15 +18,15 @@ When querying logs (Pod stdout, application logs, or audit logs), prefer this ou
 | `total`         | Number of returned log entries                                  |
 | `has_more`      | Whether an LTS scroll id indicates more data                    |
 
-## LogConfig Discovery Summary
+## Application Log Collection Rule
 
-| Field             | Description                                              |
-| ----------------- | -------------------------------------------------------- |
-| `matched_streams` | List of matched LogConfig policies with group/stream IDs |
-| `policy_name`     | LogConfig policy name                                    |
-| `source_type`     | `container_stdout` or `container_file`                   |
-| `log_group_id`    | LTS group ID for the policy                              |
-| `log_stream_id`   | LTS stream ID for the policy                             |
+| Field | Description |
+|------|-------------|
+| `collection_mode` | `cce_logconfig` or `lts_access_config` |
+| `rule_name` / `rule_id` | Collection-rule identity; LTS Access Config has an ID |
+| `source_type` | `container_stdout` or `container_file` |
+| `log_group_id` / `log_group_name` | LTS destination log group |
+| `log_stream_id` / `log_stream_name` | LTS destination log stream |
 
 ## LogConfig Preview Summary
 
@@ -66,17 +66,26 @@ When analyzing logs, prefer this structure:
 | `evidence`           | Short redacted examples, not full raw logs          |
 | `next_steps`         | Suggested follow-up query or diagnosis skill        |
 
+## Control-Plane Log Summary
+
+| Component | Important fields | Interpretation |
+|---|---|---|
+| kube-apiserver | `non_200_count`, `successful_non_200_count`, `non_success_status_count`, `watch_latency`, `non_watch_latency`, `slow_watch_count` | `non_200_count` is literal. Use `non_success_status_count` and `non_watch_latency` for health conclusions. WATCH duration is connection lifetime. |
+| kube-scheduler | `successful_assignment_count`, `leader_renewal_count`, `scheduling_failure`, `binding_failure`, `preemption_issue`, `leader_election_issue`, `generic_abnormal_count` | Repeated scheduler messages can be retries for one Pod. Group samples by Pod and constraint before reporting impact. |
+
+Control-plane query outputs include `component`, `log_group_name`, `log_stream_name`, `analysis_window`, and `query_summary`. When a control-plane switch is disabled, the output contains `requires_control_plane_log` and no log query is attempted.
+
 ## Abnormality Analysis Output
 
-| Field                      | Description                                    |
-| -------------------------- | ---------------------------------------------- |
-| `abnormal_ratio`           | Percentage of abnormal logs vs total           |
-| `log_rate_total`           | Total log entries per time unit                |
-| `log_rate_abnormal`        | Abnormal log entries per time unit             |
-| `first_abnormal_time`      | First abnormal log timestamp                   |
-| `last_abnormal_time`       | Last abnormal log timestamp                    |
-| `recovery_time`            | Observed recovery timestamp (if detected)      |
-| `incident_windows`         | Time windows where abnormality is concentrated |
-| `top_patterns`             | Top recurring abnormal patterns with counts    |
-| `status_code_distribution` | HTTP status code counts (especially 5xx)       |
-| `samples`                  | Redacted sample abnormal log entries           |
+| Field | Description |
+|------|-------------|
+| `abnormal_ratio` | Percentage of abnormal logs vs total |
+| `log_rate_total` | Total log entries per time unit |
+| `log_rate_abnormal` | Abnormal log entries per time unit |
+| `first_abnormal_time` | First abnormal log timestamp |
+| `last_abnormal_time` | Last abnormal log timestamp |
+| `recovery_time` | Observed recovery timestamp (if detected) |
+| `incident_windows` | Time windows where abnormality is concentrated |
+| `top_patterns` | Top recurring abnormal patterns with counts |
+| `status_code_distribution` | HTTP status code counts (especially 5xx) |
+| `samples` | Redacted sample abnormal log entries |
