@@ -40,6 +40,10 @@ ACTION_SPECS: Dict[str, tuple[tuple[str, ...], Handler]] = {
     "huawei_delete_cce_logconfig": (("region", "cluster_id", "logconfig_name"), cce_app_logs.delete_cce_logconfig_action),
     "huawei_query_cce_audit_logs": (("region", "cluster_id"), cce_app_logs.query_cce_audit_logs_action),
     "huawei_analyze_cce_audit_timeline": (("region", "cluster_id"), cce_app_logs.analyze_cce_audit_timeline_action),
+    "huawei_query_kube_apiserver_logs": (("region", "cluster_id"), cce_app_logs.query_kube_apiserver_logs_action),
+    "huawei_analyze_kube_apiserver_logs": (("region", "cluster_id"), cce_app_logs.analyze_kube_apiserver_logs_action),
+    "huawei_query_kube_scheduler_logs": (("region", "cluster_id"), cce_app_logs.query_kube_scheduler_logs_action),
+    "huawei_analyze_kube_scheduler_logs": (("region", "cluster_id"), cce_app_logs.analyze_kube_scheduler_logs_action),
     "huawei_query_application_logs": (("region", "cluster_id"), cce_app_logs.query_application_logs_action),
     "huawei_analyze_application_logs": (("region", "cluster_id"), cce_app_logs.analyze_application_logs_action),
 }

@@ -97,7 +97,11 @@ def _access_config_type(params: Dict[str, str]) -> str:
     value = params.get("access_config_type")
     if not value:
         path_type = _access_config_path_type(params)
-        value = _K8S_CCE_ACCESS_CONFIG_TYPE if params.get("cluster_id") and path_type == "CONTAINER_STDOUT" else _AGENT_ACCESS_CONFIG_TYPE
+        value = (
+            _K8S_CCE_ACCESS_CONFIG_TYPE
+            if params.get("cluster_id") and path_type in {"CONTAINER_STDOUT", "CONTAINER_FILE"}
+            else _AGENT_ACCESS_CONFIG_TYPE
+        )
     value = value.strip().upper()
     if value not in {_AGENT_ACCESS_CONFIG_TYPE, _K8S_CCE_ACCESS_CONFIG_TYPE}:
         raise ValueError("access_config_type must be AGENT or K8S_CCE")
@@ -152,7 +156,7 @@ def _resolve_container_name_regex(params: Dict[str, str]) -> str:
 
 
 def _k8s_cce_access_config_body(params: Dict[str, str]) -> Dict[str, Any]:
-    """Build an LTS API request body for CCE container stdout collection."""
+    """Build an LTS API request body for CCE container stdout or file collection."""
     name = params.get("access_config_name") or params.get("name")
     log_group_id = params.get("log_group_id")
     log_stream_id = params.get("log_stream_id")
@@ -164,10 +168,13 @@ def _k8s_cce_access_config_body(params: Dict[str, str]) -> Dict[str, Any]:
         raise ValueError("log_group_id and log_stream_id are required")
     if not cluster_id:
         raise ValueError("cluster_id is required for K8S_CCE access configs")
-    if path_type != "CONTAINER_STDOUT":
-        raise ValueError("K8S_CCE access configs support only CONTAINER_STDOUT")
-    if params.get("paths") or params.get("path") or params.get("log_path"):
+    if path_type not in {"CONTAINER_STDOUT", "CONTAINER_FILE"}:
+        raise ValueError("K8S_CCE access configs support CONTAINER_STDOUT or CONTAINER_FILE")
+    paths = _string_list(params.get("paths") or params.get("path") or params.get("log_path"))
+    if path_type == "CONTAINER_STDOUT" and paths:
         raise ValueError("paths is not supported for K8S_CCE CONTAINER_STDOUT access configs")
+    if path_type == "CONTAINER_FILE" and not paths:
+        raise ValueError("paths, path, or log_path is required for K8S_CCE CONTAINER_FILE access configs")
     namespace_regex = params.get("namespace_regex")
     pod_name_regex = params.get("pod_name_regex")
     if not namespace_regex or not pod_name_regex:
@@ -178,9 +185,10 @@ def _k8s_cce_access_config_body(params: Dict[str, str]) -> Dict[str, Any]:
         "access_config_name": name,
         "access_config_type": _K8S_CCE_ACCESS_CONFIG_TYPE,
         "access_config_detail": {
-            "pathType": "CONTAINER_STDOUT",
-            "stdout": _to_bool(params.get("stdout"), True),
-            "stderr": _to_bool(params.get("stderr"), True),
+            "pathType": path_type,
+            "paths": paths,
+            "stdout": _to_bool(params.get("stdout"), path_type == "CONTAINER_STDOUT"),
+            "stderr": _to_bool(params.get("stderr"), path_type == "CONTAINER_STDOUT"),
             "format": _access_config_format(params),
             "namespaceRegex": namespace_regex,
             "podNameRegex": pod_name_regex,
@@ -219,7 +227,8 @@ def _create_k8s_cce_access_config(params: Dict[str, str], body: Dict[str, Any]) 
     detail_data = body["access_config_detail"]
     single = detail_data["format"]["single"]
     detail = AccessConfigDeatilCreate(
-        path_type=detail_data["pathType"],
+            paths=detail_data["paths"],
+            path_type=detail_data["pathType"],
         stdout=detail_data["stdout"],
         stderr=detail_data["stderr"],
         format=AccessConfigFormatCreate(single=AccessConfigFormatSingleCreate(mode=single["mode"], value=single["value"])),
@@ -303,6 +312,13 @@ def _create_access_config_command(params: Dict[str, str]) -> List[str]:
                 value = _resolve_container_name_regex(params)
             if value:
                 command.append(f"--access_config_detail.{cli_name}={value}")
+    host_group_id = params.get("host_group_id")
+    if path_type == "HOST_FILE" and not host_group_id:
+        if not cluster_id:
+            raise ValueError("cluster_id or host_group_id is required for AGENT HOST_FILE access configs")
+        host_group_id = _resolve_k8s_host_group_id(params, cluster_id)
+    if host_group_id:
+        command.append(f"--host_group_info.host_group_id_list.1={host_group_id}")
     return command
 
 
@@ -378,8 +394,19 @@ def require_explicit_cluster_log_destination(params: Dict[str, str]) -> Optional
             "error": f"unable to discover the cluster LTS log group: {groups_result.get('error')}",
             "requires_log_destination": True,
         }
+    all_log_groups = groups_result.get("log_groups", [])
+    all_streams_result = list_log_streams(
+        params["region"], ak=params.get("ak"), sk=params.get("sk"), project_id=params.get("project_id")
+    )
+    if not all_streams_result.get("success"):
+        return {
+            "success": False,
+            "error": f"unable to discover existing LTS log streams: {all_streams_result.get('error')}",
+            "requires_log_destination": True,
+        }
+    all_log_streams = all_streams_result.get("log_streams", [])
     log_groups = [
-        group for group in groups_result.get("log_groups", [])
+        group for group in all_log_groups
         if group.get("log_group_name") == expected_group_name
     ]
     if not log_groups:
@@ -388,12 +415,12 @@ def require_explicit_cluster_log_destination(params: Dict[str, str]) -> Optional
             "requires_log_destination": True,
             "cluster_id": cluster_id,
             "expected_log_group_name": expected_group_name,
-            "available_log_groups": [],
-            "available_log_streams": [],
+            "available_log_groups": all_log_groups,
+            "available_log_streams": all_log_streams,
             "message": (
-                "No LTS log group dedicated to this cluster was found. Create the log group and a log stream "
-                "with hcloud, then provide both log_group_id and log_stream_id to continue. "
-                "The tool will not create or select a destination automatically."
+                "No LTS log group dedicated to this cluster was found. Existing log groups and streams are "
+                "listed as user-selectable alternatives. Prefer creating the dedicated log group and stream, "
+                "then provide both IDs to continue. The tool will not create or select a destination automatically."
             ),
             "hcloud_next_steps": [
                 f"hcloud LTS CreateLogGroup --cli-region={params['region']} --log_group_name={expected_group_name} --ttl_in_days=<1-365>",
@@ -416,16 +443,17 @@ def require_explicit_cluster_log_destination(params: Dict[str, str]) -> Optional
         "Select one listed log stream and provide its log_group_id and log_stream_id to continue. "
         "The tool will not select a destination automatically."
         if log_streams else
-        "The cluster log group has no log streams. Create a log stream with hcloud, then provide both "
-        "log_group_id and log_stream_id to continue. The tool will not create a destination automatically."
+        "The cluster log group has no log streams. Existing log groups and streams are listed as "
+        "user-selectable alternatives. Prefer creating a stream in the cluster log group, then provide both "
+        "log_group_id and log_stream_id to continue. The tool will not create or select a destination automatically."
     )
     return {
         "success": False,
         "requires_log_destination": True,
         "cluster_id": cluster_id,
         "expected_log_group_name": expected_group_name,
-        "available_log_groups": log_groups,
-        "available_log_streams": log_streams,
+        "available_log_groups": all_log_groups if not log_streams else log_groups,
+        "available_log_streams": all_log_streams if not log_streams else log_streams,
         "message": message,
         "hcloud_next_steps": [] if log_streams else [
             f"hcloud LTS CreateLogStream --cli-region={params['region']} --log_group_id={log_group['log_group_id']} --log_stream_name=<stream-name>"

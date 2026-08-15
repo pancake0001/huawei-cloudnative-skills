@@ -137,7 +137,7 @@ python3 scripts/huawei-cloud.py huawei_get_cce_logconfigs \
 
 ### Create a LogConfig (Preview → Confirm)
 
-Before previewing a creation, call the tool without `log_group_id` or `log_stream_id`. It lists only the target cluster's `k8s-log-<cluster-id>` group and its streams. The user must select a stream and explicitly provide both IDs in the next call. The tool never creates or selects LTS destinations. If the group or stream is missing, create it directly with `hcloud LTS CreateLogGroup` and `hcloud LTS CreateLogStream`, then provide the returned IDs.
+Before previewing a creation, call the tool without `log_group_id` or `log_stream_id`. When the target cluster's `k8s-log-<cluster-id>` group and streams exist, it lists that dedicated destination. If the group or a stream is missing, it also returns existing LTS log groups and streams as alternatives. Prefer creating the missing dedicated destination, but an existing non-dedicated destination is valid when the user explicitly selects it. The user must provide both IDs in the next call. The tool never creates or selects LTS destinations.
 
 1. Call without `confirm=true` to preview the generated `request_body`
 2. Inspect the preview output with the user
@@ -213,6 +213,33 @@ python3 scripts/huawei-cloud.py huawei_delete_cce_logconfig \
   confirm=true
 ```
 
+## Kube-apiserver Logs
+
+Use `huawei_query_kube_apiserver_logs` to query the standard control-plane stream `kube-apiserver-<cluster-id>`. The tool first calls `CCE ShowClusterConfig` and returns an error when the kube-apiserver log switch is not enabled; it never enables control-plane logging automatically.
+
+Use `huawei_analyze_kube_apiserver_logs` to analyze the same stream. It reports status-code counts, slow requests above `slow_latency_ms` (default `1000`), latency average/P95/maximum, and error or timeout patterns. `non_200_count` is a literal HTTP count; use `successful_non_200_count` for successful 2xx responses other than 200 and `non_success_status_count` for actual non-2xx responses. The analyzer does not classify HTTP `timeout=<duration>` query parameters or `timeout="<duration>"` request metadata as timeout errors. The `summary.watch_latency` and `summary.non_watch_latency` fields provide independent sample counts, average, P95, and maximum latency, so long-running `WATCH` requests do not obscure normal API request latency. `slow_watch_count` remains available for direct counting.
+
+```bash
+python3 scripts/huawei-cloud.py huawei_analyze_kube_apiserver_logs \
+  region=cn-north-4 \
+  cluster_id=<cluster-id> \
+  hours=1 \
+  slow_latency_ms=1000
+```
+
+## Kube-scheduler Logs
+
+Use `huawei_query_kube_scheduler_logs` to query the standard control-plane stream `kube-scheduler-<cluster-id>`. The tool first calls `CCE ShowClusterConfig` and returns an error when the kube-scheduler log switch is not enabled; it never enables control-plane logging automatically.
+
+Use `huawei_analyze_kube_scheduler_logs` to analyze the same stream. It counts successful assignments and leader-renewal messages, then identifies scheduling failures, binding failures, preemption issues, leader-election failures, and remaining generic errors. A scheduling-specific line is classified once under its specific category and is not double-counted as a generic `failed` error.
+
+```bash
+python3 scripts/huawei-cloud.py huawei_analyze_kube_scheduler_logs \
+  region=cn-north-4 \
+  cluster_id=<cluster-id> \
+  hours=1
+```
+
 ## LTS Access Config Management
 
 Use these tools for LTS iCagent collection rules managed directly through the LTS API and hcloud. They are independent of CCE LogConfig resources. For CCE application or node collection, install iCagent in the target CCE cluster and verify it is healthy before creating an Access Config; rule creation does not install iCagent. Prefer this mode for high-throughput collection. See the [LTS iCagent documentation](https://support.huaweicloud.com/usermanual-lts/lts_07_1118.html).
@@ -226,7 +253,7 @@ python3 scripts/huawei-cloud.py huawei_list_lts_access_configs \
 
 ### Create an Access Config (Preview -> Confirm)
 
-Before previewing a creation, discover the destination with `region`, `access_config_name`, and `cluster_id`, without `log_group_id` or `log_stream_id`. The tool lists only the cluster-specific log group named `k8s-log-<cluster-id>` and its streams. The user must select a destination and explicitly provide both IDs in the next call. It never creates a log group or log stream and never chooses one on the user's behalf. If the group or stream does not exist, create it directly with hcloud, then provide the returned IDs:
+Before previewing a creation, discover the destination with `region`, `access_config_name`, and `cluster_id`, without `log_group_id` or `log_stream_id`. When the cluster-specific group `k8s-log-<cluster-id>` and its streams exist, the tool lists that dedicated destination. If the group or a stream is missing, it also returns existing LTS log groups and streams as user-selectable alternatives. Prefer creating the missing dedicated destination, but an existing non-dedicated destination is valid when the user explicitly selects it. The user must provide both IDs in the next call. It never creates a log group or log stream and never chooses one on the user's behalf.
 
 ```bash
 hcloud LTS CreateLogGroup --cli-region=<region> \
@@ -256,9 +283,9 @@ python3 scripts/huawei-cloud.py huawei_create_lts_access_config \
   confirm=true
 ```
 
-`K8S_CCE` creation uses the official LTS SDK because hcloud rejects that enum locally. It requires `cluster_id`, `namespace_regex`, and `pod_name_regex`, supports only `CONTAINER_STDOUT`, omits `paths`, and collects both stdout and stderr unless either switch is explicitly set to false. It defaults `container_name_regex` to `^.*$` to match all containers; provide an explicit regex when the scope must be narrowed. It automatically discovers and attaches the exact LTS host group named `k8s-log-<cluster-id>`; provide `host_group_id` only when that standard group cannot be discovered. It uses LTS single-line `format_mode=system` with the current timestamp and requires explicit AK/SK and project ID (or their supported environment variables). Provide `format_mode=wildcard` and `format_value=<time-pattern>` only when logs contain a timestamp that must be parsed.
+`K8S_CCE` creation uses the official LTS SDK because hcloud rejects that enum locally. It requires `cluster_id`, `namespace_regex`, and `pod_name_regex`, and supports `CONTAINER_STDOUT` and `CONTAINER_FILE`. Standard-output collection omits `paths` and collects both stdout and stderr unless either switch is explicitly set to false. File collection requires `paths`, `path`, or `log_path`; stdout and stderr are disabled by default. It defaults `container_name_regex` to `^.*$` to match all containers; provide an explicit regex when the scope must be narrowed. It automatically discovers and attaches the exact LTS host group named `k8s-log-<cluster-id>`; provide `host_group_id` only when that standard group cannot be discovered. It uses LTS single-line `format_mode=system` with the current timestamp and requires explicit AK/SK and project ID (or their supported environment variables). Provide `format_mode=wildcard` and `format_value=<time-pattern>` only when logs contain a timestamp that must be parsed.
 
-Use `access_config_type=AGENT` for hcloud and iCagent collection. `AGENT` stdout defaults `paths` to `/var/log/containers`; file collection requires `path_type=CONTAINER_FILE` or `path_type=HOST_FILE` and explicit paths such as `/var/log/messages`. Node-file collection applies to every applicable cluster node; no node selector is available in this API.
+Use `access_config_type=AGENT` for hcloud and iCagent collection. `AGENT` stdout defaults `paths` to `/var/log/containers`; file collection requires `path_type=CONTAINER_FILE` or `path_type=HOST_FILE` and explicit paths such as `/var/log/messages`. For cluster-scoped `HOST_FILE`, the tool automatically resolves and binds the exact `k8s-log-<cluster-id>` host group; without `cluster_id`, an explicit `host_group_id` is required. Node-file collection applies to every host in the bound group; no node selector is available in this API.
 
 ### Delete an Access Config (Preview -> Confirm)
 

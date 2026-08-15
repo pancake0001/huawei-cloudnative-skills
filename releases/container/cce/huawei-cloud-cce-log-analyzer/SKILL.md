@@ -1,7 +1,7 @@
 ---
 name: huawei-cloud-cce-log-analyzer
 description: >-
-  Use when querying or analyzing Kubernetes Pod stdout/stderr logs, CCE LogConfig-collected application logs, Huawei Cloud LTS log streams, CCE audit logs for Pod deletion or workload change events, or when creating/deleting CCE LogConfig or LTS Access Config collection rules with preview confirmation. Covers Pod log retrieval, container and node file collection, LogConfig discovery, LTS group/stream mapping, keyword search, time-range queries, abnormality analysis with error ratios and incident windows, and audit event summarization.
+  Use when querying or analyzing Kubernetes Pod stdout/stderr logs, CCE LogConfig-collected application logs, Huawei Cloud LTS log streams, CCE audit logs, or CCE kube-apiserver control-plane logs. Covers Pod log retrieval, container and node file collection, LogConfig discovery, LTS group/stream mapping, keyword search, time-range queries, kube-apiserver non-200 and slow-request analysis, and audit event summarization.
   Trigger: log analysis, 日志分析, CCE logs, CCE 日志, LTS query, LTS 查询, application log, 应用日志, container log, 容器日志, log search, 日志搜索, Pod stdout, Pod 日志, LogConfig, audit log, 审计日志, abnormal log, 异常日志
 tags: [cce, logs, lts, analysis]
 ---
@@ -37,6 +37,10 @@ Query and analyze Kubernetes Pod stdout logs, CCE LogConfig-collected applicatio
 - Query CCE Kubernetes audit logs for Pod deletion and workload change events
 - Query application logs from LTS by time range, keywords, or recent hours
 - Analyze application logs for abnormal keywords, HTTP errors, incident windows, recovery time, and abnormal ratios
+- Query kube-apiserver logs after verifying the CCE control-plane log switch is enabled
+- Analyze kube-apiserver non-200 responses, slow requests, latency statistics, and other error patterns
+- Query kube-scheduler logs after verifying the CCE control-plane log switch is enabled
+- Analyze kube-scheduler scheduling, binding, preemption, and leader-election failures
 
 **Typical Use Cases**:
 
@@ -66,6 +70,7 @@ Query and analyze Kubernetes Pod stdout logs, CCE LogConfig-collected applicatio
 - Kubernetes access order is: external kubeconfig through hcloud, then `kubectl cce` fallback
 - The **Cloud Native Logging** add-on must be installed and running in the target cluster before using `huawei_get_cce_logconfigs`, `huawei_create_cce_logconfig`, or `huawei_delete_cce_logconfig`. These tools manage the `logconfigs.logging.openvessel.io` resource supplied by that add-on.
 - `huawei_list_lts_access_configs`, `huawei_create_lts_access_config`, and `huawei_delete_lts_access_config` manage LTS Access Config rules. The hcloud `CreateAccessConfig` schema only accepts `AGENT`, so `K8S_CCE` creation uses the official LTS SDK with AK/SK and project ID; `AGENT` creation remains on hcloud. iCagent must be installed and healthy for `AGENT` CCE collection. Creating an Access Config never installs iCagent.
+- `huawei_query_kube_apiserver_logs`, `huawei_analyze_kube_apiserver_logs`, `huawei_query_kube_scheduler_logs`, and `huawei_analyze_kube_scheduler_logs` require their matching CCE Log Center control-plane log switch to be enabled. The tools verify the `kube-apiserver` or `kube-scheduler` switch through `CCE ShowClusterConfig`; they never enable control-plane logging automatically. See the [CCE control-plane log documentation](https://support.huaweicloud.com/usermanual-cce/cce_10_0554.html).
 - **Security Rules**:
   - 🚫 Never expose AK/SK values in code, conversation, or output
   - 🚫 Never use `echo $HUAWEI_CLOUD_AK` or `echo $HUAWEI_CLOUD_SK` to check credentials
@@ -138,6 +143,10 @@ export HUAWEI_CLOUD_REGION=cn-north-4
 | Analyze Pod or workload audit change timelines | `huawei_analyze_cce_audit_timeline` | [references/workflow.md](references/workflow.md) |
 | Query application logs by recent window or explicit time range | `huawei_query_application_logs` | [references/workflow.md](references/workflow.md) |
 | Analyze logs for abnormalities | `huawei_analyze_application_logs` | [references/workflow.md](references/workflow.md) |
+| Query kube-apiserver control-plane logs | `huawei_query_kube_apiserver_logs` | [references/workflow.md](references/workflow.md) |
+| Analyze kube-apiserver API errors and latency | `huawei_analyze_kube_apiserver_logs` | [references/workflow.md](references/workflow.md) |
+| Query kube-scheduler control-plane logs | `huawei_query_kube_scheduler_logs` | [references/workflow.md](references/workflow.md) |
+| Analyze kube-scheduler scheduling failures | `huawei_analyze_kube_scheduler_logs` | [references/workflow.md](references/workflow.md) |
 | Risk constraints & guardrails | — | [references/risk-rules.md](references/risk-rules.md) |
 | Output schema reference | — | [references/output-schema.md](references/output-schema.md) |
 
@@ -325,7 +334,7 @@ python3 scripts/huawei-cloud.py huawei_analyze_application_logs \
 | `container` | create (file) | No | Container name | Required for container_file |
 | `log_path` | create (file) | No | Log directory or complete file path | Required for `container_file` and `host_file`; without `file_pattern`, a path not ending in `/` is treated as a complete file path |
 | `file_pattern` | create (file) | No | File name pattern | e.g. `*.log`; pass it when `log_path` is a directory, otherwise it is inferred from the complete path |
-| `log_group_id` / `log_stream_id` | create | Yes to create | LTS destination IDs | Provide both explicitly. When both are omitted, the tool lists only `k8s-log-<cluster-id>` and its streams; it never creates or selects a destination. Create a missing group or stream with hcloud, then provide both IDs. |
+| `log_group_id` / `log_stream_id` | create | Yes to create | LTS destination IDs | Provide both explicitly. When omitted, the tool lists `k8s-log-<cluster-id>` and its streams; if that dedicated destination is missing, it also lists existing LTS groups and streams. Prefer creating the dedicated destination; an existing destination is valid only after explicit user selection. |
 | `confirm` | create/delete | No | Execute confirmation | Preview without it; `true` to execute |
 | `logconfig_namespace` | delete | Yes | LogConfig namespace | — |
 
@@ -337,15 +346,15 @@ python3 scripts/huawei-cloud.py huawei_analyze_application_logs \
 | `access_config_id` | delete | Yes | Access Config ID | Get it from `huawei_list_lts_access_configs` |
 | `access_config_type` | create | No | LTS access type | `K8S_CCE` or `AGENT`; hcloud is used only for `AGENT` |
 | `cluster_id` | create | Conditional | CCE cluster ID | Required for `K8S_CCE` and CCE-related `AGENT` collection |
-| `path_type` | create | Conditional | CCE source type | `K8S_CCE` supports `CONTAINER_STDOUT`; `AGENT` supports `CONTAINER_STDOUT`, `CONTAINER_FILE`, or `HOST_FILE` |
+| `path_type` | create | Conditional | CCE source type | `K8S_CCE` supports `CONTAINER_STDOUT` and `CONTAINER_FILE`; `AGENT` supports `CONTAINER_STDOUT`, `CONTAINER_FILE`, or `HOST_FILE` |
 | `paths` | create | Conditional | Collection paths | Omit for `K8S_CCE` stdout; `AGENT` stdout defaults to `/var/log/containers`, and `AGENT` file collection requires paths |
 | `format_mode` / `format_value` | create | No / Conditional | LTS log timestamp format | `system` by default and sends the current timestamp; set `wildcard` with a required `format_value` time pattern when logs include a parseable timestamp |
 | `namespace_regex` | create | Conditional | Namespace filter | Required for `K8S_CCE` |
 | `pod_name_regex` | create | Conditional | Pod-name filter | Required for `K8S_CCE` |
 | `container_name_regex` | create | No | Container-name filter | Defaults to `^.*$` to match all containers; set an explicit regex to narrow the scope |
-| `host_group_id` | create | No | LTS host group | `K8S_CCE` auto-discovers the exact `k8s-log-<cluster-id>` group; provide this only when the standard group cannot be discovered |
-| `stdout` / `stderr` | create | No | Stdout/stderr switches | Both default to true for `K8S_CCE`; `AGENT` stdout defaults to true and stderr to false |
-| `log_group_id` / `log_stream_id` | create | Yes to create | LTS destination | Provide both explicitly. When both are omitted with `cluster_id`, the tool only lists the exact `k8s-log-<cluster-id>` group and its streams; it never creates or selects a destination. If none exists, create the group and stream with hcloud first, then provide both IDs. |
+| `host_group_id` | create | Conditional | LTS host group | `K8S_CCE` auto-discovers the exact `k8s-log-<cluster-id>` group. Cluster-scoped `AGENT + HOST_FILE` does the same; without `cluster_id`, `AGENT + HOST_FILE` requires this value explicitly. |
+| `stdout` / `stderr` | create | No | Stdout/stderr switches | Both default to true for `K8S_CCE` standard output; both default to false for `K8S_CCE` file collection; `AGENT` stdout defaults to true and stderr to false |
+| `log_group_id` / `log_stream_id` | create | Yes to create | LTS destination | Provide both explicitly. When omitted with `cluster_id`, the tool lists the exact `k8s-log-<cluster-id>` destination; if it is missing, it also lists existing LTS groups and streams. Prefer creating the dedicated destination, but use an existing destination when the user explicitly selects it. The tool never creates or selects a destination. |
 | `confirm` | create/delete | No | Execute confirmation | Preview without it; `true` to execute |
 
 ### Audit Log Parameters
@@ -379,6 +388,27 @@ python3 scripts/huawei-cloud.py huawei_analyze_application_logs \
 | `auto_paginate` | app log tools | No | Enable pagination | `true`/`false` |
 | `max_pages` | app log tools | No | Max pages to fetch | Caps total work when paginating |
 | `limit` | LTS list and app log tools | No | Result limit (per page for log queries) | Optional for groups/streams; recommended 100-1000 for logs |
+
+### Kube-apiserver Log Parameters
+
+| Parameter | Tool | Required | Description | Constraints |
+|-----------|------|----------|-------------|-------------|
+| `hours` | kube-apiserver log tools | No | Recent query window | Default `1` when no explicit time range is supplied |
+| `start_time` / `end_time` | kube-apiserver log tools | No | Explicit UTC query window | Both values must use `YYYY-MM-DD HH:MM:SS` |
+| `slow_latency_ms` | analysis | No | Slow-request threshold in milliseconds | Default `1000`; results separate `watch_latency` from `non_watch_latency` |
+| `auto_paginate` / `max_pages` | kube-apiserver log tools | No | Pagination controls | Defaults to enabled; defaults are 5 pages for query and 10 for analysis |
+| `limit` | kube-apiserver log tools | No | LTS records per page | Query default `500`; analysis default `1000` |
+| `sample_limit` | analysis | No | Maximum anomaly samples returned | Default `20` |
+
+### Kube-scheduler Log Parameters
+
+| Parameter | Tool | Required | Description | Constraints |
+|-----------|------|----------|-------------|-------------|
+| `hours` | kube-scheduler log tools | No | Recent query window | Default `1` when no explicit time range is supplied |
+| `start_time` / `end_time` | kube-scheduler log tools | No | Explicit UTC query window | Both values must use `YYYY-MM-DD HH:MM:SS` |
+| `auto_paginate` / `max_pages` | kube-scheduler log tools | No | Pagination controls | Defaults to enabled; defaults are 5 pages for query and 10 for analysis |
+| `limit` | kube-scheduler log tools | No | LTS records per page | Query default `500`; analysis default `1000` |
+| `sample_limit` | analysis | No | Maximum anomaly samples returned | Default `20` |
 
 ## Common Region IDs
 
@@ -415,6 +445,8 @@ python3 scripts/huawei-cloud.py huawei_analyze_application_logs \
 | Wrong log collection rule | Logs from wrong stream | List cluster LogConfig and LTS Access Config rules, then ask the user to select one |
 | keywords filter skews analysis ratios | Abnormal ratio too high/low | Do not set `keywords` unless user explicitly wants keyword-scoped ratios |
 | Audit type misunderstood | Audit results too broad/narrow | `audit_type` is keyword preset only; `pod_delete` adds `delete+pods`, `workload_change` adds workload-related keywords |
+| kube-apiserver logging disabled | kube-apiserver query returns an enabled-switch error | Enable the `kube-apiserver` control-plane log in CCE Log Center, then retry |
+| Long-running WATCH requests | High latency statistics with `slow_watch_count` | Review `slow_watch_count` separately; tune `slow_latency_ms` for the investigation window |
 | No confirm=true on create/delete | Preview-only, no actual change | Call again with `confirm=true` after reviewing preview |
 | Large time window without pagination | Partial or slow results | Use `auto_paginate=true` with `max_pages` and reasonable `limit` |
 | Previous container log not found | "previous" flag on running container | Use `previous=true` only when container has restarted; check Pod status first |
