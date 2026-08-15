@@ -1,6 +1,7 @@
 # Output Schema
 
-The primary tool `huawei_autoscaling_diagnose` returns structured evidence and a Markdown report. The final customer-facing output should prefer `report_markdown`.
+The primary tool `huawei_autoscaling_diagnose` returns structured evidence and a Markdown report. The final customer-facing output should prefer
+`report_markdown`.
 
 ```json
 {
@@ -72,7 +73,9 @@ The primary tool `huawei_autoscaling_diagnose` returns structured evidence and a
 
 ## Severity Level Definitions
 
-- `critical`: Sufficient to independently explain the scaling blockage, e.g., no HPA, missing request, CA not installed, node pool autoscaling not enabled, maxReplicas/max_nodes reached.
-- `high`: Strongly correlated blocking evidence, e.g., FailedScheduling with resource insufficient, affinity/taint conflict, cloud resource quota or permission signals.
+- `critical`: Sufficient to independently explain the scaling blockage, e.g., no HPA, missing request, CA not installed, node pool autoscaling not enabled,
+  maxReplicas/max_nodes reached.
+- `high`: Strongly correlated blocking evidence, e.g., FailedScheduling with resource insufficient, affinity/taint conflict, cloud resource quota or permission
+  signals.
 - `medium`: Suspicious items requiring review, e.g., metric addon not identified, safe-to-evict key exists but value missing.
 - `info`: Current behavior may be normal non-triggering, e.g., metric below threshold, no Pending Pods.

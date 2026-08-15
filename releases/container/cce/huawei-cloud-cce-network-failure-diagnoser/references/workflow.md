@@ -5,7 +5,8 @@ This workflow is read-only and uses `hcloud CCE`, `kubectl`, and optional read-o
 ## Evidence Order
 
 1. Scope: confirm `region`, `project_id`, `cluster_id`, `namespace`, `failure_symptom`, and the target object or path.
-2. CLI setup: read `references/kubectl-cce.md`, verify hcloud, masked credentials, kubectl, cluster metadata, endpoint reachability, kubectl-cce plugin access, and read RBAC.
+2. CLI setup: read `references/kubectl-cce.md`, verify hcloud, masked credentials, kubectl, cluster metadata, endpoint reachability, kubectl-cce plugin access,
+   and read RBAC.
 3. Node base layer: check nodes and CNI-related conditions before interpreting Service or Ingress failures.
 4. DNS layer: inspect kube-dns/CoreDNS Service, EndpointSlices, Pods, Events, and logs when the symptom involves DNS.
 5. Service layer: inspect Service type, selector, ports, Endpoints, EndpointSlices, and backend Pod readiness.
@@ -39,7 +40,8 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 
 ### DNS/CoreDNS Failure
 
-- Signals: kube-dns/CoreDNS Service has no ready endpoints, CoreDNS Pods restarting, node-local-dns unhealthy, logs show upstream timeout or NXDOMAIN for expected domains.
+- Signals: kube-dns/CoreDNS Service has no ready endpoints, CoreDNS Pods restarting, node-local-dns unhealthy, logs show upstream timeout or NXDOMAIN for
+  expected domains.
 - Interpretation: service name or external domain resolution may fail before traffic reaches Service routing.
 - Next checks: kube-system DNS resources, CoreDNS logs, node-local-dns injection, upstream DNS config, and whether only one namespace/node is affected.
 
@@ -63,7 +65,8 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 
 ### Ingress Backend Mismatch
 
-- Signals: Ingress backend points to missing Service/port, empty address, controller Events, or 502/504 upstream errors while Service mapping is wrong or backends are not ready.
+- Signals: Ingress backend points to missing Service/port, empty address, controller Events, or 502/504 upstream errors while Service mapping is wrong or
+  backends are not ready.
 - Interpretation: north-south HTTP route cannot reach a healthy backend.
 - Next checks: Ingress rules, class, annotations, Service port names/numbers, EndpointSlices, and ingress controller logs.
 

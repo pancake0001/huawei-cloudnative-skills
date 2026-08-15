@@ -2,21 +2,22 @@
 
 ## Overview
 
-Functional verification process for the CCE cluster management skill (hcloud + kubectl cce architecture). Run these checks before relying on the skill in a new environment.
+Functional verification process for the CCE cluster management skill (hcloud + kubectl cce architecture). Run these checks before relying on the skill in a new
+environment.
 
 ## Verification Checklist
 
-| No. | Verification Item | Command |
-|-----|-------------------|---------|
-| 1 | hcloud version (≥ 7.2) | `hcloud version` |
-| 2 | kubectl + kubectl-cce plugin installed | `kubectl cce --help` |
-| 3 | Credentials env vars set | `echo $HW_ACCESS_KEY $HW_SECRET_KEY` (+ `$HW_SECURITY_TOKEN` for temp creds) |
-| 4 | hcloud → CCE connectivity | `hcloud CCE ListClusters --cli-region=cn-north-4` |
-| 5 | Query cluster list | `huawei_list_cce_clusters region=cn-north-4` |
-| 6 | Query node list | `huawei_list_cce_nodes region=cn-north-4 cluster_id=xxx` |
-| 7 | Query node pool list | `huawei_list_cce_nodepools region=cn-north-4 cluster_id=xxx` |
-| 8 | Get kubeconfig | `huawei_get_cce_kubeconfig region=cn-north-4 cluster_id=xxx` |
-| 9 | Node scheduling status (kubectl cce path) | `huawei_cce_node_status region=cn-north-4 cluster_id=xxx node_name=xxx` |
+| No. | Verification Item                         | Command                                                                      |
+| --- | ----------------------------------------- | ---------------------------------------------------------------------------- |
+| 1   | hcloud version (≥ 7.2)                    | `hcloud version`                                                             |
+| 2   | kubectl + kubectl-cce plugin installed    | `kubectl cce --help`                                                         |
+| 3   | Credentials env vars set                  | `echo $HW_ACCESS_KEY $HW_SECRET_KEY` (+ `$HW_SECURITY_TOKEN` for temp creds) |
+| 4   | hcloud → CCE connectivity                 | `hcloud CCE ListClusters --cli-region=cn-north-4`                            |
+| 5   | Query cluster list                        | `huawei_list_cce_clusters region=cn-north-4`                                 |
+| 6   | Query node list                           | `huawei_list_cce_nodes region=cn-north-4 cluster_id=xxx`                     |
+| 7   | Query node pool list                      | `huawei_list_cce_nodepools region=cn-north-4 cluster_id=xxx`                 |
+| 8   | Get kubeconfig                            | `huawei_get_cce_kubeconfig region=cn-north-4 cluster_id=xxx`                 |
+| 9   | Node scheduling status (kubectl cce path) | `huawei_cce_node_status region=cn-north-4 cluster_id=xxx node_name=xxx`      |
 
 ## Verification Steps
 
@@ -47,7 +48,9 @@ echo "SecurityToken set: $([ -n "$HW_SECURITY_TOKEN" ] && echo yes || echo no)"
 
 Expected: AK and SK prefixes are visible (never print full values). If `HW_SECURITY_TOKEN` is set, all three must be set together.
 
-> **Mode note:** Step 2 assumes env-var mode. In sandbox injection mode, the LLM/verifier side may not see `HW_ACCESS_KEY` (it is injected at the execution entry). Skip the echo pre-check there; instead run a read-only kubectl-cce call and let the runtime inject `--cli-access-key`/`--cli-secret-key`/`--cli-security-token`. See [troubleshooting.md](troubleshooting.md) §16 for failure localization.
+> **Mode note:** Step 2 assumes env-var mode. In sandbox injection mode, the LLM/verifier side may not see `HW_ACCESS_KEY` (it is injected at the execution
+> entry). Skip the echo pre-check there; instead run a read-only kubectl-cce call and let the runtime inject
+> `--cli-access-key`/`--cli-secret-key`/`--cli-security-token`. See [troubleshooting.md](troubleshooting.md) §16 for failure localization.
 
 ### Step 3: hcloud Connectivity Test
 

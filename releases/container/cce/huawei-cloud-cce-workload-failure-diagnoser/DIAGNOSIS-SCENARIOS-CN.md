@@ -2,7 +2,8 @@
 
 ## Skill 定位
 
-`huawei-cloud-cce-workload-failure-diagnoser` 用于诊断华为云 CCE 集群中的工作负载发布和可用性问题。它不负责修复资源，只负责通过 `hcloud CCE` 获取集群元数据，再通过 `kubectl cce ...` 插件路径只读采集 Kubernetes 证据，最后输出根因判断、证据链和移交建议。
+`huawei-cloud-cce-workload-failure-diagnoser` 用于诊断华为云 CCE 集群中的工作负载发布和可用性问题。它不负责修复资源，只负责通过 `hcloud CCE`
+获取集群元数据，再通过 `kubectl cce ...` 插件路径只读采集 Kubernetes 证据，最后输出根因判断、证据链和移交建议。
 
 核心链路：
 
@@ -14,7 +15,8 @@ hcloud CCE 查询集群 -> kubectl cce 只读采集资源 -> 发布漏斗分析 
 
 1. Deployment 发布卡住
 
-   典型表现包括 `rollout status` 超时、`ProgressDeadlineExceeded`、旧版本副本一直存在、新版本 ReplicaSet 没有 Pod、`updatedReplicas` 或 `availableReplicas` 不达预期。
+   典型表现包括 `rollout status` 超时、`ProgressDeadlineExceeded`、旧版本副本一直存在、新版本 ReplicaSet 没有 Pod、`updatedReplicas` 或 `availableReplicas`
+   不达预期。
 
 2. StatefulSet 或 DaemonSet 更新异常
 
@@ -48,41 +50,49 @@ hcloud CCE 查询集群 -> kubectl cce 只读采集资源 -> 发布漏斗分析 
 
 2. 验证工具和凭据
 
-   执行 `hcloud version`、`hcloud configure list`、`kubectl version --client`。`hcloud` 和 `kubectl` 都要使用运行环境对应的平台版本，Linux sandbox 使用 Linux 二进制，Windows 工作站才使用 `.exe`。
+   执行 `hcloud version`、`hcloud configure list`、`kubectl version --client`。`hcloud` 和 `kubectl` 都要使用运行环境对应的平台版本，Linux
+   sandbox 使用 Linux 二进制，Windows 工作站才使用 `.exe`。
 
 3. 查询集群和访问入口
 
-   使用 `hcloud CCE ListClusters`、`ShowCluster`、`ShowClusterEndpoints` 确认集群存在、状态可用、region/project 正确。Kubernetes 访问通过
-   kubectl-cce 插件默认访问 `<cluster-id>.cce.<region>.myhuaweicloud.com`，必要时用 `CCE_ENDPOINT` 或 `--endpoint` 覆盖。
+   使用 `hcloud CCE ListClusters`、`ShowCluster`、`ShowClusterEndpoints`
+   确认集群存在、状态可用、region/project 正确。Kubernetes 访问通过 kubectl-cce 插件默认访问 `<cluster-id>.cce.<region>.myhuaweicloud.com`，必要时用
+   `CCE_ENDPOINT` 或 `--endpoint` 覆盖。
 
 4. 配置 kubectl-cce 插件
 
-   确认 `kubectl plugin list` 能发现 `kubectl-cce`，通过受批准的工具参数、受保护的 shell 环境或本地凭据提供方配置认证，并在命令中显式传入 `--project-id`。不要生成、保存或修改 kubeconfig。
+   确认 `kubectl plugin list` 能发现 `kubectl-cce`，通过受批准的工具参数、受保护的 shell 环境或本地凭据提供方配置认证，并在命令中显式传入
+   `--project-id`。不要生成、保存或修改 kubeconfig。
 
 5. 验证 Kubernetes 读权限
 
-   先跑 `kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> cluster-info`，再用 `kubectl cce ... auth can-i` 检查目标
-   命名空间里的 Deployment/Pod/Event/Pod logs 读取权限。网络不可达或 RBAC 不足要作为诊断缺口写入报告。
+   先跑 `kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> cluster-info`，再用 `kubectl cce ... auth can-i`
+   检查目标命名空间里的 Deployment/Pod/Event/Pod logs 读取权限。网络不可达或 RBAC 不足要作为诊断缺口写入报告。
 
 6. 采集工作负载证据
 
-   对 Deployment、StatefulSet 或 DaemonSet 执行 `get -o yaml`、`describe`、`rollout status`。重点读取 generation、observedGeneration、replicas、conditions、selector 和 update strategy。
+   对 Deployment、StatefulSet 或 DaemonSet 执行
+   `get -o yaml`、`describe`、`rollout status`。重点读取 generation、observedGeneration、replicas、conditions、selector 和 update strategy。
 
 7. 采集关联对象证据
 
-   Deployment 要按 selector 找 ReplicaSet，并按 ownerReference 过滤出属于该 Deployment 的 RS；再识别最高 revision 的新版本 RS。所有 workload 类型都要按 selector 找 Pod，查看 Pod Ready 状态、重启次数、节点、container states 和 ownerReferences。
+   Deployment 要按 selector 找 ReplicaSet，并按 ownerReference 过滤出属于该 Deployment 的 RS；再识别最高 revision 的新版本 RS。所有 workload 类型都要按 selector 找 Pod，查看 Pod
+   Ready 状态、重启次数、节点、container states 和 ownerReferences。
 
 8. 过滤事件和日志
 
-   事件要按 workload、ReplicaSet、Pod 的 UID/name 进行过滤，避免把命名空间下所有 Warning 都当作目标证据。对异常 Pod 执行 `describe pod`、当前日志、previous logs，必要时查看 PVC、Node、Service、Endpoints、Ingress。
+   事件要按 workload、ReplicaSet、Pod 的 UID/name 进行过滤，避免把命名空间下所有 Warning 都当作目标证据。对异常 Pod 执行 `describe pod`、当前日志、previous
+   logs，必要时查看 PVC、Node、Service、Endpoints、Ingress。
 
 9. 构建发布漏斗
 
-   按“控制面观察到变更 -> 新版本对象存在 -> 新版本 Pod 创建 -> Pod Ready -> 工作负载 available”的顺序找到第一个失败层。根因判断优先基于第一个失败层和最直接事件/日志。
+   按“控制面观察到变更 -> 新版本对象存在 -> 新版本 Pod 创建 -> Pod Ready
+   -> 工作负载 available”的顺序找到第一个失败层。根因判断优先基于第一个失败层和最直接事件/日志。
 
 10. 输出报告和移交
 
-   报告必须包含目标、使用过的 hcloud/kubectl 命令、发布漏斗、Top causes、证据、建议和未执行变更命令的说明。需要修复时只给建议，涉及变更的动作移交到 remediation skill。
+报告必须包含目标、使用过的 hcloud/kubectl 命令、发布漏斗、Top causes、证据、建议和未执行变更命令的说明。需要修复时只给建议，涉及变更的动作移交到 remediation
+skill。
 
 ## 只读边界
 

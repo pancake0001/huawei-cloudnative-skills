@@ -2,17 +2,18 @@
 
 ## Overview
 
-Horizontal Pod Autoscaler (HPA) automatically scales Deployment replicas based on CPU, memory, or custom metrics. It observes resource utilization and adjusts pod count within configured min/max bounds.
+Horizontal Pod Autoscaler (HPA) automatically scales Deployment replicas based on CPU, memory, or custom metrics. It observes resource utilization and adjusts
+pod count within configured min/max bounds.
 
 ## Operations
 
-| Operation | Command |
-|-----------|---------|
-| Create | `kubectl --kubeconfig=<kubeconfig-path> autoscale deployment <name> --min=2 --max=10 --cpu=80% -n <namespace>` |
-| Get | `kubectl --kubeconfig=<kubeconfig-path> get hpa -n <namespace>` |
-| Describe | `kubectl --kubeconfig=<kubeconfig-path> describe hpa <name> -n <namespace>` |
-| Update min/max | `kubectl --kubeconfig=<kubeconfig-path> patch hpa <name> --type merge --patch-file=patch.json -n <namespace>` |
-| Delete | `kubectl --kubeconfig=<kubeconfig-path> delete hpa <name> -n <namespace>` |
+| Operation      | Command                                                                                                        |
+| -------------- | -------------------------------------------------------------------------------------------------------------- |
+| Create         | `kubectl --kubeconfig=<kubeconfig-path> autoscale deployment <name> --min=2 --max=10 --cpu=80% -n <namespace>` |
+| Get            | `kubectl --kubeconfig=<kubeconfig-path> get hpa -n <namespace>`                                                |
+| Describe       | `kubectl --kubeconfig=<kubeconfig-path> describe hpa <name> -n <namespace>`                                    |
+| Update min/max | `kubectl --kubeconfig=<kubeconfig-path> patch hpa <name> --type merge --patch-file=patch.json -n <namespace>`  |
+| Delete         | `kubectl --kubeconfig=<kubeconfig-path> delete hpa <name> -n <namespace>`                                      |
 
 ## Common Scenarios
 
@@ -65,18 +66,18 @@ spec:
   minReplicas: 2
   maxReplicas: 20
   metrics:
-  - type: Resource
-    resource:
-      name: cpu
-      target:
-        type: Utilization
-        averageUtilization: 80
-  - type: Resource
-    resource:
-      name: memory
-      target:
-        type: Utilization
-        averageUtilization: 70
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 80
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 70
 ```
 
 ```bash

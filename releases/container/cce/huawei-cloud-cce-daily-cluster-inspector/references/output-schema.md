@@ -14,4 +14,3 @@
   "report_file": "optional"
 }
 ```
-

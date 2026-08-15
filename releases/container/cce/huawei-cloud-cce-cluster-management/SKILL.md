@@ -12,11 +12,15 @@ version: 2.0.0
 
 ## Overview
 
-Manage CCE (Cloud Container Engine) cluster lifecycle, including cluster creation/deletion/hibernation/awakening, node pool management, node scheduling control, and addon management.
+Manage CCE (Cloud Container Engine) cluster lifecycle, including cluster creation/deletion/hibernation/awakening, node pool management, node scheduling control,
+and addon management.
 
-The skill executes Huawei Cloud API calls through **hcloud (KooCLI)** and Kubernetes node operations (cordon/uncordon/drain/status) through **kubectl cce** (the kubectl-cce plugin). The plugin connects to the CCE API Gateway using AK/SK credentials — no cluster EIP or manual kubeconfig required. Two operations (create cluster, create node pool) fall back to the Python SDK because of a known hcloud metadata parsing defect — see [cce-api-guide.md](references/cce-api-guide.md).
+The skill executes Huawei Cloud API calls through **hcloud (KooCLI)** and Kubernetes node operations (cordon/uncordon/drain/status) through **kubectl cce** (the
+kubectl-cce plugin). The plugin connects to the CCE API Gateway using AK/SK credentials — no cluster EIP or manual kubeconfig required. Two operations (create
+cluster, create node pool) fall back to the Python SDK because of a known hcloud metadata parsing defect — see [cce-api-guide.md](references/cce-api-guide.md).
 
-**Dependency**: This skill requires `kubectl` and the `kubectl-cce` plugin. Install them via the [huawei-cloud-kubectl-cce-installer](../huawei-cloud-kubectl-cce-installer/SKILL.md) skill.
+**Dependency**: This skill requires `kubectl` and the `kubectl-cce` plugin. Install them via the
+[huawei-cloud-kubectl-cce-installer](../huawei-cloud-kubectl-cce-installer/SKILL.md) skill.
 
 ## ⛔ Security Constraints
 
@@ -28,18 +32,18 @@ All dangerous operations require `confirm=true` parameter to execute. Otherwise,
 
 #### Operations Requiring Confirmation
 
-| Tool | Operation Type | Risk Level | Description |
-|------|---------------|------------|-------------|
-| `huawei_delete_cce_cluster` | Delete | 🔴 Critical | Deletes entire CCE cluster, irreversible |
-| `huawei_hibernate_cce_cluster` | Hibernate | 🟠 High | Stops all workloads, pauses control plane billing |
-| `huawei_awake_cce_cluster` | Awake | 🟠 High | Resumes cluster from hibernation |
-| `huawei_resize_cce_nodepool` | Scale | 🟡 Medium | Adjusts node pool size, affects capacity |
-| `huawei_delete_cce_nodepool` | Delete | 🟠 High | Deletes node pool, affects business capacity |
-| `huawei_delete_cce_node` | Delete | 🟠 High | Removes node from cluster, affects scheduling |
-| `huawei_uninstall_cce_addon` | Uninstall | 🟠 High | Removes addon, may affect cluster functionality |
-| `huawei_cce_node_cordon` | Cordon | 🟡 Medium | Marks node unschedulable, new pods won't be assigned |
-| `huawei_cce_node_uncordon` | Uncordon | 🟡 Medium | Marks node schedulable, new pods may be assigned immediately |
-| `huawei_cce_node_drain` | Drain | 🟠 High | Cordons + evicts all pods from node, affects running workloads |
+| Tool                           | Operation Type | Risk Level  | Description                                                    |
+| ------------------------------ | -------------- | ----------- | -------------------------------------------------------------- |
+| `huawei_delete_cce_cluster`    | Delete         | 🔴 Critical | Deletes entire CCE cluster, irreversible                       |
+| `huawei_hibernate_cce_cluster` | Hibernate      | 🟠 High     | Stops all workloads, pauses control plane billing              |
+| `huawei_awake_cce_cluster`     | Awake          | 🟠 High     | Resumes cluster from hibernation                               |
+| `huawei_resize_cce_nodepool`   | Scale          | 🟡 Medium   | Adjusts node pool size, affects capacity                       |
+| `huawei_delete_cce_nodepool`   | Delete         | 🟠 High     | Deletes node pool, affects business capacity                   |
+| `huawei_delete_cce_node`       | Delete         | 🟠 High     | Removes node from cluster, affects scheduling                  |
+| `huawei_uninstall_cce_addon`   | Uninstall      | 🟠 High     | Removes addon, may affect cluster functionality                |
+| `huawei_cce_node_cordon`       | Cordon         | 🟡 Medium   | Marks node unschedulable, new pods won't be assigned           |
+| `huawei_cce_node_uncordon`     | Uncordon       | 🟡 Medium   | Marks node schedulable, new pods may be assigned immediately   |
+| `huawei_cce_node_drain`        | Drain          | 🟠 High     | Cordons + evicts all pods from node, affects running workloads |
 
 #### Workflow
 
@@ -73,18 +77,26 @@ python3 huawei-cloud.py huawei_delete_cce_cluster \
 3. **Only project ID memory cache** - Non-sensitive project ID cached in process memory
 4. **No credential leakage** - Never includes AK/SK in logs, responses, or errors
 5. **Temporary file cleanup** - Temporary kubeconfig files are deleted immediately after use
-6. **Credential mode aware** - In env-var mode, AK/SK are passed to child hcloud/kubectl-cce via environment (no `--cli-*` in child argv). In sandbox injection mode (v0.2.1+), the runtime injects `--cli-access-key`/`--cli-secret-key`/`--cli-security-token` at the `python3 huawei-cloud.py` entry; the skill forwards them as flags to child kubectl-cce (the sandbox does not nest-inject children). Credential **visibility is informational, never a gate** — the LLM must not abort just because it cannot see env vars (in sandbox they live in the runtime environment, not the LLM's).
+6. **Credential mode aware** - In env-var mode, AK/SK are passed to child hcloud/kubectl-cce via environment (no `--cli-*` in child argv). In sandbox injection
+   mode (v0.2.1+), the runtime injects `--cli-access-key`/`--cli-secret-key`/`--cli-security-token` at the `python3 huawei-cloud.py` entry; the skill forwards
+   them as flags to child kubectl-cce (the sandbox does not nest-inject children). Credential **visibility is informational, never a gate** — the LLM must not
+   abort just because it cannot see env vars (in sandbox they live in the runtime environment, not the LLM's).
 
 Credentials are resolved from parameters or environment variables (process-level, never written to disk):
 
 - **Permanent credentials**: `HW_ACCESS_KEY` + `HW_SECRET_KEY`
 - **Temporary credentials** (recommended for CI/CD / IAM temporary access keys): `HW_ACCESS_KEY` + `HW_SECRET_KEY` + `HW_SECURITY_TOKEN`
-- `HW_PROJECT_ID` is optional — auto-fetched via `hcloud IAM KeystoneListProjects` when not provided (only for hcloud API calls; kubectl-cce node operations do not need it)
+- `HW_PROJECT_ID` is optional — auto-fetched via `hcloud IAM KeystoneListProjects` when not provided (only for hcloud API calls; kubectl-cce node operations do
+  not need it)
 - Per-call `ak` / `sk` parameters override the environment variables for that single call
 
-> **Do not pre-check-and-abort on missing env vars.** In sandbox mode the LLM and the runtime are different environments; the LLM cannot see runtime-injected credentials, so an env-var pre-check would falsely abort. Only pre-flight non-sensitive items (plugin installed, `cluster-id`/`region` known). On auth failure, localize per [troubleshooting.md](references/troubleshooting.md) (dual-path: env-var vs runtime-injection).
+> **Do not pre-check-and-abort on missing env vars.** In sandbox mode the LLM and the runtime are different environments; the LLM cannot see runtime-injected
+> credentials, so an env-var pre-check would falsely abort. Only pre-flight non-sensitive items (plugin installed, `cluster-id`/`region` known). On auth
+> failure, localize per [troubleshooting.md](references/troubleshooting.md) (dual-path: env-var vs runtime-injection).
 
-**Security hardening tip**: In ordinary multi-user environments, set `HW_ACCESS_KEY`/`HW_SECRET_KEY` in the parent process environment so child processes inherit them and the skill need not pass `--cli-*` flags (avoiding `ps aux` exposure). In sandbox mode, the runtime injects `--cli-*` flags at the entry; the skill forwards them to children — this is acceptable only because the sandbox controls process visibility.
+**Security hardening tip**: In ordinary multi-user environments, set `HW_ACCESS_KEY`/`HW_SECRET_KEY` in the parent process environment so child processes
+inherit them and the skill need not pass `--cli-*` flags (avoiding `ps aux` exposure). In sandbox mode, the runtime injects `--cli-*` flags at the entry; the
+skill forwards them to children — this is acceptable only because the sandbox controls process visibility.
 
 ```bash
 # Permanent
@@ -105,9 +117,11 @@ When creating nodes or node pools, the login credential is resolved with the fol
 3. **`CCE_NODE_PASSWORD` environment variable** — used when neither `ssh_key` nor `password` is provided.
 4. **Auto-generated random password** — when none of the above is supplied, the skill generates a strong random password automatically.
 
-> ⚠️ **The auto-generated password is NEVER returned in the tool response** (not in `data`, not in `message`, not in logs). To access the node afterwards, the user must **reset the node password** via the CCE console or the ECS API. The success message only contains a hint instructing the user to reset the password.
+> ⚠️ **The auto-generated password is NEVER returned in the tool response** (not in `data`, not in `message`, not in logs). To access the node afterwards, the
+> user must **reset the node password** via the CCE console or the ECS API. The success message only contains a hint instructing the user to reset the password.
 
-The raw password is never sent to the CCE API directly; the skill applies SHA-512 salted encryption + base64 encoding internally (see [cce-cluster-parameters.md](references/cce-cluster-parameters.md)).
+The raw password is never sent to the CCE API directly; the skill applies SHA-512 salted encryption + base64 encoding internally (see
+[cce-cluster-parameters.md](references/cce-cluster-parameters.md)).
 
 ---
 
@@ -122,7 +136,8 @@ The raw password is never sent to the CCE API directly; the skill applies SHA-51
   hcloud version   # verify install
   ```
 
-  **`kubectl` + `kubectl-cce` plugin** — required for node scheduling operations (cordon/uncordon/drain/status). Install via the [huawei-cloud-kubectl-cce-installer](../huawei-cloud-kubectl-cce-installer/SKILL.md) skill:
+  **`kubectl` + `kubectl-cce` plugin** — required for node scheduling operations (cordon/uncordon/drain/status). Install via the
+  [huawei-cloud-kubectl-cce-installer](../huawei-cloud-kubectl-cce-installer/SKILL.md) skill:
 
   ```bash
   # Check if already installed
@@ -143,16 +158,22 @@ The raw password is never sent to the CCE API directly; the skill applies SHA-51
   pip install huaweicloudsdkcce huaweicloudsdkcore huaweicloudsdkiam passlib pyyaml
   ```
 
-  `passlib` provides SHA-512 salting. `huaweicloudsdkcce` + `huaweicloudsdkcore` + `huaweicloudsdkiam` are used by the two SDK fallback functions (create cluster, create node pool) and IAM project-ID resolution. `pyyaml` parses hcloud JSON output.
+  `passlib` provides SHA-512 salting. `huaweicloudsdkcce` + `huaweicloudsdkcore` + `huaweicloudsdkiam` are used by the two SDK fallback functions (create
+  cluster, create node pool) and IAM project-ID resolution. `pyyaml` parses hcloud JSON output.
 
 ### Environment Variables
 
-The skill resolves credentials with priority **explicit params > sandbox-injected `--cli-*` flags > environment variables**, then forwards them to child hcloud/kubectl-cce:
+The skill resolves credentials with priority **explicit params > sandbox-injected `--cli-*` flags > environment variables**, then forwards them to child
+hcloud/kubectl-cce:
 
-- **Env-var mode** (ordinary environments): if `HW_ACCESS_KEY`/`HW_SECRET_KEY` are in `os.environ`, the skill passes them to child processes via environment (no `--cli-*` flags in child argv).
-- **Injection mode** (sandbox, v0.2.1+): the runtime injects `--cli-access-key`/`--cli-secret-key`/`--cli-security-token` at the `python3 huawei-cloud.py` entry; the skill forwards them as `--cli-*` flags to child kubectl-cce. The sandbox does not nest-inject children.
+- **Env-var mode** (ordinary environments): if `HW_ACCESS_KEY`/`HW_SECRET_KEY` are in `os.environ`, the skill passes them to child processes via environment (no
+  `--cli-*` flags in child argv).
+- **Injection mode** (sandbox, v0.2.1+): the runtime injects `--cli-access-key`/`--cli-secret-key`/`--cli-security-token` at the `python3 huawei-cloud.py`
+  entry; the skill forwards them as `--cli-*` flags to child kubectl-cce. The sandbox does not nest-inject children.
 
-> **🔒 Do not pre-check-and-abort.** The LLM-side environment may legitimately lack credentials in sandbox mode (they are injected at the execution entry). Only the execution-time resolver needs them; if no source has credentials, `dispatcher.py` returns a clear "Credentials not provided" error for dual-path localization.
+> **🔒 Do not pre-check-and-abort.** The LLM-side environment may legitimately lack credentials in sandbox mode (they are injected at the execution entry). Only
+> the execution-time resolver needs them; if no source has credentials, `dispatcher.py` returns a clear "Credentials not provided" error for dual-path
+> localization.
 
 ```bash
 # Env-var mode (ordinary environments): set at session level
@@ -171,27 +192,27 @@ export CCE_NODE_PASSWORD="your-password"
 
 Ensure the IAM user has the minimum required permissions:
 
-| Permission | Description |
-|------------|-------------|
-| `cce:cluster:list` | List clusters |
-| `cce:cluster:get` | Get cluster details |
-| `cce:cluster:create` | Create clusters |
-| `cce:cluster:delete` | Delete clusters |
-| `cce:cluster:update` | Update clusters (hibernate/awake/bind EIP) |
-| `cce:node:list` | List nodes |
-| `cce:node:get` | Get node details |
-| `cce:node:create` | Create nodes |
-| `cce:node:delete` | Delete nodes |
-| `cce:node:update` | Update nodes (cordon/uncordon/drain) |
-| `cce:nodepool:list` | List node pools |
-| `cce:nodepool:create` | Create node pools |
-| `cce:nodepool:delete` | Delete node pools |
-| `cce:nodepool:update` | Update node pools (resize) |
-| `cce:addon:list` | List addons |
-| `cce:addon:get` | Get addon details |
-| `cce:addon:create` | Install addons |
-| `cce:addon:update` | Update addons |
-| `cce:addon:delete` | Uninstall addons |
+| Permission            | Description                                |
+| --------------------- | ------------------------------------------ |
+| `cce:cluster:list`    | List clusters                              |
+| `cce:cluster:get`     | Get cluster details                        |
+| `cce:cluster:create`  | Create clusters                            |
+| `cce:cluster:delete`  | Delete clusters                            |
+| `cce:cluster:update`  | Update clusters (hibernate/awake/bind EIP) |
+| `cce:node:list`       | List nodes                                 |
+| `cce:node:get`        | Get node details                           |
+| `cce:node:create`     | Create nodes                               |
+| `cce:node:delete`     | Delete nodes                               |
+| `cce:node:update`     | Update nodes (cordon/uncordon/drain)       |
+| `cce:nodepool:list`   | List node pools                            |
+| `cce:nodepool:create` | Create node pools                          |
+| `cce:nodepool:delete` | Delete node pools                          |
+| `cce:nodepool:update` | Update node pools (resize)                 |
+| `cce:addon:list`      | List addons                                |
+| `cce:addon:get`       | Get addon details                          |
+| `cce:addon:create`    | Install addons                             |
+| `cce:addon:update`    | Update addons                              |
+| `cce:addon:delete`    | Uninstall addons                           |
 
 ---
 
@@ -201,85 +222,88 @@ Before executing any command, confirm the following parameters with the user:
 
 ### 认证参数
 
-| Parameter | Env Variable | Required | Description |
-|-----------|-------------|----------|-------------|
-| Access Key ID | `HW_ACCESS_KEY` | ✅ | Huawei Cloud AK, permanent or temporary credential |
-| Secret Access Key | `HW_SECRET_KEY` | ✅ | Huawei Cloud SK, permanent or temporary credential |
-| Region | `HW_REGION_NAME` | ✅ | Region, e.g. `cn-north-4` |
-| Security Token | `HW_SECURITY_TOKEN` | ❌ | Temporary credential security token, STS only |
-| Node Password | `CCE_NODE_PASSWORD` | ❌ | Node login password, auto-generated if not set |
+| Parameter         | Env Variable        | Required | Description                                        |
+| ----------------- | ------------------- | -------- | -------------------------------------------------- |
+| Access Key ID     | `HW_ACCESS_KEY`     | ✅       | Huawei Cloud AK, permanent or temporary credential |
+| Secret Access Key | `HW_SECRET_KEY`     | ✅       | Huawei Cloud SK, permanent or temporary credential |
+| Region            | `HW_REGION_NAME`    | ✅       | Region, e.g. `cn-north-4`                          |
+| Security Token    | `HW_SECURITY_TOKEN` | ❌       | Temporary credential security token, STS only      |
+| Node Password     | `CCE_NODE_PASSWORD` | ❌       | Node login password, auto-generated if not set     |
 
 ### 集群参数
 
-| Parameter | Required | Default | Description |
-|-----------|----------|---------|-------------|
-| `cluster_name` | ✅ | — | Cluster name, recommended `<env>-<app>-cluster` |
-| `cluster_type` | ❌ | `Turbo` | Cluster type (Turbo/VirtualMachine) |
-| `container_network_type` | ❌ | `eni` | Container network type, `eni` for Turbo clusters |
-| `cluster_version` | ❌ | API latest | Kubernetes version, auto-select latest if omitted |
-| `vpc_id` | ✅ | — | VPC ID |
-| `subnet_id` | ✅ | — | Subnet ID |
-| `flavor_id` | ✅ | — | Node flavor, e.g. `c7.large.2` |
-| `confirm` | ❌ | `false` | Danger confirmation flag, required `true` for delete/hibernate/resize |
+| Parameter                | Required | Default    | Description                                                           |
+| ------------------------ | -------- | ---------- | --------------------------------------------------------------------- |
+| `cluster_name`           | ✅       | —          | Cluster name, recommended `<env>-<app>-cluster`                       |
+| `cluster_type`           | ❌       | `Turbo`    | Cluster type (Turbo/VirtualMachine)                                   |
+| `container_network_type` | ❌       | `eni`      | Container network type, `eni` for Turbo clusters                      |
+| `cluster_version`        | ❌       | API latest | Kubernetes version, auto-select latest if omitted                     |
+| `vpc_id`                 | ✅       | —          | VPC ID                                                                |
+| `subnet_id`              | ✅       | —          | Subnet ID                                                             |
+| `flavor_id`              | ✅       | —          | Node flavor, e.g. `c7.large.2`                                        |
+| `confirm`                | ❌       | `false`    | Danger confirmation flag, required `true` for delete/hibernate/resize |
 
 ### 节点池参数
 
-| Parameter | Required | Default | Description |
-|-----------|----------|---------|-------------|
-| `nodepool_name` | ✅ | — | Node pool name, recommended `<env>-<role>-pool` |
-| `node_count` | ❌ | `2` | Initial node count, ≥2 recommended for HA |
-| `min_node_count` | ❌ | — | Auto-scaling minimum |
-| `max_node_count` | ❌ | — | Auto-scaling maximum |
-| `ssh_key` | ❌ | — | SSH key pair name, takes priority over password |
-| `root_volume_size` | ❌ | `40` | Root disk size (GB) |
-| `data_volume_size` | ❌ | `100` | Data disk size (GB) |
+| Parameter          | Required | Default | Description                                     |
+| ------------------ | -------- | ------- | ----------------------------------------------- |
+| `nodepool_name`    | ✅       | —       | Node pool name, recommended `<env>-<role>-pool` |
+| `node_count`       | ❌       | `2`     | Initial node count, ≥2 recommended for HA       |
+| `min_node_count`   | ❌       | —       | Auto-scaling minimum                            |
+| `max_node_count`   | ❌       | —       | Auto-scaling maximum                            |
+| `ssh_key`          | ❌       | —       | SSH key pair name, takes priority over password |
+| `root_volume_size` | ❌       | `40`    | Root disk size (GB)                             |
+| `data_volume_size` | ❌       | `100`   | Data disk size (GB)                             |
 
 ### 其他参数
 
-| Parameter | Required | Default | Description |
-|-----------|----------|---------|-------------|
-| `duration` | ❌ | `30` | Kubeconfig validity period (days), pass as integer |
-| `eip_id` | ❌ | auto | EIP ID, auto-find or create if not provided |
-| `addon_id` | ❌ | — | Addon ID (UID), required for detail query |
+| Parameter  | Required | Default | Description                                        |
+| ---------- | -------- | ------- | -------------------------------------------------- |
+| `duration` | ❌       | `30`    | Kubeconfig validity period (days), pass as integer |
+| `eip_id`   | ❌       | auto    | EIP ID, auto-find or create if not provided        |
+| `addon_id` | ❌       | —       | Addon ID (UID), required for detail query          |
 
 ## Core Commands
 
 ### Cluster Query
 
-| Tool | Function | Parameters |
-|------|----------|------------|
-| `huawei_list_cce_clusters` | List all CCE clusters in region | `region` |
-| `huawei_get_cce_nodes` | Get detailed node information | `region`, `cluster_id` |
-| `huawei_get_cce_kubeconfig` | Get cluster kubeconfig | `region`, `cluster_id`, `duration` |
+| Tool                        | Function                        | Parameters                         |
+| --------------------------- | ------------------------------- | ---------------------------------- |
+| `huawei_list_cce_clusters`  | List all CCE clusters in region | `region`                           |
+| `huawei_get_cce_nodes`      | Get detailed node information   | `region`, `cluster_id`             |
+| `huawei_get_cce_kubeconfig` | Get cluster kubeconfig          | `region`, `cluster_id`, `duration` |
 
 ### Cluster Management
 
-| Tool | Function | Risk Level | Requires Confirmation |
-|------|----------|------------|----------------------|
-| `huawei_create_cce_cluster` | Create CCE cluster | 🟢 Low | No |
-| `huawei_delete_cce_cluster` | Delete CCE cluster | 🔴 Critical | **Yes** |
-| `huawei_hibernate_cce_cluster` | Hibernate cluster | 🟠 High | **Yes** |
-| `huawei_awake_cce_cluster` | Awake cluster | 🟠 High | No |
-| `huawei_bind_cce_cluster_eip` | Bind cluster EIP (auto-find/create if no eip_id) | 🟢 Low | No |
-| `huawei_unbind_cce_cluster_eip` | Unbind cluster EIP | 🟡 Medium | No |
+| Tool                            | Function                                         | Risk Level  | Requires Confirmation |
+| ------------------------------- | ------------------------------------------------ | ----------- | --------------------- |
+| `huawei_create_cce_cluster`     | Create CCE cluster                               | 🟢 Low      | No                    |
+| `huawei_delete_cce_cluster`     | Delete CCE cluster                               | 🔴 Critical | **Yes**               |
+| `huawei_hibernate_cce_cluster`  | Hibernate cluster                                | 🟠 High     | **Yes**               |
+| `huawei_awake_cce_cluster`      | Awake cluster                                    | 🟠 High     | No                    |
+| `huawei_bind_cce_cluster_eip`   | Bind cluster EIP (auto-find/create if no eip_id) | 🟢 Low      | No                    |
+| `huawei_unbind_cce_cluster_eip` | Unbind cluster EIP                               | 🟡 Medium   | No                    |
 
-> **Dynamic EIP Binding:** `huawei_bind_cce_cluster_eip` supports dynamic EIP assignment. If `eip_id` is not provided, the skill automatically: (1) lists existing EIPs and finds an unbound one (status=DOWN), (2) if none available, creates a new EIP (traffic billing, 5Mbps, PER share type), (3) binds it to the cluster. The response includes `eip_created` (true/false), `eip_id`, `eip_address`, and `public_endpoint` (the External API URL).
+> **Dynamic EIP Binding:** `huawei_bind_cce_cluster_eip` supports dynamic EIP assignment. If `eip_id` is not provided, the skill automatically: (1) lists
+> existing EIPs and finds an unbound one (status=DOWN), (2) if none available, creates a new EIP (traffic billing, 5Mbps, PER share type), (3) binds it to the
+> cluster. The response includes `eip_created` (true/false), `eip_id`, `eip_address`, and `public_endpoint` (the External API URL).
 
 **Recommended defaults:**
 
 - Cluster type: `Turbo` (best performance with ENI network)
 - Container network: `eni` for Turbo clusters (default in this skill)
-- Cluster version: **omit `cluster_version` to let the API pick the latest supported version**; specify it only when the user requires a specific Kubernetes version
+- Cluster version: **omit `cluster_version` to let the API pick the latest supported version**; specify it only when the user requires a specific Kubernetes
+  version
 - Naming format: `<env>-<app>-cluster` (e.g., `prod-web-cluster`)
 
 ### Node Pool Management
 
-| Tool | Function | Risk Level | Requires Confirmation |
-|------|----------|------------|----------------------|
-| `huawei_list_cce_nodepools` | List node pools | 🟢 Low | No |
-| `huawei_create_cce_nodepool` | Create node pool | 🟢 Low | No |
-| `huawei_delete_cce_nodepool` | Delete node pool | 🟠 High | **Yes** |
-| `huawei_resize_cce_nodepool` | Resize node pool | 🟡 Medium | **Yes** |
+| Tool                         | Function         | Risk Level | Requires Confirmation |
+| ---------------------------- | ---------------- | ---------- | --------------------- |
+| `huawei_list_cce_nodepools`  | List node pools  | 🟢 Low     | No                    |
+| `huawei_create_cce_nodepool` | Create node pool | 🟢 Low     | No                    |
+| `huawei_delete_cce_nodepool` | Delete node pool | 🟠 High    | **Yes**               |
+| `huawei_resize_cce_nodepool` | Resize node pool | 🟡 Medium  | **Yes**               |
 
 **Recommended defaults:**
 
@@ -290,31 +314,34 @@ Before executing any command, confirm the following parameters with the user:
 
 ### Node Management
 
-| Tool | Function | Risk Level | Requires Confirmation |
-|------|----------|------------|----------------------|
-| `huawei_list_cce_nodes` | List cluster nodes | 🟢 Low | No |
-| `huawei_create_cce_node` | Create nodes directly | 🟢 Low | No |
-| `huawei_delete_cce_node` | Delete node | 🟠 High | **Yes** |
-| `huawei_cce_node_cordon` | Mark node unschedulable | 🟡 Medium | **Yes** |
-| `huawei_cce_node_uncordon` | Mark node schedulable | 🟡 Medium | **Yes** |
-| `huawei_cce_node_drain` | Cordon + evict all pods from node | 🟠 High | **Yes** |
-| `huawei_cce_node_status` | Query node scheduling status | 🟢 Low | No |
+| Tool                       | Function                          | Risk Level | Requires Confirmation |
+| -------------------------- | --------------------------------- | ---------- | --------------------- |
+| `huawei_list_cce_nodes`    | List cluster nodes                | 🟢 Low     | No                    |
+| `huawei_create_cce_node`   | Create nodes directly             | 🟢 Low     | No                    |
+| `huawei_delete_cce_node`   | Delete node                       | 🟠 High    | **Yes**               |
+| `huawei_cce_node_cordon`   | Mark node unschedulable           | 🟡 Medium  | **Yes**               |
+| `huawei_cce_node_uncordon` | Mark node schedulable             | 🟡 Medium  | **Yes**               |
+| `huawei_cce_node_drain`    | Cordon + evict all pods from node | 🟠 High    | **Yes**               |
+| `huawei_cce_node_status`   | Query node scheduling status      | 🟢 Low     | No                    |
 
-Node scheduling operations (`cordon`, `uncordon`, `drain`, `status`) are executed via **kubectl cce** — the kubectl-cce plugin connects to the CCE API Gateway using AK/SK credentials. **No cluster EIP or manual kubeconfig required**. The plugin handles cordon, eviction, PodDisruptionBudget (PDB) compliance, and DaemonSet pod skipping natively.
+Node scheduling operations (`cordon`, `uncordon`, `drain`, `status`) are executed via **kubectl cce** — the kubectl-cce plugin connects to the CCE API Gateway
+using AK/SK credentials. **No cluster EIP or manual kubeconfig required**. The plugin handles cordon, eviction, PodDisruptionBudget (PDB) compliance, and
+DaemonSet pod skipping natively.
 
-`huawei_cce_node_drain` follows **standard drain semantics**: it first cordons the node, then evicts all resident pods (excluding DaemonSet pods) via the k8s Eviction API, which respects `PodDisruptionBudget` (PDB). Pods blocked by PDB will be reported in the `failed_pods` field.
+`huawei_cce_node_drain` follows **standard drain semantics**: it first cordons the node, then evicts all resident pods (excluding DaemonSet pods) via the k8s
+Eviction API, which respects `PodDisruptionBudget` (PDB). Pods blocked by PDB will be reported in the `failed_pods` field.
 
 > **Note:** Prefer node pools for managed scaling. Direct node creation is for special cases.
 
 ### Addon Management
 
-| Tool | Function | Risk Level | Requires Confirmation |
-|------|----------|------------|----------------------|
-| `huawei_list_cce_addons` | List cluster addons | 🟢 Low | No |
-| `huawei_get_cce_addon_detail` | Get addon details | 🟢 Low | No |
-| `huawei_install_cce_addon` | Install addon | 🟢 Low | No |
-| `huawei_uninstall_cce_addon` | Uninstall addon | 🟠 High | **Yes** |
-| `huawei_update_cce_addon` | Update addon | 🟡 Medium | No |
+| Tool                          | Function            | Risk Level | Requires Confirmation |
+| ----------------------------- | ------------------- | ---------- | --------------------- |
+| `huawei_list_cce_addons`      | List cluster addons | 🟢 Low     | No                    |
+| `huawei_get_cce_addon_detail` | Get addon details   | 🟢 Low     | No                    |
+| `huawei_install_cce_addon`    | Install addon       | 🟢 Low     | No                    |
+| `huawei_uninstall_cce_addon`  | Uninstall addon     | 🟠 High    | **Yes**               |
+| `huawei_update_cce_addon`     | Update addon        | 🟡 Medium  | No                    |
 
 **Common addons:**
 
@@ -323,18 +350,21 @@ Node scheduling operations (`cordon`, `uncordon`, `drain`, `status`) are execute
 - `everest` - Storage driver
 
 > **Addon notes (from E2E verification):**
-> - `huawei_get_cce_addon_detail` and `huawei_uninstall_cce_addon` require the addon **UID** (from `huawei_list_cce_addons` → `metadata.uid`), not the addon name.
+>
+> - `huawei_get_cce_addon_detail` and `huawei_uninstall_cce_addon` require the addon **UID** (from `huawei_list_cce_addons` → `metadata.uid`), not the addon
+>   name.
 > - Addon status is in the `status.status` field (e.g., `running`, `upgrading`, `abnormal`), not `spec.status`.
-> - After `huawei_update_cce_addon`, the addon may enter `upgrading` state. Wait for it to return to `running` before performing subsequent operations (e.g., uninstall).
+> - After `huawei_update_cce_addon`, the addon may enter `upgrading` state. Wait for it to return to `running` before performing subsequent operations (e.g.,
+>   uninstall).
 
 ### Network Prerequisites
 
-| Tool | Function | Parameters |
-|------|----------|------------|
-| `huawei_list_vpc` | List VPCs with CIDR info | `region` |
-| `huawei_list_vpc_subnets` | List subnets with AZ info | `region`, `vpc_id`(optional) |
-| `huawei_list_eips` | List EIPs (shows bound/unbound status) | `region` |
-| `huawei_delete_eip` | Delete an EIP (frees public IP) | `region`, `publicip_id` |
+| Tool                      | Function                               | Parameters                   |
+| ------------------------- | -------------------------------------- | ---------------------------- |
+| `huawei_list_vpc`         | List VPCs with CIDR info               | `region`                     |
+| `huawei_list_vpc_subnets` | List subnets with AZ info              | `region`, `vpc_id`(optional) |
+| `huawei_list_eips`        | List EIPs (shows bound/unbound status) | `region`                     |
+| `huawei_delete_eip`       | Delete an EIP (frees public IP)        | `region`, `publicip_id`      |
 
 **Use these tools to find VPC/subnet IDs before cluster creation.**
 
@@ -342,19 +372,19 @@ Node scheduling operations (`cordon`, `uncordon`, `drain`, `status`) are execute
 
 ## Supported Regions
 
-| Region Code | Region Name |
-|-------------|-------------|
-| cn-north-4 | North China-Beijing 4 |
-| cn-north-1 | North China-Beijing 1 |
-| cn-north-2 | North China-Beijing 2 |
-| cn-east-3 | East China-Shanghai 1 |
-| cn-south-1 | South China-Guangzhou |
-| cn-south-2 | South China-Guangzhou Friendly |
-| cn-east-4 | East China II |
-| cn-southwest-2 | Guiyang 1 |
-| ap-southeast-1 | Asia-Pacific-Hong Kong |
-| ap-southeast-2 | Asia-Pacific-Bangkok |
-| ap-southeast-3 | Asia-Pacific-Singapore |
+| Region Code    | Region Name                    |
+| -------------- | ------------------------------ |
+| cn-north-4     | North China-Beijing 4          |
+| cn-north-1     | North China-Beijing 1          |
+| cn-north-2     | North China-Beijing 2          |
+| cn-east-3      | East China-Shanghai 1          |
+| cn-south-1     | South China-Guangzhou          |
+| cn-south-2     | South China-Guangzhou Friendly |
+| cn-east-4      | East China II                  |
+| cn-southwest-2 | Guiyang 1                      |
+| ap-southeast-1 | Asia-Pacific-Hong Kong         |
+| ap-southeast-2 | Asia-Pacific-Bangkok           |
+| ap-southeast-3 | Asia-Pacific-Singapore         |
 
 ---
 
@@ -391,16 +421,16 @@ See [verification-method.md](references/verification-method.md) for detailed ver
 
 ## References
 
-| Document | Description |
-|----------|-------------|
-| [task-cluster-management.md](references/task-cluster-management.md) | Cluster lifecycle operations |
-| [task-nodepool-management.md](references/task-nodepool-management.md) | Node pool operations |
-| [task-node-management.md](references/task-node-management.md) | Node scheduling operations |
-| [iam-policies.md](references/iam-policies.md) | IAM permission policies |
-| [verification-method.md](references/verification-method.md) | Verification steps |
-| [troubleshooting.md](references/troubleshooting.md) | Troubleshooting guide |
-| [cce-api-guide.md](references/cce-api-guide.md) | hcloud operation reference |
-| [cce-cluster-parameters.md](references/cce-cluster-parameters.md) | Cluster/nodepool creation parameters |
+| Document                                                              | Description                          |
+| --------------------------------------------------------------------- | ------------------------------------ |
+| [task-cluster-management.md](references/task-cluster-management.md)   | Cluster lifecycle operations         |
+| [task-nodepool-management.md](references/task-nodepool-management.md) | Node pool operations                 |
+| [task-node-management.md](references/task-node-management.md)         | Node scheduling operations           |
+| [iam-policies.md](references/iam-policies.md)                         | IAM permission policies              |
+| [verification-method.md](references/verification-method.md)           | Verification steps                   |
+| [troubleshooting.md](references/troubleshooting.md)                   | Troubleshooting guide                |
+| [cce-api-guide.md](references/cce-api-guide.md)                       | hcloud operation reference           |
+| [cce-cluster-parameters.md](references/cce-cluster-parameters.md)     | Cluster/nodepool creation parameters |
 
 ---
 
@@ -411,6 +441,7 @@ See [verification-method.md](references/verification-method.md) for detailed ver
 - All dangerous operations require confirmation
 - Deletion operations are irreversible
 - Hibernate cluster stops all workloads - use during non-business hours
-- Node drain uses `kubectl drain` natively: handles cordon + eviction + PDB compliance + DaemonSet skip automatically. Use `--ignore-daemonsets --delete-emptydir-data` flags.
+- Node drain uses `kubectl drain` natively: handles cordon + eviction + PDB compliance + DaemonSet skip automatically. Use
+  `--ignore-daemonsets --delete-emptydir-data` flags.
 - Turbo clusters recommended for best performance with ENI network
 - Create cluster / create node pool use the Python SDK fallback due to a known hcloud metadata parsing defect; all other operations use hcloud CLI

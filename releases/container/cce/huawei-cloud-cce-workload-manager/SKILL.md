@@ -12,16 +12,20 @@ tags: [cce, kubernetes, workload, kubeconfig, kubectl]
 
 ## Overview
 
-This skill provides workload lifecycle management capabilities for Huawei Cloud CCE and UCS-managed Kubernetes clusters using `hcloud` CLI for kubeconfig acquisition and `kubectl` for Kubernetes resource operations.
+This skill provides workload lifecycle management capabilities for Huawei Cloud CCE and UCS-managed Kubernetes clusters using `hcloud` CLI for kubeconfig
+acquisition and `kubectl` for Kubernetes resource operations.
 
-**Architecture**: hcloud CLI → kubeconfig YAML → kubectl --kubeconfig → k8s resources (Deployment/StatefulSet/DaemonSet/Job/CronJob/Service/Ingress/ConfigMap/Secret/PVC)
+**Architecture**: hcloud CLI → kubeconfig YAML → kubectl --kubeconfig → k8s resources
+(Deployment/StatefulSet/DaemonSet/Job/CronJob/Service/Ingress/ConfigMap/Secret/PVC)
 
 **Related Skills**:
+
 - `cce-cluster-management` - CCE cluster infrastructure creation, scaling, and deletion
 - `ucs-cluster-onboarding-manager` - UCS cluster onboarding, lifecycle, and fleet grouping
 - `ucs-policy-governor` - UCS policy governance, compliance, and audit management
 
 **Capabilities**:
+
 - Obtain kubeconfig for CCE clusters (direct cluster access)
 - Obtain federation kubeconfig for UCS fleet (multi-cluster fleet operations)
 - Manage Deployment/StatefulSet/DaemonSet lifecycle (create, query, scale, update, delete)
@@ -90,12 +94,12 @@ export HUAWEI_CLOUD_REGION=cn-north-4
 
 ### 4. IAM Permission Requirements
 
-| API Action                        | Permission          | Purpose                                    |
-| --------------------------------- | ------------------- | ------------------------------------------ |
-| `cce:cluster:get`                 | Get cluster         | View cluster details                       |
-| `cce:cluster:createCert`          | Create certificate  | Obtain CCE cluster kubeconfig              |
-| `ucs:kubeconfig:create`           | Create kubeconfig   | Obtain UCS cluster kubeconfig              |
-| `ucs:federationKubeconfig:get`    | Get federation      | Download UCS federation kubeconfig         |
+| API Action                     | Permission         | Purpose                            |
+| ------------------------------ | ------------------ | ---------------------------------- |
+| `cce:cluster:get`              | Get cluster        | View cluster details               |
+| `cce:cluster:createCert`       | Create certificate | Obtain CCE cluster kubeconfig      |
+| `ucs:kubeconfig:create`        | Create kubeconfig  | Obtain UCS cluster kubeconfig      |
+| `ucs:federationKubeconfig:get` | Get federation     | Download UCS federation kubeconfig |
 
 **Two-Layer Permission Model**:
 
@@ -136,6 +140,7 @@ kubectl --kubeconfig=~/.kube/cce-kubeconfig.yaml cluster-info
 ```
 
 **Key Parameter Differences**:
+
 - CCE uses `--cluster_id` (with underscore) for cluster ID
 - UCS uses `--clusterid` (no underscore) for cluster ID
 - CCE `CreateKubernetesClusterCert` `--duration` is in **days** (1-1827)
@@ -143,7 +148,8 @@ kubectl --kubeconfig=~/.kube/cce-kubeconfig.yaml cluster-info
 
 ### 2. Workload Management (Deployment/StatefulSet/DaemonSet)
 
-See [Task: Deployment Management](references/task-deployment-management.md) and [Task: StatefulSet/DaemonSet Management](references/task-statefulset-daemonset-management.md) for detailed workflows.
+See [Task: Deployment Management](references/task-deployment-management.md) and
+[Task: StatefulSet/DaemonSet Management](references/task-statefulset-daemonset-management.md) for detailed workflows.
 
 All commands use `kubectl --kubeconfig=<kubeconfig-file> -n <namespace>` pattern.
 
@@ -265,30 +271,30 @@ See [Task: kubectl Setup](references/task-kubectl-setup.md) for detailed install
 
 ### hcloud Parameters (Kubeconfig Acquisition)
 
-| Parameter          | Command             | Required | Description                   | Constraints                                  |
-| ------------------ | ------------------- | -------- | ----------------------------- | -------------------------------------------- |
-| `--cluster_id`     | CCE CreateCert      | Yes      | CCE cluster ID                | Must reference existing CCE cluster          |
-| `--clustergroupid` | UCS DownloadFederation | Yes   | Fleet group ID                | Must reference existing fleet group          |
-| `--duration`       | CCE CreateCert      | Yes*     | Certificate validity in days  | 1-1827 days; at least one of --duration/--expire_at required |
-| `--expire_at`      | CCE CreateCert      | Yes*     | Certificate expiry timestamp  | ISO format; mutually exclusive with --duration |
-| `--duration`       | UCS DownloadFederation | Yes   | Token validity in days (1-1825)  | Integer (1-1825)                            |
-| `--project_id`     | CCE CreateCert      | Required (auto-filled) | Project ID    | Auto-filled from hcloud config if not specified |
-| `--cli-region`     | All hcloud commands | Required | Huawei Cloud region ID        | Config value or `HUAWEI_CLOUD_REGION`        |
+| Parameter          | Command                | Required               | Description                     | Constraints                                                  |
+| ------------------ | ---------------------- | ---------------------- | ------------------------------- | ------------------------------------------------------------ |
+| `--cluster_id`     | CCE CreateCert         | Yes                    | CCE cluster ID                  | Must reference existing CCE cluster                          |
+| `--clustergroupid` | UCS DownloadFederation | Yes                    | Fleet group ID                  | Must reference existing fleet group                          |
+| `--duration`       | CCE CreateCert         | Yes\*                  | Certificate validity in days    | 1-1827 days; at least one of --duration/--expire_at required |
+| `--expire_at`      | CCE CreateCert         | Yes\*                  | Certificate expiry timestamp    | ISO format; mutually exclusive with --duration               |
+| `--duration`       | UCS DownloadFederation | Yes                    | Token validity in days (1-1825) | Integer (1-1825)                                             |
+| `--project_id`     | CCE CreateCert         | Required (auto-filled) | Project ID                      | Auto-filled from hcloud config if not specified              |
+| `--cli-region`     | All hcloud commands    | Required               | Huawei Cloud region ID          | Config value or `HUAWEI_CLOUD_REGION`                        |
 
 ### kubectl Flags
 
-| Flag             | Description                        | Example                                     |
-| ---------------- | ---------------------------------- | ------------------------------------------- |
-| `--kubeconfig`   | Path to kubeconfig file            | `--kubeconfig=~/.kube/cce-kubeconfig.yaml`  |
-| `-n`             | Namespace for the operation        | `-n production`                             |
-| `-o`             | Output format (wide/yaml/json)     | `-o wide`, `-o yaml`, `-o json`             |
-| `-f`             | YAML/JSON file path                | `-f deployment.yaml`                        |
-| `--replicas`     | Number of replicas for scaling     | `--replicas=5`                              |
-| `--image`        | Container image for create/set     | `--image=myapp:v1`                          |
-| `--tail`         | Number of log lines to show        | `--tail=100`                                |
-| `-f` (logs)      | Follow log output (stream)         | `logs -f`                                   |
-| `--min/--max`    | HPA min/max replicas               | `--min=2 --max=10`                          |
-| `--cpu-percent`  | HPA CPU target percentage          | `--cpu-percent=80`                          |
+| Flag            | Description                    | Example                                    |
+| --------------- | ------------------------------ | ------------------------------------------ |
+| `--kubeconfig`  | Path to kubeconfig file        | `--kubeconfig=~/.kube/cce-kubeconfig.yaml` |
+| `-n`            | Namespace for the operation    | `-n production`                            |
+| `-o`            | Output format (wide/yaml/json) | `-o wide`, `-o yaml`, `-o json`            |
+| `-f`            | YAML/JSON file path            | `-f deployment.yaml`                       |
+| `--replicas`    | Number of replicas for scaling | `--replicas=5`                             |
+| `--image`       | Container image for create/set | `--image=myapp:v1`                         |
+| `--tail`        | Number of log lines to show    | `--tail=100`                               |
+| `-f` (logs)     | Follow log output (stream)     | `logs -f`                                  |
+| `--min/--max`   | HPA min/max replicas           | `--min=2 --max=10`                         |
+| `--cpu-percent` | HPA CPU target percentage      | `--cpu-percent=80`                         |
 
 ## Output Format
 
@@ -300,31 +306,31 @@ Returns a standard Kubernetes kubeconfig YAML document containing:
 apiVersion: v1
 kind: Config
 clusters:
-- cluster:
-    certificate-authority-data: <base64-encoded-ca>
-    server: https://<cluster-endpoint>:5443
-  name: internalCluster
-- cluster:
-    server: https://<cluster-eip>:5443
-    insecure-skip-tls-verify: true
-  name: externalCluster
-- cluster:
-    certificate-authority-data: <base64-encoded-ca>
-    server: https://<cluster-eip>:5443
-  name: externalClusterTLSVerify
+  - cluster:
+      certificate-authority-data: <base64-encoded-ca>
+      server: https://<cluster-endpoint>:5443
+    name: internalCluster
+  - cluster:
+      server: https://<cluster-eip>:5443
+      insecure-skip-tls-verify: true
+    name: externalCluster
+  - cluster:
+      certificate-authority-data: <base64-encoded-ca>
+      server: https://<cluster-eip>:5443
+    name: externalClusterTLSVerify
 contexts:
-- context:
-    cluster: internalCluster
-    user: user
-  name: internal
-- context:
-    cluster: externalCluster
-    user: user
-  name: external
-- context:
-    cluster: externalClusterTLSVerify
-    user: user
-  name: externalTLSVerify
+  - context:
+      cluster: internalCluster
+      user: user
+    name: internal
+  - context:
+      cluster: externalCluster
+      user: user
+    name: external
+  - context:
+      cluster: externalClusterTLSVerify
+      user: user
+    name: externalTLSVerify
 current-context: external
 ```
 
@@ -336,32 +342,36 @@ Returns a federation kubeconfig with two contexts for multi-cluster fleet operat
 apiVersion: v1
 kind: Config
 clusters:
-- cluster:
-    certificate-authority-data: <base64-encoded-ca>
-    server: https://<fleet-name>.fleet.ucs.<region>.myhuaweicloud.com:5443
-  name: federation
-- cluster:
-    certificate-authority-data: <base64-encoded-ca>
-    server: https://<fleet-name>.fleet.ucs.<region>.myhuaweicloud.com:5443/apis/cluster.karmada.io/v1alpha1/clusters/*/proxy
-  name: karmada-aggregated-apiserver
+  - cluster:
+      certificate-authority-data: <base64-encoded-ca>
+      server: https://<fleet-name>.fleet.ucs.<region>.myhuaweicloud.com:5443
+    name: federation
+  - cluster:
+      certificate-authority-data: <base64-encoded-ca>
+      server: https://<fleet-name>.fleet.ucs.<region>.myhuaweicloud.com:5443/apis/cluster.karmada.io/v1alpha1/clusters/*/proxy
+    name: karmada-aggregated-apiserver
 contexts:
-- context:
-    cluster: federation
-    user: user
-  name: federation
-- context:
-    cluster: karmada-aggregated-apiserver
-    user: user
-  name: karmada-aggregated-apiserver
+  - context:
+      cluster: federation
+      user: user
+    name: federation
+  - context:
+      cluster: karmada-aggregated-apiserver
+      user: user
+    name: karmada-aggregated-apiserver
 current-context: federation
 ```
 
 **Federation vs Karmada context**:
+
 - `federation`: Operates on fleet-level resources (propagated workloads, fleet policies)
 - `karmada-aggregated-apiserver`: Proxy access to individual member clusters via `/clusters/<cluster-name>/proxy`
 
-> **Network prerequisite**: UCS federation kubeconfig uses `<fleet-name>.fleet.ucs.<region>.myhuaweicloud.com` as the API server domain. This domain resolves via UCS VPC Endpoint (VPCEP). If DNS resolution fails, ensure your network can reach the UCS VPCEP (e.g., via VPC peering, VPN, or direct cloud network access).
-```
+> **Network prerequisite**: UCS federation kubeconfig uses `<fleet-name>.fleet.ucs.<region>.myhuaweicloud.com` as the API server domain. This domain resolves
+> via UCS VPC Endpoint (VPCEP). If DNS resolution fails, ensure your network can reach the UCS VPCEP (e.g., via VPC peering, VPN, or direct cloud network
+> access).
+
+````
 
 ### kubectl Output Formats
 
@@ -396,7 +406,7 @@ current-context: federation
 ```bash
 kubectl --kubeconfig=~/.kube/cce-kubeconfig.yaml cluster-info
 kubectl --kubeconfig=~/.kube/cce-kubeconfig.yaml get nodes
-```
+````
 
 ### Workload Deployment Verification
 
@@ -425,12 +435,12 @@ kubectl --kubeconfig=~/.kube/cce-kubeconfig.yaml get hpa -n production
 
 ## Reference Documents
 
-| Document                                                      | Description                              |
-| ------------------------------------------------------------- | ---------------------------------------- |
-| [Task: Kubeconfig Acquisition](references/task-kubeconfig-acquisition.md) | Kubeconfig acquisition workflows |
-| [Task: kubectl Setup](references/task-kubectl-setup.md)       | kubectl installation and configuration   |
-| [Task: Deployment Management](references/task-deployment-management.md) | Deployment lifecycle workflows |
-| [Task: StatefulSet/DaemonSet Management](references/task-statefulset-daemonset-management.md) | StatefulSet and DaemonSet workflows |
+| Document                                                                                      | Description                            |
+| --------------------------------------------------------------------------------------------- | -------------------------------------- |
+| [Task: Kubeconfig Acquisition](references/task-kubeconfig-acquisition.md)                     | Kubeconfig acquisition workflows       |
+| [Task: kubectl Setup](references/task-kubectl-setup.md)                                       | kubectl installation and configuration |
+| [Task: Deployment Management](references/task-deployment-management.md)                       | Deployment lifecycle workflows         |
+| [Task: StatefulSet/DaemonSet Management](references/task-statefulset-daemonset-management.md) | StatefulSet and DaemonSet workflows    |
 
 ## Notes
 
@@ -439,26 +449,27 @@ kubectl --kubeconfig=~/.kube/cce-kubeconfig.yaml get hpa -n production
 - **RBAC governs kubectl access** — even with a valid kubeconfig, Kubernetes RBAC controls what operations are permitted
 - **cce-cluster-management handles infrastructure** — cluster creation, deletion, and node management belong to the `cce-cluster-management` skill
 - **Two-layer permission model** — Huawei Cloud IAM controls kubeconfig acquisition, Kubernetes RBAC controls kubectl operations
-- **UCS is for fleet operations** — UCS kubeconfig is only for federation (DownloadFederationKubeconfig), not single cluster (CreateClusterKubeconfig is out of scope for this skill)
+- **UCS is for fleet operations** — UCS kubeconfig is only for federation (DownloadFederationKubeconfig), not single cluster (CreateClusterKubeconfig is out of
+  scope for this skill)
 - **UCS federation kubeconfig provides two contexts** — `federation` (fleet-level) and `karmada-aggregated-apiserver` (proxy to member clusters)
 - **UCS federation requires network access** — fleet API server domain (`<fleet>.fleet.ucs.<region>.myhuaweicloud.com`) requires VPCEP access
 
 ## Common Pitfalls
 
-| Pitfall                              | Symptom                              | Quick Fix                                          |
-| ------------------------------------ | ------------------------------------ | -------------------------------------------------- |
-| kubectl not installed                | Command not found                    | Install kubectl (see references/task-kubectl-setup.md) |
-| Wrong cluster_id                     | 404 or kubeconfig for wrong cluster  | Verify cluster ID with `hcloud CCE ListClusters`  |
-| Kubeconfig expired                   | Authentication failures              | Re-acquire kubeconfig with `CreateKubernetesClusterCert` |
-| RBAC insufficient                    | Forbidden errors in kubectl          | Configure appropriate ClusterRole/Role bindings    |
-| Missing namespace flag               | Resources in wrong namespace         | Always specify `-n <namespace>` explicitly         |
-| CCE vs UCS param confusion           | Parameter not recognized             | CCE: `--cluster_id`, UCS: `--clustergroupid` for federation |
-| Duration unit confusion              | Certificate expires immediately      | CCE: days (1-1827), UCS federation: days (1-1825) |
-| UCS federation DNS unreachable       | `no such host` on federation API     | Ensure VPCEP/network access to UCS fleet domain |
-| Inline create vs YAML apply          | Hard to reproduce/audit              | Prefer `kubectl apply -f <yaml>` for production   |
-| Rollout without status check         | Unknown deployment state             | Always run `rollout status` after updates          |
-| Kubeconfig file permissions          | Security warning or access denied    | Set file permissions to 600 (`chmod 600`)         |
-| Wrong StorageClass in PVC            | PVC stuck Pending                    | Use `csi-disk` (not `cce-standard`); run `kubectl get sc` to verify |
-| Metrics API not available            | `top pods/nodes` fails               | Install metrics-server addon via CCE console       |
-| PowerShell JSON patch escaping       | `patch -p` fails with JSON errors    | Use `--patch-file` instead of inline `-p` JSON     |
-| HPA --cpu-percent deprecated         | Warning flag deprecated              | Use `--cpu=80%` instead of `--cpu-percent=80`      |
+| Pitfall                        | Symptom                             | Quick Fix                                                           |
+| ------------------------------ | ----------------------------------- | ------------------------------------------------------------------- |
+| kubectl not installed          | Command not found                   | Install kubectl (see references/task-kubectl-setup.md)              |
+| Wrong cluster_id               | 404 or kubeconfig for wrong cluster | Verify cluster ID with `hcloud CCE ListClusters`                    |
+| Kubeconfig expired             | Authentication failures             | Re-acquire kubeconfig with `CreateKubernetesClusterCert`            |
+| RBAC insufficient              | Forbidden errors in kubectl         | Configure appropriate ClusterRole/Role bindings                     |
+| Missing namespace flag         | Resources in wrong namespace        | Always specify `-n <namespace>` explicitly                          |
+| CCE vs UCS param confusion     | Parameter not recognized            | CCE: `--cluster_id`, UCS: `--clustergroupid` for federation         |
+| Duration unit confusion        | Certificate expires immediately     | CCE: days (1-1827), UCS federation: days (1-1825)                   |
+| UCS federation DNS unreachable | `no such host` on federation API    | Ensure VPCEP/network access to UCS fleet domain                     |
+| Inline create vs YAML apply    | Hard to reproduce/audit             | Prefer `kubectl apply -f <yaml>` for production                     |
+| Rollout without status check   | Unknown deployment state            | Always run `rollout status` after updates                           |
+| Kubeconfig file permissions    | Security warning or access denied   | Set file permissions to 600 (`chmod 600`)                           |
+| Wrong StorageClass in PVC      | PVC stuck Pending                   | Use `csi-disk` (not `cce-standard`); run `kubectl get sc` to verify |
+| Metrics API not available      | `top pods/nodes` fails              | Install metrics-server addon via CCE console                        |
+| PowerShell JSON patch escaping | `patch -p` fails with JSON errors   | Use `--patch-file` instead of inline `-p` JSON                      |
+| HPA --cpu-percent deprecated   | Warning flag deprecated             | Use `--cpu=80%` instead of `--cpu-percent=80`                       |

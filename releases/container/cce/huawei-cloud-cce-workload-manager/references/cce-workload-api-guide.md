@@ -2,7 +2,9 @@
 
 ## Overview
 
-This document provides API reference information for Huawei Cloud CCE workload management operations using hcloud CLI and kubectl. All hcloud commands follow the standard format: `hcloud CCE <Operation> --param=value --cli-region=<region>`. All kubectl commands require a valid kubeconfig: `kubectl --kubeconfig=<file> <command>`.
+This document provides API reference information for Huawei Cloud CCE workload management operations using hcloud CLI and kubectl. All hcloud commands follow
+the standard format: `hcloud CCE <Operation> --param=value --cli-region=<region>`. All kubectl commands require a valid kubeconfig:
+`kubectl --kubeconfig=<file> <command>`.
 
 ## Authentication
 
@@ -21,8 +23,7 @@ hcloud configure
 hcloud configure list
 ```
 
-✅ **Correct**: Use `hcloud configure list` to verify credentials
-❌ **Incorrect**: Never use `echo $HUAWEI_CLOUD_AK` to check credentials
+✅ **Correct**: Use `hcloud configure list` to verify credentials ❌ **Incorrect**: Never use `echo $HUAWEI_CLOUD_AK` to check credentials
 
 ## hcloud CCE Kubeconfig API
 
@@ -40,13 +41,13 @@ hcloud CCE CreateKubernetesClusterCert --cluster_id=<cce-cluster-id> --project_i
 
 **Parameters**:
 
-| Parameter        | Type     | Required | Description                                      |
-| ---------------- | -------- | -------- | ------------------------------------------------ |
-| `--cluster_id`   | string   | Yes (path) | CCE cluster UUID                              |
-| `--project_id`   | string   | Yes      | Huawei Cloud project ID                          |
-| `--duration`     | integer  | No (body) | Kubeconfig validity in days (1-1827)          |
-| `--expire_at`    | string   | No       | Specific expiration timestamp                   |
-| `--cli-region`   | string   | Yes      | Region where the CCE cluster resides             |
+| Parameter      | Type    | Required   | Description                          |
+| -------------- | ------- | ---------- | ------------------------------------ |
+| `--cluster_id` | string  | Yes (path) | CCE cluster UUID                     |
+| `--project_id` | string  | Yes        | Huawei Cloud project ID              |
+| `--duration`   | integer | No (body)  | Kubeconfig validity in days (1-1827) |
+| `--expire_at`  | string  | No         | Specific expiration timestamp        |
+| `--cli-region` | string  | Yes        | Region where the CCE cluster resides |
 
 **Response**: Returns a Kubernetes kubeconfig YAML content that can be saved to a file for kubectl access.
 
@@ -70,16 +71,17 @@ hcloud CCE ListClusters --project_id=<project-id> --detail=true --status=Availab
 
 **Parameters**:
 
-| Parameter      | Type    | Required | Description                              |
-| -------------- | ------- | -------- | ---------------------------------------- |
-| `--project_id` | string  | Yes      | Huawei Cloud project ID                  |
-| `--detail`     | boolean | No       | Return detailed cluster information      |
-| `--status`     | string  | No       | Filter by cluster status                 |
-| `--type`       | string  | No       | Filter by cluster type                   |
-| `--version`    | string  | No       | Filter by Kubernetes version             |
-| `--cli-region` | string  | Yes      | Region ID                                |
+| Parameter      | Type    | Required | Description                         |
+| -------------- | ------- | -------- | ----------------------------------- |
+| `--project_id` | string  | Yes      | Huawei Cloud project ID             |
+| `--detail`     | boolean | No       | Return detailed cluster information |
+| `--status`     | string  | No       | Filter by cluster status            |
+| `--type`       | string  | No       | Filter by cluster type              |
+| `--version`    | string  | No       | Filter by Kubernetes version        |
+| `--cli-region` | string  | Yes      | Region ID                           |
 
 **Response Fields**:
+
 - `id`: CCE cluster UUID (use as `--cluster_id` in other operations)
 - `name`: Cluster display name
 - `status`: Cluster status (`Available`, `Creating`, `Deleting`, etc.)
@@ -100,14 +102,15 @@ hcloud CCE ShowCluster --cluster_id=<cce-cluster-id> --project_id=<project-id> -
 
 **Parameters**:
 
-| Parameter        | Type    | Required | Description                              |
-| ---------------- | ------- | -------- | ---------------------------------------- |
-| `--cluster_id`   | string  | Yes (path) | CCE cluster UUID                       |
-| `--project_id`   | string  | Yes      | Huawei Cloud project ID                  |
-| `--detail`       | boolean | No       | Return detailed cluster information      |
-| `--cli-region`   | string  | Yes      | Region ID                                |
+| Parameter      | Type    | Required   | Description                         |
+| -------------- | ------- | ---------- | ----------------------------------- |
+| `--cluster_id` | string  | Yes (path) | CCE cluster UUID                    |
+| `--project_id` | string  | Yes        | Huawei Cloud project ID             |
+| `--detail`     | boolean | No         | Return detailed cluster information |
+| `--cli-region` | string  | Yes        | Region ID                           |
 
 **Response Fields**:
+
 - `id`: CCE cluster UUID
 - `name`: Cluster display name
 - `status.phase`: Cluster phase (`Available`, `Creating`, `Deleting`, `Unavailable`)
@@ -123,13 +126,14 @@ hcloud CCE ShowClusterEndpoints --cluster_id=<cce-cluster-id> --project_id=<proj
 
 **Parameters**:
 
-| Parameter        | Type    | Required | Description                              |
-| ---------------- | ------- | -------- | ---------------------------------------- |
-| `--cluster_id`   | string  | Yes (path) | CCE cluster UUID                       |
-| `--project_id`   | string  | Yes      | Huawei Cloud project ID                  |
-| `--cli-region`   | string  | Yes      | Region ID                                |
+| Parameter      | Type   | Required   | Description             |
+| -------------- | ------ | ---------- | ----------------------- |
+| `--cluster_id` | string | Yes (path) | CCE cluster UUID        |
+| `--project_id` | string | Yes        | Huawei Cloud project ID |
+| `--cli-region` | string | Yes        | Region ID               |
 
 **Response Fields**:
+
 - `externalEndpoint`: Public API server endpoint
 - `internalEndpoint`: Private API server endpoint (VPC access)
 - `externalOTCEndpoint`: OpenTelekomCloud endpoint (if applicable)
@@ -144,10 +148,10 @@ hcloud UCS CreateClusterKubeconfig --clusterid=<ucs-cluster-id> --cli-region=cn-
 
 **Parameters**:
 
-| Parameter      | Type   | Required | Description                              |
-| -------------- | ------ | -------- | ---------------------------------------- |
-| `--clusterid`  | string | Yes (path) | UCS cluster ID (no underscore)        |
-| `--cli-region` | string | Yes      | Region ID                                |
+| Parameter      | Type   | Required   | Description                    |
+| -------------- | ------ | ---------- | ------------------------------ |
+| `--clusterid`  | string | Yes (path) | UCS cluster ID (no underscore) |
+| `--cli-region` | string | Yes        | Region ID                      |
 
 **Response**: Returns a Kubernetes kubeconfig YAML content for kubectl access to the UCS-managed cluster.
 
@@ -159,11 +163,11 @@ hcloud UCS DownloadFederationKubeconfig --clustergroupid=<group-id> --duration=1
 
 **Parameters**:
 
-| Parameter         | Type    | Required | Description                                  |
-| ----------------- | ------- | -------- | -------------------------------------------- |
-| `--clustergroupid` | string | Yes (path) | Fleet group ID (no underscore)            |
-| `--duration`      | integer | Yes      | Kubeconfig validity duration in days (1-1825)  |
-| `--cli-region`    | string  | Yes      | Region ID                                    |
+| Parameter          | Type    | Required   | Description                                   |
+| ------------------ | ------- | ---------- | --------------------------------------------- |
+| `--clustergroupid` | string  | Yes (path) | Fleet group ID (no underscore)                |
+| `--duration`       | integer | Yes        | Kubeconfig validity duration in days (1-1825) |
+| `--cli-region`     | string  | Yes        | Region ID                                     |
 
 **Response**: Returns a federation kubeconfig YAML that provides unified kubectl access to all clusters in the fleet group.
 
@@ -174,6 +178,7 @@ hcloud UCS ShowClusterList --cli-region=cn-north-4
 ```
 
 **Response Fields**:
+
 - `items[].metadata.uid`: UCS cluster UUID (use as `--clusterid`)
 - `items[].metadata.name`: Cluster display name
 - `items[].status.phase`: Cluster phase
@@ -185,6 +190,7 @@ hcloud UCS ListClusterGroup --cli-region=cn-north-4
 ```
 
 **Response Fields**:
+
 - `id`: Fleet group UUID (use as `--clustergroupid`)
 - `name`: Fleet group display name
 
@@ -194,14 +200,14 @@ All kubectl commands require `--kubeconfig=<file>` and typically `-n <namespace>
 
 ### Common Flags
 
-| Flag               | Description                              |
-| ------------------ | ---------------------------------------- |
-| `--kubeconfig=<f>` | Path to kubeconfig file                  |
-| `-n <namespace>`   | Target namespace                         |
-| `-o wide`          | Additional columns in output             |
-| `-o yaml`          | YAML output format                       |
-| `-o json`          | JSON output format                       |
-| `-f <file>`        | Apply from file or directory             |
+| Flag               | Description                  |
+| ------------------ | ---------------------------- |
+| `--kubeconfig=<f>` | Path to kubeconfig file      |
+| `-n <namespace>`   | Target namespace             |
+| `-o wide`          | Additional columns in output |
+| `-o yaml`          | YAML output format           |
+| `-o json`          | JSON output format           |
+| `-f <file>`        | Apply from file or directory |
 
 ### Namespace Operations
 
@@ -296,20 +302,20 @@ kubectl --kubeconfig=<f> auth can-i delete pods -n staging
 
 ## Common Errors
 
-| Error                   | Cause                       | Solution                                        |
-| ----------------------- | --------------------------- | ------------------------------------------------ |
-| `InvalidAccessKeyId`    | Invalid AK/SK               | Check credential configuration via `hcloud configure list` |
-| `CCE.001`               | Invalid parameter           | Check parameter format (CCE uses `--cluster_id` with underscore) |
-| `CCE.002`               | Cluster not found           | Verify cluster_id with `hcloud CCE ListClusters` |
-| `CCE.003`               | Cluster status unavailable  | Check cluster status with `ShowCluster`          |
-| `CCE.ClusterNotFound`   | Invalid cluster UUID        | Use `hcloud CCE ListClusters` to find correct UUID |
-| `KubeconfigExpired`     | Kubeconfig token expired    | Re-create with `CreateKubernetesClusterCert --duration=<days>` |
-| `Forbidden (RBAC)`      | Insufficient RBAC           | Check with `kubectl auth can-i`, create RBAC bindings |
-| `ConnectionRefused`     | API server unreachable      | Verify network, check `ShowClusterEndpoints`     |
-| `NamespaceNotFound`     | Namespace does not exist    | Create with `kubectl create namespace <name>`    |
-| `InvalidKubeconfig`     | Kubeconfig format invalid   | Re-download from CCE or UCS API                  |
-| `UCS.001`               | Invalid UCS parameter       | UCS uses `--clusterid` (no underscore)           |
-| `UCS.002`               | UCS cluster not found       | Use `ShowClusterList` to find UCS cluster ID     |
+| Error                 | Cause                      | Solution                                                         |
+| --------------------- | -------------------------- | ---------------------------------------------------------------- |
+| `InvalidAccessKeyId`  | Invalid AK/SK              | Check credential configuration via `hcloud configure list`       |
+| `CCE.001`             | Invalid parameter          | Check parameter format (CCE uses `--cluster_id` with underscore) |
+| `CCE.002`             | Cluster not found          | Verify cluster_id with `hcloud CCE ListClusters`                 |
+| `CCE.003`             | Cluster status unavailable | Check cluster status with `ShowCluster`                          |
+| `CCE.ClusterNotFound` | Invalid cluster UUID       | Use `hcloud CCE ListClusters` to find correct UUID               |
+| `KubeconfigExpired`   | Kubeconfig token expired   | Re-create with `CreateKubernetesClusterCert --duration=<days>`   |
+| `Forbidden (RBAC)`    | Insufficient RBAC          | Check with `kubectl auth can-i`, create RBAC bindings            |
+| `ConnectionRefused`   | API server unreachable     | Verify network, check `ShowClusterEndpoints`                     |
+| `NamespaceNotFound`   | Namespace does not exist   | Create with `kubectl create namespace <name>`                    |
+| `InvalidKubeconfig`   | Kubeconfig format invalid  | Re-download from CCE or UCS API                                  |
+| `UCS.001`             | Invalid UCS parameter      | UCS uses `--clusterid` (no underscore)                           |
+| `UCS.002`             | UCS cluster not found      | Use `ShowClusterList` to find UCS cluster ID                     |
 
 ## Related Documentation
 

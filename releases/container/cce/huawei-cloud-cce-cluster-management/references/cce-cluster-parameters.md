@@ -2,31 +2,33 @@
 
 ## Overview
 
-Detailed parameters required for creating CCE clusters, node pools, and nodes, including key constraints such as Turbo clusters, the three-level node login priority, password salting/encryption, and ENI flavor compatibility.
+Detailed parameters required for creating CCE clusters, node pools, and nodes, including key constraints such as Turbo clusters, the three-level node login
+priority, password salting/encryption, and ENI flavor compatibility.
 
 ## Required Cluster Parameters
 
-| Parameter | Description | Example Value |
-|-----------|-------------|---------------|
-| `region` | Huawei Cloud region | `cn-north-4` |
-| `cluster_name` | Cluster name | `my-cluster` |
-| `cluster_version` | Kubernetes version | **Omit for latest** (API selects the newest supported version); specify (e.g., `v1.28`) only when a specific version is required |
-| `flavor_id` | Cluster specification | `cce.s1.small` |
-| `vpc_id` | VPC ID | `vpc-xxx` |
-| `subnet_id` | Subnet ID | `subnet-xxx` |
+| Parameter         | Description           | Example Value                                                                                                                    |
+| ----------------- | --------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `region`          | Huawei Cloud region   | `cn-north-4`                                                                                                                     |
+| `cluster_name`    | Cluster name          | `my-cluster`                                                                                                                     |
+| `cluster_version` | Kubernetes version    | **Omit for latest** (API selects the newest supported version); specify (e.g., `v1.28`) only when a specific version is required |
+| `flavor_id`       | Cluster specification | `cce.s1.small`                                                                                                                   |
+| `vpc_id`          | VPC ID                | `vpc-xxx`                                                                                                                        |
+| `subnet_id`       | Subnet ID             | `subnet-xxx`                                                                                                                     |
 
 ## Optional Cluster Parameters
 
-| Parameter | Description | Default Value |
-|-----------|-------------|---------------|
-| `cluster_type` | Cluster type | `VirtualMachine` |
-| `container_network_type` | Container network type | `eni` (Turbo) |
-| `container_network_cidr` | Container network CIDR | Auto-assigned |
-| `eni_subnet_id` | ENI subnet ID (Turbo cluster) | Empty (falls back to `subnet_id`) |
-| `description` | Cluster description | Empty |
-| `service_network_cidr` | Service network CIDR (IPv4) | Empty (API default) |
+| Parameter                | Description                   | Default Value                     |
+| ------------------------ | ----------------------------- | --------------------------------- |
+| `cluster_type`           | Cluster type                  | `VirtualMachine`                  |
+| `container_network_type` | Container network type        | `eni` (Turbo)                     |
+| `container_network_cidr` | Container network CIDR        | Auto-assigned                     |
+| `eni_subnet_id`          | ENI subnet ID (Turbo cluster) | Empty (falls back to `subnet_id`) |
+| `description`            | Cluster description           | Empty                             |
+| `service_network_cidr`   | Service network CIDR (IPv4)   | Empty (API default)               |
 
-> **Default change:** the skill now defaults `container_network_type` to `eni` (Turbo), previously `overlay_l2`. Turbo clusters provide better performance via ENI network integration.
+> **Default change:** the skill now defaults `container_network_type` to `eni` (Turbo), previously `overlay_l2`. Turbo clusters provide better performance via
+> ENI network integration.
 
 ### Turbo Cluster
 
@@ -36,45 +38,47 @@ When creating a CCE Turbo (ENI network) cluster, set:
 - `container_network_type=eni` (the default)
 - `flavor_id` can use any specification such as `cce.s1.small`
 
-The `spec.category` returned by the API will automatically become `Turbo`. For Turbo clusters, the skill resolves `neutron_subnet_id` via `hcloud VPC ShowSubnet` (using `eni_subnet_id` if provided, otherwise `subnet_id`) and attaches it to the request.
+The `spec.category` returned by the API will automatically become `Turbo`. For Turbo clusters, the skill resolves `neutron_subnet_id` via
+`hcloud VPC ShowSubnet` (using `eni_subnet_id` if provided, otherwise `subnet_id`) and attaches it to the request.
 
 ## Cluster Specifications
 
-| Specification | Description | Applicable Scenario |
-|---------------|-------------|---------------------|
-| `cce.s1.small` | Small scale, 50 nodes | Development & testing |
-| `cce.s1.medium` | Medium scale, 200 nodes | Production environment |
-| `cce.s1.large` | Large scale, 1000 nodes | Large-scale applications |
-| `cce.s2.small` | HA small scale | HA testing |
-| `cce.s2.medium` | HA medium scale | HA production |
+| Specification   | Description             | Applicable Scenario      |
+| --------------- | ----------------------- | ------------------------ |
+| `cce.s1.small`  | Small scale, 50 nodes   | Development & testing    |
+| `cce.s1.medium` | Medium scale, 200 nodes | Production environment   |
+| `cce.s1.large`  | Large scale, 1000 nodes | Large-scale applications |
+| `cce.s2.small`  | HA small scale          | HA testing               |
+| `cce.s2.medium` | HA medium scale         | HA production            |
 
 ## Node Pool Creation Parameters
 
 ### Required Parameters
 
-| Parameter | Description | Example Value |
-|-----------|-------------|---------------|
-| `region` | Huawei Cloud region | `cn-north-4` |
-| `cluster_id` | Cluster ID | `xxx` |
-| `nodepool_name` | Node pool name | `dev-worker-pool` |
-| `flavor` | Node specification | `c7.large.2` |
-| `availability_zone` | Availability zone | `cn-north-4a` |
-| `root_volume_size` | System disk size (GB) | `40` |
-| `root_volume_type` | System disk type | `GPSSD` |
-| `initial_node_count` | Initial node count | `1` |
+| Parameter            | Description           | Example Value     |
+| -------------------- | --------------------- | ----------------- |
+| `region`             | Huawei Cloud region   | `cn-north-4`      |
+| `cluster_id`         | Cluster ID            | `xxx`             |
+| `nodepool_name`      | Node pool name        | `dev-worker-pool` |
+| `flavor`             | Node specification    | `c7.large.2`      |
+| `availability_zone`  | Availability zone     | `cn-north-4a`     |
+| `root_volume_size`   | System disk size (GB) | `40`              |
+| `root_volume_type`   | System disk type      | `GPSSD`           |
+| `initial_node_count` | Initial node count    | `1`               |
 
 ### Login Authentication — Three-Level Priority
 
 The node login credential is resolved by `common.resolve_node_login` with the following priority:
 
-| Priority | Source | Notes |
-|----------|--------|-------|
-| 1 (highest) | `ssh_key` parameter | SSH key pair name. Mutually exclusive with password. |
-| 2 | `password` parameter | Raw node login password passed per call (8–26 chars, ≥3 of: uppercase / lowercase / digits / special). |
-| 3 | `CCE_NODE_PASSWORD` environment variable | Used when neither `ssh_key` nor `password` is provided. |
-| 4 (fallback) | Auto-generated random password | Generated by the skill when none of the above is supplied. |
+| Priority     | Source                                   | Notes                                                                                                  |
+| ------------ | ---------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| 1 (highest)  | `ssh_key` parameter                      | SSH key pair name. Mutually exclusive with password.                                                   |
+| 2            | `password` parameter                     | Raw node login password passed per call (8–26 chars, ≥3 of: uppercase / lowercase / digits / special). |
+| 3            | `CCE_NODE_PASSWORD` environment variable | Used when neither `ssh_key` nor `password` is provided.                                                |
+| 4 (fallback) | Auto-generated random password           | Generated by the skill when none of the above is supplied.                                             |
 
-> ⚠️ **The auto-generated password is NEVER returned in the tool response.** To access the node afterwards, reset the password via the CCE console or the ECS API. The success message only contains a hint to reset the password.
+> ⚠️ **The auto-generated password is NEVER returned in the tool response.** To access the node afterwards, reset the password via the CCE console or the ECS
+> API. The success message only contains a hint to reset the password.
 
 The raw password is never sent to the CCE API directly; the skill applies SHA-512 salted encryption + base64 encoding internally.
 
@@ -87,6 +91,7 @@ export CCE_NODE_PASSWORD="your_password"
 ```
 
 Password complexity requirements:
+
 - Length: 8-26 characters
 - Must include at least three of: uppercase letters, lowercase letters, digits, special characters
 - Special characters: `!@$%^-_=+[]{}:,./?`
@@ -95,7 +100,8 @@ The script automatically validates password complexity and returns an error mess
 
 ### Password Salting and Encryption
 
-> **Important: The CCE API requires the password field to be SHA-512 salted encrypted and then base64 encoded. Raw passwords cannot be passed directly. The skill handles this automatically via `common.salt_password`.**
+> **Important: The CCE API requires the password field to be SHA-512 salted encrypted and then base64 encoded. Raw passwords cannot be passed directly. The
+> skill handles this automatically via `common.salt_password`.**
 
 Encryption steps (reference only — the skill does this for you):
 
@@ -112,14 +118,14 @@ Dependency required: `pip install passlib`
 
 ### Optional Parameters
 
-| Parameter | Description | Default Value |
-|-----------|-------------|---------------|
-| `os_type` | Operating system | `EulerOS` |
-| `data_volumes` | Data volume configuration JSON | Required for some specifications |
-| `subnet_id` | Subnet ID | Uses cluster subnet |
-| `autoscaling_enabled` | Enable autoscaling | `false` |
-| `min_node_count` | Minimum node count for autoscaling | 0 |
-| `max_node_count` | Maximum node count for autoscaling | 0 |
+| Parameter             | Description                        | Default Value                    |
+| --------------------- | ---------------------------------- | -------------------------------- |
+| `os_type`             | Operating system                   | `EulerOS`                        |
+| `data_volumes`        | Data volume configuration JSON     | Required for some specifications |
+| `subnet_id`           | Subnet ID                          | Uses cluster subnet              |
+| `autoscaling_enabled` | Enable autoscaling                 | `false`                          |
+| `min_node_count`      | Minimum node count for autoscaling | 0                                |
+| `max_node_count`      | Maximum node count for autoscaling | 0                                |
 
 ### Data Volumes (data_volumes)
 
@@ -133,15 +139,14 @@ data_volumes='[{"size":100,"type":"SSD"}]'
 
 > **Important: Node pools in Turbo (ENI network) clusters must use ENI-compatible flavors.**
 
-Flavors that do not support ENI (such as `s6.large.2`, `c6.large.2`) will produce an error:
-`Flavor [xxx] 's subeni quota is 0, Eni network is not supported`
+Flavors that do not support ENI (such as `s6.large.2`, `c6.large.2`) will produce an error: `Flavor [xxx] 's subeni quota is 0, Eni network is not supported`
 
-| Flavor Series | ENI Support | Recommended Scenario |
-|-------------|---------|---------|
-| `c7` series (e.g., `c7.large.2`) | ✅ Supported | Recommended for Turbo clusters |
-| `s7` series | ✅ Supported | Turbo clusters |
-| `s6` series (e.g., `s6.large.2`) | ❌ Not supported | Standard clusters only |
-| `c6` series (e.g., `c6.large.2`) | ❌ Not supported | Standard clusters only |
+| Flavor Series                    | ENI Support      | Recommended Scenario           |
+| -------------------------------- | ---------------- | ------------------------------ |
+| `c7` series (e.g., `c7.large.2`) | ✅ Supported     | Recommended for Turbo clusters |
+| `s7` series                      | ✅ Supported     | Turbo clusters                 |
+| `s6` series (e.g., `s6.large.2`) | ❌ Not supported | Standard clusters only         |
+| `c6` series (e.g., `c6.large.2`) | ❌ Not supported | Standard clusters only         |
 
 Recommended for Turbo clusters: `c7` series (e.g., `c7.large.2`), `s7` series.
 
@@ -149,11 +154,12 @@ Recommended for Turbo clusters: `c7` series (e.g., `c7.large.2`), `s7` series.
 
 Parameters for direct node creation (non-node pool) are essentially the same as node pool, with the additional:
 
-| Parameter | Description | Default Value |
-|-----------|-------------|---------------|
-| `node_count` | Number of nodes to create | `1` |
+| Parameter    | Description               | Default Value |
+| ------------ | ------------------------- | ------------- |
+| `node_count` | Number of nodes to create | `1`           |
 
-The login credential uses the same three-level priority (`ssh_key` > `password` > `CCE_NODE_PASSWORD` > auto-generate), and the password is SHA-512 salted + base64 encoded automatically.
+The login credential uses the same three-level priority (`ssh_key` > `password` > `CCE_NODE_PASSWORD` > auto-generate), and the password is SHA-512 salted +
+base64 encoded automatically.
 
 ## Kubernetes Versions
 
@@ -163,7 +169,8 @@ Common versions: `v1.27`, `v1.28`, `v1.29`, `v1.30`, `v1.31`
 
 ## Password Salting and Encryption
 
-When creating nodes/node pools, the `password` field must be SHA-512 salted encrypted and then base64 encoded. Raw passwords cannot be passed directly. The skill applies this automatically via `common.salt_password`.
+When creating nodes/node pools, the `password` field must be SHA-512 salted encrypted and then base64 encoded. Raw passwords cannot be passed directly. The
+skill applies this automatically via `common.salt_password`.
 
 ### Salting Method
 

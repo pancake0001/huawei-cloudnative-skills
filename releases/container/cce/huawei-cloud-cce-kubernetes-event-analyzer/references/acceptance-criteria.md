@@ -15,4 +15,5 @@
 
 - Analysis returns event-record and occurrence totals, type breakdown, top reasons, namespaces, affected objects, and repeated patterns.
 - Supplying an `events` array continues to perform offline analysis without a cloud request.
-- Missing credentials, missing LTS collection, inaccessible clusters, and invalid time windows return actionable errors without changing cloud or Kubernetes resources.
+- Missing credentials, missing LTS collection, inaccessible clusters, and invalid time windows return actionable errors without changing cloud or Kubernetes
+  resources.

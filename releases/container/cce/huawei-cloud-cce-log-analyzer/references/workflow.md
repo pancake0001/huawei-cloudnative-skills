@@ -36,6 +36,7 @@ The response includes `matched_streams` listing all policies (stdout and contain
 ### Step 2: Select the Right Policy
 
 Pick the desired policy from `matched_streams`:
+
 - Use **stdout policies** for standard output logs
 - Use **container_file policies** for file logs collected from configured paths (e.g., `/var/log/*.log`)
 - Pass the selected `logconfig_name` or `policy_name` to subsequent query tools
@@ -81,7 +82,8 @@ python3 scripts/huawei-cloud.py huawei_query_application_recent_logs \
 
 ### Step 5: Analyze for Abnormalities
 
-Use `huawei_analyze_application_logs` for time-window abnormality analysis. It queries matched application logs, detects exception/error/fatal/timeout/OOM patterns and HTTP 5xx status codes, then returns:
+Use `huawei_analyze_application_logs` for time-window abnormality analysis. It queries matched application logs, detects exception/error/fatal/timeout/OOM
+patterns and HTTP 5xx status codes, then returns:
 
 - Abnormal ratio
 - Log rates (total and abnormal per time unit)
@@ -92,7 +94,8 @@ Use `huawei_analyze_application_logs` for time-window abnormality analysis. It q
 - Status-code distribution
 - Redacted samples
 
-**Important**: Do not set `keywords` unless the user explicitly wants a keyword-scoped ratio. Keyword filtering changes the denominator to only matched logs, which distorts the abnormal ratio.
+**Important**: Do not set `keywords` unless the user explicitly wants a keyword-scoped ratio. Keyword filtering changes the denominator to only matched logs,
+which distorts the abnormal ratio.
 
 ```bash
 python3 scripts/huawei-cloud.py huawei_analyze_application_logs \
@@ -182,13 +185,14 @@ python3 scripts/huawei-cloud.py huawei_delete_cce_logconfig \
 
 ## CCE Audit Logs
 
-Use `huawei_query_cce_audit_logs` for Kubernetes audit questions. It is pure keyword search over audit log content in LTS; all convenience parameters are converted into keywords and no parsed-field filtering is applied.
+Use `huawei_query_cce_audit_logs` for Kubernetes audit questions. It is pure keyword search over audit log content in LTS; all convenience parameters are
+converted into keywords and no parsed-field filtering is applied.
 
 ### Audit Type Presets
 
-| `audit_type` | Keywords added | Use case |
-|---------------|----------------|----------|
-| `pod_delete` | `delete`, `pods` | Find Pod deletion events |
+| `audit_type`      | Keywords added            | Use case                            |
+| ----------------- | ------------------------- | ----------------------------------- |
+| `pod_delete`      | `delete`, `pods`          | Find Pod deletion events            |
 | `workload_change` | Workload-related keywords | Find Deployment/StatefulSet changes |
 
 ### Required vs Auto-Discovered Parameters
@@ -225,16 +229,16 @@ python3 scripts/huawei-cloud.py huawei_query_cce_audit_logs \
 
 All of these are converted into LTS keyword search terms, not structured filters:
 
-| Parameter | Converted to keyword |
-|-----------|---------------------|
-| `pod_name` | Pod name in audit content |
-| `resource_name` | Resource name in audit content |
-| `workload_name` | Workload name in audit content |
-| `namespace` | Namespace in audit content |
-| `user` | User/actor in audit content |
-| `verb` | Operation verb (create, delete, update, etc.) |
-| `resource` | Resource type (pods, deployments, etc.) |
-| `status_code` | Response status code in audit content |
+| Parameter       | Converted to keyword                          |
+| --------------- | --------------------------------------------- |
+| `pod_name`      | Pod name in audit content                     |
+| `resource_name` | Resource name in audit content                |
+| `workload_name` | Workload name in audit content                |
+| `namespace`     | Namespace in audit content                    |
+| `user`          | User/actor in audit content                   |
+| `verb`          | Operation verb (create, delete, update, etc.) |
+| `resource`      | Resource type (pods, deployments, etc.)       |
+| `status_code`   | Response status code in audit content         |
 
 ## Analysis Strategy
 

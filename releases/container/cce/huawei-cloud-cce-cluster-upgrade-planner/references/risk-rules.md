@@ -12,7 +12,8 @@ CCE does NOT support skipping intermediate versions. Any attempt to skip will fa
 
 Upgrade order is mandatory: control plane first → then nodes → then addons.
 
-**Rationale**: kube-apiserver must be at target version before kubelet can upgrade. Nodes register with apiserver; incompatible kubelet causes registration failures.
+**Rationale**: kube-apiserver must be at target version before kubelet can upgrade. Nodes register with apiserver; incompatible kubelet causes registration
+failures.
 
 ### H3: Patch Version Latest Before Major Upgrade
 
@@ -104,7 +105,8 @@ Restore from etcd auto-backup (created during upgrade) or CBR/EVS manual backup 
 
 Use when: upgrade causes cluster data corruption or control plane failure.
 
-**Limitation**: Backup restore only works if upgrade has NOT been completed successfully. Post-upgrade operations (e.g., cluster spec change) invalidate backup rollback capability.
+**Limitation**: Backup restore only works if upgrade has NOT been completed successfully. Post-upgrade operations (e.g., cluster spec change) invalidate backup
+rollback capability.
 
 ### Strategy 4: Node Drain and Skip
 

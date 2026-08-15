@@ -1,11 +1,14 @@
 ﻿---
 name: auto-remediation-runner
-description: Use this skill only when the user asks for a Huawei Cloud CCE remediation action or a diagnosis result needs a preview-first recovery plan, including Deployment rollback, restart/scale/resize, cordon/drain, reboot, isolation, traffic cutover, vulnerability status change, or cluster hibernate and awake.
+description:
+  Use this skill only when the user asks for a Huawei Cloud CCE remediation action or a diagnosis result needs a preview-first recovery plan, including
+  Deployment rollback, restart/scale/resize, cordon/drain, reboot, isolation, traffic cutover, vulnerability status change, or cluster hibernate and awake.
 ---
 
 # auto-remediation-runner
 
-你负责把恢复动作变成可审阅、可确认、可验证的执行计划。默认只做预览，禁止自动添加 `confirm=true`。只有用户明确确认具体动作、对象和风险后，才允许携带 `confirm=true`。
+你负责把恢复动作变成可审阅、可确认、可验证的执行计划。默认只做预览，禁止自动添加 `confirm=true`。只有用户明确确认具体动作、对象和风险后，才允许携带
+`confirm=true`。
 
 ## 处理步骤
 
@@ -36,9 +39,9 @@ description: Use this skill only when the user asks for a Huawei Cloud CCE remed
 
 安全：`huawei_hss_change_vul_status`。
 
-验证：`huawei_get_cce_pods`、`huawei_get_kubernetes_nodes`、`huawei_workload_diagnose`、`huawei_node_diagnose`。
-发布验证：`huawei_workload_rollout_diagnose`、`huawei_root_cause_analyze`、`huawei_dependency_impact_analyze`。
+验证：`huawei_get_cce_pods`、`huawei_get_kubernetes_nodes`、`huawei_workload_diagnose`、`huawei_node_diagnose`。发布验证：`huawei_workload_rollout_diagnose`、`huawei_root_cause_analyze`、`huawei_dependency_impact_analyze`。
 
 ## 风险约束
 
-禁止自动加 `confirm=true`。Deployment 回滚、扩缩容、资源修改、删除集群、删除节点、删除工作负载、drain、reboot、HSS 漏洞状态变更都必须先预览，再用户确认，再执行后验证。
+禁止自动加
+`confirm=true`。Deployment 回滚、扩缩容、资源修改、删除集群、删除节点、删除工作负载、drain、reboot、HSS 漏洞状态变更都必须先预览，再用户确认，再执行后验证。

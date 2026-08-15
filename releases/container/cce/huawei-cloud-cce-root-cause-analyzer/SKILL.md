@@ -1,12 +1,9 @@
 ---
 name: huawei-cloud-cce-root-cause-analyzer
 description: >
-  Analyze cross-domain Huawei Cloud CCE incidents using hcloud, kubectl-cce,
-  an observability context package, and related diagnosis skills. Use this skill
-  whenever the user mentions a cross-domain incident spanning alarms, workload
-  rollouts, Pod Events or logs, recent changes, service topology, nodes, network,
-  storage, or metrics and needs ranked root causes, evidence chains, impact scope,
-  confidence, next actions, or remediation handoff.
+  Analyze cross-domain Huawei Cloud CCE incidents using hcloud, kubectl-cce, an observability context package, and related diagnosis skills. Use this skill
+  whenever the user mentions a cross-domain incident spanning alarms, workload rollouts, Pod Events or logs, recent changes, service topology, nodes, network,
+  storage, or metrics and needs ranked root causes, evidence chains, impact scope, confidence, next actions, or remediation handoff.
 version: 1.0.0
 tags: [huawei-cloud, cce, root-cause, kubectl, diagnosis]
 ---
@@ -15,9 +12,9 @@ tags: [huawei-cloud, cce, root-cause, kubectl, diagnosis]
 
 ## Overview
 
-This skill converges multi-domain CCE evidence into ranked root cause conclusions and a customer-ready Markdown report. It orchestrates evidence collection through
-`hcloud`, `kubectl cce`, and focused read-only diagnosis skills, then ranks causes by timeline alignment, evidence strength, impact scope, counter-evidence, and
-recoverability.
+This skill converges multi-domain CCE evidence into ranked root cause conclusions and a customer-ready Markdown report. It orchestrates evidence collection
+through `hcloud`, `kubectl cce`, and focused read-only diagnosis skills, then ranks causes by timeline alignment, evidence strength, impact scope,
+counter-evidence, and recoverability.
 
 Execution model:
 
@@ -25,9 +22,11 @@ Execution model:
 observability context package -> hcloud CCE discovery -> kubectl cce current Kubernetes evidence -> optional hcloud/AOM/LTS evidence -> domain diagnoser handoff -> root cause ranking -> Markdown report
 ```
 
-Do not use Python SDK dispatchers, legacy skill execution actions, old Huawei diagnosis actions, bundled SDK scripts, kubeconfig generation, or Huawei Cloud SDK imports.
+Do not use Python SDK dispatchers, legacy skill execution actions, old Huawei diagnosis actions, bundled SDK scripts, kubeconfig generation, or Huawei Cloud SDK
+imports.
 
-**Related prerequisite skill**: use `huawei-cloud-kubectl-cce-installer` to install or repair `kubectl`/`kubectl-cce`. Read `references/kubectl-cce.md` before running Kubernetes commands.
+**Related prerequisite skill**: use `huawei-cloud-kubectl-cce-installer` to install or repair `kubectl`/`kubectl-cce`. Read `references/kubectl-cce.md` before
+running Kubernetes commands.
 
 ## Prerequisites
 
@@ -41,34 +40,34 @@ Do not use Python SDK dispatchers, legacy skill execution actions, old Huawei di
 
 Use these read-only skills as evidence providers when their domain is relevant:
 
-| Skill | Role |
-| --- | --- |
-| `huawei-cloud-cce-observability-context-builder` | First-pass alarms, Events, logs, metrics, topology, time-window, and data-gap context package |
-| `huawei-cloud-cce-workload-failure-diagnoser` | Deployment/StatefulSet/DaemonSet rollout funnel, ReplicaSet, probe, image, command, and readiness causes |
-| `huawei-cloud-cce-pod-failure-diagnoser` | Pod CrashLoopBackOff, ImagePullBackOff, OOMKilled, Pending, Evicted, logs, and events |
-| `huawei-cloud-cce-node-failure-diagnoser` | NodeNotReady, pressure, taints, lease timeout, kubelet/runtime, and node-level workload impact |
-| `huawei-cloud-cce-network-failure-diagnoser` | Service, EndpointSlice, DNS/CoreDNS, Ingress, NetworkPolicy, ELB/EIP/NAT/VPC evidence |
-| `huawei-cloud-cce-storage-failure-diagnoser` | PVC/PV, StorageClass, CSI, attach/mount, and storage provisioning evidence |
-| `huawei-cloud-cce-dependency-impact-analyzer` | Service/Ingress/Pod/Node propagation paths and blast radius |
-| `huawei-cloud-cce-change-impact-analyzer` | Recent deployment, config, route, security, node, and infrastructure change correlation |
-| `huawei-cloud-cce-alarm-correlation-engine` | AOM active/history alarm grouping, alarm storm detection, and alarm time anchors |
-| `huawei-cloud-cce-kubernetes-event-analyzer` | Current and historical Kubernetes Event analysis |
-| `huawei-cloud-cce-metric-analyzer` | AOM/Prometheus and cloud resource metrics when metric evidence is needed |
+| Skill                                            | Role                                                                                                     |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
+| `huawei-cloud-cce-observability-context-builder` | First-pass alarms, Events, logs, metrics, topology, time-window, and data-gap context package            |
+| `huawei-cloud-cce-workload-failure-diagnoser`    | Deployment/StatefulSet/DaemonSet rollout funnel, ReplicaSet, probe, image, command, and readiness causes |
+| `huawei-cloud-cce-pod-failure-diagnoser`         | Pod CrashLoopBackOff, ImagePullBackOff, OOMKilled, Pending, Evicted, logs, and events                    |
+| `huawei-cloud-cce-node-failure-diagnoser`        | NodeNotReady, pressure, taints, lease timeout, kubelet/runtime, and node-level workload impact           |
+| `huawei-cloud-cce-network-failure-diagnoser`     | Service, EndpointSlice, DNS/CoreDNS, Ingress, NetworkPolicy, ELB/EIP/NAT/VPC evidence                    |
+| `huawei-cloud-cce-storage-failure-diagnoser`     | PVC/PV, StorageClass, CSI, attach/mount, and storage provisioning evidence                               |
+| `huawei-cloud-cce-dependency-impact-analyzer`    | Service/Ingress/Pod/Node propagation paths and blast radius                                              |
+| `huawei-cloud-cce-change-impact-analyzer`        | Recent deployment, config, route, security, node, and infrastructure change correlation                  |
+| `huawei-cloud-cce-alarm-correlation-engine`      | AOM active/history alarm grouping, alarm storm detection, and alarm time anchors                         |
+| `huawei-cloud-cce-kubernetes-event-analyzer`     | Current and historical Kubernetes Event analysis                                                         |
+| `huawei-cloud-cce-metric-analyzer`               | AOM/Prometheus and cloud resource metrics when metric evidence is needed                                 |
 
 **Remediation handoff only**: `huawei-cloud-cce-auto-remediation-runner` is not an evidence dependency. Mention it only after the root cause is established and
 the user asks for a preview or confirms a recovery action.
 
 ## Parameters
 
-| Input | Required | Notes |
-| --- | --- | --- |
-| `region` | Yes | Example: `cn-north-4` |
-| `project_id` | Usually | Required by kubectl-cce and most hcloud operations |
-| `cluster_id` | Preferred | Resolve by name with `hcloud CCE ListClusters` if absent |
-| `namespace` | Optional | Use when the incident is scoped to an application namespace |
-| `target_name` | Optional | Workload, Service, Pod, Ingress, or business target |
-| `fault_time` / `hours` | Recommended | Needed for event, alarm, metric, and change correlation |
-| `symptoms` | Recommended | User-visible failure signals and known alarms |
+| Input                  | Required    | Notes                                                       |
+| ---------------------- | ----------- | ----------------------------------------------------------- |
+| `region`               | Yes         | Example: `cn-north-4`                                       |
+| `project_id`           | Usually     | Required by kubectl-cce and most hcloud operations          |
+| `cluster_id`           | Preferred   | Resolve by name with `hcloud CCE ListClusters` if absent    |
+| `namespace`            | Optional    | Use when the incident is scoped to an application namespace |
+| `target_name`          | Optional    | Workload, Service, Pod, Ingress, or business target         |
+| `fault_time` / `hours` | Recommended | Needed for event, alarm, metric, and change correlation     |
+| `symptoms`             | Recommended | User-visible failure signals and known alarms               |
 
 If the target is ambiguous, first collect a broad read-only snapshot and state what object still needs confirmation before assigning high confidence.
 
@@ -76,14 +75,12 @@ If the target is ambiguous, first collect a broad read-only snapshot and state w
 
 ### 1. Build Or Reuse Context
 
-Build or reuse an observability context package with
-`huawei-cloud-cce-observability-context-builder` unless the user provided equivalent
-alarms, Events, logs, metrics, scope, timeline, and data gaps.
+Build or reuse an observability context package with `huawei-cloud-cce-observability-context-builder` unless the user provided equivalent alarms, Events, logs,
+metrics, scope, timeline, and data gaps.
 
 ### 2. Verify Tools
 
-Verify `hcloud`, `kubectl`, and `kubectl-cce` availability. If the plugin is missing,
-use `huawei-cloud-kubectl-cce-installer`.
+Verify `hcloud`, `kubectl`, and `kubectl-cce` availability. If the plugin is missing, use `huawei-cloud-kubectl-cce-installer`.
 
 ```bash
 hcloud version
@@ -113,18 +110,15 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 
 ### 5. Add Focused Domain Evidence
 
-Use dependent skills when a signal crosses domains. Do not duplicate full domain logic
-inside this skill.
+Use dependent skills when a signal crosses domains. Do not duplicate full domain logic inside this skill.
 
 ### 6. Add Historical Evidence
 
-Use AOM/LTS/metrics skills for historical alarms, historical Events, logs, and
-time-series when current Kubernetes state is insufficient.
+Use AOM/LTS/metrics skills for historical alarms, historical Events, logs, and time-series when current Kubernetes state is insufficient.
 
 ### 7. Record Data Gaps
 
-Record every failed collector with the command category, object scope, sanitized error,
-and impact on confidence.
+Record every failed collector with the command category, object scope, sanitized error, and impact on confidence.
 
 ## Root Cause Workflow
 
@@ -137,9 +131,11 @@ and impact on confidence.
    - PVC/PV/CSI/attach/mount symptoms -> storage diagnoser;
    - service topology and upstream/downstream impact -> dependency-impact analyzer;
    - recent release, config, network, security, node, or cloud-side change -> change-impact analyzer.
-4. Convert findings into root cause candidates. Each candidate must include supporting evidence, counter-evidence, data gaps, affected scope, confidence, and verification steps.
+4. Convert findings into root cause candidates. Each candidate must include supporting evidence, counter-evidence, data gaps, affected scope, confidence, and
+   verification steps.
 5. Rank Top3 causes by timeline alignment, direct evidence, blast radius, known failure signature, counter-evidence, and recoverability.
-6. Output remediation only as recommendations or handoff instructions. Mutations belong to `huawei-cloud-cce-auto-remediation-runner` after explicit confirmation.
+6. Output remediation only as recommendations or handoff instructions. Mutations belong to `huawei-cloud-cce-auto-remediation-runner` after explicit
+   confirmation.
 
 ## Output Format
 
@@ -153,8 +149,8 @@ The Markdown report must put the most important information first:
 6. `## Impact Scope`: affected workloads, Pods, Services, Ingresses, Nodes, namespaces, and upstream/downstream dependencies.
 7. `## Appendix`: raw evidence summaries, command categories, and limitations.
 
-Never write only "image pull failed", "node abnormal", "network issue", or "change caused failure" when more evidence is available. Explain the concrete
-failure signature, why it maps to the cause, what evidence is missing, and how to verify the next step.
+Never write only "image pull failed", "node abnormal", "network issue", or "change caused failure" when more evidence is available. Explain the concrete failure
+signature, why it maps to the cause, what evidence is missing, and how to verify the next step.
 
 ## Best Practices
 
@@ -179,7 +175,8 @@ rg -n "huawei-cloud[.]py|skill action=ex[e]c|huawei[-_]root[-_]cause|huawei[-_].
 rg -n -P "^kubectl (?!cce|version|plugin)" .
 ```
 
-Expected result: no executable SDK dispatcher entrypoints or bare Kubernetes access paths remain. Mentions in Markdown should appear only as explicit prohibitions or verification checks.
+Expected result: no executable SDK dispatcher entrypoints or bare Kubernetes access paths remain. Mentions in Markdown should appear only as explicit
+prohibitions or verification checks.
 
 ## References
 

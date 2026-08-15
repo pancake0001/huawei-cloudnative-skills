@@ -32,4 +32,5 @@
 - `huawei_awake_cce_cluster`
 - `huawei_hss_change_vul_status`
 
-**Rule:** Must receive explicit user confirmation of the action and target object before passing `confirm=true`. Post-execution verification is mandatory. Auto, batch, or fuzzy-target execution is prohibited.
+**Rule:** Must receive explicit user confirmation of the action and target object before passing `confirm=true`. Post-execution verification is mandatory. Auto,
+batch, or fuzzy-target execution is prohibited.

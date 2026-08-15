@@ -5,14 +5,18 @@ This workflow is read-only and uses only `hcloud CCE` plus `kubectl`.
 ## Evidence Order
 
 1. Scope: confirm `region`, `project_id`, `cluster_id`, `namespace`, and one of `pod_name`, `workload_name`, or `selector`.
-2. CLI setup: read `references/kubectl-cce.md`, verify `hcloud`, masked hcloud credentials, `kubectl`, cluster metadata, endpoint reachability, kubectl-cce plugin access, and read RBAC.
+2. CLI setup: read `references/kubectl-cce.md`, verify `hcloud`, masked hcloud credentials, `kubectl`, cluster metadata, endpoint reachability, kubectl-cce
+   plugin access, and read RBAC.
 3. First sweep: list all Pods, non-Running Pods, readiness, restart counts, and nodes before choosing the target Pod.
-4. Pod snapshot: read phase/status, reason/message, node, owner references, QoS, conditions, container states, last states, restart counts, image, and resource requests/limits.
+4. Pod snapshot: read phase/status, reason/message, node, owner references, QoS, conditions, container states, last states, restart counts, image, and resource
+   requests/limits.
 5. Events: correlate Pod events by involved object; preserve reason, message, count, source, and last timestamp.
-6. Logs: for CrashLoopBackOff, OOMKilled, and frequent restarts, inspect `--previous` logs first, then current logs. ImagePullBackOff normally has no container log.
+6. Logs: for CrashLoopBackOff, OOMKilled, and frequent restarts, inspect `--previous` logs first, then current logs. ImagePullBackOff normally has no container
+   log.
 7. Metrics: for OOMKilled/Evicted/resource suspicion, use `kubectl cce ... top` for Pod, container, and node data when metrics-server is available.
 8. Related objects: for Pending and mount failures, inspect Nodes, PVCs, PVs, quotas, LimitRanges, and relevant workload selectors.
-9. Output: classify failure type, cite evidence, rank Top3 causes, list read-only next checks, and hand off any mutation to `huawei-cloud-cce-auto-remediation-runner`.
+9. Output: classify failure type, cite evidence, rank Top3 causes, list read-only next checks, and hand off any mutation to
+   `huawei-cloud-cce-auto-remediation-runner`.
 
 ## Baseline Commands
 
@@ -45,11 +49,8 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 - Signals: waiting reason `ImagePullBackOff` or `ErrImagePull`, Events such as `FailedPullImage`, `BackOffPullImage`, failed pull, or back-off pulling image.
 - Evidence: image string, imagePullSecrets, Event message, repository/tag/auth/network hints.
 - Common causes: wrong image/tag, missing secret, SWR/registry permission, repository deleted, node egress or DNS issue, registry rate limit.
-- Important: do not keep requesting container logs when the image was never
-  pulled. Errors like
-  `container is waiting to start: trying and failing to pull image` and
-  `previous terminated container ... not found` are expected supporting
-  evidence.
+- Important: do not keep requesting container logs when the image was never pulled. Errors like
+  `container is waiting to start: trying and failing to pull image` and `previous terminated container ... not found` are expected supporting evidence.
 
 ### OOMKilled
 
@@ -83,6 +84,5 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 
 ## Scenario-Specific Report Guidance
 
-After matching a failure rule above, read `scenario-guides.md` for the
-corresponding scenario. Use it to fill in interpretation, negative evidence,
-next checks, candidate fixes, and handoff guidance in the final report.
+After matching a failure rule above, read `scenario-guides.md` for the corresponding scenario. Use it to fill in interpretation, negative evidence, next checks,
+candidate fixes, and handoff guidance in the final report.

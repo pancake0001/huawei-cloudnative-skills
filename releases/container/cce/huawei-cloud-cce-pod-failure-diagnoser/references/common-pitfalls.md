@@ -137,7 +137,8 @@ If node-level pressure is confirmed, hand off to `huawei-cloud-cce-node-failure-
 hcloud CCE ShowClusterEndpoints --cluster_id=<cluster-id> --project_id=<project-id> --cli-region=<region> --cli-output=json
 ```
 
-Use the default CCE API Gateway endpoint first. If that endpoint is not valid for the environment, set `CCE_ENDPOINT` or pass `--endpoint`, then rerun the same `kubectl cce ...` command.
+Use the default CCE API Gateway endpoint first. If that endpoint is not valid for the environment, set `CCE_ENDPOINT` or pass `--endpoint`, then rerun the same
+`kubectl cce ...` command.
 
 ## Pitfall 8: kubectl-cce Gateway Timeout On Recently Awakened Cluster
 
@@ -176,7 +177,8 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 
 If metrics remain unavailable, mark metrics as a gap and continue with Events/logs/status.
 
-Do not switch to Huawei Cloud SDK, AOM SDK, curl IAM, or hand-written signed API calls inside this skill just to fetch metrics. This skill's cloud access path is `hcloud CCE` plus `kubectl`.
+Do not switch to Huawei Cloud SDK, AOM SDK, curl IAM, or hand-written signed API calls inside this skill just to fetch metrics. This skill's cloud access path
+is `hcloud CCE` plus `kubectl`.
 
 ## Pitfall 10: Frequent Restart False Positive
 
@@ -203,7 +205,8 @@ hcloud version
 kubectl version --client
 ```
 
-If using explicit local paths, run the version command through that exact path. If it fails, locate or download the platform-native binary. Do not continue with an unvalidated binary.
+If using explicit local paths, run the version command through that exact path. If it fails, locate or download the platform-native binary. Do not continue with
+an unvalidated binary.
 
 ## Pitfall 12: KooCLI Help Syntax
 
@@ -219,14 +222,14 @@ hcloud CCE ListClusters --help
 
 ## Error And Gap Reference
 
-| Signal | Likely Meaning | Recommended Action |
-| --- | --- | --- |
-| `Forbidden` | Kubernetes RBAC denies read | Report missing verb/resource and continue with partial evidence |
-| `NotFound` | Wrong namespace/name or deleted Pod | Re-check namespace and owner workload |
-| `Unable to connect to the server` | Endpoint/network issue | Check `ShowClusterEndpoints` and current network reachability |
-| `ImagePullBackOff` | Image pull/auth/DNS/tag issue | Use Events; do not rely on logs |
-| `CrashLoopBackOff` | Container exits repeatedly | Use previous logs, exit code, probe Events |
-| `OOMKilled` | Container exceeded memory limit or node pressure | Check limits, previous logs, metrics if available |
-| `FailedScheduling` | Scheduler could not place Pod | Check Event message, nodes, taints, affinity, quota |
-| `FailedMount` | Storage attach/mount issue | Check PVC/PV and storage skill handoff |
-| `Metrics API not available` | metrics-server absent or blocked | Record metric gap and avoid trend claims |
+| Signal                            | Likely Meaning                                   | Recommended Action                                              |
+| --------------------------------- | ------------------------------------------------ | --------------------------------------------------------------- |
+| `Forbidden`                       | Kubernetes RBAC denies read                      | Report missing verb/resource and continue with partial evidence |
+| `NotFound`                        | Wrong namespace/name or deleted Pod              | Re-check namespace and owner workload                           |
+| `Unable to connect to the server` | Endpoint/network issue                           | Check `ShowClusterEndpoints` and current network reachability   |
+| `ImagePullBackOff`                | Image pull/auth/DNS/tag issue                    | Use Events; do not rely on logs                                 |
+| `CrashLoopBackOff`                | Container exits repeatedly                       | Use previous logs, exit code, probe Events                      |
+| `OOMKilled`                       | Container exceeded memory limit or node pressure | Check limits, previous logs, metrics if available               |
+| `FailedScheduling`                | Scheduler could not place Pod                    | Check Event message, nodes, taints, affinity, quota             |
+| `FailedMount`                     | Storage attach/mount issue                       | Check PVC/PV and storage skill handoff                          |
+| `Metrics API not available`       | metrics-server absent or blocked                 | Record metric gap and avoid trend claims                        |

@@ -13,20 +13,20 @@ export const options = {
   duration: "__DURATION__",
   thresholds: {
     http_req_failed: ["rate<0.01"],
-    http_req_duration: ["p(95)<1000"]
-  }
+    http_req_duration: ["p(95)<1000"],
+  },
 };
 
 export default function () {
   const params = {
     headers: {
-      "User-Agent": "cce-pressure-test-k6"
+      "User-Agent": "cce-pressure-test-k6",
       // Add "Host": "__HOST_HEADER__" only when the Ingress requires it.
-    }
+    },
   };
   const res = http.get("__TARGET_URL__", params);
   check(res, {
-    "status is 2xx or expected": (r) => r.status >= 200 && r.status < 300
+    "status is 2xx or expected": (r) => r.status >= 200 && r.status < 300,
   });
   sleep(1);
 }

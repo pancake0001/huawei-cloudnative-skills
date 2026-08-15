@@ -14,7 +14,8 @@ This document contains detailed troubleshooting guides for common issues encount
 kubectl version --client
 ```
 
-If not installed, download and install from the official Kubernetes release page or use package manager. After installation, verify with `kubectl version --client`.
+If not installed, download and install from the official Kubernetes release page or use package manager. After installation, verify with
+`kubectl version --client`.
 
 ## Pitfall 2: CCE Cluster ID Format Incorrect
 
@@ -37,19 +38,21 @@ Use the `id` field from the response as `--cluster_id`. CCE cluster IDs are UUID
 **Root Cause**: CCE hcloud CLI uses `--cluster_id` (with underscore), UCS hcloud CLI uses `--clusterid` (no underscore)
 
 **Common Mistakes**:
+
 - ❌ Using `--clusterid=<id>` for CCE operations (UCS style)
 - ✅ Using `--cluster_id=<id>` for CCE operations (correct)
 - ❌ Using `--cluster_id=<id>` for UCS operations (CCE style)
 - ✅ Using `--clusterid=<id>` for UCS operations (correct)
 
-**Affected CCE Operations**: `CreateKubernetesClusterCert`, `ShowCluster`, `ShowClusterEndpoints`, `DeleteCluster`
-**Affected UCS Operations**: `DownloadFederationKubeconfig`, `ListClusterGroup`, `ShowClusterGroup`
+**Affected CCE Operations**: `CreateKubernetesClusterCert`, `ShowCluster`, `ShowClusterEndpoints`, `DeleteCluster` **Affected UCS Operations**:
+`DownloadFederationKubeconfig`, `ListClusterGroup`, `ShowClusterGroup`
 
 ## Pitfall 13: UCS Federation API DNS Unreachable
 
 **Symptom**: `kubectl cluster-info` with UCS federation kubeconfig returns `dial tcp: lookup <fleet>.fleet.ucs.<region>.myhuaweicloud.com: no such host`
 
-**Root Cause**: UCS federation API server domain requires access via VPC Endpoint (VPCEP). The DNS record only resolves within Huawei Cloud VPC network or through VPCEP configuration.
+**Root Cause**: UCS federation API server domain requires access via VPC Endpoint (VPCEP). The DNS record only resolves within Huawei Cloud VPC network or
+through VPCEP configuration.
 
 **Solution**: Ensure network access to the UCS federation VPCEP:
 
@@ -86,6 +89,7 @@ hcloud UCS CreateClusterKubeconfig --clusterid=<ucs-cluster-id> --cli-region=cn-
 ```
 
 **Duration Limits**:
+
 - CCE: `--duration` accepts 1-1827 days
 - UCS Federation: `--duration` is in days (1-1825)
 
@@ -152,6 +156,7 @@ kubectl --kubeconfig=<f> describe pod <pod-name> -n <namespace>
 ```
 
 Common causes:
+
 - Application exits immediately (check `--previous` logs)
 - Missing configuration or environment variables
 - Failed health check (liveness probe)
@@ -172,6 +177,7 @@ kubectl --kubeconfig=<f> describe pod <pod-name> -n <namespace>
 ```
 
 Common causes:
+
 - ❌ Missing image pull secret for private registry
 - ❌ Incorrect image path or tag
 - ❌ Network issues preventing registry access
@@ -200,12 +206,15 @@ kubectl --kubeconfig=<f> describe pvc <pvc-name> -n <namespace>
 ```
 
 Common causes:
+
 - ❌ StorageClass not found or not configured (CCE uses `csi-disk`, NOT `cce-standard`)
 - ❌ No available PV with matching size or access mode
 - ❌ Dynamic provisioner not running or not configured
 - ❌ Volume quota exceeded in namespace
 
-**CCE StorageClass Names**: Use `csi-disk` for block storage, `csi-sfsturbo` for shared high-performance file storage (500Gi minimum, supports subdirectory creation for cost savings), `csi-obs` for object storage mount, `csi-nas` for general shared file storage. Run `kubectl get sc` to list all available StorageClasses. `cce-standard` is NOT a valid CCE StorageClass.
+**CCE StorageClass Names**: Use `csi-disk` for block storage, `csi-sfsturbo` for shared high-performance file storage (500Gi minimum, supports subdirectory
+creation for cost savings), `csi-obs` for object storage mount, `csi-nas` for general shared file storage. Run `kubectl get sc` to list all available
+StorageClasses. `cce-standard` is NOT a valid CCE StorageClass.
 
 Reference: [CCE Storage Best Practices](https://support.huaweicloud.com/usermanual-cce/cce_10_0900.html)
 
@@ -226,6 +235,7 @@ kubectl --kubeconfig=<f> get pods -n <namespace> -o wide
 ```
 
 Common causes:
+
 - ❌ New ReplicaSet pods failing to start (CrashLoopBackOff, ImagePullBackOff)
 - ❌ Insufficient resources to schedule new pods (Pending pods)
 - ❌ Readiness probe not passing for new pods
@@ -281,17 +291,17 @@ On Linux/macOS bash, inline `-p` works normally:
 kubectl --kubeconfig=<f> patch cronjob <name> -p '{"spec":{"suspend":true}}' -n <namespace>
 ```
 
-| Error Code          | HTTP Status | Description                  | Recommended Action                    |
-| ------------------- | ----------- | ---------------------------- | ------------------------------------- |
-| `CCE.001`           | 400         | Invalid parameter            | Check parameter format and rules      |
-| `CCE.002`           | 404         | Cluster not found            | Verify cluster_id with ListClusters   |
-| `CCE.003`           | 400         | Cluster status unavailable   | Check cluster status with ShowCluster |
-| `CCE.004`           | 403         | Permission denied            | Check IAM policies                    |
-| `CCE.005`           | 403         | Quota exceeded               | Check quotas, clean up or apply       |
-| `CCE.006`           | 401         | Authentication failed        | Regenerate or check credentials       |
-| `CCE.007`           | 429         | Too many requests            | Add delay, reduce request rate        |
-| `UCS.001`           | 400         | Invalid UCS parameter        | UCS uses --clusterid (no underscore)  |
-| `UCS.002`           | 404         | UCS resource not found       | Verify UCS resource exists first      |
-| `UCS.004`           | 403         | UCS permission denied        | Check IAM policies                    |
-| `Forbidden (RBAC)`  | 403         | kubectl RBAC insufficient    | Check with kubectl auth can-i         |
-| `ConnectionRefused` | N/A         | API server unreachable       | Verify network connectivity           |
+| Error Code          | HTTP Status | Description                | Recommended Action                    |
+| ------------------- | ----------- | -------------------------- | ------------------------------------- |
+| `CCE.001`           | 400         | Invalid parameter          | Check parameter format and rules      |
+| `CCE.002`           | 404         | Cluster not found          | Verify cluster_id with ListClusters   |
+| `CCE.003`           | 400         | Cluster status unavailable | Check cluster status with ShowCluster |
+| `CCE.004`           | 403         | Permission denied          | Check IAM policies                    |
+| `CCE.005`           | 403         | Quota exceeded             | Check quotas, clean up or apply       |
+| `CCE.006`           | 401         | Authentication failed      | Regenerate or check credentials       |
+| `CCE.007`           | 429         | Too many requests          | Add delay, reduce request rate        |
+| `UCS.001`           | 400         | Invalid UCS parameter      | UCS uses --clusterid (no underscore)  |
+| `UCS.002`           | 404         | UCS resource not found     | Verify UCS resource exists first      |
+| `UCS.004`           | 403         | UCS permission denied      | Check IAM policies                    |
+| `Forbidden (RBAC)`  | 403         | kubectl RBAC insufficient  | Check with kubectl auth can-i         |
+| `ConnectionRefused` | N/A         | API server unreachable     | Verify network connectivity           |

@@ -62,4 +62,5 @@ If autoscaling exists:
 
 ## Execution Boundary
 
-The skill may generate HPA manifests and preview `huawei_configure_cce_hpa`. Applying `confirm=true`, changing nodepool autoscaling, or resizing node pools requires explicit customer approval and a rollback plan.
+The skill may generate HPA manifests and preview `huawei_configure_cce_hpa`. Applying `confirm=true`, changing nodepool autoscaling, or resizing node pools
+requires explicit customer approval and a rollback plan.

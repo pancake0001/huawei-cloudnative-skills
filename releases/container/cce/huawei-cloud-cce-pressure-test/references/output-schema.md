@@ -10,6 +10,7 @@ Put decision-critical information first.
 # CCE Pressure Test Report
 
 ## Executive Summary
+
 - Status:
 - Confidence:
 - Target:
@@ -17,22 +18,27 @@ Put decision-critical information first.
 - One-line conclusion:
 
 ## Root Or Bottleneck Analysis
+
 | Rank | Finding | Evidence | Interpretation | Confidence |
-| --- | --- | --- | --- | --- |
+| ---- | ------- | -------- | -------------- | ---------- |
 
 ## Recommended Next Steps
+
 | Priority | Action | Why | Owner/Handoff | Risk |
-| --- | --- | --- | --- | --- |
+| -------- | ------ | --- | ------------- | ---- |
 
 ## Test Scope And Approvals
+
 | Field | Value |
-| --- | --- |
+| ----- | ----- |
 
 ## Traffic Results
+
 | Phase | VUs/RPS | Duration | Requests | Success Rate | p50 | p95 | p99 | Errors |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| ----- | ------- | -------- | -------- | ------------ | --- | --- | --- | ------ |
 
 ## Route And Workload Health
+
 - Ingress:
 - Service:
 - EndpointSlice:
@@ -42,25 +48,30 @@ Put decision-critical information first.
 - Metrics:
 
 ## Cloud-Side Evidence
+
 - ELB:
 - Listener/pool/member:
 - VPC/EIP/NAT:
 
 ## Negative Evidence
+
 - Checked and less likely:
 
 ## Verification Gaps
+
 - Missing data:
 - Impact on confidence:
 
 ## Evidence And Command Trace
+
 - hcloud CCE commands:
 - kubectl commands:
 - k6 command or Job manifest:
 - Mutating/traffic operations approved and executed:
 ```
 
-For pressure tests, "root cause" may be a bottleneck or limiting factor rather than a failure. Name it precisely, for example `RouteHostMismatch`, `K6ClientImagePullFailure`, `ServiceNoReadyEndpoint`, `ApplicationLatencySaturation`, `HpaScaleUpLag`, `NodeCapacitySaturation`, or `ELBBackendUnhealthy`.
+For pressure tests, "root cause" may be a bottleneck or limiting factor rather than a failure. Name it precisely, for example `RouteHostMismatch`,
+`K6ClientImagePullFailure`, `ServiceNoReadyEndpoint`, `ApplicationLatencySaturation`, `HpaScaleUpLag`, `NodeCapacitySaturation`, or `ELBBackendUnhealthy`.
 
 ## JSON Evidence Shape
 
@@ -157,10 +168,12 @@ Each finding must include:
 Avoid vague conclusions:
 
 - Weak: "Image pull failed."
-- Strong: "The in-cluster k6 Job did not start because the k6 image could not be pulled. Pod Events show `ImagePullBackOff`; no HTTP traffic reached the target. Mirror the k6 image to regional SWR or use local k6 before rerunning."
+- Strong: "The in-cluster k6 Job did not start because the k6 image could not be pulled. Pod Events show `ImagePullBackOff`; no HTTP traffic reached the target.
+  Mirror the k6 image to regional SWR or use local k6 before rerunning."
 
 - Weak: "Latency is high."
-- Strong: "p95 latency crossed 2s only after HPA reached its current maxReplicas, while Pod CPU was near the agreed waterline. Next check HPA maxReplicas, CPU requests/limits, and node headroom before increasing traffic."
+- Strong: "p95 latency crossed 2s only after HPA reached its current maxReplicas, while Pod CPU was near the agreed waterline. Next check HPA maxReplicas, CPU
+  requests/limits, and node headroom before increasing traffic."
 
 ## Data Gap Requirements
 

@@ -1,11 +1,9 @@
 ---
 name: huawei-cloud-cce-pod-failure-diagnoser
 description: >
-  Diagnose Huawei Cloud CCE Pod failures using hcloud and read-only kubectl-cce evidence.
-  Use this skill whenever the user mentions CrashLoopBackOff, ImagePullBackOff,
-  ErrImagePull, OOMKilled, Pending, FailedScheduling, FailedMount, FailedAttachVolume,
-  probe, sandbox, or CNI failures, frequent restarts, Error, RunContainerError,
-  or Evicted Pods.
+  Diagnose Huawei Cloud CCE Pod failures using hcloud and read-only kubectl-cce evidence. Use this skill whenever the user mentions CrashLoopBackOff,
+  ImagePullBackOff, ErrImagePull, OOMKilled, Pending, FailedScheduling, FailedMount, FailedAttachVolume, probe, sandbox, or CNI failures, frequent restarts,
+  Error, RunContainerError, or Evicted Pods.
 version: 1.0.1
 tags: [huawei-cloud, cce, kubectl, pod, diagnosis]
 ---
@@ -16,9 +14,8 @@ tags: [huawei-cloud, cce, kubectl, pod, diagnosis]
 
 This skill diagnoses single-resource Pod failures in Huawei Cloud CCE clusters through the Huawei Cloud `hcloud` CLI and Kubernetes `kubectl`.
 
-**Execution model**: `hcloud CCE` cluster discovery ->
-`kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id>`
-read-only Pod evidence -> cause ranking and handoff recommendations.
+**Execution model**: `hcloud CCE` cluster discovery -> `kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id>` read-only Pod
+evidence -> cause ranking and handoff recommendations.
 
 Use CCE hcloud commands for cluster-level metadata:
 
@@ -26,14 +23,13 @@ Use CCE hcloud commands for cluster-level metadata:
 - `hcloud CCE ShowCluster`
 - `hcloud CCE ShowClusterEndpoints`
 
-Use `kubectl cce` for Kubernetes resources through kubectl-cce plugin access.
-Pods, Events, logs, Services, PVCs, Nodes, and metrics from metrics-server are
-Kubernetes resources and should be inspected with
-`kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id>`.
+Use `kubectl cce` for Kubernetes resources through kubectl-cce plugin access. Pods, Events, logs, Services, PVCs, Nodes, and metrics from metrics-server are
+Kubernetes resources and should be inspected with `kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id>`.
 
 Do not use Python SDK dispatchers, legacy skill execution actions, old Huawei Pod actions, or bundled SDK scripts for this skill.
 
-**Related prerequisite skill**: use `huawei-cloud-kubectl-cce-installer` to install or repair `kubectl`/`kubectl-cce`. Read `references/kubectl-cce.md` for the plugin access contract.
+**Related prerequisite skill**: use `huawei-cloud-kubectl-cce-installer` to install or repair `kubectl`/`kubectl-cce`. Read `references/kubectl-cce.md` for the
+plugin access contract.
 
 ## When To Use
 
@@ -46,40 +42,34 @@ Use this skill for:
 - Pod `Evicted`, node pressure, disk pressure, memory pressure, or ephemeral-storage pressure.
 - Container logs, previous logs, Events, restart counts, readiness/liveness/startup probe failures, or Pod resource usage evidence.
 
-Do not use this skill to mutate resources. Scaling, deleting, restarting, rollback, cordon, drain, taint, or node operations must be handed off as recommendations only.
+Do not use this skill to mutate resources. Scaling, deleting, restarting, rollback, cordon, drain, taint, or node operations must be handed off as
+recommendations only.
 
 ## Parameters
 
 Collect these values before diagnosis:
 
-| Input | Required | Notes |
-| --- | --- | --- |
-| `region` | Yes | Example: `cn-north-4` |
-| `project_id` | Usually | Include when hcloud operation requires it or multiple projects are possible |
-| `cluster_id` | Preferred | If absent, find it with `ListClusters` |
-| `namespace` | Yes | Kubernetes namespace |
-| `pod_name` | Preferred | Target Pod name |
-| `workload_name` | Optional | Use to derive the Pod selector when Pod name is unknown |
-| `selector` | Optional | Kubernetes label selector, for example `app=my-app` |
+| Input           | Required  | Notes                                                                       |
+| --------------- | --------- | --------------------------------------------------------------------------- |
+| `region`        | Yes       | Example: `cn-north-4`                                                       |
+| `project_id`    | Usually   | Include when hcloud operation requires it or multiple projects are possible |
+| `cluster_id`    | Preferred | If absent, find it with `ListClusters`                                      |
+| `namespace`     | Yes       | Kubernetes namespace                                                        |
+| `pod_name`      | Preferred | Target Pod name                                                             |
+| `workload_name` | Optional  | Use to derive the Pod selector when Pod name is unknown                     |
+| `selector`      | Optional  | Kubernetes label selector, for example `app=my-app`                         |
 
 ## Prerequisites
 
-1. `hcloud` (Huawei Cloud KooCLI) is installed and available in `PATH`. Use the
-   native binary for the runtime platform. Linux sandboxes should use the Linux
-   KooCLI installer or tarball; macOS and Windows should use their corresponding
-   packages. Write skill commands as `hcloud ...`, without a platform-specific
+1. `hcloud` (Huawei Cloud KooCLI) is installed and available in `PATH`. Use the native binary for the runtime platform. Linux sandboxes should use the Linux
+   KooCLI installer or tarball; macOS and Windows should use their corresponding packages. Write skill commands as `hcloud ...`, without a platform-specific
    executable path.
-2. `kubectl` is installed and compatible with the target Kubernetes minor
-   version. Use the native binary for the runtime platform (`linux-amd64`,
-   `linux-arm64`, `darwin-*`, or `windows-amd64`). Many agent sandboxes run on
-   Linux even when the authoring workstation is Windows, so never hard-code a
-   Windows-only `kubectl.exe` path in the skill workflow.
-3. If either tool is not in `PATH`, locate a platform-native binary, assign it
-   to a shell variable, and validate it with `version` before using it. Do not
-   assume a file named `kubectl.exe` or `hcloud.exe` is valid for the current OS
-   just because it exists.
-4. AK/SK credentials are configured in hcloud. Verify presence only with
-   `hcloud configure list`; do not print credential values.
+2. `kubectl` is installed and compatible with the target Kubernetes minor version. Use the native binary for the runtime platform (`linux-amd64`, `linux-arm64`,
+   `darwin-*`, or `windows-amd64`). Many agent sandboxes run on Linux even when the authoring workstation is Windows, so never hard-code a Windows-only
+   `kubectl.exe` path in the skill workflow.
+3. If either tool is not in `PATH`, locate a platform-native binary, assign it to a shell variable, and validate it with `version` before using it. Do not
+   assume a file named `kubectl.exe` or `hcloud.exe` is valid for the current OS just because it exists.
+4. AK/SK credentials are configured in hcloud. Verify presence only with `hcloud configure list`; do not print credential values.
 5. The caller has Huawei Cloud IAM permission to list/show CCE clusters and use kubectl-cce plugin access.
 6. The kubectl-cce authenticated user has Kubernetes RBAC permission to read Pods, Events, logs, Services, PVCs, Nodes, and metrics in the target namespace.
 
@@ -95,12 +85,9 @@ hcloud configure list
 kubectl version --client
 ```
 
-If `kubectl`, `kubectl-cce`, or `hcloud` is missing, stop this diagnosis flow and
-use `huawei-cloud-kubectl-cce-installer` or the approved platform-specific
-installation procedure. This diagnoser must not download or execute installer
-scripts. The installation path must select a platform-native binary, pin an
-approved version, verify its published checksum or signature, and then rerun the
-version checks above.
+If `kubectl`, `kubectl-cce`, or `hcloud` is missing, stop this diagnosis flow and use `huawei-cloud-kubectl-cce-installer` or the approved platform-specific
+installation procedure. This diagnoser must not download or execute installer scripts. The installation path must select a platform-native binary, pin an
+approved version, verify its published checksum or signature, and then rerun the version checks above.
 
 ### 2. Locate The CCE Cluster
 
@@ -119,23 +106,17 @@ hcloud CCE ShowClusterEndpoints --cluster_id=<cluster-id> --project_id=<project-
 
 Use this evidence to confirm the cluster is available, in the expected region/project, and reachable from the current network.
 
-The kubectl-cce plugin normally talks to the CCE API Gateway endpoint
-`<cluster-id>.cce.<region>.myhuaweicloud.com`. If that endpoint is not valid for
-the current environment, set `CCE_ENDPOINT` or pass `--endpoint`. If plugin/API
-Gateway access fails, report it as an access gap with the error text; do not fall
+The kubectl-cce plugin normally talks to the CCE API Gateway endpoint `<cluster-id>.cce.<region>.myhuaweicloud.com`. If that endpoint is not valid for the
+current environment, set `CCE_ENDPOINT` or pass `--endpoint`. If plugin/API Gateway access fails, report it as an access gap with the error text; do not fall
 back to kubeconfig generation or SDK calls by default.
 
 ### 4. Configure kubectl-cce Plugin
 
-Read `references/kubectl-cce.md` before running Kubernetes commands. Use the
-kubectl CCE plugin as the primary Kubernetes access path; do not generate
-kubeconfig, patch kubeconfig server fields, call the Kubernetes SDK, or fall
-back to SDK dispatcher actions.
+Read `references/kubectl-cce.md` before running Kubernetes commands. Use the kubectl CCE plugin as the primary Kubernetes access path; do not generate
+kubeconfig, patch kubeconfig server fields, call the Kubernetes SDK, or fall back to SDK dispatcher actions.
 
-If `kubectl` or `kubectl-cce` is missing, use
-`huawei-cloud-kubectl-cce-installer` to install or repair local prerequisites.
-This diagnoser verifies and uses the plugin; it does not own plugin installation
-policy.
+If `kubectl` or `kubectl-cce` is missing, use `huawei-cloud-kubectl-cce-installer` to install or repair local prerequisites. This diagnoser verifies and uses
+the plugin; it does not own plugin installation policy.
 
 Verify local tooling and plugin discovery:
 
@@ -144,22 +125,18 @@ kubectl version --client
 kubectl plugin list
 ```
 
-Configure plugin credentials through approved tool parameters, a protected shell
-environment, or an approved local credential provider without printing values.
+Configure plugin credentials through approved tool parameters, a protected shell environment, or an approved local credential provider without printing values.
 Pass cluster, region, and project ID explicitly in diagnostic commands:
 
 ```bash
 kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get namespaces
 ```
 
-Use `CCE_ENDPOINT` or `--endpoint` only when the default
-`<cluster-id>.cce.<region>.myhuaweicloud.com` endpoint is not valid for the
-current environment. If plugin access fails, report the sanitized installation,
-credential, API Gateway reachability, or Kubernetes RBAC gap; do not switch to
-kubeconfig generation or SDK calls.
+Use `CCE_ENDPOINT` or `--endpoint` only when the default `<cluster-id>.cce.<region>.myhuaweicloud.com` endpoint is not valid for the current environment. If
+plugin access fails, report the sanitized installation, credential, API Gateway reachability, or Kubernetes RBAC gap; do not switch to kubeconfig generation or
+SDK calls.
 
-The plugin intentionally blocks streaming commands such as `exec`, `attach`,
-and `port-forward`. `logs -f` and `watch` are not hardened, so use bounded
+The plugin intentionally blocks streaming commands such as `exec`, `attach`, and `port-forward`. `logs -f` and `watch` are not hardened, so use bounded
 `logs --tail` and normal `get` commands in diagnosis reports.
 
 ### 5. Verify Kubernetes Access
@@ -188,7 +165,8 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -A -o custom-columns="NAMESPACE:.metadata.namespace,NAME:.metadata.name,READY:.status.containerStatuses[*].ready,RESTARTS:.status.containerStatuses[*].restartCount,PHASE:.status.phase,NODE:.spec.nodeName"
 ```
 
-Use the field-selector output for obvious `Pending`/`Failed` Pods, and use the custom column output to catch Pods that are `Running` but not Ready or have abnormal restart counts.
+Use the field-selector output for obvious `Pending`/`Failed` Pods, and use the custom column output to catch Pods that are `Running` but not Ready or have
+abnormal restart counts.
 
 ### Find Candidate Pods
 
@@ -245,10 +223,8 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 
 Do not repeatedly request container logs for `ImagePullBackOff` when the image was never pulled. Use Events as primary evidence.
 
-If a log command for an image-pull failure returns
-`container is waiting to start: trying and failing to pull image` or
-`previous terminated container ... not found`, treat that as supporting evidence
-that no container ever started, not as a kubectl failure.
+If a log command for an image-pull failure returns `container is waiting to start: trying and failing to pull image` or
+`previous terminated container ... not found`, treat that as supporting evidence that no container ever started, not as a kubectl failure.
 
 ### Collect Metrics And Node Context
 
@@ -261,10 +237,8 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> top node
 ```
 
-If metrics-server is unavailable and `kubectl cce ... top` returns
-`Metrics API not available`, record it as a verification gap and avoid inventing
-resource trends. Do not switch to Python SDK, AOM SDK, or hand-written API calls
-to fill this gap inside this skill.
+If metrics-server is unavailable and `kubectl cce ... top` returns `Metrics API not available`, record it as a verification gap and avoid inventing resource
+trends. Do not switch to Python SDK, AOM SDK, or hand-written API calls to fill this gap inside this skill.
 
 When Pending, Evicted, or node pressure appears:
 
@@ -295,22 +269,23 @@ Rank causes with direct evidence. Prefer the first failing layer in the Pod life
 
 Common cause labels:
 
-| Cause | Evidence |
-| --- | --- |
-| `CrashLoopOrAppExit` | `CrashLoopBackOff`, non-zero exit code, previous logs |
-| `ContainerCommandNotFound` | Startup error says executable not found or command cannot be run |
-| `ImagePullFailure` | `ImagePullBackOff`, `ErrImagePull`, image auth/tag/DNS errors |
-| `OOMKilled` | Last termination reason, exit code 137, memory limits or metrics |
-| `SchedulingBlocked` | Pod Pending with `FailedScheduling` |
-| `StorageMountFailure` | `FailedMount`, `FailedAttachVolume`, PVC Pending |
-| `ProbeFailure` | `Unhealthy` Events for startup/liveness/readiness probe |
-| `NodePressureOrEviction` | Evicted Pod, node pressure conditions, taints, or NotReady |
-| `QuotaOrAdmissionRejected` | Events mention quota, LimitRange, webhook, denied, or forbidden |
-| `SandboxOrCNIBlocked` | `FailedCreatePodSandBox`, CNI, IP allocation, or runtime sandbox errors |
+| Cause                      | Evidence                                                                |
+| -------------------------- | ----------------------------------------------------------------------- |
+| `CrashLoopOrAppExit`       | `CrashLoopBackOff`, non-zero exit code, previous logs                   |
+| `ContainerCommandNotFound` | Startup error says executable not found or command cannot be run        |
+| `ImagePullFailure`         | `ImagePullBackOff`, `ErrImagePull`, image auth/tag/DNS errors           |
+| `OOMKilled`                | Last termination reason, exit code 137, memory limits or metrics        |
+| `SchedulingBlocked`        | Pod Pending with `FailedScheduling`                                     |
+| `StorageMountFailure`      | `FailedMount`, `FailedAttachVolume`, PVC Pending                        |
+| `ProbeFailure`             | `Unhealthy` Events for startup/liveness/readiness probe                 |
+| `NodePressureOrEviction`   | Evicted Pod, node pressure conditions, taints, or NotReady              |
+| `QuotaOrAdmissionRejected` | Events mention quota, LimitRange, webhook, denied, or forbidden         |
+| `SandboxOrCNIBlocked`      | `FailedCreatePodSandBox`, CNI, IP allocation, or runtime sandbox errors |
 
 ## Output Format
 
-Use `references/output-schema.md` as the detailed schema. Put decision-critical information first; command traces and supporting evidence come after the reader already knows the conclusion.
+Use `references/output-schema.md` as the detailed schema. Put decision-critical information first; command traces and supporting evidence come after the reader
+already knows the conclusion.
 
 The user-facing report should include, in this order:
 
@@ -326,12 +301,9 @@ The user-facing report should include, in this order:
 - CLI path used: hcloud CCE operations and kubectl-cce evidence commands.
 - Explicit note that no mutating command was run.
 
-After identifying the top cause, read `references/scenario-guides.md` and apply
-the matching scenario section. Do this for every concrete failure type, not only
-image pull failures. The scenario guide contains the expected interpretation,
-ruled-out causes, follow-up checks, candidate fixes, and handoff guidance for
-ImagePullBackOff, CrashLoopBackOff, OOMKilled, Pending, storage mount failures,
-eviction, probe failures, CNI/sandbox failures, and admission/quota failures.
+After identifying the top cause, read `references/scenario-guides.md` and apply the matching scenario section. Do this for every concrete failure type, not only
+image pull failures. The scenario guide contains the expected interpretation, ruled-out causes, follow-up checks, candidate fixes, and handoff guidance for
+ImagePullBackOff, CrashLoopBackOff, OOMKilled, Pending, storage mount failures, eviction, probe failures, CNI/sandbox failures, and admission/quota failures.
 
 ## Best Practices
 

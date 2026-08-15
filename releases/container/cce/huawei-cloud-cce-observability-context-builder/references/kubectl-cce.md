@@ -21,8 +21,8 @@ Configure credentials through an approved local provider, protected environment,
 headers, kubeconfig content, or plugin credential material.
 
 Common non-secret context variables include `HW_REGION`, `HUAWEI_REGION`, `HW_PROJECT_ID`, `HUAWEI_PROJECT_ID`, and `CCE_PROJECT_ID`. Credential aliases may
-include `HUAWEICLOUD_SDK_AK`/`HUAWEICLOUD_SDK_SK`, `HW_ACCESS_KEY`/`HW_SECRET_KEY`, and temporary-token variables such as
-`HUAWEICLOUD_SECURITY_TOKEN` or `HUAWEI_IAM_TOKEN`.
+include `HUAWEICLOUD_SDK_AK`/`HUAWEICLOUD_SDK_SK`, `HW_ACCESS_KEY`/`HW_SECRET_KEY`, and temporary-token variables such as `HUAWEICLOUD_SECURITY_TOKEN` or
+`HUAWEI_IAM_TOKEN`.
 
 ## Command Pattern
 

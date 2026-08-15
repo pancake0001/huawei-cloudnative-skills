@@ -6,23 +6,23 @@ Jobs run one-time batch tasks to completion. CronJobs schedule Jobs on a recurri
 
 ## Job Operations
 
-| Operation | Command |
-|-----------|---------|
-| Create from YAML | `kubectl --kubeconfig=<kubeconfig-path> apply -f job.yaml -n <namespace>` |
-| Create inline | `kubectl --kubeconfig=<kubeconfig-path> create job <name> --image=<image> -n <namespace>` |
-| Get status | `kubectl --kubeconfig=<kubeconfig-path> get jobs -n <namespace>` |
-| View logs | `kubectl --kubeconfig=<kubeconfig-path> logs job/<name> -n <namespace>` |
-| Delete | `kubectl --kubeconfig=<kubeconfig-path> delete job <name> -n <namespace>` |
+| Operation        | Command                                                                                   |
+| ---------------- | ----------------------------------------------------------------------------------------- |
+| Create from YAML | `kubectl --kubeconfig=<kubeconfig-path> apply -f job.yaml -n <namespace>`                 |
+| Create inline    | `kubectl --kubeconfig=<kubeconfig-path> create job <name> --image=<image> -n <namespace>` |
+| Get status       | `kubectl --kubeconfig=<kubeconfig-path> get jobs -n <namespace>`                          |
+| View logs        | `kubectl --kubeconfig=<kubeconfig-path> logs job/<name> -n <namespace>`                   |
+| Delete           | `kubectl --kubeconfig=<kubeconfig-path> delete job <name> -n <namespace>`                 |
 
 ## CronJob Operations
 
-| Operation | Command |
-|-----------|---------|
-| Create from YAML | `kubectl --kubeconfig=<kubeconfig-path> apply -f cronjob.yaml -n <namespace>` |
-| Get/list | `kubectl --kubeconfig=<kubeconfig-path> get cronjobs -n <namespace>` |
-| Suspend | `kubectl --kubeconfig=<kubeconfig-path> patch cronjob <name> --type merge --patch-file=suspend.json -n <namespace>` |
-| Resume | `kubectl --kubeconfig=<kubeconfig-path> patch cronjob <name> --type merge --patch-file=resume.json -n <namespace>` |
-| Delete | `kubectl --kubeconfig=<kubeconfig-path> delete cronjob <name> -n <namespace>` |
+| Operation        | Command                                                                                                             |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Create from YAML | `kubectl --kubeconfig=<kubeconfig-path> apply -f cronjob.yaml -n <namespace>`                                       |
+| Get/list         | `kubectl --kubeconfig=<kubeconfig-path> get cronjobs -n <namespace>`                                                |
+| Suspend          | `kubectl --kubeconfig=<kubeconfig-path> patch cronjob <name> --type merge --patch-file=suspend.json -n <namespace>` |
+| Resume           | `kubectl --kubeconfig=<kubeconfig-path> patch cronjob <name> --type merge --patch-file=resume.json -n <namespace>`  |
+| Delete           | `kubectl --kubeconfig=<kubeconfig-path> delete cronjob <name> -n <namespace>`                                       |
 
 ## Common Scenarios
 
@@ -39,9 +39,9 @@ spec:
     spec:
       restartPolicy: OnFailure
       containers:
-      - name: migrator
-        image: migrator:latest
-        command: ["./migrate.sh"]
+        - name: migrator
+          image: migrator:latest
+          command: ["./migrate.sh"]
 ```
 
 ```bash
@@ -66,9 +66,9 @@ spec:
         spec:
           restartPolicy: OnFailure
           containers:
-          - name: cleaner
-            image: cleaner:latest
-            command: ["./cleanup.sh"]
+            - name: cleaner
+              image: cleaner:latest
+              command: ["./cleanup.sh"]
 ```
 
 ```bash

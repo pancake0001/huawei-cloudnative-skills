@@ -14,7 +14,8 @@
 Retain changes or change signals that can plausibly affect the incident:
 
 - Workload: image, command/args, env, resources, probes, volumes, selector, affinity, tolerations.
-- Config: ConfigMap/Secret metadata or user-provided sanitized before/after summaries, CoreDNS Corefile, kube-proxy, or core add-on config. Never retrieve Secret values.
+- Config: ConfigMap/Secret metadata or user-provided sanitized before/after summaries, CoreDNS Corefile, kube-proxy, or core add-on config. Never retrieve
+  Secret values.
 - Network: Service ports/selectors, Ingress/Gateway backend/rules/TLS, NetworkPolicy ingress/egress.
 - Security: RBAC, ServiceAccount, or policy changes that alter access boundaries.
 - Infrastructure: node taints, cordon/drain, node pool scale, upgrade, security group/ACL/route changes.
@@ -41,6 +42,5 @@ Ignore low-signal control-plane noise unless other evidence links it to the inci
 
 ## 5. Reporting
 
-The report must include Summary, Change Impact Analysis, Next Actions, Evidence Timeline,
-Blast Radius, Data Gaps, and Appendix. Do not state that a change caused the incident
-unless temporal order plus response evidence or focused diagnosis supports it.
+The report must include Summary, Change Impact Analysis, Next Actions, Evidence Timeline, Blast Radius, Data Gaps, and Appendix. Do not state that a change
+caused the incident unless temporal order plus response evidence or focused diagnosis supports it.

@@ -86,4 +86,3 @@ After code changes:
 - Batch and single CCE template rule creation use the same template payload behavior.
 - Manual PromQL rule creation succeeds or returns a clear API error without leaking generated JSON payloads.
 - Cleanup tools delete only the intended cluster-scoped CCE alarm rules.
-

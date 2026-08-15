@@ -12,13 +12,16 @@ tags: [cce, inspection, health-check, daily]
 
 ## Overview
 
-This skill performs periodic, low-risk CCE cluster health inspections. It follows a **quick-check-first** strategy: run lightweight checks first, and only escalate to deep diagnosis when anomalies are detected. This avoids running heavy diagnostic actions on every inspection cycle.
+This skill performs periodic, low-risk CCE cluster health inspections. It follows a **quick-check-first** strategy: run lightweight checks first, and only
+escalate to deep diagnosis when anomalies are detected. This avoids running heavy diagnostic actions on every inspection cycle.
 
-This skill is **strictly read-only** — it never performs mutation actions. When risks are found, it outputs recommendations and hands off to the appropriate remediation skill.
+This skill is **strictly read-only** — it never performs mutation actions. When risks are found, it outputs recommendations and hands off to the appropriate
+remediation skill.
 
 **Architecture**: `python3 scripts/huawei-cloud.py` dispatcher → Huawei Cloud Python SDK + Kubernetes client → cluster status, Events, metrics, AOM alarms
 
 **Related Skills**:
+
 - `huawei-cloud-cce-auto-remediation-runner` — execute confirmed remediation actions (scale, drain, rollback, etc.)
 - `huawei-cloud-cce-root-cause-analyzer` — cross-domain root cause analysis
 - `huawei-cloud-cce-pod-failure-diagnoser` — deep Pod failure diagnosis
@@ -36,6 +39,7 @@ This skill is **strictly read-only** — it never performs mutation actions. Whe
 - First-pass triage before escalating to deep diagnosis
 
 **Do NOT use for**:
+
 - Executing remediation actions → use `huawei-cloud-cce-auto-remediation-runner`
 - Deep single-resource diagnosis → use domain-specific diagnoser skills
 - Capacity forecasting → use `huawei-cloud-cce-capacity-trend-forecaster`
@@ -64,14 +68,14 @@ export HUAWEI_REGION=cn-north-4
 
 ### 3. IAM Permission Requirements
 
-| API Action | Permission | Purpose |
-|------------|------------|---------|
-| `cce:cluster:get` | Get cluster | View CCE cluster details |
-| `cce:cluster:createCert` | Create certificate | Obtain kubeconfig for kubectl access |
-| `cce:node:list` | List nodes | Query CCE cluster nodes |
-| `aom:instance:list` | List AOM instances | Discover AOM Prom instance for metrics |
-| `aom:metricsData:get` | Get metrics data | Query Pod/node CPU/memory metrics |
-| `aom:alarm:get` | Get alarms | Query AOM alarm history |
+| API Action               | Permission         | Purpose                                |
+| ------------------------ | ------------------ | -------------------------------------- |
+| `cce:cluster:get`        | Get cluster        | View CCE cluster details               |
+| `cce:cluster:createCert` | Create certificate | Obtain kubeconfig for kubectl access   |
+| `cce:node:list`          | List nodes         | Query CCE cluster nodes                |
+| `aom:instance:list`      | List AOM instances | Discover AOM Prom instance for metrics |
+| `aom:metricsData:get`    | Get metrics data   | Query Pod/node CPU/memory metrics      |
+| `aom:alarm:get`          | Get alarms         | Query AOM alarm history                |
 
 ## Workflow
 
@@ -109,54 +113,55 @@ digraph inspection_flow {
 
 See `references/workflow.md` for the complete workflow reference.
 
-## Core Tools
+## Core Commands
 
 All actions dispatched through `scripts/huawei-cloud.py` using `skill action=exec`.
 
 ### Quick Check (First Pass)
 
-| Action | Required Parameters | Description |
-|--------|---------------------|-------------|
-| `huawei_cce_quick_check` | region, cluster_id | Lightweight cluster health summary |
-| `huawei_cce_auto_inspection` | region, cluster_id | Automated inspection with anomaly detection |
+| Action                       | Required Parameters | Description                                 |
+| ---------------------------- | ------------------- | ------------------------------------------- |
+| `huawei_cce_quick_check`     | region, cluster_id  | Lightweight cluster health summary          |
+| `huawei_cce_auto_inspection` | region, cluster_id  | Automated inspection with anomaly detection |
 
 ### Deep Diagnosis (Escalation)
 
-| Action | Required Parameters | Description |
-|--------|---------------------|-------------|
-| `huawei_cce_deep_diagnosis` | region, cluster_id | In-depth cluster diagnosis |
-| `huawei_cce_cluster_inspection_parallel` | region, cluster_id | Parallel multi-domain inspection |
-| `huawei_cce_cluster_inspection_subagent` | region, cluster_id | Subagent-based distributed inspection |
-| `huawei_pod_status_inspection` | region, cluster_id | Pod health inspection |
-| `huawei_node_status_inspection` | region, cluster_id | Node health inspection |
-| `huawei_node_resource_inspection` | region, cluster_id | Node resource utilization inspection |
-| `huawei_event_inspection` | region, cluster_id | Kubernetes Event analysis |
-| `huawei_aom_alarm_inspection` | region, cluster_id | AOM alarm inspection |
-| `huawei_elb_monitoring_inspection` | region, cluster_id | ELB health monitoring inspection |
+| Action                                   | Required Parameters | Description                           |
+| ---------------------------------------- | ------------------- | ------------------------------------- |
+| `huawei_cce_deep_diagnosis`              | region, cluster_id  | In-depth cluster diagnosis            |
+| `huawei_cce_cluster_inspection_parallel` | region, cluster_id  | Parallel multi-domain inspection      |
+| `huawei_cce_cluster_inspection_subagent` | region, cluster_id  | Subagent-based distributed inspection |
+| `huawei_pod_status_inspection`           | region, cluster_id  | Pod health inspection                 |
+| `huawei_node_status_inspection`          | region, cluster_id  | Node health inspection                |
+| `huawei_node_resource_inspection`        | region, cluster_id  | Node resource utilization inspection  |
+| `huawei_event_inspection`                | region, cluster_id  | Kubernetes Event analysis             |
+| `huawei_aom_alarm_inspection`            | region, cluster_id  | AOM alarm inspection                  |
+| `huawei_elb_monitoring_inspection`       | region, cluster_id  | ELB health monitoring inspection      |
 
 ### Aggregation & Reporting
 
-| Action | Required Parameters | Description |
-|--------|---------------------|-------------|
-| `huawei_aggregate_inspection_results` | region, cluster_id | Aggregate results from parallel/subagent inspections |
-| `huawei_export_inspection_report` | region, cluster_id | Export formal inspection report |
+| Action                                | Required Parameters | Description                                          |
+| ------------------------------------- | ------------------- | ---------------------------------------------------- |
+| `huawei_aggregate_inspection_results` | region, cluster_id  | Aggregate results from parallel/subagent inspections |
+| `huawei_export_inspection_report`     | region, cluster_id  | Export formal inspection report                      |
 
 ## Parameter Reference
 
-| Parameter | Required | Description | Default |
-|-----------|----------|-------------|---------|
-| `region` | Yes | Huawei Cloud region, e.g., cn-north-4 | `HUAWEI_REGION` |
-| `cluster_id` | Yes | CCE cluster ID | N/A |
-| `namespace` | No | Kubernetes namespace scope | All namespaces |
-| `ak` | No | Override AK | `HUAWEI_AK` |
-| `sk` | No | Override SK | `HUAWEI_SK` |
-| `project_id` | No | Project ID | Auto from IAM |
+| Parameter    | Required | Description                           | Default         |
+| ------------ | -------- | ------------------------------------- | --------------- |
+| `region`     | Yes      | Huawei Cloud region, e.g., cn-north-4 | `HUAWEI_REGION` |
+| `cluster_id` | Yes      | CCE cluster ID                        | N/A             |
+| `namespace`  | No       | Kubernetes namespace scope            | All namespaces  |
+| `ak`         | No       | Override AK                           | `HUAWEI_AK`     |
+| `sk`         | No       | Override SK                           | `HUAWEI_SK`     |
+| `project_id` | No       | Project ID                            | Auto from IAM   |
 
 ## Output Format
 
 See `references/output-schema.md` for the complete JSON response structure.
 
 **Key output fields**:
+
 - `summary` — daily inspection summary text
 - `status` — `HEALTHY`, `WARNING`, or `CRITICAL`
 - `cluster.region` / `cluster.cluster_id` — cluster identification
@@ -192,22 +197,22 @@ This skill operates under **R1 read-only** constraints:
 
 ## Common Pitfalls
 
-| Pitfall | Symptom | Quick Fix |
-|---------|---------|-----------|
-| Running deep diagnosis every cycle | Slow inspection, wasted resources | Start with quick check; escalate only on anomaly |
-| Attempting remediation directly | Skill scope violation | Hand off to `huawei-cloud-cce-auto-remediation-runner` |
-| Missing cluster_id | Action fails immediately | Provide `cluster_id` from `huawei_get_cce_clusters` |
-| No AOM Prom instance | Metrics return empty | Verify AOM instance exists; check `aom:instance:list` permission |
-| Not aggregating parallel results | Incomplete or fragmented report | Call `huawei_aggregate_inspection_results` after parallel inspection |
-| Exposing credentials in report | Security violation | Reports auto-sanitize; never manually include AK/SK or kubeconfig |
+| Pitfall                            | Symptom                           | Quick Fix                                                            |
+| ---------------------------------- | --------------------------------- | -------------------------------------------------------------------- |
+| Running deep diagnosis every cycle | Slow inspection, wasted resources | Start with quick check; escalate only on anomaly                     |
+| Attempting remediation directly    | Skill scope violation             | Hand off to `huawei-cloud-cce-auto-remediation-runner`               |
+| Missing cluster_id                 | Action fails immediately          | Provide `cluster_id` from `huawei_get_cce_clusters`                  |
+| No AOM Prom instance               | Metrics return empty              | Verify AOM instance exists; check `aom:instance:list` permission     |
+| Not aggregating parallel results   | Incomplete or fragmented report   | Call `huawei_aggregate_inspection_results` after parallel inspection |
+| Exposing credentials in report     | Security violation                | Reports auto-sanitize; never manually include AK/SK or kubeconfig    |
 
 ## Reference Documents
 
-| Document | Description |
-|----------|-------------|
-| [Workflow](references/workflow.md) | Quick-check-first escalation workflow and classification |
-| [Risk Rules](references/risk-rules.md) | R1 read-only boundaries and prohibited actions |
-| [Output Schema](references/output-schema.md) | JSON response format for inspection results |
+| Document                                     | Description                                              |
+| -------------------------------------------- | -------------------------------------------------------- |
+| [Workflow](references/workflow.md)           | Quick-check-first escalation workflow and classification |
+| [Risk Rules](references/risk-rules.md)       | R1 read-only boundaries and prohibited actions           |
+| [Output Schema](references/output-schema.md) | JSON response format for inspection results              |
 
 ## Notes
 
@@ -215,4 +220,5 @@ This skill operates under **R1 read-only** constraints:
 2. AK/SK must never be hardcoded — use environment variables only
 3. All actions dispatched through `scripts/huawei-cloud.py` via `skill action=exec`; do not run scripts directly in shell
 4. When risks require action, hand off to `huawei-cloud-cce-auto-remediation-runner` with a confirmation checklist
-5. For deep single-resource diagnosis, delegate to domain-specific diagnoser skills (`huawei-cloud-cce-pod-failure-diagnoser`, `huawei-cloud-cce-node-failure-diagnoser`, etc.)
+5. For deep single-resource diagnosis, delegate to domain-specific diagnoser skills (`huawei-cloud-cce-pod-failure-diagnoser`,
+   `huawei-cloud-cce-node-failure-diagnoser`, etc.)

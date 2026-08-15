@@ -12,11 +12,13 @@ version: 1.0.0
 
 ## 概述
 
-使用 hcloud CLI (KooCLI) 评估和规划 CCE 集群 Kubernetes 版本升级。覆盖升级路径验证、76项升级前检查、插件兼容性、版本特有破坏性变更、废弃API迁移、升级窗口估算与执行预览（需二次确认才执行）。
+使用 hcloud CLI
+(KooCLI) 评估和规划 CCE 集群 Kubernetes 版本升级。覆盖升级路径验证、76项升级前检查、插件兼容性、版本特有破坏性变更、废弃API迁移、升级窗口估算与执行预览（需二次确认才执行）。
 
 **架构**: hcloud CLI → CCE OpenAPI → 集群信息 / 升级路径 / 升级工作流 / 插件信息 / 节点池信息
 
 **标准流程**:
+
 ```
 1. 采集集群现状（版本、节点、插件、节点池）
 2. 查询升级路径（ListClusterUpgradePaths）
@@ -41,11 +43,11 @@ version: 1.0.0
 
 #### 需二次确认的操作
 
-| 操作 | 风险等级 | 说明 |
-|------|---------|------|
-| UpgradeCluster | 🔴 极高 | 升级Kubernetes控制面，启动后不可逆 |
-| UpgradeNodePool | 🟠 高 | 升级节点池K8s版本，节点临时不可调度 |
-| CreateUpgradeWorkFlow | 🟠 高 | 创建升级工作流（含升级前检查→集群升级→升级后检查） |
+| 操作                  | 风险等级 | 说明                                               |
+| --------------------- | -------- | -------------------------------------------------- |
+| UpgradeCluster        | 🔴 极高  | 升级Kubernetes控制面，启动后不可逆                 |
+| UpgradeNodePool       | 🟠 高    | 升级节点池K8s版本，节点临时不可调度                |
+| CreateUpgradeWorkFlow | 🟠 高    | 创建升级工作流（含升级前检查→集群升级→升级后检查） |
 
 ### 认证信息安全
 
@@ -56,8 +58,7 @@ version: 1.0.0
 
 ## 前置条件
 
-> **前置检查: hcloud (KooCLI) >= 7.2.2 必需**
-> 运行 `hcloud version` 验证版本，`hcloud configure list` 检查配置是否存在。
+> **前置检查: hcloud (KooCLI) >= 7.2.2 必需** 运行 `hcloud version` 验证版本，`hcloud configure list` 检查配置是否存在。
 
 ```bash
 hcloud version
@@ -78,7 +79,8 @@ hcloud CCE <Operation> --param=value --cli-region=<region> --cli-output=json
 2. **目标版本必需**: 升级操作需要 `--spec.clusterUpgradeAction.targetVersion=v1.XX`
 3. **插件升级用数组格式**: `--spec.clusterUpgradeAction.addons.1.addonTemplateName=<name> --spec.clusterUpgradeAction.addons.1.version=<ver>`
 4. **节点池优先级用键值格式**: `--spec.clusterUpgradeAction.nodePoolOrder.key1=value1`
-5. **节点选择器用嵌套格式**: `--spec.clusterUpgradeAction.nodeOrder.key1.1.nodeSelector.key=<label-key> --spec.clusterUpgradeAction.nodeOrder.key1.1.nodeSelector.operator=In --spec.clusterUpgradeAction.nodeOrder.key1.1.nodeSelector.value.1=<val>`
+5. **节点选择器用嵌套格式**:
+   `--spec.clusterUpgradeAction.nodeOrder.key1.1.nodeSelector.key=<label-key> --spec.clusterUpgradeAction.nodeOrder.key1.1.nodeSelector.operator=In --spec.clusterUpgradeAction.nodeOrder.key1.1.nodeSelector.value.1=<val>`
 6. **升级策略**: `--spec.clusterUpgradeAction.strategy.type=inPlaceRollingUpdate`（仅支持原地升级）
 7. **批次大小**: `--spec.clusterUpgradeAction.strategy.inPlaceRollingUpdate.userDefinedStep=<1-40>`（默认20，推荐）
 8. **批次范围**: `--spec.clusterUpgradeAction.strategy.inPlaceRollingUpdate.scope=Cluster` 或 `NodePool`
@@ -87,17 +89,17 @@ hcloud CCE <Operation> --param=value --cli-region=<region> --cli-output=json
 
 ## 场景路由
 
-| 用户意图 | 参考文档 |
-|---------|---------|
-| 全流程升级评估（7步工作流） | [references/upgrade-workflow.md](references/upgrade-workflow.md) |
-| 升级前检查清单（76项） | [references/pre-upgrade-checklist.md](references/pre-upgrade-checklist.md) |
-| 插件兼容矩阵与升级顺序 | [references/addon-compatibility.md](references/addon-compatibility.md) |
-| K8s版本升级路径规则 | [references/k8s-version-matrix.md](references/k8s-version-matrix.md) |
-| 升级窗口时间估算 | [references/upgrade-window-estimation.md](references/upgrade-window-estimation.md) |
-| 版本特有破坏性变更 | [references/pre-upgrade-checklist.md](references/pre-upgrade-checklist.md) |
-| 废弃API迁移 | [references/pre-upgrade-checklist.md](references/pre-upgrade-checklist.md) |
-| 风险约束与回退 | [references/risk-rules.md](references/risk-rules.md) |
-| 输出结构 | [references/output-schema.md](references/output-schema.md) |
+| 用户意图                    | 参考文档                                                                           |
+| --------------------------- | ---------------------------------------------------------------------------------- |
+| 全流程升级评估（7步工作流） | [references/upgrade-workflow.md](references/upgrade-workflow.md)                   |
+| 升级前检查清单（76项）      | [references/pre-upgrade-checklist.md](references/pre-upgrade-checklist.md)         |
+| 插件兼容矩阵与升级顺序      | [references/addon-compatibility.md](references/addon-compatibility.md)             |
+| K8s版本升级路径规则         | [references/k8s-version-matrix.md](references/k8s-version-matrix.md)               |
+| 升级窗口时间估算            | [references/upgrade-window-estimation.md](references/upgrade-window-estimation.md) |
+| 版本特有破坏性变更          | [references/pre-upgrade-checklist.md](references/pre-upgrade-checklist.md)         |
+| 废弃API迁移                 | [references/pre-upgrade-checklist.md](references/pre-upgrade-checklist.md)         |
+| 风险约束与回退              | [references/risk-rules.md](references/risk-rules.md)                               |
+| 输出结构                    | [references/output-schema.md](references/output-schema.md)                         |
 
 ## 核心命令
 
@@ -171,6 +173,7 @@ hcloud CCE UpgradeWorkFlowUpdate \
 详见 [references/upgrade-window-estimation.md](references/upgrade-window-estimation.md)
 
 **快速估算**:
+
 ```
 T_total = T控制面 + T节点批次 + T插件 + T验证 + T缓冲
 
@@ -182,6 +185,7 @@ T缓冲 = 20% * (T控制面 + T节点批次 + T插件 + T验证)
 ```
 
 **示例**: 10节点5插件集群 v1.23→v1.25：
+
 - 控制面: 15分钟
 - 节点批次: 1+4+5节点, ~100分钟
 - 插件: 50分钟
@@ -191,10 +195,10 @@ T缓冲 = 20% * (T控制面 + T节点批次 + T插件 + T验证)
 
 ## 升级方式
 
-| 方式 | 优点 | 限制 | 推荐场景 |
-|------|------|------|---------|
-| **原地升级** | 控制面升级时业务Pod不中断；节点分批升级；插件自动升级 | 节点升级时临时不可调度；v1.27+需Docker→Containerd切换 | 大多数场景（默认） |
-| **迁移** | 全新环境；无兼容性风险累积；跳过中间版本升级 | 全量工作负载重新部署；需要双倍资源；更长的停机时间 | 大跨版本升级（如v1.15→v1.28）；不兼容运行时 |
+| 方式         | 优点                                                  | 限制                                                  | 推荐场景                                    |
+| ------------ | ----------------------------------------------------- | ----------------------------------------------------- | ------------------------------------------- |
+| **原地升级** | 控制面升级时业务Pod不中断；节点分批升级；插件自动升级 | 节点升级时临时不可调度；v1.27+需Docker→Containerd切换 | 大多数场景（默认）                          |
+| **迁移**     | 全新环境；无兼容性风险累积；跳过中间版本升级          | 全量工作负载重新部署；需要双倍资源；更长的停机时间    | 大跨版本升级（如v1.15→v1.28）；不兼容运行时 |
 
 ## 关键约束
 
@@ -217,12 +221,12 @@ T缓冲 = 20% * (T控制面 + T节点批次 + T插件 + T验证)
 
 ## 参考文档
 
-| 文档 | 说明 |
-|------|------|
-| [upgrade-workflow.md](references/upgrade-workflow.md) | 7步升级全流程详情 |
-| [pre-upgrade-checklist.md](references/pre-upgrade-checklist.md) | 76项升级前检查清单与版本特有破坏性变更 |
-| [addon-compatibility.md](references/addon-compatibility.md) | 插件兼容矩阵、DaemonSet插件、升级顺序 |
-| [k8s-version-matrix.md](references/k8s-version-matrix.md) | 官方CCE升级路径表与补丁版本规则 |
-| [upgrade-window-estimation.md](references/upgrade-window-estimation.md) | 升级窗口估算公式、批次策略、示例 |
-| [risk-rules.md](references/risk-rules.md) | 风险约束、回退策略、护栏 |
-| [output-schema.md](references/output-schema.md) | 评估报告和执行预览JSON结构
+| 文档                                                                    | 说明                                   |
+| ----------------------------------------------------------------------- | -------------------------------------- |
+| [upgrade-workflow.md](references/upgrade-workflow.md)                   | 7步升级全流程详情                      |
+| [pre-upgrade-checklist.md](references/pre-upgrade-checklist.md)         | 76项升级前检查清单与版本特有破坏性变更 |
+| [addon-compatibility.md](references/addon-compatibility.md)             | 插件兼容矩阵、DaemonSet插件、升级顺序  |
+| [k8s-version-matrix.md](references/k8s-version-matrix.md)               | 官方CCE升级路径表与补丁版本规则        |
+| [upgrade-window-estimation.md](references/upgrade-window-estimation.md) | 升级窗口估算公式、批次策略、示例       |
+| [risk-rules.md](references/risk-rules.md)                               | 风险约束、回退策略、护栏               |
+| [output-schema.md](references/output-schema.md)                         | 评估报告和执行预览JSON结构             |

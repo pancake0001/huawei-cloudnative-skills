@@ -2,15 +2,16 @@
 
 ## Overview
 
-This document defines the verification steps for the CCE Workload Manager skill. Verification is divided into six levels: installation verification, configuration verification, kubeconfig acquisition, connectivity verification, read-only operations, and write operations.
+This document defines the verification steps for the CCE Workload Manager skill. Verification is divided into six levels: installation verification,
+configuration verification, kubeconfig acquisition, connectivity verification, read-only operations, and write operations.
 
 ## Level 1: Installation Verification
 
 ### 1.1 hcloud CLI Installation
 
-| Item                 | Command           | Success Criteria                          |
-| -------------------- | ------------------ | ----------------------------------------- |
-| hcloud installed     | `hcloud version`   | Returns version number >= 7.2.2           |
+| Item             | Command          | Success Criteria                |
+| ---------------- | ---------------- | ------------------------------- |
+| hcloud installed | `hcloud version` | Returns version number >= 7.2.2 |
 
 ### 1.2 hcloud CLI First Run
 
@@ -22,15 +23,16 @@ Expected: Version number displayed without error.
 
 ### 1.3 kubectl Installation
 
-| Item                 | Command                | Success Criteria                          |
-| -------------------- | ---------------------- | ----------------------------------------- |
-| kubectl installed    | `kubectl version --client` | Returns Kubernetes client version |
+| Item              | Command                    | Success Criteria                  |
+| ----------------- | -------------------------- | --------------------------------- |
+| kubectl installed | `kubectl version --client` | Returns Kubernetes client version |
 
 If kubectl is not installed, follow the installation guide in [kubectl Setup](task-kubectl-setup.md).
 
 **Official Download**: https://kubernetes.io/docs/tasks/tools/
 
 **Quick Install (Linux)**:
+
 ```bash
 ARCH=$(uname -m | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/')
 curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/${ARCH}/kubectl"
@@ -38,6 +40,7 @@ sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
 ```
 
 **Quick Install (Windows)**:
+
 ```powershell
 $version = (Invoke-WebRequest -Uri "https://dl.k8s.io/release/stable.txt" -UseBasicParsing).Content.Trim()
 $arch = if ($env:PROCESSOR_ARCHITECTURE -eq 'ARM64') { 'arm64' } else { 'amd64' }
@@ -48,9 +51,9 @@ curl -LO "https://dl.k8s.io/release/$version/bin/windows/$arch/kubectl.exe"
 
 ### 2.1 Credential Configuration
 
-| Item                    | Command                | Success Criteria                        |
-| ----------------------- | ---------------------- | --------------------------------------- |
-| Credentials configured  | `hcloud configure list` | Shows valid AK/SK configuration (values masked) |
+| Item                   | Command                 | Success Criteria                                |
+| ---------------------- | ----------------------- | ----------------------------------------------- |
+| Credentials configured | `hcloud configure list` | Shows valid AK/SK configuration (values masked) |
 
 Never use `echo $HUAWEI_CLOUD_AK` to check credentials.
 
@@ -131,18 +134,19 @@ Expected: Returns `yes` or `no` based on RBAC permissions.
 
 CCE clusters provide the following StorageClasses for PVC creation. Use `csi-disk` for general block storage (the most common choice):
 
-| StorageClass | Type | Use Case |
-|-------------|------|----------|
-| `csi-disk` | Cloud disk (EVS) | General block storage (recommended default) |
-| `csi-disk-topology` | Cloud disk with topology | Cross-AZ scheduling with delayed binding |
-| `csi-disk-dss` | Dedicated storage disk | DSS pool storage |
-| `csi-sfsturbo` | SFS Turbo (extreme file storage) | High-performance shared file storage (500Gi min, supports subdirectory) |
-| `csi-nas` | General file storage (SFS) | Shared file storage |
-| `csi-obs` | Object storage (OBS) | Object storage mount (obsfs/s3fs) |
-| `csi-sfs` | SFS 3.0 capacity | High-bandwidth shared storage |
-| `csi-sfsturbo` subdirectory | SFS Turbo subdirectory | Cost-effective shared storage with quota control |
+| StorageClass                | Type                             | Use Case                                                                |
+| --------------------------- | -------------------------------- | ----------------------------------------------------------------------- |
+| `csi-disk`                  | Cloud disk (EVS)                 | General block storage (recommended default)                             |
+| `csi-disk-topology`         | Cloud disk with topology         | Cross-AZ scheduling with delayed binding                                |
+| `csi-disk-dss`              | Dedicated storage disk           | DSS pool storage                                                        |
+| `csi-sfsturbo`              | SFS Turbo (extreme file storage) | High-performance shared file storage (500Gi min, supports subdirectory) |
+| `csi-nas`                   | General file storage (SFS)       | Shared file storage                                                     |
+| `csi-obs`                   | Object storage (OBS)             | Object storage mount (obsfs/s3fs)                                       |
+| `csi-sfs`                   | SFS 3.0 capacity                 | High-bandwidth shared storage                                           |
+| `csi-sfsturbo` subdirectory | SFS Turbo subdirectory           | Cost-effective shared storage with quota control                        |
 
-> **Important**: `cce-standard` is NOT a valid CCE StorageClass. Always use `csi-disk` or one of the CSI StorageClasses listed above. Run `kubectl get sc` to verify available StorageClasses in your cluster.
+> **Important**: `cce-standard` is NOT a valid CCE StorageClass. Always use `csi-disk` or one of the CSI StorageClasses listed above. Run `kubectl get sc` to
+> verify available StorageClasses in your cluster.
 
 For SFS Turbo subdirectory PVCs (recommended for cost savings), see the [task-config-secret-storage.md](task-config-secret-storage.md) reference.
 
@@ -224,22 +228,22 @@ Expected: Kubeconfig file removed (security best practice).
 
 ## Verification Checklist
 
-| #  | Check Item                | Command                                             | Status |
-| -- | ------------------------- | --------------------------------------------------- | ------ |
-| 1  | hcloud version >= 7.2.2   | `hcloud version`                                    | ☐      |
-| 2  | kubectl installed         | `kubectl version --client`                          | ☐      |
-| 3  | Credentials configured    | `hcloud configure list`                             | ☐      |
-| 4  | Find CCE cluster          | `hcloud CCE ListClusters --cli-region=cn-north-4`   | ☐      |
-| 5  | Obtain kubeconfig         | `hcloud CCE CreateKubernetesClusterCert --cluster_id=<id> --duration=1 --cli-region=cn-north-4` | ☐ |
-| 6  | Test connectivity         | `kubectl --kubeconfig=<f> cluster-info`             | ☐      |
-| 7  | Check nodes               | `kubectl --kubeconfig=<f> get nodes`                | ☐      |
-| 8  | List namespaces           | `kubectl --kubeconfig=<f> get namespaces`           | ☐      |
-| 9  | Check RBAC                | `kubectl --kubeconfig=<f> auth can-i create deployments` | ☐ |
-| 10 | Create test namespace     | `kubectl --kubeconfig=<f> create namespace workload-test` | ☐ |
-| 11 | Deploy test workload      | `kubectl --kubeconfig=<f> create deployment nginx-test --image=nginx:1.25 -n workload-test` | ☐ |
-| 12 | Verify deployment         | `kubectl --kubeconfig=<f> get deployments -n workload-test` | ☐ |
-| 13 | Scale deployment          | `kubectl --kubeconfig=<f> scale deployment nginx-test --replicas=3 -n workload-test` | ☐ |
-| 14 | View logs                 | `kubectl --kubeconfig=<f> logs -l app=nginx-test -n workload-test` | ☐ |
-| 15 | Delete test resources     | `kubectl --kubeconfig=<f> delete deployment nginx-test -n workload-test` | ☐ |
-| 16 | Delete test namespace     | `kubectl --kubeconfig=<f> delete namespace workload-test` | ☐ |
-| 17 | Remove kubeconfig         | `rm ~/.kube/cce-test-kubeconfig.yaml`               | ☐      |
+| #   | Check Item              | Command                                                                                         | Status |
+| --- | ----------------------- | ----------------------------------------------------------------------------------------------- | ------ |
+| 1   | hcloud version >= 7.2.2 | `hcloud version`                                                                                | ☐      |
+| 2   | kubectl installed       | `kubectl version --client`                                                                      | ☐      |
+| 3   | Credentials configured  | `hcloud configure list`                                                                         | ☐      |
+| 4   | Find CCE cluster        | `hcloud CCE ListClusters --cli-region=cn-north-4`                                               | ☐      |
+| 5   | Obtain kubeconfig       | `hcloud CCE CreateKubernetesClusterCert --cluster_id=<id> --duration=1 --cli-region=cn-north-4` | ☐      |
+| 6   | Test connectivity       | `kubectl --kubeconfig=<f> cluster-info`                                                         | ☐      |
+| 7   | Check nodes             | `kubectl --kubeconfig=<f> get nodes`                                                            | ☐      |
+| 8   | List namespaces         | `kubectl --kubeconfig=<f> get namespaces`                                                       | ☐      |
+| 9   | Check RBAC              | `kubectl --kubeconfig=<f> auth can-i create deployments`                                        | ☐      |
+| 10  | Create test namespace   | `kubectl --kubeconfig=<f> create namespace workload-test`                                       | ☐      |
+| 11  | Deploy test workload    | `kubectl --kubeconfig=<f> create deployment nginx-test --image=nginx:1.25 -n workload-test`     | ☐      |
+| 12  | Verify deployment       | `kubectl --kubeconfig=<f> get deployments -n workload-test`                                     | ☐      |
+| 13  | Scale deployment        | `kubectl --kubeconfig=<f> scale deployment nginx-test --replicas=3 -n workload-test`            | ☐      |
+| 14  | View logs               | `kubectl --kubeconfig=<f> logs -l app=nginx-test -n workload-test`                              | ☐      |
+| 15  | Delete test resources   | `kubectl --kubeconfig=<f> delete deployment nginx-test -n workload-test`                        | ☐      |
+| 16  | Delete test namespace   | `kubectl --kubeconfig=<f> delete namespace workload-test`                                       | ☐      |
+| 17  | Remove kubeconfig       | `rm ~/.kube/cce-test-kubeconfig.yaml`                                                           | ☐      |
