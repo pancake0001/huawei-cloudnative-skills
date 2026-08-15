@@ -1,6 +1,8 @@
 ﻿---
 name: cost-optimization-advisor
-description: Use this skill for Huawei Cloud CCE cost optimization analysis, including idle resources, oversized CPU or memory requests, low-utilization nodes, 24-hour and 7-day utilization trends, HPA recommendations, and node autoscaler policy optimization.
+description:
+  Use this skill for Huawei Cloud CCE cost optimization analysis, including idle resources, oversized CPU or memory requests, low-utilization nodes, 24-hour and
+  7-day utilization trends, HPA recommendations, and node autoscaler policy optimization.
 ---
 
 # cost-optimization-advisor
@@ -37,4 +39,5 @@ description: Use this skill for Huawei Cloud CCE cost optimization analysis, inc
 
 ## 风险约束
 
-本 skill 不自动缩容、不修改 request、不自动安装或更新 HPA/autoscaler。可以生成 YAML、参数建议和执行计划；真实配置必须由用户明确确认后再调用带 `confirm=true` 的执行 action。
+本 skill 不自动缩容、不修改 request、不自动安装或更新 HPA/autoscaler。可以生成 YAML、参数建议和执行计划；真实配置必须由用户明确确认后再调用带 `confirm=true`
+的执行 action。

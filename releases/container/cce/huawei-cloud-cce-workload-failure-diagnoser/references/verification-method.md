@@ -14,7 +14,8 @@ kubectl version --client
 
 Expected:
 
-- `hcloud` exists and reports KooCLI version. Linux sandboxes should use the Linux KooCLI binary; Windows workstations may use `hcloud.exe`, but the skill workflow should stay platform-neutral.
+- `hcloud` exists and reports KooCLI version. Linux sandboxes should use the Linux KooCLI binary; Windows workstations may use `hcloud.exe`, but the skill
+  workflow should stay platform-neutral.
 - Credential profiles are present, with secret values masked.
 - `kubectl` client exists and matches the runtime platform. Linux sandboxes should use a Linux `kubectl` binary; Windows workstations should use `kubectl.exe`.
 

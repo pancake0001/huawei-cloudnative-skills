@@ -16,6 +16,7 @@ hcloud CCE ListNodes --cluster_id=<cluster-id> --cli-region=<region> --cli-outpu
 ```
 
 **Extract from ShowCluster response**:
+
 - `spec.version` — current K8s version (e.g., v1.23.5-r0)
 - `status.phase` — cluster status (must be Available)
 - `metadata.annotations.totalNodesNumber` — total node count
@@ -30,12 +31,14 @@ hcloud CCE ListClusterUpgradePaths --cli-region=<region> --cli-output=json
 ```
 
 **Upgrade path rules** (see [k8s-version-matrix.md](k8s-version-matrix.md)):
+
 1. Find current version in the upgrade path table
 2. Check if target version is in the "支持升级到的Kubernetes版本号" column
 3. If not listed, must upgrade through intermediate versions step by step
 4. Patch version must be upgraded to latest before major version upgrade
 
 **Example**: v1.21.7-r0 → v1.28
+
 - v1.21 → v1.23 (intermediate)
 - v1.23 → v1.25 (intermediate)
 - v1.25 → v1.27 (intermediate)
@@ -60,6 +63,7 @@ hcloud CCE ShowClusterUpgradeInfo --cluster_id=<cluster-id> --cli-region=<region
 ```
 
 **Pre-check covers 76 items** (see [pre-upgrade-checklist.md](pre-upgrade-checklist.md)):
+
 - Node status, OS, kubelet, disk, CPU, memory, DNS, clock sync
 - Addon status and version compatibility
 - Helm template deprecated API scan
@@ -77,6 +81,7 @@ hcloud CCE ShowClusterUpgradeInfo --cluster_id=<cluster-id> --cli-region=<region
 ### Step 4: Addon Compatibility Assessment
 
 For each installed addon:
+
 1. Check if addon supports both current and target K8s versions
 2. If addon only supports one version, it will be upgraded during cluster upgrade (auto) or needs separate upgrade action
 3. Verify addon upgrade won not break business functionality
@@ -87,6 +92,7 @@ hcloud CCE ListAddonTemplates --cluster_id=<cluster-id> --addon_template_name=<a
 ```
 
 **Addon upgrade order** (see [addon-compatibility.md](addon-compatibility.md)):
+
 - Everest (storage CSI) — must upgrade before or during cluster upgrade
 - CoreDNS — upgrade after cluster reaches target version
 - Metrics-server — upgrade after cluster
@@ -96,6 +102,7 @@ hcloud CCE ListAddonTemplates --cluster_id=<cluster-id> --addon_template_name=<a
 ### Step 5: Upgrade Window Estimation
 
 Calculate upgrade window based on:
+
 - Node count and batch strategy
 - Addon count and upgrade time per addon
 - Verification time
@@ -108,6 +115,7 @@ See [upgrade-window-estimation.md](upgrade-window-estimation.md) for formula and
 Generate specific hcloud CLI commands for each phase:
 
 **Phase 1 — Control Plane Upgrade**:
+
 ```bash
 hcloud CCE UpgradeCluster \
   --cluster_id=<cluster-id> \
@@ -125,6 +133,7 @@ hcloud CCE UpgradeCluster \
 ```
 
 **Phase 2 — Node Pool Upgrade**:
+
 ```bash
 hcloud CCE UpgradeNodePool \
   --cluster_id=<cluster-id> \
@@ -134,6 +143,7 @@ hcloud CCE UpgradeNodePool \
 ```
 
 **Phase 3 — Addon Upgrade** (for addons that need separate upgrade):
+
 ```bash
 hcloud CCE UpdateAddonInstance \
   --cluster_id=<cluster-id> \
@@ -148,12 +158,14 @@ hcloud CCE UpdateAddonInstance \
 ### Step 7: Rollback Strategy & Post-Upgrade Verification
 
 **Rollback options**:
+
 - Use backup data (etcd auto-backup during upgrade, CBR/EVS manual backup before upgrade)
 - PauseUpgradeClusterTask to pause upgrade and investigate issues
 - Cancel upgrade workflow (UpgradeWorkFlowUpdate with phase=Cancel)
 - For v1.28+: control node IPs change, plan connectivity update
 
 **Post-upgrade verification**:
+
 ```bash
 # Check cluster status
 hcloud CCE ShowCluster --cluster_id=<cluster-id> --detail=true --cli-region=<region> --cli-output=json
@@ -169,6 +181,7 @@ hcloud CCE ShowUpgradeWorkFlow --cluster_id=<cluster-id> --upgrade_workflow_id=<
 ```
 
 **Post-upgrade verification items**:
+
 1. Cluster status.phase = Available
 2. All nodes Ready, no NotReady nodes
 3. All addons status = running

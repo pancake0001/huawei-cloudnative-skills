@@ -1,6 +1,7 @@
 # Scenario Guides
 
-Use this file after the top cause is identified. The main skill report format stays generic; this reference provides scenario-specific interpretation, next checks, and candidate fix paths.
+Use this file after the top cause is identified. The main skill report format stays generic; this reference provides scenario-specific interpretation, next
+checks, and candidate fix paths.
 
 For every diagnosed scenario, include these report parts:
 
@@ -25,13 +26,13 @@ Interpretation:
 
 Subtype hints:
 
-| Evidence | Likely subtype |
-| --- | --- |
-| `not found`, `manifest unknown`, `repository does not exist`, 404 | Repository or tag missing |
-| `unauthorized`, `authentication required`, `denied`, 401/403 | Registry auth or pull secret |
-| `no such host`, DNS timeout, connection timeout | DNS or network path |
-| 429 or rate-limit text | Registry rate limit |
-| mirror/proxy URL plus 400/5xx | Mirror or proxy behavior, often triggered by invalid image path/tag |
+| Evidence                                                          | Likely subtype                                                      |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------- |
+| `not found`, `manifest unknown`, `repository does not exist`, 404 | Repository or tag missing                                           |
+| `unauthorized`, `authentication required`, `denied`, 401/403      | Registry auth or pull secret                                        |
+| `no such host`, DNS timeout, connection timeout                   | DNS or network path                                                 |
+| 429 or rate-limit text                                            | Registry rate limit                                                 |
+| mirror/proxy URL plus 400/5xx                                     | Mirror or proxy behavior, often triggered by invalid image path/tag |
 
 Ruled-out examples:
 
@@ -74,13 +75,13 @@ Interpretation:
 
 Subtype hints:
 
-| Evidence | Likely subtype |
-| --- | --- |
-| Exit code 1/2 and stack trace | Application startup error |
-| `exec format error` | Wrong CPU architecture image |
-| `executable file not found`, permission denied | Bad command/args or file permissions |
-| Dependency connection refused/timeouts | Downstream dependency unavailable |
-| Probe events before restarts | Probe-induced restart or startup too slow |
+| Evidence                                       | Likely subtype                            |
+| ---------------------------------------------- | ----------------------------------------- |
+| Exit code 1/2 and stack trace                  | Application startup error                 |
+| `exec format error`                            | Wrong CPU architecture image              |
+| `executable file not found`, permission denied | Bad command/args or file permissions      |
+| Dependency connection refused/timeouts         | Downstream dependency unavailable         |
+| Probe events before restarts                   | Probe-induced restart or startup too slow |
 
 Ruled-out examples:
 
@@ -118,12 +119,12 @@ Interpretation:
 
 Subtype hints:
 
-| Evidence | Likely subtype |
-| --- | --- |
-| Limit is low and app uses near limit | Container memory limit too low |
-| Memory grows over time | Memory leak or unbounded cache |
+| Evidence                              | Likely subtype                  |
+| ------------------------------------- | ------------------------------- |
+| Limit is low and app uses near limit  | Container memory limit too low  |
+| Memory grows over time                | Memory leak or unbounded cache  |
 | JVM or runtime max heap exceeds limit | Runtime memory setting mismatch |
-| Node MemoryPressure | Node-level memory pressure |
+| Node MemoryPressure                   | Node-level memory pressure      |
 
 Ruled-out examples:
 
@@ -162,13 +163,13 @@ Interpretation:
 
 Subtype hints:
 
-| Evidence | Likely subtype |
-| --- | --- |
-| Insufficient cpu/memory/pods | Cluster/node capacity shortage |
-| Untolerated taint | Missing toleration |
+| Evidence                        | Likely subtype                  |
+| ------------------------------- | ------------------------------- |
+| Insufficient cpu/memory/pods    | Cluster/node capacity shortage  |
+| Untolerated taint               | Missing toleration              |
 | Node affinity/selector mismatch | Placement constraint too strict |
-| Pod anti-affinity | Anti-affinity blocks placement |
-| Quota or LimitRange text | Namespace policy or quota |
+| Pod anti-affinity               | Anti-affinity blocks placement  |
+| Quota or LimitRange text        | Namespace policy or quota       |
 
 Ruled-out examples:
 
@@ -202,12 +203,12 @@ Interpretation:
 
 Subtype hints:
 
-| Evidence | Likely subtype |
-| --- | --- |
-| PVC Pending | Provisioning/storage class issue |
-| Attach timeout | Cloud volume attach issue |
-| Mount permission or path error | Node mount/filesystem issue |
-| Secret/configmap volume missing | Referenced object missing |
+| Evidence                        | Likely subtype                   |
+| ------------------------------- | -------------------------------- |
+| PVC Pending                     | Provisioning/storage class issue |
+| Attach timeout                  | Cloud volume attach issue        |
+| Mount permission or path error  | Node mount/filesystem issue      |
+| Secret/configmap volume missing | Referenced object missing        |
 
 Ruled-out examples:
 
@@ -240,12 +241,12 @@ Interpretation:
 
 Subtype hints:
 
-| Evidence | Likely subtype |
-| --- | --- |
-| MemoryPressure | Node memory pressure |
+| Evidence                               | Likely subtype                          |
+| -------------------------------------- | --------------------------------------- |
+| MemoryPressure                         | Node memory pressure                    |
 | DiskPressure or ephemeral-storage text | Node disk or ephemeral storage pressure |
-| QoS BestEffort/Burstable | Lower eviction priority |
-| Node NotReady/unreachable | Node health issue |
+| QoS BestEffort/Burstable               | Lower eviction priority                 |
+| Node NotReady/unreachable              | Node health issue                       |
 
 Ruled-out examples:
 
@@ -278,12 +279,12 @@ Interpretation:
 
 Subtype hints:
 
-| Evidence | Likely subtype |
-| --- | --- |
-| Readiness fails only | Traffic should not be sent; app not ready |
-| Liveness fails and restarts | Probe may be killing the app |
-| Startup probe fails | Startup window too short |
-| HTTP status mismatch | Wrong path, port, scheme, or auth |
+| Evidence                    | Likely subtype                            |
+| --------------------------- | ----------------------------------------- |
+| Readiness fails only        | Traffic should not be sent; app not ready |
+| Liveness fails and restarts | Probe may be killing the app              |
+| Startup probe fails         | Startup window too short                  |
+| HTTP status mismatch        | Wrong path, port, scheme, or auth         |
 
 Ruled-out examples:
 
@@ -315,12 +316,12 @@ Interpretation:
 
 Subtype hints:
 
-| Evidence | Likely subtype |
-| --- | --- |
-| IP allocation exhausted | CNI/IP pool exhaustion |
-| CNI plugin not ready | CNI daemon issue |
-| Runtime sandbox errors | containerd/runtime issue |
-| Node-specific repeated failures | Node-local failure |
+| Evidence                        | Likely subtype           |
+| ------------------------------- | ------------------------ |
+| IP allocation exhausted         | CNI/IP pool exhaustion   |
+| CNI plugin not ready            | CNI daemon issue         |
+| Runtime sandbox errors          | containerd/runtime issue |
+| Node-specific repeated failures | Node-local failure       |
 
 Ruled-out examples:
 
@@ -352,12 +353,12 @@ Interpretation:
 
 Subtype hints:
 
-| Evidence | Likely subtype |
-| --- | --- |
-| `exceeded quota` | ResourceQuota |
-| missing requests/limits | LimitRange |
-| webhook denied | Admission policy/webhook |
-| forbidden by policy | Security or governance policy |
+| Evidence                | Likely subtype                |
+| ----------------------- | ----------------------------- |
+| `exceeded quota`        | ResourceQuota                 |
+| missing requests/limits | LimitRange                    |
+| webhook denied          | Admission policy/webhook      |
+| forbidden by policy     | Security or governance policy |
 
 Ruled-out examples:
 

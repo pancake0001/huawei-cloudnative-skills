@@ -34,15 +34,16 @@ User: Show Node memory usage ranking in the cluster
 
 ## Threshold Detection
 
-| Resource | Critical | Warning | Status Field |
-|----------|----------|---------|--------------|
-| CPU | >80% | >50% | `status` in cpu data |
-| Memory | >85% | >50% | `status` in memory data |
-| Disk | >85% | >70% | `status` in disk data |
+| Resource | Critical | Warning | Status Field            |
+| -------- | -------- | ------- | ----------------------- |
+| CPU      | >80%     | >50%    | `status` in cpu data    |
+| Memory   | >85%     | >50%    | `status` in memory data |
+| Disk     | >85%     | >70%    | `status` in disk data   |
 
 ## Next Steps
 
 If anomalies are detected:
+
 - For Pod issues: suggest `huawei-cloud-cce-pod-failure-diagnoser` or `huawei-cloud-cce-workload-failure-diagnoser`
 - For Node issues: suggest `huawei-cloud-cce-node-failure-diagnoser`
 - For capacity planning: suggest `huawei-cloud-cce-capacity-trend-forecaster`

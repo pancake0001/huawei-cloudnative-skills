@@ -12,7 +12,8 @@ This workflow uses CCE `hcloud` commands only for Huawei Cloud cluster access an
 5. Verify access with `kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> cluster-info` and `kubectl cce ... auth can-i`.
 6. When several workloads are failing at once, inspect Nodes and cluster events first to detect a shared scheduling or node readiness blocker.
 7. Read the workload YAML and describe output.
-8. Record `metadata.uid`, `metadata.generation`, `status.observedGeneration`, selector, desired/current/updated/ready/available replicas, strategy, and conditions.
+8. Record `metadata.uid`, `metadata.generation`, `status.observedGeneration`, selector, desired/current/updated/ready/available replicas, strategy, and
+   conditions.
 9. For Deployment, list ReplicaSets with the workload selector and keep only those whose ownerReference points to the Deployment UID.
 10. For StatefulSet and DaemonSet, compare the workload status directly and identify selected Pods.
 11. List Pods matching the workload selector and capture readiness, restart counts, node placement, container states, and ownerReferences.
@@ -80,16 +81,18 @@ This workflow uses CCE `hcloud` commands only for Huawei Cloud cluster access an
 
 ### Pod Runtime Failures
 
-- Signals: `Pending`, `FailedScheduling`, `FailedMount`, `ImagePullBackOff`, `ErrImagePull`, `CrashLoopBackOff`, `OOMKilled`, `Evicted`, frequent restarts, or `ContainersNotReady`.
+- Signals: `Pending`, `FailedScheduling`, `FailedMount`, `ImagePullBackOff`, `ErrImagePull`, `CrashLoopBackOff`, `OOMKilled`, `Evicted`, frequent restarts, or
+  `ContainersNotReady`.
 - Evidence: `describe pod`, events, current logs, previous logs, PVC/PV state, node conditions, and optional `kubectl cce ... top`.
 - Handoff: pod/node/storage/network skills based on the first concrete blocker.
 
 ### Shared Node Or Scheduling Blocker
 
-- Signal: many workloads across namespaces are unavailable, Pods are Pending, and all candidate nodes are `Ready=Unknown`/`NotReady` or have untolerated
-  taints such as `node.kubernetes.io/unreachable` or `node.cloudprovider.kubernetes.io/shutdown`.
+- Signal: many workloads across namespaces are unavailable, Pods are Pending, and all candidate nodes are `Ready=Unknown`/`NotReady` or have untolerated taints
+  such as `node.kubernetes.io/unreachable` or `node.cloudprovider.kubernetes.io/shutdown`.
 - Evidence: `kubectl cce ... get nodes`, `describe node`, Pod `FailedScheduling` events, and workload unavailable counts.
-- Next checks: whether the cluster was recently awakened, whether ECS worker nodes are still stopped/unreachable, node heartbeat recovery, and CCE node pool status.
+- Next checks: whether the cluster was recently awakened, whether ECS worker nodes are still stopped/unreachable, node heartbeat recovery, and CCE node pool
+  status.
 - Handoff: `huawei-cloud-cce-node-failure-diagnoser` or remediation runner for explicit node recovery actions.
 
 ### ContainerCommandNotFound
@@ -101,12 +104,12 @@ This workflow uses CCE `hcloud` commands only for Huawei Cloud cluster access an
 
 ## Cross-Skill Handoff Mapping
 
-| Diagnosis Direction | Target Skill | Reason |
-| --- | --- | --- |
-| Pod-level failures | `huawei-cloud-cce-pod-failure-diagnoser` | CrashLoop, ImagePull, OOM, Pending, probe, or log drilldown |
-| Node pressure or scheduling | `huawei-cloud-cce-node-failure-diagnoser` | NotReady, DiskPressure, MemoryPressure, taints, capacity, scheduling |
+| Diagnosis Direction                               | Target Skill                                 | Reason                                                                    |
+| ------------------------------------------------- | -------------------------------------------- | ------------------------------------------------------------------------- |
+| Pod-level failures                                | `huawei-cloud-cce-pod-failure-diagnoser`     | CrashLoop, ImagePull, OOM, Pending, probe, or log drilldown               |
+| Node pressure or scheduling                       | `huawei-cloud-cce-node-failure-diagnoser`    | NotReady, DiskPressure, MemoryPressure, taints, capacity, scheduling      |
 | Service, Ingress, ELB, or dependency reachability | `huawei-cloud-cce-network-failure-diagnoser` | Service endpoints missing, readiness path fails, ingress/service mismatch |
-| Storage mount or PVC/PV issues | `huawei-cloud-cce-storage-failure-diagnoser` | FailedMount, FailedAttachVolume, PVC Pending, storage class issues |
-| Multi-domain root cause | `huawei-cloud-cce-root-cause-analyzer` | Evidence crosses workload, node, storage, network, and alarms |
-| Remediation actions | `huawei-cloud-cce-auto-remediation-runner` | Scale, rollback, patch, delete, cordon, drain, reboot, or quota changes |
-| Alarm correlation | `huawei-cloud-cce-alarm-correlation-engine` | AOM alarm correlation, deduplication, and severity grouping |
+| Storage mount or PVC/PV issues                    | `huawei-cloud-cce-storage-failure-diagnoser` | FailedMount, FailedAttachVolume, PVC Pending, storage class issues        |
+| Multi-domain root cause                           | `huawei-cloud-cce-root-cause-analyzer`       | Evidence crosses workload, node, storage, network, and alarms             |
+| Remediation actions                               | `huawei-cloud-cce-auto-remediation-runner`   | Scale, rollback, patch, delete, cordon, drain, reboot, or quota changes   |
+| Alarm correlation                                 | `huawei-cloud-cce-alarm-correlation-engine`  | AOM alarm correlation, deduplication, and severity grouping               |

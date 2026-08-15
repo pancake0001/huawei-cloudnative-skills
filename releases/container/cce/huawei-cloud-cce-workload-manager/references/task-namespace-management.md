@@ -2,16 +2,18 @@
 
 ## Overview
 
-Kubernetes namespaces provide the organizational foundation for all resources in a cluster. Namespaces isolate resources, enable multi-tenant environments, and serve as scope boundaries for RBAC policies, resource quotas, and network policies. This task covers creating, listing, describing, and deleting namespaces in CCE clusters.
+Kubernetes namespaces provide the organizational foundation for all resources in a cluster. Namespaces isolate resources, enable multi-tenant environments, and
+serve as scope boundaries for RBAC policies, resource quotas, and network policies. This task covers creating, listing, describing, and deleting namespaces in
+CCE clusters.
 
 ## Operations Catalog
 
-| Operation          | Method | Description              | Key Parameters                    |
-| ------------------ | ------ | ------------------------ | --------------------------------- |
-| `create namespace` | POST   | 创建命名空间             | `<name>` (required)              |
-| `get namespaces`   | GET    | 列出命名空间列表         | (none)                           |
-| `describe namespace` | GET  | 获取命名空间详情         | `<name>` (required)              |
-| `delete namespace` | DELETE | 删除命名空间             | `<name>` (required, CAUTION)     |
+| Operation            | Method | Description      | Key Parameters               |
+| -------------------- | ------ | ---------------- | ---------------------------- |
+| `create namespace`   | POST   | 创建命名空间     | `<name>` (required)          |
+| `get namespaces`     | GET    | 列出命名空间列表 | (none)                       |
+| `describe namespace` | GET    | 获取命名空间详情 | `<name>` (required)          |
+| `delete namespace`   | DELETE | 删除命名空间     | `<name>` (required, CAUTION) |
 
 ## Workflows
 
@@ -54,6 +56,7 @@ kubectl --kubeconfig=<kubeconfig-file> get namespaces -o yaml
 ```
 
 **Response Fields**:
+
 - `NAME`: Namespace name
 - `STATUS`: Current status (`Active` or `Terminating`)
 - `AGE`: Time since creation
@@ -65,6 +68,7 @@ kubectl --kubeconfig=<kubeconfig-file> describe namespace <name>
 ```
 
 **Response Fields**:
+
 - `Name`: Namespace name
 - `Labels`: Key-value labels on the namespace
 - `Annotations`: Key-value annotations on the namespace
@@ -74,9 +78,11 @@ kubectl --kubeconfig=<kubeconfig-file> describe namespace <name>
 
 ### W4: Delete a Namespace
 
-⚠️ **CAUTION**: Deleting a namespace deletes ALL resources within it (deployments, pods, services, configmaps, secrets, PVCs, etc.). This is irreversible. Always confirm with the user before deletion.
+⚠️ **CAUTION**: Deleting a namespace deletes ALL resources within it (deployments, pods, services, configmaps, secrets, PVCs, etc.). This is irreversible.
+Always confirm with the user before deletion.
 
 **Pre-deletion Checklist**:
+
 1. List all resources in the namespace to verify what will be deleted
 2. Confirm with the user that deletion is intended
 

@@ -6,30 +6,30 @@ CCE cluster lifecycle management operations, including creation, deletion, hiber
 
 ## Key Parameters
 
-| Parameter | Description | Required |
-|------|------|-----|
-| `region` | Huawei Cloud region | Yes |
-| `cluster_id` | Cluster ID | Yes (except for creation) |
-| `cluster_name` | Cluster name | Required for creation |
-| `cluster_version` | K8s version | Optional — **omit for latest**; specify only when a specific version is required |
-| `flavor_id` | Cluster specification | Required for creation |
-| `vpc_id` | VPC ID | Required for creation |
-| `subnet_id` | Subnet ID | Required for creation |
-| `cluster_type` | Cluster type | Optional for creation |
-| `container_network_type` | Container network type | Optional — default `eni` (Turbo) |
-| `eip_id` | EIP ID | Required for binding/unbinding |
-| `confirm` | Confirm executing dangerous operations | Required for dangerous operations |
+| Parameter                | Description                            | Required                                                                         |
+| ------------------------ | -------------------------------------- | -------------------------------------------------------------------------------- |
+| `region`                 | Huawei Cloud region                    | Yes                                                                              |
+| `cluster_id`             | Cluster ID                             | Yes (except for creation)                                                        |
+| `cluster_name`           | Cluster name                           | Required for creation                                                            |
+| `cluster_version`        | K8s version                            | Optional — **omit for latest**; specify only when a specific version is required |
+| `flavor_id`              | Cluster specification                  | Required for creation                                                            |
+| `vpc_id`                 | VPC ID                                 | Required for creation                                                            |
+| `subnet_id`              | Subnet ID                              | Required for creation                                                            |
+| `cluster_type`           | Cluster type                           | Optional for creation                                                            |
+| `container_network_type` | Container network type                 | Optional — default `eni` (Turbo)                                                 |
+| `eip_id`                 | EIP ID                                 | Required for binding/unbinding                                                   |
+| `confirm`                | Confirm executing dangerous operations | Required for dangerous operations                                                |
 
 ## Operation Classification
 
-| Operation | Risk Level | Requires Confirmation |
-|------|---------|-------|
-| Create cluster | 🟢 Low | No |
-| Delete cluster | 🔴 Extremely High | Yes |
-| Hibernate cluster | 🟠 High | Yes |
-| Awaken cluster | 🟠 High | Yes |
-| Bind EIP | 🟢 Low | No |
-| Unbind EIP | 🟡 Medium | No |
+| Operation         | Risk Level        | Requires Confirmation |
+| ----------------- | ----------------- | --------------------- |
+| Create cluster    | 🟢 Low            | No                    |
+| Delete cluster    | 🔴 Extremely High | Yes                   |
+| Hibernate cluster | 🟠 High           | Yes                   |
+| Awaken cluster    | 🟠 High           | Yes                   |
+| Bind EIP          | 🟢 Low            | No                    |
+| Unbind EIP        | 🟡 Medium         | No                    |
 
 ## Example
 
@@ -48,7 +48,8 @@ python3 huawei-cloud.py huawei_create_cce_cluster \
 
 ### Create a Turbo Cluster
 
-Turbo clusters use ENI container networking, suitable for high-performance scenarios. `container_network_type=eni` is the default; the API will automatically set `spec.category` to `Turbo`.
+Turbo clusters use ENI container networking, suitable for high-performance scenarios. `container_network_type=eni` is the default; the API will automatically
+set `spec.category` to `Turbo`.
 
 ```bash
 python3 huawei-cloud.py huawei_create_cce_cluster \
@@ -62,8 +63,8 @@ python3 huawei-cloud.py huawei_create_cce_cluster \
 ```
 
 > **Note: Turbo cluster node pools must use ENI-compatible flavors (e.g., `c7.large.2`), and typically require configuring data volumes.**
-
-> **Note:** `huawei_create_cce_cluster` uses the Python SDK fallback due to a known hcloud `CreateCluster` metadata parsing defect. See [cce-api-guide.md](cce-api-guide.md#hcloud-defect-createcluster--createnodepool-sdk-fallback).
+> **Note:** `huawei_create_cce_cluster` uses the Python SDK fallback due to a known hcloud `CreateCluster` metadata parsing defect. See
+> [cce-api-guide.md](cce-api-guide.md#hcloud-defect-createcluster--createnodepool-sdk-fallback).
 
 ### Delete a Cluster (Requires Double Confirmation)
 

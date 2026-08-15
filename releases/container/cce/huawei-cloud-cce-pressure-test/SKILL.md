@@ -2,11 +2,16 @@
 id: huawei-cloud-cce-pressure-test
 name: huawei-cloud-cce-pressure-test
 description: >
-  Run and evaluate Huawei Cloud CCE workload pressure tests with hcloud CLI for CCE cluster discovery, `kubectl cce` plugin commands for Kubernetes route/client/job/metrics evidence, and k6 for traffic generation. Use this skill for CCE pressure test, load test, stress test, performance test, k6 test, ELB traffic test, end-to-end traffic path validation, elasticity evaluation, 压测, 负载测试, 性能测试, 全链路压测, 弹性评估, and traffic generation. Do not use the Python SDK dispatcher.
+  Run and evaluate Huawei Cloud CCE workload pressure tests with hcloud CLI for CCE cluster discovery, `kubectl cce` plugin commands for Kubernetes
+  route/client/job/metrics evidence, and k6 for traffic generation. Use this skill for CCE pressure test, load test, stress test, performance test, k6 test, ELB
+  traffic test, end-to-end traffic path validation, elasticity evaluation, 压测, 负载测试, 性能测试, 全链路压测, 弹性评估, and traffic generation. Do not use
+  the Python SDK dispatcher.
 tags: [huawei-cloud, cce, hcloud, koocli, kubectl, k6, elb, pressure-test]
 ---
 
 # Huawei Cloud CCE Pressure Test
+
+## Overview
 
 This skill plans, runs, and reports controlled CCE workload pressure tests through Huawei Cloud `hcloud` CLI, Kubernetes `kubectl`, and k6.
 
@@ -22,7 +27,8 @@ Use CCE hcloud commands for cluster discovery and metadata. Use kubectl-cce for 
 - `hcloud CCE ShowCluster`
 - `hcloud CCE ShowClusterEndpoints`
 
-Use `kubectl cce` through kubectl-cce plugin access for Kubernetes objects: Deployments, StatefulSets, DaemonSets, Pods, Services, EndpointSlices, Ingresses, HPA, PDB, Events, Job logs, and metrics-server data.
+Use `kubectl cce` through kubectl-cce plugin access for Kubernetes objects: Deployments, StatefulSets, DaemonSets, Pods, Services, EndpointSlices, Ingresses,
+HPA, PDB, Events, Job logs, and metrics-server data.
 
 Use cloud network hcloud commands only when north-south ELB/VPC context is needed:
 
@@ -37,9 +43,11 @@ Use cloud network hcloud commands only when north-south ELB/VPC context is neede
 - `hcloud EIP ListPublicips/v3`
 - `hcloud NAT ListNatGateways`
 
-Do not use Python SDK dispatcher commands, `scripts/huawei-cloud.py`, `skill action=exec`, old `huawei_*pressure*` actions, or Huawei Cloud SDK imports for this skill.
+Do not use Python SDK dispatcher commands, `scripts/huawei-cloud.py`, `skill action=exec`, old `huawei_*pressure*` actions, or Huawei Cloud SDK imports for this
+skill.
 
-**Related prerequisite skill**: use `huawei-cloud-kubectl-cce-installer` to install or repair `kubectl`/`kubectl-cce`. Read `references/kubectl-cce.md` for the plugin access contract.
+**Related prerequisite skill**: use `huawei-cloud-kubectl-cce-installer` to install or repair `kubectl`/`kubectl-cce`. Read `references/kubectl-cce.md` for the
+plugin access contract.
 
 ## When To Use
 
@@ -52,48 +60,55 @@ Use this skill for:
 - Investigation of latency, 4xx/5xx, connection errors, timeout, saturation, or HPA lag observed during a pressure test.
 - Generating a Markdown report from traffic results and Kubernetes/cloud evidence.
 
-Do not use this skill as a general read-only failure diagnoser when no pressure test is involved. Use the Pod, workload, node, or network diagnoser skills for pure diagnosis.
+Do not use this skill as a general read-only failure diagnoser when no pressure test is involved. Use the Pod, workload, node, or network diagnoser skills for
+pure diagnosis.
 
-## Required Inputs
+## Parameters
 
 Collect these values before preparing any traffic:
 
-| Input | Required | Notes |
-| --- | --- | --- |
-| `region` | Yes | Example: `cn-north-4` |
-| `project_id` | Usually | Required by most hcloud CCE operations |
-| `cluster_id` | Preferred | If absent, resolve by cluster name with `ListClusters` |
-| `cluster_name` | Optional | Use only to locate `cluster_id` |
-| `namespace` | Usually | Target workload namespace |
-| `workload_name` | Usually | Deployment, StatefulSet, or DaemonSet name |
-| `workload_kind` | Optional | Default to Deployment when not specified |
-| `target_url` | Required before traffic | External URL, ingress URL, or service URL from an approved route |
-| `target_port` | Optional | Container or Service target port |
-| `host_header` | Optional | Required when Ingress host rules are used |
-| `traffic_model` | Yes | `smoke`, `keepalive`, `short`, `ramp`, or user-defined k6 script |
-| `vus`, `duration`, `rps` | Yes | Start small, then ramp only after smoke success |
-| `test_window` | Required for production-like targets | Include owner and stop conditions |
-| `output_dir` | Recommended | Store run summary, logs, evidence, and report |
+| Input                    | Required                             | Notes                                                            |
+| ------------------------ | ------------------------------------ | ---------------------------------------------------------------- |
+| `region`                 | Yes                                  | Example: `cn-north-4`                                            |
+| `project_id`             | Usually                              | Required by most hcloud CCE operations                           |
+| `cluster_id`             | Preferred                            | If absent, resolve by cluster name with `ListClusters`           |
+| `cluster_name`           | Optional                             | Use only to locate `cluster_id`                                  |
+| `namespace`              | Usually                              | Target workload namespace                                        |
+| `workload_name`          | Usually                              | Deployment, StatefulSet, or DaemonSet name                       |
+| `workload_kind`          | Optional                             | Default to Deployment when not specified                         |
+| `target_url`             | Required before traffic              | External URL, ingress URL, or service URL from an approved route |
+| `target_port`            | Optional                             | Container or Service target port                                 |
+| `host_header`            | Optional                             | Required when Ingress host rules are used                        |
+| `traffic_model`          | Yes                                  | `smoke`, `keepalive`, `short`, `ramp`, or user-defined k6 script |
+| `vus`, `duration`, `rps` | Yes                                  | Start small, then ramp only after smoke success                  |
+| `test_window`            | Required for production-like targets | Include owner and stop conditions                                |
+| `output_dir`             | Recommended                          | Store run summary, logs, evidence, and report                    |
 
 If any target, owner, or traffic limit is ambiguous, stop before sending traffic and ask for confirmation.
 
 ## Prerequisites
 
-1. `hcloud` is installed and available in `PATH`, or a platform-native binary has been located and validated with `hcloud version`. Keep examples platform-neutral as `hcloud`, not an OS-specific absolute path.
-2. `kubectl` is installed and compatible with the target Kubernetes minor version. Linux sandboxes must use Linux kubectl; Windows workstations use `kubectl.exe`. Do not hard-code `kubectl.exe` in the skill workflow.
-3. k6 is available locally, or the test will use an approved in-cluster k6 Job image. If public image pulls are unreliable, mirror the k6 image to regional SWR before running the Job.
+1. `hcloud` is installed and available in `PATH`, or a platform-native binary has been located and validated with `hcloud version`. Keep examples
+   platform-neutral as `hcloud`, not an OS-specific absolute path.
+2. `kubectl` is installed and compatible with the target Kubernetes minor version. Linux sandboxes must use Linux kubectl; Windows workstations use
+   `kubectl.exe`. Do not hard-code `kubectl.exe` in the skill workflow.
+3. k6 is available locally, or the test will use an approved in-cluster k6 Job image. If public image pulls are unreliable, mirror the k6 image to regional SWR
+   before running the Job.
 4. hcloud credentials are configured through a profile, environment, or one-off CLI parameters. Verify only masked configuration with:
 
-```bash
-hcloud configure list
-```
+   ```bash
+   hcloud configure list
+   ```
 
-5. IAM allows CCE cluster read and kubectl-cce API Gateway access. ELB/VPC/EIP/NAT read permissions are needed only when cloud-side network evidence is collected.
-6. Kubernetes RBAC allows read access to workload resources, Services, EndpointSlices, Ingresses, HPA, Events, Pods, Pod logs, Job logs, and metrics. Write permissions are needed only for user-approved route/client/scale changes.
+5. IAM allows CCE cluster read and kubectl-cce API Gateway access. ELB/VPC/EIP/NAT read permissions are needed only when cloud-side network evidence is
+   collected.
+6. Kubernetes RBAC allows read access to workload resources, Services, EndpointSlices, Ingresses, HPA, Events, Pods, Pod logs, Job logs, and metrics. Write
+   permissions are needed only for user-approved route/client/scale changes.
 
-Never print AK, SK, security tokens, kubectl-cce proxy credentials, Authorization headers, registry secrets, or application secrets. Do not write credentials into reports or manifests.
+Never print AK, SK, security tokens, kubectl-cce proxy credentials, Authorization headers, registry secrets, or application secrets. Do not write credentials
+into reports or manifests.
 
-## CCE hcloud Setup Flow
+## Core Commands And Setup Flow
 
 ### 1. Confirm CLI Tools
 
@@ -104,7 +119,8 @@ kubectl version --client
 k6 version
 ```
 
-If k6 is not installed locally, use an in-cluster Job only after the user approves the Job manifest and target. If hcloud or kubectl is missing, install or locate the platform-native binary and validate the exact binary before continuing.
+If k6 is not installed locally, use an in-cluster Job only after the user approves the Job manifest and target. If hcloud or kubectl is missing, install or
+locate the platform-native binary and validate the exact binary before continuing.
 
 ### 2. Locate And Check The Cluster
 
@@ -116,13 +132,17 @@ hcloud CCE ShowClusterEndpoints --cluster_id=<cluster-id> --project_id=<project-
 
 Confirm the cluster belongs to the expected region/project.
 
-The kubectl-cce plugin normally talks to the CCE API Gateway endpoint `<cluster-id>.cce.<region>.myhuaweicloud.com`. If that endpoint is not valid for the current environment, set `CCE_ENDPOINT` or pass `--endpoint`. If plugin/API Gateway access fails, report it as an access gap with the error text; do not fall back to kubeconfig generation or SDK calls by default.
+The kubectl-cce plugin normally talks to the CCE API Gateway endpoint `<cluster-id>.cce.<region>.myhuaweicloud.com`. If that endpoint is not valid for the
+current environment, set `CCE_ENDPOINT` or pass `--endpoint`. If plugin/API Gateway access fails, report it as an access gap with the error text; do not fall
+back to kubeconfig generation or SDK calls by default.
 
 ### 3. Configure kubectl-cce Plugin
 
-Read `references/kubectl-cce.md` before running Kubernetes commands. Use the kubectl CCE plugin as the primary Kubernetes access path; do not generate kubeconfig, patch kubeconfig server fields, call the Kubernetes SDK, or fall back to SDK dispatcher actions.
+Read `references/kubectl-cce.md` before running Kubernetes commands. Use the kubectl CCE plugin as the primary Kubernetes access path; do not generate
+kubeconfig, patch kubeconfig server fields, call the Kubernetes SDK, or fall back to SDK dispatcher actions.
 
-If `kubectl` or `kubectl-cce` is missing, use `huawei-cloud-kubectl-cce-installer` to install or repair local prerequisites. This diagnoser verifies and uses the plugin; it does not own plugin installation policy.
+If `kubectl` or `kubectl-cce` is missing, use `huawei-cloud-kubectl-cce-installer` to install or repair local prerequisites. This diagnoser verifies and uses
+the plugin; it does not own plugin installation policy.
 
 Verify local tooling and plugin discovery:
 
@@ -131,15 +151,19 @@ kubectl version --client
 kubectl plugin list
 ```
 
-Configure plugin credentials through approved tool parameters, a protected shell environment, or an approved local credential provider without printing values. Pass cluster, region, and project ID explicitly in diagnostic commands:
+Configure plugin credentials through approved tool parameters, a protected shell environment, or an approved local credential provider without printing values.
+Pass cluster, region, and project ID explicitly in diagnostic commands:
 
 ```bash
 kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get namespaces
 ```
 
-Use `CCE_ENDPOINT` or `--endpoint` only when the default `<cluster-id>.cce.<region>.myhuaweicloud.com` endpoint is not valid for the current environment. If plugin access fails, report the sanitized installation, credential, API Gateway reachability, or Kubernetes RBAC gap; do not switch to kubeconfig generation or SDK calls.
+Use `CCE_ENDPOINT` or `--endpoint` only when the default `<cluster-id>.cce.<region>.myhuaweicloud.com` endpoint is not valid for the current environment. If
+plugin access fails, report the sanitized installation, credential, API Gateway reachability, or Kubernetes RBAC gap; do not switch to kubeconfig generation or
+SDK calls.
 
-The plugin intentionally blocks streaming commands such as `exec`, `attach`, and `port-forward`. `logs -f` and `watch` are not hardened, so use bounded `logs --tail` and normal `get` commands in diagnosis reports.
+The plugin intentionally blocks streaming commands such as `exec`, `attach`, and `port-forward`. `logs -f` and `watch` are not hardened, so use bounded
+`logs --tail` and normal `get` commands in diagnosis reports.
 
 ### 4. Verify Kubernetes Access
 
@@ -162,7 +186,8 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i update deployments/scale -n <namespace>
 ```
 
-If RBAC denies a read, report the missing verb/resource and continue only with allowed evidence. If RBAC denies a requested mutation, do not work around it with SDK or direct API calls.
+If RBAC denies a read, report the missing verb/resource and continue only with allowed evidence. If RBAC denies a requested mutation, do not work around it with
+SDK or direct API calls.
 
 ## Pressure Test Workflow
 
@@ -218,7 +243,8 @@ Record the target URL, Host header, VUs, duration, thresholds, and the exact scr
 
 ### In-Cluster k6 Job
 
-Use an in-cluster Job when the target is cluster-internal or the user's runtime cannot reach the target. This creates Kubernetes resources and sends traffic, so it requires explicit approval after the manifest is shown.
+Use an in-cluster Job when the target is cluster-internal or the user's runtime cannot reach the target. This creates Kubernetes resources and sends traffic, so
+it requires explicit approval after the manifest is shown.
 
 Read `references/manifest-templates.md` for the ConfigMap and Job template. Apply only after approval:
 
@@ -232,7 +258,8 @@ If the Job fails with `ImagePullBackOff` or `ErrImagePull`, diagnose it with Pod
 
 ## Route And Scaling Changes
 
-Service, Ingress, sample workload, ELB creation, workload scaling, HPA changes, and cleanup are not automatic. Preview the exact YAML or command, explain risk and rollback, and run it only after explicit user approval in the conversation.
+Service, Ingress, sample workload, ELB creation, workload scaling, HPA changes, and cleanup are not automatic. Preview the exact YAML or command, explain risk
+and rollback, and run it only after explicit user approval in the conversation.
 
 For Kubernetes route manifests, read `references/manifest-templates.md`.
 
@@ -243,7 +270,8 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> rollout status deployment/<workload-name> -n <namespace> --timeout=180s
 ```
 
-For chargeable ELB creation, use hcloud only after reviewing subnet, AZ, flavor, public/private exposure, and cost impact. Prefer reusing an existing ingress-controller ELB when possible.
+For chargeable ELB creation, use hcloud only after reviewing subnet, AZ, flavor, public/private exposure, and cost impact. Prefer reusing an existing
+ingress-controller ELB when possible.
 
 ## Analysis And Scenario Guidance
 
@@ -258,7 +286,8 @@ Rank findings by direct evidence and the first failing layer:
 7. Node and cluster capacity.
 8. ELB/listener/pool/member health and cloud network constraints.
 
-After identifying the top finding, read `references/scenario-guides.md` and apply the matching scenario. Reports should include concrete next checks and candidate fixes for every material finding, not just a generic phrase such as "pressure test failed" or "image pull failed".
+After identifying the top finding, read `references/scenario-guides.md` and apply the matching scenario. Reports should include concrete next checks and
+candidate fixes for every material finding, not just a generic phrase such as "pressure test failed" or "image pull failed".
 
 ## Report Format
 
@@ -279,7 +308,8 @@ The user-facing report should include, in this order:
 
 ## Safety Rules
 
-Read `references/risk-rules.md` before applying manifests or sending traffic. This skill may run read-only checks and create report content, but it must not automatically run:
+Read `references/risk-rules.md` before applying manifests or sending traffic. This skill may run read-only checks and create report content, but it must not
+automatically run:
 
 - `kubectl cce ... apply`, `create`, `patch`, `edit`, `delete`, `scale`, `rollout restart`, or `rollout undo`
 - Local `k6 run` or in-cluster k6 Job traffic against a real target

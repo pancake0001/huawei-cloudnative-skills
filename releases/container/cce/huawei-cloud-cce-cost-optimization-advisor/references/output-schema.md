@@ -66,19 +66,19 @@ The cost optimization report follows this JSON structure:
 }
 ```
 
-### Priority Classification
+## Priority Classification
 
-| Priority | Condition | Action |
-|----------|-----------|--------|
-| `high` | Usage/request p95 < 33% in both 24h and 7d windows | Recommend immediate request calibration |
-| `optimize` | Usage/request p95 < 50% in both windows | Recommend request adjustment |
-| `observe` | Low usage/request ratio in short window only | Monitor, do not change yet |
+| Priority   | Condition                                          | Action                                  |
+| ---------- | -------------------------------------------------- | --------------------------------------- |
+| `high`     | Usage/request p95 < 33% in both 24h and 7d windows | Recommend immediate request calibration |
+| `optimize` | Usage/request p95 < 50% in both windows            | Recommend request adjustment            |
+| `observe`  | Low usage/request ratio in short window only       | Monitor, do not change yet              |
 
 ### Cluster Utilization Thresholds
 
-| Metric | Threshold | Signal |
-|--------|-----------|--------|
-| Cluster CPU avg < 30% | Overall over-provisioning likely | Review node pool sizing |
-| Cluster memory avg < 30% | Overall over-provisioning likely | Review node pool sizing |
-| Node CPU avg 20pp below cluster avg | Individual node underutilized | Review scheduling or consider reallocation |
-| Node CPU avg < 60% of cluster avg | Individual node underutilized | Review scheduling or consider reallocation |
+| Metric                              | Threshold                        | Signal                                     |
+| ----------------------------------- | -------------------------------- | ------------------------------------------ |
+| Cluster CPU avg < 30%               | Overall over-provisioning likely | Review node pool sizing                    |
+| Cluster memory avg < 30%            | Overall over-provisioning likely | Review node pool sizing                    |
+| Node CPU avg 20pp below cluster avg | Individual node underutilized    | Review scheduling or consider reallocation |
+| Node CPU avg < 60% of cluster avg   | Individual node underutilized    | Review scheduling or consider reallocation |

@@ -1,9 +1,8 @@
 ---
 name: huawei-cloud-cce-network-failure-diagnoser
 description: >
-  使用 hcloud 获取华为云 CCE 集群和云侧网络元数据，并通过只读 kubectl-cce 证据诊断网络故障。
-  适用于 Service 不可达、DNS/CoreDNS 错误、Ingress 502/504、NetworkPolicy 阻断、
-  EndpointSlice 或后端 Ready 异常、ELB 健康检查、EIP、NAT、VPC、安全组或 ACL 问题。
+  使用 hcloud 获取华为云 CCE 集群和云侧网络元数据，并通过只读 kubectl-cce 证据诊断网络故障。 适用于 Service 不可达、DNS/CoreDNS 错误、Ingress
+  502/504、NetworkPolicy 阻断、 EndpointSlice 或后端 Ready 异常、ELB 健康检查、EIP、NAT、VPC、安全组或 ACL 问题。
 version: 1.0.0
 tags: [huawei-cloud, cce, kubectl, network, diagnosis]
 ---
@@ -26,7 +25,8 @@ CCE hcloud 用于集群发现和元数据读取，Kubernetes 访问使用 kubect
 - `hcloud CCE ShowCluster`
 - `hcloud CCE ShowClusterEndpoints`
 
-Kubernetes 网络对象使用 `kubectl cce` 读取：Nodes、Pods、Services、Endpoints、EndpointSlices、Ingresses、NetworkPolicies、Events、CoreDNS/kube-dns 资源，以及 RBAC 允许时的相关 controller 日志。
+Kubernetes 网络对象使用 `kubectl cce`
+读取：Nodes、Pods、Services、Endpoints、EndpointSlices、Ingresses、NetworkPolicies、Events、CoreDNS/kube-dns 资源，以及 RBAC 允许时的相关 controller 日志。
 
 北南向链路需要云侧证据时，使用只读 hcloud 网络命令：
 
@@ -61,19 +61,19 @@ Kubernetes 网络对象使用 `kubectl cce` 读取：Nodes、Pods、Services、E
 
 ## 参数确认
 
-| 输入 | 必填 | 说明 |
-| --- | --- | --- |
-| `region` | 是 | 例如 `cn-north-4` |
-| `project_id` | 通常需要 | 大多数 hcloud 操作需要 |
-| `cluster_id` | 推荐 | 没有时用 `ListClusters` 解析 |
-| `namespace` | 通常需要 | namespaced K8s 对象需要 |
-| `failure_symptom` | 推荐 | `dns_failure`、`service_unreachable`、`ingress_502_504`、`external_access_failed`、`network_policy_block`、`intermittent` |
-| `service_name` | 可选 | 目标 Service |
-| `ingress_name` | 可选 | 目标 Ingress |
-| `source_pod` | 可选 | 源 Pod 名或 selector |
-| `destination_pod` | 可选 | 目标 Pod 名或 selector |
-| `domain` | 可选 | DNS/Ingress 涉及域名 |
-| `elb_id` | 可选 | 北南向排查中的 ELB ID |
+| 输入              | 必填     | 说明                                                                                                                      |
+| ----------------- | -------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `region`          | 是       | 例如 `cn-north-4`                                                                                                         |
+| `project_id`      | 通常需要 | 大多数 hcloud 操作需要                                                                                                    |
+| `cluster_id`      | 推荐     | 没有时用 `ListClusters` 解析                                                                                              |
+| `namespace`       | 通常需要 | namespaced K8s 对象需要                                                                                                   |
+| `failure_symptom` | 推荐     | `dns_failure`、`service_unreachable`、`ingress_502_504`、`external_access_failed`、`network_policy_block`、`intermittent` |
+| `service_name`    | 可选     | 目标 Service                                                                                                              |
+| `ingress_name`    | 可选     | 目标 Ingress                                                                                                              |
+| `source_pod`      | 可选     | 源 Pod 名或 selector                                                                                                      |
+| `destination_pod` | 可选     | 目标 Pod 名或 selector                                                                                                    |
+| `domain`          | 可选     | DNS/Ingress 涉及域名                                                                                                      |
+| `elb_id`          | 可选     | 北南向排查中的 ELB ID                                                                                                     |
 
 目标不清晰时，先做 namespace 扫描，再让用户明确 service、ingress、source、destination 或 domain，避免强行下结论。
 
@@ -98,8 +98,7 @@ kubectl version --client
 ```
 
 如果工具缺失，停止当前诊断流程，改用 `huawei-cloud-kubectl-cce-installer`
-或批准的平台安装流程。本诊断技能不得下载或执行安装脚本。安装时固定批准版本、
-校验官方 checksum 或签名，再重新执行上述检查。
+或批准的平台安装流程。本诊断技能不得下载或执行安装脚本。安装时固定批准版本、校验官方 checksum 或签名，再重新执行上述检查。
 
 ### 2. 定位并检查集群
 
@@ -113,9 +112,11 @@ hcloud CCE ShowClusterEndpoints --cluster_id=<cluster-id> --project_id=<project-
 
 ### 3. 配置 kubectl-cce 插件
 
-执行 Kubernetes 命令前先阅读 `references/kubectl-cce.md`。本 skill 以 kubectl CCE 插件作为主要 Kubernetes 访问路径；不要生成 kubeconfig、不要改写 kubeconfig server 字段、不要调用 Kubernetes SDK，也不要退回 SDK dispatcher 动作。
+执行 Kubernetes 命令前先阅读 `references/kubectl-cce.md`。本 skill 以 kubectl CCE 插件作为主要 Kubernetes 访问路径；不要生成 kubeconfig、不要改写 kubeconfig
+server 字段、不要调用 Kubernetes SDK，也不要退回 SDK dispatcher 动作。
 
-如果缺少 `kubectl` 或 `kubectl-cce`，使用 `huawei-cloud-kubectl-cce-installer` 安装或修复本地前置工具。本诊断 skill 只负责验证和使用插件，不负责定义插件安装策略。
+如果缺少 `kubectl` 或 `kubectl-cce`，使用 `huawei-cloud-kubectl-cce-installer`
+安装或修复本地前置工具。本诊断 skill 只负责验证和使用插件，不负责定义插件安装策略。
 
 先验证本地工具和插件发现：
 
@@ -130,7 +131,8 @@ kubectl plugin list
 kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get namespaces
 ```
 
-仅当默认 `<cluster-id>.cce.<region>.myhuaweicloud.com` endpoint 不适用于当前环境时，才设置 `CCE_ENDPOINT` 或传入 `--endpoint`。如果插件访问失败，在报告中记录脱敏后的安装、凭据、API Gateway 可达性或 Kubernetes RBAC 缺口；不要切换到 kubeconfig 生成或 SDK 调用。
+仅当默认 `<cluster-id>.cce.<region>.myhuaweicloud.com` endpoint 不适用于当前环境时，才设置 `CCE_ENDPOINT` 或传入
+`--endpoint`。如果插件访问失败，在报告中记录脱敏后的安装、凭据、API Gateway 可达性或 Kubernetes RBAC 缺口；不要切换到 kubeconfig 生成或 SDK 调用。
 
 插件会阻断 `exec`、`attach`、`port-forward` 等流式命令；`logs -f` 和 `watch` 未强化，诊断报告中使用有限 `logs --tail` 和普通 `get` 命令。
 
@@ -205,9 +207,8 @@ hcloud NAT ListNatGateways --project_id=<project-id> --cli-region=<region> --cli
 
 ## 主动测试边界
 
-kubectl-cce 插件会阻断 `exec`、`attach` 和 `port-forward`。本只读技能不得通过
-kubeconfig、SDK、抓包、压测或主动流量生成绕过该边界。用户要求主动连通性测试时，
-记录源端、目标端、范围、风险和预期信号，取得明确授权后移交给批准的测试路径。
+kubectl-cce 插件会阻断 `exec`、`attach` 和
+`port-forward`。本只读技能不得通过kubeconfig、SDK、抓包、压测或主动流量生成绕过该边界。用户要求主动连通性测试时，记录源端、目标端、范围、风险和预期信号，取得明确授权后移交给批准的测试路径。
 
 ## 原因排序
 
@@ -225,18 +226,18 @@ kubeconfig、SDK、抓包、压测或主动流量生成绕过该边界。用户�
 
 常见原因标签：
 
-| 原因 | 证据 |
-| --- | --- |
-| `NodeOrCNIUnhealthy` | Node NotReady、CNIProblem、FailedCreatePodSandBox |
-| `DnsCoreDNSFailure` | kube-dns/CoreDNS 无 Ready endpoint、持续重启、timeout 或异常 NXDOMAIN |
-| `ServiceNoReadyEndpoint` | Service 存在，但 EndpointSlice 没有 Ready 地址 |
-| `ServiceSelectorMismatch` | Service selector 未匹配任何 Pod |
-| `NetworkPolicyBlocked` | NetworkPolicy 选中目标，但未放行来源或端口 |
-| `IngressBackendMismatch` | Ingress 指向不存在的 Service/端口或非健康后端 |
-| `ELBBackendUnhealthy` | Kubernetes 对象映射正常，但 ELB member 不健康 |
-| `SecurityPolicyBlocked` | 安全组、ACL 或路由证据显示流量被阻断 |
-| `EgressNatOrEipIssue` | 外部出/入方向所需 NAT/EIP 缺失或异常 |
-| `BackendApplicationIssue` | 网络链路存在，但后端 Pod 未 Ready 或日志显示应用错误 |
+| 原因                      | 证据                                                                  |
+| ------------------------- | --------------------------------------------------------------------- |
+| `NodeOrCNIUnhealthy`      | Node NotReady、CNIProblem、FailedCreatePodSandBox                     |
+| `DnsCoreDNSFailure`       | kube-dns/CoreDNS 无 Ready endpoint、持续重启、timeout 或异常 NXDOMAIN |
+| `ServiceNoReadyEndpoint`  | Service 存在，但 EndpointSlice 没有 Ready 地址                        |
+| `ServiceSelectorMismatch` | Service selector 未匹配任何 Pod                                       |
+| `NetworkPolicyBlocked`    | NetworkPolicy 选中目标，但未放行来源或端口                            |
+| `IngressBackendMismatch`  | Ingress 指向不存在的 Service/端口或非健康后端                         |
+| `ELBBackendUnhealthy`     | Kubernetes 对象映射正常，但 ELB member 不健康                         |
+| `SecurityPolicyBlocked`   | 安全组、ACL 或路由证据显示流量被阻断                                  |
+| `EgressNatOrEipIssue`     | 外部出/入方向所需 NAT/EIP 缺失或异常                                  |
+| `BackendApplicationIssue` | 网络链路存在，但后端 Pod 未 Ready 或日志显示应用错误                  |
 
 ## 输出格式
 

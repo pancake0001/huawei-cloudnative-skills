@@ -26,17 +26,17 @@
 
 ## Handoff Rules
 
-| Dominant Signal | Handoff |
-| --------------- | ------- |
-| Image pull, restart, OOM, scheduling, probe, container logs | Pod or workload diagnoser |
-| NodeNotReady, node pressure, taints, runtime/kubelet symptoms | Node diagnoser |
-| Service, EndpointSlice, DNS, Ingress, ELB, EIP, NAT symptoms | Network diagnoser |
-| PVC/PV/CSI attach or mount symptoms | Storage diagnoser |
-| Multiple domains or conflicting signals | Root-cause analyzer |
-| Mostly alarms | Alarm correlation engine |
-| Mostly metrics | Metric analyzer |
-| Mostly historical Events | Kubernetes event analyzer |
-| Mostly log patterns | Log analyzer |
+| Dominant Signal                                               | Handoff                   |
+| ------------------------------------------------------------- | ------------------------- |
+| Image pull, restart, OOM, scheduling, probe, container logs   | Pod or workload diagnoser |
+| NodeNotReady, node pressure, taints, runtime/kubelet symptoms | Node diagnoser            |
+| Service, EndpointSlice, DNS, Ingress, ELB, EIP, NAT symptoms  | Network diagnoser         |
+| PVC/PV/CSI attach or mount symptoms                           | Storage diagnoser         |
+| Multiple domains or conflicting signals                       | Root-cause analyzer       |
+| Mostly alarms                                                 | Alarm correlation engine  |
+| Mostly metrics                                                | Metric analyzer           |
+| Mostly historical Events                                      | Kubernetes event analyzer |
+| Mostly log patterns                                           | Log analyzer              |
 
 ## Data Gap Handling
 

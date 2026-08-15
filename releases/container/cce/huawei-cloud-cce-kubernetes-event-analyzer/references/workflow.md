@@ -13,16 +13,16 @@
 
 ## Event Pattern Recognition
 
-| Pattern | Likely Cause | Handoff Target |
-|---------|-------------|---------------|
-| `ImagePullBackOff` repeated | Wrong image or pull secret missing | `huawei-cloud-cce-pod-failure-diagnoser` |
-| `FailedScheduling` + `insufficient` | Resource pressure or node not ready | `huawei-cloud-cce-workload-failure-diagnoser` |
-| `FailedMount` | Volume attach or PVC issue | `huawei-cloud-cce-storage-failure-diagnoser` |
-| `Evicted` pods | Budget disruption or node pressure | `huawei-cloud-cce-pod-failure-diagnoser` |
-| `NodeNotReady` | Node agent or network issue | `huawei-cloud-cce-node-failure-diagnoser` |
-| `Unhealthy` + Readiness probe | Application issue or startup failure | `huawei-cloud-cce-pod-failure-diagnoser` |
-| `FailedCreatePodSandBox` | CNI or network issue | `huawei-cloud-cce-network-failure-diagnoser` |
-| `OOMKilled` | Memory limit exceeded | `huawei-cloud-cce-pod-failure-diagnoser` |
+| Pattern                             | Likely Cause                         | Handoff Target                                |
+| ----------------------------------- | ------------------------------------ | --------------------------------------------- |
+| `ImagePullBackOff` repeated         | Wrong image or pull secret missing   | `huawei-cloud-cce-pod-failure-diagnoser`      |
+| `FailedScheduling` + `insufficient` | Resource pressure or node not ready  | `huawei-cloud-cce-workload-failure-diagnoser` |
+| `FailedMount`                       | Volume attach or PVC issue           | `huawei-cloud-cce-storage-failure-diagnoser`  |
+| `Evicted` pods                      | Budget disruption or node pressure   | `huawei-cloud-cce-pod-failure-diagnoser`      |
+| `NodeNotReady`                      | Node agent or network issue          | `huawei-cloud-cce-node-failure-diagnoser`     |
+| `Unhealthy` + Readiness probe       | Application issue or startup failure | `huawei-cloud-cce-pod-failure-diagnoser`      |
+| `FailedCreatePodSandBox`            | CNI or network issue                 | `huawei-cloud-cce-network-failure-diagnoser`  |
+| `OOMKilled`                         | Memory limit exceeded                | `huawei-cloud-cce-pod-failure-diagnoser`      |
 
 ## Time-Window Analysis
 
@@ -41,11 +41,11 @@
 
 ## LTS vs K8s API Selection Guide
 
-| Criteria | Use K8s API (`huawei_get_cce_events`) | Use LTS (`huawei_query_k8s_events_from_lts`) |
-|----------|---------------------------------------|---------------------------------------------|
-| Current Events or a recent check within one hour | Yes | No (needs time range) |
-| Precise time range | No (client-side only) | Yes (server-side filter) |
-| Keyword search | No (client-side only) | Yes (keywords parameter) |
-| Historical Events over one hour | No | Yes |
-| Requires Kubernetes LogConfig | No | Yes (`default-event` with LTS output) |
-| Default route | Primary for current Events | Primary for historical windows over one hour |
+| Criteria                                         | Use K8s API (`huawei_get_cce_events`) | Use LTS (`huawei_query_k8s_events_from_lts`) |
+| ------------------------------------------------ | ------------------------------------- | -------------------------------------------- |
+| Current Events or a recent check within one hour | Yes                                   | No (needs time range)                        |
+| Precise time range                               | No (client-side only)                 | Yes (server-side filter)                     |
+| Keyword search                                   | No (client-side only)                 | Yes (keywords parameter)                     |
+| Historical Events over one hour                  | No                                    | Yes                                          |
+| Requires Kubernetes LogConfig                    | No                                    | Yes (`default-event` with LTS output)        |
+| Default route                                    | Primary for current Events            | Primary for historical windows over one hour |

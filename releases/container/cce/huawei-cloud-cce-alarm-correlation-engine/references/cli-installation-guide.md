@@ -91,4 +91,3 @@ Expected result:
 - `success=true`
 - JSON output is parseable
 - No credential values appear in output
-

@@ -54,4 +54,5 @@ Output order:
 5. Data gaps.
 6. Remediation suggestions and authorized execution plan.
 
-Remediation must first receive explicit customer authorization, then generate or apply PDB, probes, anti-affinity, topology spread, replica scaling, or resource request/limit adjustments. For execution, hand off to `huawei-cloud-cce-auto-remediation-runner` with proper safeguards and user confirmation.
+Remediation must first receive explicit customer authorization, then generate or apply PDB, probes, anti-affinity, topology spread, replica scaling, or resource
+request/limit adjustments. For execution, hand off to `huawei-cloud-cce-auto-remediation-runner` with proper safeguards and user confirmation.

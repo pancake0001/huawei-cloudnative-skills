@@ -8,6 +8,7 @@ Produce a concise Markdown report for users, and optionally include the JSON-com
 # CCE Workload Diagnosis
 
 ## Target
+
 - Region:
 - Project ID:
 - Cluster:
@@ -16,36 +17,43 @@ Produce a concise Markdown report for users, and optionally include the JSON-com
 - Name:
 
 ## CLI Path
+
 - hcloud:
 - kubectl-cce plugin:
 - kubectl cce:
 - Mutating commands run: No
 
 ## Summary
+
 - Status:
 - Confidence:
 - Headline:
 
 ## Rollout Funnel
+
 | Layer | Expected | Actual | Status | Evidence |
-| --- | --- | --- | --- | --- |
+| ----- | -------- | ------ | ------ | -------- |
 
 ## Top Causes
+
 1. Cause:
    - Confidence:
    - Evidence:
    - Recommendation:
 
 ## Events And Logs
+
 - Relevant events:
 - Pod logs checked:
 - Previous logs checked:
 
 ## Handoffs
+
 - Skill:
 - Reason:
 
 ## Gaps
+
 - Missing permissions:
 - Missing data:
 - Tooling/network issues:
@@ -149,23 +157,23 @@ Produce a concise Markdown report for users, and optionally include the JSON-com
 
 ## Field Notes
 
-| Field | Description |
-| --- | --- |
-| `execution_model` | Must be `hcloud_cce_cli_plus_kubectl_cce` |
-| `commands.mutating_commands_run` | Must remain `false` for this skill |
-| `summary.status` | Diagnosis status based on the first failing funnel layer |
-| `events.filter_basis` | Explain how namespace events were narrowed to workload-related evidence |
-| `top_causes[].confidence` | 0.0-1.0 confidence based on direct evidence strength |
-| `gaps` | Missing RBAC, missing metrics-server, missing logs, unavailable tools, or network limits |
+| Field                            | Description                                                                              |
+| -------------------------------- | ---------------------------------------------------------------------------------------- |
+| `execution_model`                | Must be `hcloud_cce_cli_plus_kubectl_cce`                                                |
+| `commands.mutating_commands_run` | Must remain `false` for this skill                                                       |
+| `summary.status`                 | Diagnosis status based on the first failing funnel layer                                 |
+| `events.filter_basis`            | Explain how namespace events were narrowed to workload-related evidence                  |
+| `top_causes[].confidence`        | 0.0-1.0 confidence based on direct evidence strength                                     |
+| `gaps`                           | Missing RBAC, missing metrics-server, missing logs, unavailable tools, or network limits |
 
 ## Handoff Skill Reference
 
-| Direction | Skill |
-| --- | --- |
-| Pod runtime/log/probe | `huawei-cloud-cce-pod-failure-diagnoser` |
-| Node pressure/scheduling | `huawei-cloud-cce-node-failure-diagnoser` |
-| Storage/PVC/PV | `huawei-cloud-cce-storage-failure-diagnoser` |
+| Direction                      | Skill                                        |
+| ------------------------------ | -------------------------------------------- |
+| Pod runtime/log/probe          | `huawei-cloud-cce-pod-failure-diagnoser`     |
+| Node pressure/scheduling       | `huawei-cloud-cce-node-failure-diagnoser`    |
+| Storage/PVC/PV                 | `huawei-cloud-cce-storage-failure-diagnoser` |
 | Service/Ingress/ELB/dependency | `huawei-cloud-cce-network-failure-diagnoser` |
-| Multi-domain evidence | `huawei-cloud-cce-root-cause-analyzer` |
-| Remediation execution | `huawei-cloud-cce-auto-remediation-runner` |
-| Alarm correlation | `huawei-cloud-cce-alarm-correlation-engine` |
+| Multi-domain evidence          | `huawei-cloud-cce-root-cause-analyzer`       |
+| Remediation execution          | `huawei-cloud-cce-auto-remediation-runner`   |
+| Alarm correlation              | `huawei-cloud-cce-alarm-correlation-engine`  |

@@ -34,8 +34,8 @@ There are no R0 tools in this skill.
 
 ## Guardrails
 
-| Guardrail | Rule | Rationale |
-|-----------|------|-----------|
+| Guardrail           | Rule                                                                                   | Rationale                                       |
+| ------------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------- |
 | `max_auto_risk: R1` | Only read operations proceed automatically; mutating operations require `confirm=true` | Prevents unintended LogConfig creation/deletion |
 
 ## Confirmation Flow

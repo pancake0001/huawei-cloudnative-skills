@@ -18,7 +18,8 @@ Expected result:
 - The non-Markdown content search finds no SDK imports or old dispatcher actions.
 - Skill files and references describe hcloud CCE, kubectl, and k6.
 
-If a broad Markdown search finds phrases such as "Python SDK dispatcher" or `scripts/huawei-cloud.py`, those should appear only as explicit prohibition text, not as an execution path.
+If a broad Markdown search finds phrases such as "Python SDK dispatcher" or `scripts/huawei-cloud.py`, those should appear only as explicit prohibition text,
+not as an execution path.
 
 ## Tool Verification
 
@@ -31,7 +32,8 @@ k6 version
 
 If k6 is not installed locally, record it and use an approved in-cluster Job only when the user accepts the manifest and image source.
 
-Keep examples as `hcloud` for cloud metadata and `kubectl cce ...` for Kubernetes access. Local debug notes may contain absolute paths, but the skill itself should stay platform-neutral.
+Keep examples as `hcloud` for cloud metadata and `kubectl cce ...` for Kubernetes access. Local debug notes may contain absolute paths, but the skill itself
+should stay platform-neutral.
 
 ## CCE CLI And kubectl-cce Verification
 
@@ -43,7 +45,9 @@ kubectl plugin list
 kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get ns
 ```
 
-The CCE hcloud commands verify cluster metadata. Kubernetes access must go through the kubectl-cce plugin, which creates a short-lived local proxy and does not generate or store kubeconfig. If the default `<cluster-id>.cce.<region>.myhuaweicloud.com` endpoint is not valid, set `CCE_ENDPOINT` or pass `--endpoint`; do not switch to SDK or kubeconfig generation.
+The CCE hcloud commands verify cluster metadata. Kubernetes access must go through the kubectl-cce plugin, which creates a short-lived local proxy and does not
+generate or store kubeconfig. If the default `<cluster-id>.cce.<region>.myhuaweicloud.com` endpoint is not valid, set `CCE_ENDPOINT` or pass `--endpoint`; do
+not switch to SDK or kubeconfig generation.
 
 ## Kubernetes Access Verification
 

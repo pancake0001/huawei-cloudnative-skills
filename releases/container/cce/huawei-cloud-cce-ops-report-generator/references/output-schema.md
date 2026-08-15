@@ -50,11 +50,11 @@
   ],
   "data_gaps": [],
   "sources": {
-    "daily_cluster_inspector": {"success": true},
-    "capacity_trend_forecaster": {"success": true, "files": {}},
-    "availability_risk_scanner": {"success": true, "files": {}},
-    "cost_optimization_advisor": {"success": true, "files": {}},
-    "oncall_copilot": {"status": "provided", "source": "inline"}
+    "daily_cluster_inspector": { "success": true },
+    "capacity_trend_forecaster": { "success": true, "files": {} },
+    "availability_risk_scanner": { "success": true, "files": {} },
+    "cost_optimization_advisor": { "success": true, "files": {} },
+    "oncall_copilot": { "status": "provided", "source": "inline" }
   },
   "files": {
     "summary": "/path/ops-weekly-summary.json",

@@ -15,8 +15,8 @@ This skill operates at R1: read-only observation and diagnosis.
 
 - Do not run Python SDK dispatcher commands or bundled SDK scripts.
 - Do not run legacy dispatcher scripts, generic skill execution entry points, or legacy workload actions.
-- Do not run `kubectl cce ... apply`, `create`, `patch`, `edit`, `delete`, `scale`, `replace`, `rollout undo`, `cordon`, `uncordon`, `drain`, `taint`, or `label`
-  unless the user explicitly switches to a remediation task and accepts the risk.
+- Do not run `kubectl cce ... apply`, `create`, `patch`, `edit`, `delete`, `scale`, `replace`, `rollout undo`, `cordon`, `uncordon`, `drain`, `taint`, or
+  `label` unless the user explicitly switches to a remediation task and accepts the risk.
 - Do not run hcloud create/update/delete operations.
 - Do not cordon, uncordon, drain, reboot, delete nodes, or resize node pools.
 - Do not treat all namespace Warning events as evidence; filter to workload, owned ReplicaSet, or selected Pod evidence.
@@ -26,15 +26,15 @@ This skill operates at R1: read-only observation and diagnosis.
 
 ## Handoff
 
-| Diagnosis Direction | Target Skill | Reason |
-| --- | --- | --- |
-| Workload resource changes | `huawei-cloud-cce-auto-remediation-runner` | Scale, patch, rollback, recreate, delete, or restart actions |
-| Node pressure or scheduling failures | `huawei-cloud-cce-node-failure-diagnoser` | NotReady, DiskPressure, MemoryPressure, taints, or scheduling |
+| Diagnosis Direction                               | Target Skill                                 | Reason                                                                    |
+| ------------------------------------------------- | -------------------------------------------- | ------------------------------------------------------------------------- |
+| Workload resource changes                         | `huawei-cloud-cce-auto-remediation-runner`   | Scale, patch, rollback, recreate, delete, or restart actions              |
+| Node pressure or scheduling failures              | `huawei-cloud-cce-node-failure-diagnoser`    | NotReady, DiskPressure, MemoryPressure, taints, or scheduling             |
 | Service, Ingress, ELB, or dependency reachability | `huawei-cloud-cce-network-failure-diagnoser` | Service endpoints missing, readiness path fails, ingress/service mismatch |
-| Storage mount or PVC/PV issues | `huawei-cloud-cce-storage-failure-diagnoser` | FailedMount, FailedAttachVolume, PVC Pending |
-| Multi-domain uncertainty | `huawei-cloud-cce-root-cause-analyzer` | Cross-domain evidence convergence |
-| Pod-level failures | `huawei-cloud-cce-pod-failure-diagnoser` | CrashLoop, ImagePull, OOM, Pending, probe, or log drilldown |
-| Alarm correlation evidence | `huawei-cloud-cce-alarm-correlation-engine` | AOM alarm deduplication and severity grouping |
+| Storage mount or PVC/PV issues                    | `huawei-cloud-cce-storage-failure-diagnoser` | FailedMount, FailedAttachVolume, PVC Pending                              |
+| Multi-domain uncertainty                          | `huawei-cloud-cce-root-cause-analyzer`       | Cross-domain evidence convergence                                         |
+| Pod-level failures                                | `huawei-cloud-cce-pod-failure-diagnoser`     | CrashLoop, ImagePull, OOM, Pending, probe, or log drilldown               |
+| Alarm correlation evidence                        | `huawei-cloud-cce-alarm-correlation-engine`  | AOM alarm deduplication and severity grouping                             |
 
 ## kubectl-cce Credential Handling
 

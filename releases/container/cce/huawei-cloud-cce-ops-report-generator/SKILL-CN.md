@@ -1,6 +1,8 @@
 ﻿---
 name: ops-report-generator
-description: Use this skill for Huawei Cloud CCE operations reporting that consolidates daily inspection, capacity trend, availability risk, cost optimization, and on-call context into weekly, monthly, SLA, capacity, or stability reports with both Markdown and HTML output.
+description:
+  Use this skill for Huawei Cloud CCE operations reporting that consolidates daily inspection, capacity trend, availability risk, cost optimization, and on-call
+  context into weekly, monthly, SLA, capacity, or stability reports with both Markdown and HTML output.
 ---
 
 # ops-report-generator
@@ -37,4 +39,5 @@ You generate consolidated operations reports for Huawei Cloud CCE. Default behav
 
 ## Guardrails
 
-Do not execute write actions (HPA apply, scale, node pool resize, workload mutation) unless the user explicitly authorizes remediation. This skill focuses on assessment, reporting, and recommendation traceability.
+Do not execute write actions (HPA apply, scale, node pool resize, workload mutation) unless the user explicitly authorizes remediation. This skill focuses on
+assessment, reporting, and recommendation traceability.

@@ -12,12 +12,12 @@ Do not ask users to run raw `hcloud` commands for normal skill execution. The di
 
 ## Required CLIs
 
-| CLI | Purpose | Required For |
-| --- | --- | --- |
-| `python3` | Run the dispatcher and parse results | All tools |
-| `hcloud` / KooCLI | Query Huawei Cloud CCE, ECS, ELB, EIP, NAT, CES, IAM, and add-on metadata | Cloud service and CES metric tools |
-| `kubectl` | Read Kubernetes resources only when AOM/hcloud cannot derive them | Pod label filtering, Ingress TLS checks, LoadBalancer Service association |
-| `kubectl-cce` | Connect to CCE clusters without direct kubeconfig access | Same Kubernetes resource-read paths |
+| CLI               | Purpose                                                                   | Required For                                                              |
+| ----------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `python3`         | Run the dispatcher and parse results                                      | All tools                                                                 |
+| `hcloud` / KooCLI | Query Huawei Cloud CCE, ECS, ELB, EIP, NAT, CES, IAM, and add-on metadata | Cloud service and CES metric tools                                        |
+| `kubectl`         | Read Kubernetes resources only when AOM/hcloud cannot derive them         | Pod label filtering, Ingress TLS checks, LoadBalancer Service association |
+| `kubectl-cce`     | Connect to CCE clusters without direct kubeconfig access                  | Same Kubernetes resource-read paths                                       |
 
 ## hcloud Setup
 
@@ -44,7 +44,8 @@ export HUAWEI_PROJECT_ID="<your-project-id>"
 
 ## AOM Prometheus HTTP Setup
 
-AOM Prometheus range queries use signed HTTPS requests instead of hcloud. They require explicit AK/SK parameters or environment credentials because encrypted hcloud profile material cannot be reused for signing.
+AOM Prometheus range queries use signed HTTPS requests instead of hcloud. They require explicit AK/SK parameters or environment credentials because encrypted
+hcloud profile material cannot be reused for signing.
 
 Temporary credentials are supported with:
 
@@ -54,7 +55,8 @@ export HUAWEI_SECURITY_TOKEN="<security-token>"
 
 ## kubectl-cce Setup
 
-Install and use `kubectl-cce` according to [kubectl-cce.md](kubectl-cce.md). The plugin is only needed for Kubernetes resource reads such as Pod labels, Ingress TLS Secrets, and LoadBalancer Services.
+Install and use `kubectl-cce` according to [kubectl-cce.md](kubectl-cce.md). The plugin is only needed for Kubernetes resource reads such as Pod labels, Ingress
+TLS Secrets, and LoadBalancer Services.
 
 ## Verification
 

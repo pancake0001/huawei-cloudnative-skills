@@ -32,4 +32,3 @@ description: Use this skill for daily Huawei Cloud CCE health checks, quick chec
 ## 风险约束
 
 本 skill 只做巡检和报告，不执行修复动作。发现风险后输出建议并转交对应诊断或自愈 skill。
-

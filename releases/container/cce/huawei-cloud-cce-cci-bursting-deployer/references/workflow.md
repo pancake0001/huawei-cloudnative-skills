@@ -2,45 +2,42 @@
 
 ## Action sequence
 
-| Step | Action | Mutation | Purpose |
-| --- | --- | --- | --- |
-| 1 | `huawei_precheck_cce_cci_bursting` | No | Resolve cluster networking, subnet roles, and addon state. |
-| 2 | `huawei_check_cce_cci_node_capacity` | No | Inspect physical-node addon headroom. Preview node pool expansion when the conservative warning baseline is not met. |
-| 3 | `huawei_ensure_cce_cci_vpcep` | Only with `confirm=true` | Reuse or create SWR, SWR API, and OBS-compatible VPCEPs. |
-| 4 | `huawei_setup_cce_cci_bursting` | Only with `confirm=true` | Ensure VPCEPs, install `virtual-kubelet` if absent, and apply CCI network and project parameters. |
-| 5 | `huawei_verify_cce_cci_bursting` | No | Verify addon state, virtual node readiness, and optional workload result. Failed verification includes read-only addon diagnostics. |
-| 6 | `huawei_discover_cce_cci_smoke_images` | No | Discover tenant-owned SWR basic images through namespace, repository, and tag queries. |
-| 7 | `huawei_deploy_cce_cci_smoke_workload` | Only with `confirm=true` | Create or patch a small Deployment forced to CCI capacity. Omit `image` to prefer a tenant-owned SWR image. |
-| 8 | `huawei_verify_cce_cci_bursting` | No | Confirm test pods reach `Running` on `bursting-node` or `virtual-kubelet`. |
+| Step | Action                                 | Mutation                 | Purpose                                                                                                                             |
+| ---- | -------------------------------------- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| 1    | `huawei_precheck_cce_cci_bursting`     | No                       | Resolve cluster networking, subnet roles, and addon state.                                                                          |
+| 2    | `huawei_check_cce_cci_node_capacity`   | No                       | Inspect physical-node addon headroom. Preview node pool expansion when the conservative warning baseline is not met.                |
+| 3    | `huawei_ensure_cce_cci_vpcep`          | Only with `confirm=true` | Reuse or create SWR, SWR API, and OBS-compatible VPCEPs.                                                                            |
+| 4    | `huawei_setup_cce_cci_bursting`        | Only with `confirm=true` | Ensure VPCEPs, install `virtual-kubelet` if absent, and apply CCI network and project parameters.                                   |
+| 5    | `huawei_verify_cce_cci_bursting`       | No                       | Verify addon state, virtual node readiness, and optional workload result. Failed verification includes read-only addon diagnostics. |
+| 6    | `huawei_discover_cce_cci_smoke_images` | No                       | Discover tenant-owned SWR basic images through namespace, repository, and tag queries.                                              |
+| 7    | `huawei_deploy_cce_cci_smoke_workload` | Only with `confirm=true` | Create or patch a small Deployment forced to CCI capacity. Omit `image` to prefer a tenant-owned SWR image.                         |
+| 8    | `huawei_verify_cce_cci_bursting`       | No                       | Confirm test pods reach `Running` on `bursting-node` or `virtual-kubelet`.                                                          |
 
 ## Physical node headroom
 
-`huawei_precheck_cce_cci_bursting` includes NodeCheck automatically.
-For a small validation cluster, the action warns when it cannot find
-a schedulable physical node with at least 2 vCPU and 4 GiB of
-currently unrequested capacity, or when fewer than two schedulable
-physical nodes are available.
+`huawei_precheck_cce_cci_bursting` includes NodeCheck automatically. For a small validation cluster, the action warns when it cannot find a schedulable physical
+node with at least 2 vCPU and 4 GiB of currently unrequested capacity, or when fewer than two schedulable physical nodes are available.
 
-The 2C/4GiB value is a conservative warning baseline, not a platform
-hard limit. Size production addon resources with the official formula
-and the expected number of synchronized resources and concurrent
-requests.
+The 2C/4GiB value is a conservative warning baseline, not a platform hard limit. Size production addon resources with the official formula and the expected
+number of synchronized resources and concurrent requests.
 
 When NodeCheck warns:
 
 1. Run `huawei_list_cce_nodepools`.
 2. Preview `huawei_resize_cce_nodepool` for an existing pool, or preview `huawei_create_cce_nodepool` for a new pool.
-3. Prefer SSH keypair authentication for a new node pool. The existing cluster-management action also supports password mode and performs SHA-512 salted encryption plus base64 encoding automatically.
+3. Prefer SSH keypair authentication for a new node pool. The existing cluster-management action also supports password mode and performs SHA-512 salted
+   encryption plus base64 encoding automatically.
 4. Apply the selected capacity change only after explicit user approval, then rerun precheck.
 
 ## Subnet roles
 
-| Parameter | ID type | Used by |
-| --- | --- | --- |
-| `cci_subnet_id` | Neutron subnet UUID | `virtual-kubelet` addon `networkID`, `subnet_id`, and `subnets[].subnetID` |
-| `vpcep_subnet_id` | VPC subnet UUID | VPCEP interface endpoint placement |
+| Parameter         | ID type             | Used by                                                                    |
+| ----------------- | ------------------- | -------------------------------------------------------------------------- |
+| `cci_subnet_id`   | Neutron subnet UUID | `virtual-kubelet` addon `networkID`, `subnet_id`, and `subnets[].subnetID` |
+| `vpcep_subnet_id` | VPC subnet UUID     | VPCEP interface endpoint placement                                         |
 
-For a Turbo/ENI cluster, `huawei_precheck_cce_cci_bursting` normally resolves `cci_subnet_id` from `spec.eni_network`. Pass `vpcep_subnet_id` explicitly when a larger or dedicated endpoint subnet is preferred.
+For a Turbo/ENI cluster, `huawei_precheck_cce_cci_bursting` normally resolves `cci_subnet_id` from `spec.eni_network`. Pass `vpcep_subnet_id` explicitly when a
+larger or dedicated endpoint subnet is preferred.
 
 ## Examples
 
@@ -67,10 +64,8 @@ obs_endpoint_service_name=<exact-service-name> route_table_ids=<route-table-id>
 
 ## Project ID
 
-The setup action resolves the regional Huawei Cloud project ID from
-the environment or IAM API and writes it to the addon values. Pass
-`project_id=<regional-project-id>` explicitly when IAM
-auto-resolution is unavailable.
+The setup action resolves the regional Huawei Cloud project ID from the environment or IAM API and writes it to the addon values. Pass
+`project_id=<regional-project-id>` explicitly when IAM auto-resolution is unavailable.
 
 ## Smoke image selection
 
