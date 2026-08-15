@@ -162,6 +162,22 @@ python3 scripts/huawei-cloud.py huawei_create_cce_logconfig \
   confirm=true
 ```
 
+For **all container stdout in selected namespaces**, do not provide a workload selector. `logconfig_namespace` remains the namespace where the LogConfig resource is stored and does not control the collection scope.
+
+```bash
+python3 scripts/huawei-cloud.py huawei_create_cce_logconfig \
+  region=cn-north-4 \
+  cluster_id=<cluster-id> \
+  logconfig_name=<policy-name> \
+  source_type=container_stdout \
+  all_containers=true \
+  namespaces='["default","kube-system"]' \
+  log_group_id=<lts-group-id> \
+  log_stream_id=<lts-stream-id>
+```
+
+Omit `namespaces` only when the user explicitly requests stdout collection from every namespace in the cluster.
+
 For **container file collection**:
 
 ```bash

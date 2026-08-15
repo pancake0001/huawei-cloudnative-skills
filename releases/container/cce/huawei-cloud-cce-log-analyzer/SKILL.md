@@ -53,6 +53,19 @@ Use this skill for read-only log queries and analysis, or for confirmed manageme
 
 Use `python3 scripts/huawei-cloud.py help` to print the available actions and required parameters. Full invocation and parameter details are in [references/tool-reference.md](references/tool-reference.md).
 
+## Collection Scope
+
+Use the parameter that controls the collection source, not the namespace where a LogConfig object is stored.
+
+| Collection mode | Namespace parameter | Scope |
+|---|---|---|
+| CCE LogConfig, one workload stdout or container file | `workload_namespace` (or `namespace`) with `workload_name`/`app_name` | One workload in one namespace. |
+| CCE LogConfig, all container stdout in selected namespaces | `all_containers=true` and `namespaces='["default"]'` | All container stdout in the listed namespaces. Omit `namespaces` only when all namespaces are intended. |
+| LTS Access Config, `K8S_CCE` container stdout or file | `namespace_regex`, for example `^default$` | Namespace regex; `pod_name_regex` is also required. |
+| Node file collection | None | `host_file` applies to all eligible nodes in the bound host group. Namespace filtering does not apply. |
+
+`logconfig_namespace` is only the Kubernetes namespace that stores the LogConfig custom resource, normally `kube-system`; it does not limit which application logs are collected. Review the previewed `request_body` before confirmation.
+
 ## Operating Workflow
 
 ### 1. Identify the source

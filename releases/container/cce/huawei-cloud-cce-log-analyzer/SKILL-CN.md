@@ -53,6 +53,19 @@ metadata:
 
 执行 `python3 scripts/huawei-cloud.py help` 可查看全部工具和必填入参。完整命令和参数说明见 [references/tool-reference.md](references/tool-reference.md)。
 
+## 日志采集范围
+
+需要通过控制采集源范围的参数指定命名空间，不要混淆 LogConfig 资源保存所在的命名空间。
+
+| 采集方式 | 命名空间参数 | 采集范围 |
+|---|---|---|
+| CCE LogConfig：单个工作负载的标准输出或容器文件 | `workload_namespace`（或 `namespace`），配合 `workload_name`/`app_name` | 一个命名空间中的一个工作负载。 |
+| CCE LogConfig：指定命名空间内所有容器标准输出 | `all_containers=true` 和 `namespaces='["default"]'` | 列出的命名空间内所有容器标准输出；仅在确实需要全量采集时省略 `namespaces`。 |
+| LTS Access Config：`K8S_CCE` 容器标准输出或文件 | `namespace_regex`，例如 `^default$` | 命名空间正则；还必须提供 `pod_name_regex`。 |
+| 节点文件采集 | 不适用 | `host_file` 会采集绑定主机组内所有符合条件的节点，不能按 namespace 过滤。 |
+
+`logconfig_namespace` 仅表示 LogConfig 自定义资源保存的 Kubernetes 命名空间，通常为 `kube-system`，不会限制应用日志采集范围。确认前必须检查预览返回的 `request_body`。
+
 ## 使用步骤
 
 ### 1. 确定日志来源

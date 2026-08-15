@@ -64,11 +64,11 @@ python3 scripts/huawei-cloud.py huawei_analyze_kube_scheduler_logs \
 
 | Tool | Required parameters | Additional parameters | Execution rule |
 |---|---|---|---|
-| `huawei_create_cce_logconfig` | `region`, `cluster_id`, `logconfig_name`, `source_type` | Workload or file-source parameters, `log_group_id`, `log_stream_id` | Preview first; use `confirm=true` only after user approval. |
+| `huawei_create_cce_logconfig` | `region`, `cluster_id`, `logconfig_name`, `source_type` | `workload_namespace` + workload selector, or `all_containers=true` + `namespaces`; file-source parameters; destination IDs | `logconfig_namespace` stores the rule and does not set collection scope. Preview first; use `confirm=true` only after user approval. |
 | `huawei_delete_cce_logconfig` | `region`, `cluster_id`, `logconfig_name` | `logconfig_namespace` | Preview exact target first; require confirmation. |
 | `huawei_create_lts_access_config` | `region`, `access_config_name` | `access_config_type`, collection-source parameters, destination IDs | Preview first; require confirmation. |
 | `huawei_delete_lts_access_config` | `region`, `access_config_id` | - | Preview exact target first; require confirmation. |
 
-`source_type` for CCE LogConfig is one of `container_stdout`, `container_file`, or `host_file`. `host_file` applies to all eligible cluster nodes; no node selector exists. For LTS Access Config, `K8S_CCE` supports container stdout and file collection through the LTS SDK; `AGENT` collection requires iCagent.
+`source_type` for CCE LogConfig is one of `container_stdout`, `container_file`, or `host_file`. For one workload, use `workload_namespace` (or `namespace`) and `workload_name`/`app_name`. To collect stdout from every container in selected namespaces, use `all_containers=true namespaces='["default","kube-system"]'`; omit `namespaces` only for all namespaces. `host_file` applies to all eligible cluster nodes; no node selector or namespace filter exists. For LTS Access Config, `K8S_CCE` supports container stdout and file collection through the LTS SDK and requires `namespace_regex` plus `pod_name_regex`; `AGENT` collection requires iCagent.
 
 When destination IDs are omitted during a create preview, the tools list the dedicated `k8s-log-<cluster-id>` destination when available and otherwise list existing LTS alternatives. The user must explicitly choose and provide both `log_group_id` and `log_stream_id` before creation.
