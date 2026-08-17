@@ -63,6 +63,12 @@ must be handed off to a remediation skill after confirmation.
 
 At least one of `node_name` or `node_ip` should be provided. If both are missing, first list nodes and ask the user which node or symptom to focus on.
 
+## Explicit Credential Propagation
+
+Accept `--cli-access-key`, `--cli-secret-key`, and optional `--cli-security-token`. AK and SK must be supplied together; a token requires that pair. When
+provided, append all supplied options to every `hcloud` and `kubectl cce` command, pass them unchanged to delegated skills, and do not use an hcloud profile
+or authentication environment variables. Never print credential values.
+
 ## Prerequisites
 
 1. `hcloud` is installed and available in `PATH`, or a platform-native binary has been located and validated with `hcloud version`.

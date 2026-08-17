@@ -68,8 +68,9 @@ correlation, alarm-rule management, notification-rule management, and CCE alarm 
 - Credential priority for hcloud calls is: explicit tool parameters > local hcloud profile > environment variables
 - Tools that need `project_id` resolve it internally where possible: explicit `project_id` parameter first, then active hcloud profile/IAM project lookup for
   the target region, then environment fallback
-- CLI callers may pass `--cli-access-key`, `--cli-secret-key`, and `--cli-security-token`. These map to the internal credential fields and are passed explicitly
-  to every hcloud command. Do not combine an alias with a conflicting `ak`, `sk`, or `security_token` value.
+- CLI callers may pass `--cli-access-key`, `--cli-secret-key`, and optional `--cli-security-token`. AK/SK must be supplied together, and a token requires
+  that pair. These values are passed to every hcloud command; profile and authentication environment-variable fallback are disabled for the request. Do not
+  combine an alias with a conflicting `ak`, `sk`, or `security_token` value.
 
 **Security Rules**:
 

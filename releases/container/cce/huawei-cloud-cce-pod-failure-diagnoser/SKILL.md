@@ -59,6 +59,12 @@ Collect these values before diagnosis:
 | `workload_name` | Optional  | Use to derive the Pod selector when Pod name is unknown                     |
 | `selector`      | Optional  | Kubernetes label selector, for example `app=my-app`                         |
 
+## Explicit Credential Propagation
+
+Accept `--cli-access-key`, `--cli-secret-key`, and optional `--cli-security-token`. AK and SK must be supplied together; a token requires that pair. When
+provided, append all supplied options to every `hcloud` and `kubectl cce` command, pass them unchanged to delegated skills, and do not use an hcloud profile
+or authentication environment variables. Never print credential values.
+
 ## Prerequisites
 
 1. `hcloud` (Huawei Cloud KooCLI) is installed and available in `PATH`. Use the native binary for the runtime platform. Linux sandboxes should use the Linux

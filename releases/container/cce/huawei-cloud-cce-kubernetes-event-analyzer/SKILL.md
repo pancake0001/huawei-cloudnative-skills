@@ -61,8 +61,9 @@ fallback.
   profile credentials cannot be reused by the plugin. When `project_id` is available, the implementation passes it explicitly as
   `kubectl cce --project-id <project-id>`.
 - LTS queries require valid Huawei Cloud credentials and an authorized project.
-- CLI callers may pass `--cli-access-key`, `--cli-secret-key`, and `--cli-security-token`. The skill passes these explicitly to hcloud and `kubectl cce`; do not
-  combine them with conflicting `ak`, `sk`, or `security_token` values.
+- CLI callers may pass `--cli-access-key`, `--cli-secret-key`, and optional `--cli-security-token`. AK/SK must be supplied together, and a token requires
+  that pair. The skill passes them explicitly to hcloud and `kubectl cce`; profile and authentication environment-variable fallback are disabled for the
+  request. Do not combine them with conflicting `ak`, `sk`, or `security_token` values.
 
 **Security Rules**:
 

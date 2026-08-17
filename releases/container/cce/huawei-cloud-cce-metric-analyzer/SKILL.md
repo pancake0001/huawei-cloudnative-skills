@@ -65,14 +65,15 @@ threshold-based anomaly detection.
 ### 2. Credential Configuration
 
 - Valid Huawei Cloud credentials via hcloud profile or AK/SK mode
-- CLI callers may pass `--cli-access-key`, `--cli-secret-key`, and `--cli-security-token`. They are mapped to the existing credential chain and passed
-  explicitly to hcloud and `kubectl cce`; do not combine them with conflicting `ak`, `sk`, or `security_token` values.
+- CLI callers may pass `--cli-access-key`, `--cli-secret-key`, and optional `--cli-security-token`. AK/SK must be supplied together, and a token requires
+  that pair. They are passed explicitly to hcloud and `kubectl cce`; profile and authentication environment-variable fallback are disabled for the request.
+  Do not combine them with conflicting `ak`, `sk`, or `security_token` values.
 - **Security Rules**:
   - 🚫 Never expose AK/SK values in code, conversation, or commands
   - 🚫 Never use `echo $HUAWEI_AK` or `echo $HUAWEI_SK` to check credentials
   - ✅ Credential priority for hcloud calls is: explicit tool parameters > local hcloud profile > environment variables
-  - ✅ AOM Prometheus signed HTTP and Kubernetes certificate setup cannot use encrypted hcloud profile material, so they use explicit tool parameters first and
-    environment variables as the signing fallback
+  - ✅ AOM Prometheus signed HTTP and Kubernetes certificate setup use explicit tool parameters first; when explicit AK/SK is supplied, no authentication
+    environment variable is used as a signing fallback
   - ✅ Prefer IAM users over root account for cloud operations
   - ✅ Enable MFA for sensitive operations
 

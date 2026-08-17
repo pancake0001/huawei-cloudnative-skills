@@ -13,6 +13,7 @@ from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple
 
 _PROJECT_ID_CACHE: Dict[str, str] = {}
 _ACTIVE_SECURITY_TOKEN: ContextVar[Optional[str]] = ContextVar("active_security_token", default=None)
+_EXPLICIT_CREDENTIALS: ContextVar[bool] = ContextVar("explicit_credentials", default=False)
 
 
 def normalize_cli_credentials(params: Dict[str, str]) -> Dict[str, str]:
@@ -25,6 +26,15 @@ def normalize_cli_credentials(params: Dict[str, str]) -> Dict[str, str]:
         if normalized.get(internal_name) and normalized[internal_name] != value:
             raise ValueError(f"{cli_name} and {internal_name} must not provide different values")
         normalized[internal_name] = value
+    has_ak = bool(normalized.get("ak"))
+    has_sk = bool(normalized.get("sk"))
+    has_token = bool(normalized.get("security_token"))
+    if has_ak != has_sk:
+        raise ValueError("cli_access_key and cli_secret_key must be provided together")
+    if has_token and not has_ak:
+        raise ValueError("cli_security_token requires cli_access_key and cli_secret_key")
+    if has_ak:
+        normalized["_explicit_cli_credentials"] = "true"
     return normalized
 
 
@@ -32,14 +42,24 @@ def normalize_cli_credentials(params: Dict[str, str]) -> Dict[str, str]:
 def credential_context(params: Dict[str, str]) -> Iterator[Dict[str, str]]:
     normalized = normalize_cli_credentials(params)
     token = _ACTIVE_SECURITY_TOKEN.set(normalized.get("security_token"))
+    explicit = _EXPLICIT_CREDENTIALS.set(normalized.get("_explicit_cli_credentials") == "true")
     try:
         yield normalized
     finally:
+        _EXPLICIT_CREDENTIALS.reset(explicit)
         _ACTIVE_SECURITY_TOKEN.reset(token)
 
 
 def get_security_token(security_token: Optional[str] = None) -> Optional[str]:
-    return security_token or _ACTIVE_SECURITY_TOKEN.get() or os.environ.get("HUAWEI_SECURITY_TOKEN") or os.environ.get("HUAWEICLOUD_SDK_SECURITY_TOKEN") or os.environ.get("HW_SECURITY_TOKEN")
+    token = security_token or _ACTIVE_SECURITY_TOKEN.get()
+    if token or _EXPLICIT_CREDENTIALS.get():
+        return token
+    return os.environ.get("HUAWEI_SECURITY_TOKEN") or os.environ.get("HUAWEICLOUD_SDK_SECURITY_TOKEN") or os.environ.get("HW_SECURITY_TOKEN")
+
+
+def has_explicit_credentials() -> bool:
+    """Return whether the active request supplied an explicit AK/SK pair."""
+    return _EXPLICIT_CREDENTIALS.get()
 
 
 def _has_hcloud_profile() -> bool:

@@ -81,6 +81,12 @@ scaling workloads, or restarting components must be handed off as recommendation
 If the target is vague, start with a namespace scan and ask for the specific service, ingress, source, destination, or domain before drawing a strong
 conclusion.
 
+## Explicit Credential Propagation
+
+Accept `--cli-access-key`, `--cli-secret-key`, and optional `--cli-security-token`. AK and SK must be supplied together; a token requires that pair. When
+provided, append all supplied options to every `hcloud` and `kubectl cce` command, pass them unchanged to delegated skills, and do not use an hcloud profile
+or authentication environment variables. Never print credential values.
+
 ## Prerequisites
 
 1. `hcloud` is installed and available in `PATH`, or a platform-native binary has been located and validated with `hcloud version`.

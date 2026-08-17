@@ -64,6 +64,12 @@ imports.
 | `known_changes`                     | Optional    | User-provided deployment, configuration, policy, or infrastructure records         |
 | `log_group_id` / `log_stream_id`    | Optional    | Use only when approved log discovery cannot resolve the source                     |
 
+## Explicit Credential Propagation
+
+Accept `--cli-access-key`, `--cli-secret-key`, and optional `--cli-security-token`. AK and SK must be supplied together; a token requires that pair. When
+provided, append all supplied options to every `hcloud` and `kubectl cce` command, pass them unchanged to delegated skills, and do not use an hcloud profile
+or authentication environment variables. Never print credential values.
+
 ## Core Commands
 
 ### 1. Verify Tools And Plugin

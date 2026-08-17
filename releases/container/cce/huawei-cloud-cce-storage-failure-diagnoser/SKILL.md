@@ -59,6 +59,12 @@ running Kubernetes commands.
 | `failure_symptom` | Recommended | `pvc_pending`, `failed_mount`, `failed_attach`, `capacity`, `readonly_fs`, `nfs_timeout`, `obs_403`, `terminating` |
 | `volume_id`       | Optional    | EVS/SFS/SFS Turbo/OBS identifier when known                                                                        |
 
+## Explicit Credential Propagation
+
+Accept `--cli-access-key`, `--cli-secret-key`, and optional `--cli-security-token`. AK and SK must be supplied together; a token requires that pair. When
+provided, append all supplied options to every `hcloud` and `kubectl cce` command, pass them unchanged to delegated skills, and do not use an hcloud profile
+or authentication environment variables. Never print credential values.
+
 ## Core Commands And Evidence Collection
 
 ### 1. Verify Tools And Plugin

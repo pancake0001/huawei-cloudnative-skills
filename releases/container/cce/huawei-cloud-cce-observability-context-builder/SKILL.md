@@ -52,6 +52,12 @@ Do not use legacy Python dispatchers, old skill execution actions, Huawei Cloud 
 
 If the target is ambiguous, collect cluster/namespace-level context first and record ambiguity as a data gap.
 
+## Explicit Credential Propagation
+
+Accept `--cli-access-key`, `--cli-secret-key`, and optional `--cli-security-token`. AK and SK must be supplied together; a token requires that pair. When
+provided, append all supplied options to every `hcloud` and `kubectl cce` command, pass them unchanged to delegated skills, and do not use an hcloud profile
+or authentication environment variables. Never print credential values.
+
 ## Prerequisites
 
 1. `hcloud`, `kubectl`, and the kubectl-cce plugin are available as platform-native binaries.

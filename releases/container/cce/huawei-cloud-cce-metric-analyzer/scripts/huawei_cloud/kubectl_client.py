@@ -122,10 +122,17 @@ def _kubectl_get_with_kubeconfig(region: str, cluster_id: str, resource_args: Li
 
 
 def _kubectl_get_with_cce_plugin(region: str, cluster_id: str, resource_args: List[str], ak: Optional[str], sk: Optional[str], project_id: Optional[str], security_token: Optional[str]) -> Dict[str, Any]:
-    access_key = ak or os.environ.get("HUAWEI_AK") or os.environ.get("HUAWEICLOUD_SDK_AK") or os.environ.get("HW_ACCESS_KEY")
-    secret_key = sk or os.environ.get("HUAWEI_SK") or os.environ.get("HUAWEICLOUD_SDK_SK") or os.environ.get("HW_SECRET_KEY")
-    proj_id = project_id or os.environ.get("HUAWEI_PROJECT_ID") or os.environ.get("HUAWEICLOUD_SDK_PROJECT_ID") or os.environ.get("HW_PROJECT_ID")
+    explicit_credentials = common.has_explicit_credentials()
+    access_key = ak if explicit_credentials else ak or os.environ.get("HUAWEI_AK") or os.environ.get("HUAWEICLOUD_SDK_AK") or os.environ.get("HW_ACCESS_KEY")
+    secret_key = sk if explicit_credentials else sk or os.environ.get("HUAWEI_SK") or os.environ.get("HUAWEICLOUD_SDK_SK") or os.environ.get("HW_SECRET_KEY")
+    proj_id = project_id if explicit_credentials else project_id or os.environ.get("HUAWEI_PROJECT_ID") or os.environ.get("HUAWEICLOUD_SDK_PROJECT_ID") or os.environ.get("HW_PROJECT_ID")
     env = os.environ.copy()
+    if explicit_credentials:
+        for name in (
+            "HW_ACCESS_KEY", "HUAWEI_AK", "HUAWEICLOUD_SDK_AK", "HW_SECRET_KEY", "HUAWEI_SK", "HUAWEICLOUD_SDK_SK",
+            "HUAWEI_SECURITY_TOKEN", "HUAWEICLOUD_SDK_SECURITY_TOKEN", "HW_SECURITY_TOKEN", "HCLOUD_CONFIG_DIR",
+        ):
+            env.pop(name, None)
     env["CCE_CLUSTER_ID"] = cluster_id
     env["CCE_REGION"] = region
     env["HW_REGION"] = region

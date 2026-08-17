@@ -64,8 +64,16 @@ tags: [huawei-cloud, cce, root-cause, kubectl, diagnosis]
 | `target_name`          | 可选     | 工作负载、Service、Pod、Ingress 或业务对象      |
 | `fault_time` / `hours` | 推荐     | 用于事件、告警、指标和变更关联                  |
 | `symptoms`             | 推荐     | 用户可感知故障、已知告警和现象                  |
+| `--cli-access-key`     | 可选     | 为本次诊断链显式指定 AK                         |
+| `--cli-secret-key`     | 可选     | 显式指定 SK，必须与显式 AK 成对提供             |
+| `--cli-security-token` | 可选     | STS token，只能与显式 AK/SK 一起使用            |
 
 目标不明确时，先做只读广域快照，并在报告里说明还需要确认哪些对象，不能直接给高置信度结论。
+
+## 显式凭证透传
+
+用户提供 `--cli-access-key` 和 `--cli-secret-key` 时，向每个选中的证据依赖 skill 以及所有 `hcloud`、`kubectl cce` 命令原样透传该 AK/SK 和可选的
+`--cli-security-token`。该次诊断链不得使用 hcloud profile 或认证环境变量。AK/SK 不成对、仅提供 token 均必须拒绝；不得输出凭证值。
 
 ## 核心命令与证据采集
 
