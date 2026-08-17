@@ -30,6 +30,12 @@ metadata:
 - 传入 `--cli-access-key`、`--cli-secret-key` 和可选的 `--cli-security-token` 时，只使用这些显式凭据，并透传给 hcloud、`kubectl cce`；不会回退到 profile 或认证环境变量。需要 project ID 时可传 `--cli-project-id` 或 `project_id`。未传显式 CLI 凭据时，认证优先级为 `ak`、`sk`、`project_id`，其次本机 hcloud profile，最后环境变量 `HUAWEI_AK`、`HUAWEI_SK`、`HUAWEI_PROJECT_ID`。
 - LTS 的 `start_time`、`end_time` 必须使用 UTC `YYYY-MM-DD HH:MM:SS`；未传时按 UTC 生成最近时间窗口。
 
+## 区域选择
+
+- 当前用户请求或已建立任务上下文中给出 region 时，使用 `region=<region>`。
+- 未传 `region` 参数时，使用 `HUAWEI_REGION`。
+- 两者都未提供时，返回错误并要求用户提供 `region` 或设置 `HUAWEI_REGION`；不得从 hcloud profile 或其他环境变量推断目标区域。
+
 ## 工具路由
 
 | 工具 | 风险级别 | 用途 |

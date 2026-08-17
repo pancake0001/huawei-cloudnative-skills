@@ -30,6 +30,12 @@ Use this skill for read-only log queries and analysis, or for confirmed manageme
 - Explicit `--cli-access-key`, `--cli-secret-key`, and optional `--cli-security-token` use only the supplied credentials. They are forwarded to hcloud and `kubectl cce`; profile and credential environment-variable fallback are disabled. `--cli-project-id` or `project_id` can provide the target project when required. Without explicit CLI credentials, the order is `ak`/`sk`/`project_id`, local hcloud profile, then `HUAWEI_AK`, `HUAWEI_SK`, and `HUAWEI_PROJECT_ID`.
 - LTS `start_time` and `end_time` use UTC `YYYY-MM-DD HH:MM:SS`. If omitted, the tools generate a recent UTC window.
 
+## Region Selection
+
+- Use `region=<region>` from the current user request or established task context when it is available.
+- If no `region` parameter is supplied, use `HUAWEI_REGION`.
+- If neither source provides a region, return an error asking the user to provide `region` or set `HUAWEI_REGION`. Do not infer a target region from an hcloud profile or any other environment variable.
+
 ## Tool Routing
 
 | Tool | Risk | Purpose |

@@ -47,7 +47,7 @@ Optional environment fallback:
 ```bash
 export HUAWEI_AK=<ak>
 export HUAWEI_SK=<sk>
-export HUAWEI_REGION=cn-north-4
+export HUAWEI_REGION=<region>
 export HUAWEI_PROJECT_ID=<project-id>
 export HUAWEI_SECURITY_TOKEN=<security-token>
 ```
@@ -59,21 +59,21 @@ Never print AK/SK or security token values in terminal output, logs, commits, or
 Always call the dispatcher:
 
 ```bash
-python3 scripts/huawei-cloud.py huawei_list_aom_alarm_rules region=cn-north-4 cluster_id=<cluster-id>
+python3 scripts/huawei-cloud.py huawei_list_aom_alarm_rules region=<region> cluster_id=<cluster-id>
 ```
 
 For mutation tools, preview first:
 
 ```bash
 python3 scripts/huawei-cloud.py huawei_create_aom_alarm_rule \
-  region=cn-north-4 cluster_id=<cluster-id> alarm_item=<template-alias>
+  region=<region> cluster_id=<cluster-id> alarm_item=<template-alias>
 ```
 
 Execute only after user confirmation:
 
 ```bash
 python3 scripts/huawei-cloud.py huawei_create_aom_alarm_rule \
-  region=cn-north-4 cluster_id=<cluster-id> alarm_item=<template-alias> \
+  region=<region> cluster_id=<cluster-id> alarm_item=<template-alias> \
   bind_notification_rule_id=<action-rule-id> confirm=true
 ```
 
@@ -82,8 +82,8 @@ python3 scripts/huawei-cloud.py huawei_create_aom_alarm_rule \
 Run read-only checks:
 
 ```bash
-python3 scripts/huawei-cloud.py huawei_list_aom_alarm_rules region=cn-north-4
-python3 scripts/huawei-cloud.py huawei_list_aom_action_rules region=cn-north-4
+python3 scripts/huawei-cloud.py huawei_list_aom_alarm_rules region=<region>
+python3 scripts/huawei-cloud.py huawei_list_aom_action_rules region=<region>
 ```
 
 Expected result:

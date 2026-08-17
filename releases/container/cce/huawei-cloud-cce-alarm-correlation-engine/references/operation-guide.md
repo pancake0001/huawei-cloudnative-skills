@@ -8,7 +8,7 @@ This reference holds detailed operating notes for `huawei-cloud-cce-alarm-correl
 
 | Parameter    | Required | Description                                                                                                                                                                              |
 | ------------ | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `region`     | Yes      | Huawei Cloud region, for example `cn-north-4`                                                                                                                                            |
+| `region`     | Yes      | Huawei Cloud region, for example `<region>`                                                                                                                                            |
 | `cluster_id` | No       | CCE cluster ID; when provided, only alarms related to this cluster are returned                                                                                                          |
 | `ak`         | No       | Access Key ID; explicit tool parameter has highest priority                                                                                                                              |
 | `sk`         | No       | Secret Access Key; explicit tool parameter has highest priority                                                                                                                          |

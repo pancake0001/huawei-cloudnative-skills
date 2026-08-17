@@ -27,11 +27,11 @@ Before querying or analyzing application logs, always list both collection-rule 
 
 ```bash
 python3 scripts/huawei-cloud.py huawei_get_cce_logconfigs \
-  region=cn-north-4 \
+  region=<region> \
   cluster_id=<cluster-id>
 
 python3 scripts/huawei-cloud.py huawei_list_lts_access_configs \
-  region=cn-north-4
+  region=<region>
 ```
 
 Show all returned CCE LogConfig rules for the cluster. From the LTS response, show only rules whose `cluster_id` equals the target cluster ID. Do not choose a rule based on a matching workload, namespace, policy name, or destination.
@@ -52,7 +52,7 @@ Selection guidance:
 
 ```bash
 python3 scripts/huawei-cloud.py huawei_query_application_logs \
-  region=cn-north-4 \
+  region=<region> \
   cluster_id=<cluster-id> \
   logconfig_name=<selected-logconfig-name> \
   logconfig_namespace=kube-system \
@@ -63,7 +63,7 @@ For **recent logs** (time window in hours):
 
 ```bash
 python3 scripts/huawei-cloud.py huawei_query_application_logs \
-  region=cn-north-4 \
+  region=<region> \
   cluster_id=<cluster-id> \
   access_config_id=<selected-access-config-id> \
   namespace=default \
@@ -75,7 +75,7 @@ For **explicit time windows**:
 
 ```bash
 python3 scripts/huawei-cloud.py huawei_query_application_logs \
-  region=cn-north-4 \
+  region=<region> \
   cluster_id=<cluster-id> \
   logconfig_name=<selected-logconfig-name> \
   namespace=default \
@@ -113,7 +113,7 @@ Use `huawei_analyze_application_logs` for time-window abnormality analysis. It r
 
 ```bash
 python3 scripts/huawei-cloud.py huawei_analyze_application_logs \
-  region=cn-north-4 \
+  region=<region> \
   cluster_id=<cluster-id> \
   access_config_id=<selected-access-config-id> \
   start_time="2026-05-30 10:00:00" \
@@ -131,7 +131,7 @@ python3 scripts/huawei-cloud.py huawei_analyze_application_logs \
 
 ```bash
 python3 scripts/huawei-cloud.py huawei_get_cce_logconfigs \
-  region=cn-north-4 \
+  region=<region> \
   cluster_id=<cluster-id>
 ```
 
@@ -146,7 +146,7 @@ Before previewing a creation, call the tool without `log_group_id` or `log_strea
 ```bash
 # Step 1: Preview
 python3 scripts/huawei-cloud.py huawei_create_cce_logconfig \
-  region=cn-north-4 \
+  region=<region> \
   cluster_id=<cluster-id> \
   logconfig_name=<policy-name> \
   source_type=container_stdout \
@@ -166,7 +166,7 @@ For **all container stdout in selected namespaces**, do not provide a workload s
 
 ```bash
 python3 scripts/huawei-cloud.py huawei_create_cce_logconfig \
-  region=cn-north-4 \
+  region=<region> \
   cluster_id=<cluster-id> \
   logconfig_name=<policy-name> \
   source_type=container_stdout \
@@ -182,7 +182,7 @@ For **container file collection**:
 
 ```bash
 python3 scripts/huawei-cloud.py huawei_create_cce_logconfig \
-  region=cn-north-4 \
+  region=<region> \
   cluster_id=<cluster-id> \
   logconfig_name=<policy-name> \
   source_type=container_file \
@@ -200,7 +200,7 @@ For **node file collection** on every cluster node, use `source_type=host_file`.
 
 ```bash
 python3 scripts/huawei-cloud.py huawei_create_cce_logconfig \
-  region=cn-north-4 \
+  region=<region> \
   cluster_id=<cluster-id> \
   logconfig_name=<policy-name> \
   source_type=host_file \
@@ -218,7 +218,7 @@ python3 scripts/huawei-cloud.py huawei_create_cce_logconfig \
 ```bash
 # Step 1: Preview
 python3 scripts/huawei-cloud.py huawei_delete_cce_logconfig \
-  region=cn-north-4 \
+  region=<region> \
   cluster_id=<cluster-id> \
   logconfig_name=<policy-name> \
   logconfig_namespace=kube-system
@@ -237,7 +237,7 @@ Use `huawei_analyze_kube_apiserver_logs` to analyze the same stream. It reports 
 
 ```bash
 python3 scripts/huawei-cloud.py huawei_analyze_kube_apiserver_logs \
-  region=cn-north-4 \
+  region=<region> \
   cluster_id=<cluster-id> \
   hours=1 \
   slow_latency_ms=1000
@@ -251,7 +251,7 @@ Use `huawei_analyze_kube_scheduler_logs` to analyze the same stream. It counts s
 
 ```bash
 python3 scripts/huawei-cloud.py huawei_analyze_kube_scheduler_logs \
-  region=cn-north-4 \
+  region=<region> \
   cluster_id=<cluster-id> \
   hours=1
 ```
@@ -264,7 +264,7 @@ Use these tools for LTS iCagent collection rules managed directly through the LT
 
 ```bash
 python3 scripts/huawei-cloud.py huawei_list_lts_access_configs \
-  region=cn-north-4
+  region=<region>
 ```
 
 ### Create an Access Config (Preview -> Confirm)
@@ -283,7 +283,7 @@ For CCE stdout collection:
 ```bash
 # Step 1: Preview
 python3 scripts/huawei-cloud.py huawei_create_lts_access_config \
-  region=cn-north-4 \
+  region=<region> \
   access_config_name=<access-config-name> \
   access_config_type=K8S_CCE \
   cluster_id=<cluster-id> \
@@ -310,7 +310,7 @@ First use `huawei_list_lts_access_configs` to obtain the exact `access_config_id
 ```bash
 # Step 1: Preview
 python3 scripts/huawei-cloud.py huawei_delete_lts_access_config \
-  region=cn-north-4 \
+  region=<region> \
   access_config_id=<access-config-id>
 
 # Step 2: Execute only after user confirmation
@@ -340,7 +340,7 @@ Use `huawei_query_cce_audit_logs` for Kubernetes audit questions. It is pure key
 
 ```bash
 python3 scripts/huawei-cloud.py huawei_query_cce_audit_logs \
-  region=cn-north-4 \
+  region=<region> \
   cluster_id=<cluster-id> \
   audit_type=pod_delete \
   namespace=default \
@@ -353,7 +353,7 @@ python3 scripts/huawei-cloud.py huawei_query_cce_audit_logs \
 
 ```bash
 python3 scripts/huawei-cloud.py huawei_query_cce_audit_logs \
-  region=cn-north-4 \
+  region=<region> \
   cluster_id=<cluster-id> \
   audit_type=workload_change \
   namespace=default \
@@ -367,7 +367,7 @@ Use `huawei_analyze_cce_audit_timeline` to group retained audit events by resour
 
 ```bash
 python3 scripts/huawei-cloud.py huawei_analyze_cce_audit_timeline \
-  region=cn-north-4 \
+  region=<region> \
   cluster_id=<cluster-id> \
   namespace=default \
   resource_name=<resource-name> \

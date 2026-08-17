@@ -83,10 +83,16 @@ hcloud configure list
 
 export HUAWEI_AK=<your-ak>
 export HUAWEI_SK=<your-sk>
-export HUAWEI_REGION=cn-north-4
+export HUAWEI_REGION=<region>
 ```
 
-### 3. IAM Permission Requirements
+### 3. Region Selection
+
+- Use `region=<region>` from the current user request or established task context when it is available.
+- If no `region` parameter is supplied, use `HUAWEI_REGION`.
+- If neither source provides a region, return an error asking the user to provide `region` or set `HUAWEI_REGION`. Do not infer a target region from an hcloud profile or any other environment variable.
+
+### 4. IAM Permission Requirements
 
 | API Action               | Permission         | Purpose                                      |
 | ------------------------ | ------------------ | -------------------------------------------- |
@@ -127,22 +133,22 @@ scoped with `cluster="<cluster_id>"`.
 ```bash
 # Pod TopN — cluster-wide CPU/memory ranking
 python3 scripts/huawei-cloud.py huawei_get_cce_pod_metrics_topN \
-  region=cn-north-4 cluster_id=<cluster-id> \
+  region=<region> cluster_id=<cluster-id> \
   namespace=default top_n=10 hours=1
 
 # Pod TopN with label selector
 python3 scripts/huawei-cloud.py huawei_get_cce_pod_metrics_topN \
-  region=cn-north-4 cluster_id=<cluster-id> \
+  region=<region> cluster_id=<cluster-id> \
   namespace=default label_selector="app=nginx,version=v1" top_n=10 hours=1
 
 # Single Pod time-series
 python3 scripts/huawei-cloud.py huawei_get_cce_pod_metrics \
-  region=cn-north-4 cluster_id=<cluster-id> \
+  region=<region> cluster_id=<cluster-id> \
   pod_name=my-app-xxx namespace=default hours=1
 
 # Single Pod GPU and xGPU metrics
 python3 scripts/huawei-cloud.py huawei_get_cce_pod_gpu_metrics \
-  region=cn-north-4 cluster_id=<cluster-id> \
+  region=<region> cluster_id=<cluster-id> \
   pod_name=my-gpu-app-xxx namespace=default hours=1
 ```
 
@@ -151,17 +157,17 @@ python3 scripts/huawei-cloud.py huawei_get_cce_pod_gpu_metrics \
 ```bash
 # Node TopN — cluster-wide CPU/memory/disk ranking
 python3 scripts/huawei-cloud.py huawei_get_cce_node_metrics_topN \
-  region=cn-north-4 cluster_id=<cluster-id> \
+  region=<region> cluster_id=<cluster-id> \
   top_n=10 hours=1
 
 # Single Node time-series
 python3 scripts/huawei-cloud.py huawei_get_cce_node_metrics \
-  region=cn-north-4 cluster_id=<cluster-id> \
+  region=<region> cluster_id=<cluster-id> \
   node_ip=10.0.0.1 hours=1
 
 # Node GPU and xGPU metrics
 python3 scripts/huawei-cloud.py huawei_get_cce_node_gpu_metrics \
-  region=cn-north-4 cluster_id=<cluster-id> \
+  region=<region> cluster_id=<cluster-id> \
   node_ip=10.0.0.1 hours=1
 ```
 
@@ -170,7 +176,7 @@ python3 scripts/huawei-cloud.py huawei_get_cce_node_gpu_metrics \
 ```bash
 # CoreDNS key metrics: QPS, error rate excluding NXDOMAIN, NXDOMAIN rate, P95 latency, replicas, CPU, and memory
 python3 scripts/huawei-cloud.py huawei_get_cce_coredns_metrics \
-  region=cn-north-4 cluster_id=<cluster-id> \
+  region=<region> cluster_id=<cluster-id> \
   namespace=kube-system pod_regex=".*coredns.*" hours=1
 ```
 
@@ -179,7 +185,7 @@ python3 scripts/huawei-cloud.py huawei_get_cce_coredns_metrics \
 ```bash
 # nginx-ingress request processing and Ingress TLS certificate expiration
 python3 scripts/huawei-cloud.py huawei_get_cce_nginx_ingress_metrics \
-  region=cn-north-4 cluster_id=<cluster-id> \
+  region=<region> cluster_id=<cluster-id> \
   namespace=kube-system pod_regex=".*nginx.*ingress.*|.*ingress.*nginx.*" \
   ingress_namespace=default cert_expire_warning_days=30 hours=1
 ```
@@ -189,7 +195,7 @@ python3 scripts/huawei-cloud.py huawei_get_cce_nginx_ingress_metrics \
 ```bash
 # Cluster Autoscaler and HPA metrics
 python3 scripts/huawei-cloud.py huawei_get_cce_autoscaler_metrics \
-  region=cn-north-4 cluster_id=<cluster-id> \
+  region=<region> cluster_id=<cluster-id> \
   namespace=kube-system pod_regex=".*cluster.*autoscaler.*|.*autoscaler.*" \
   include_hpa=true hours=1
 ```
@@ -198,16 +204,16 @@ python3 scripts/huawei-cloud.py huawei_get_cce_autoscaler_metrics \
 
 ```bash
 python3 scripts/huawei-cloud.py huawei_get_cce_apiserver_metrics \
-  region=cn-north-4 cluster_id=<cluster-id> hours=1
+  region=<region> cluster_id=<cluster-id> hours=1
 
 python3 scripts/huawei-cloud.py huawei_get_cce_etcd_metrics \
-  region=cn-north-4 cluster_id=<cluster-id> hours=1
+  region=<region> cluster_id=<cluster-id> hours=1
 
 python3 scripts/huawei-cloud.py huawei_get_cce_controller_manager_metrics \
-  region=cn-north-4 cluster_id=<cluster-id> namespace=kube-system hours=1
+  region=<region> cluster_id=<cluster-id> namespace=kube-system hours=1
 
 python3 scripts/huawei-cloud.py huawei_get_cce_scheduler_metrics \
-  region=cn-north-4 cluster_id=<cluster-id> namespace=kube-system hours=1
+  region=<region> cluster_id=<cluster-id> namespace=kube-system hours=1
 ```
 
 ### 7. Cloud Resource Metrics
@@ -215,19 +221,19 @@ python3 scripts/huawei-cloud.py huawei_get_cce_scheduler_metrics \
 ```bash
 # ECS instance metrics
 python3 scripts/huawei-cloud.py huawei_get_ecs_metrics \
-  region=cn-north-4 instance_id=<instance-id>
+  region=<region> instance_id=<instance-id>
 
 # ELB metrics
 python3 scripts/huawei-cloud.py huawei_get_elb_metrics \
-  region=cn-north-4 elb_id=<loadbalancer-id> hours=1
+  region=<region> elb_id=<loadbalancer-id> hours=1
 
 # EIP metrics
 python3 scripts/huawei-cloud.py huawei_get_eip_metrics \
-  region=cn-north-4 eip_id=<eip-id> hours=1
+  region=<region> eip_id=<eip-id> hours=1
 
 # NAT Gateway metrics
 python3 scripts/huawei-cloud.py huawei_get_nat_gateway_metrics \
-  region=cn-north-4 nat_gateway_id=<nat-gateway-id> hours=1
+  region=<region> nat_gateway_id=<nat-gateway-id> hours=1
 ```
 
 ### 8. Cluster Monitoring Aggregation
@@ -235,7 +241,7 @@ python3 scripts/huawei-cloud.py huawei_get_nat_gateway_metrics \
 ```bash
 # Aggregate all monitoring data with anomaly detection
 python3 scripts/huawei-cloud.py huawei_cce_cluster_monitoring_aggregation \
-  region=cn-north-4 cluster_id=<cluster-id> \
+  region=<region> cluster_id=<cluster-id> \
   start_time="2026-05-30 00:00:00" end_time="2026-05-30 23:59:59" \
   namespace=default top_n=10
 ```
@@ -287,7 +293,7 @@ This skill is read-only. It does not create, update, delete, restart, scale, or 
 
 | Parameter    | Required/Optional | Description                                                  | Default               |
 | ------------ | ----------------- | ------------------------------------------------------------ | --------------------- |
-| `region`     | Required          | Huawei Cloud region                                          | `HUAWEI_REGION`       |
+| `region`     | Required          | Region from request context or explicit user input           | `HUAWEI_REGION`; otherwise prompt |
 | `cluster_id` | Required          | CCE cluster ID                                               | N/A                   |
 | `namespace`  | Recommended       | Kubernetes namespace                                         | `default`             |
 | `ak`         | Optional          | Explicit AK; highest priority for all calls                  | profile/env fallback  |
@@ -465,10 +471,10 @@ See [Output Schema](references/output-schema.md) for the complete JSON response 
 
 ## Verification
 
-1. Run `python3 scripts/huawei-cloud.py huawei_get_cce_pod_metrics_topN region=cn-north-4 cluster_id=<cluster-id> namespace=default top_n=5` to verify Pod
+1. Run `python3 scripts/huawei-cloud.py huawei_get_cce_pod_metrics_topN region=<region> cluster_id=<cluster-id> namespace=default top_n=5` to verify Pod
    metric queries
-2. Run `python3 scripts/huawei-cloud.py huawei_get_cce_node_metrics_topN region=cn-north-4 cluster_id=<cluster-id> top_n=5` to verify Node metric queries
-3. Run `python3 scripts/huawei-cloud.py huawei_get_ecs_metrics region=cn-north-4 instance_id=<instance-id>` to verify CES metric connectivity
+2. Run `python3 scripts/huawei-cloud.py huawei_get_cce_node_metrics_topN region=<region> cluster_id=<cluster-id> top_n=5` to verify Node metric queries
+3. Run `python3 scripts/huawei-cloud.py huawei_get_ecs_metrics region=<region> instance_id=<instance-id>` to verify CES metric connectivity
 
 ## Best Practices
 

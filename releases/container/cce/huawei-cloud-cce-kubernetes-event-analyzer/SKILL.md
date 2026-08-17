@@ -76,12 +76,18 @@ fallback.
 ```bash
 export HUAWEI_AK=<your-ak>
 export HUAWEI_SK=<your-sk>
-export HUAWEI_REGION=cn-north-4
+export HUAWEI_REGION=<region>
 export HUAWEI_PROJECT_ID=<project-id>
 export HUAWEI_SECURITY_TOKEN=<security-token>
 ```
 
-### 3. IAM Permission Requirements
+### 3. Region Selection
+
+- Use `region=<region>` from the current user request or established task context when it is available.
+- If no `region` parameter is supplied, use `HUAWEI_REGION`.
+- If neither source provides a region, return an error asking the user to provide `region` or set `HUAWEI_REGION`. Do not infer a target region from an hcloud profile or any other environment variable.
+
+### 4. IAM Permission Requirements
 
 | Permission               | Purpose                                                     |
 | ------------------------ | ----------------------------------------------------------- |
@@ -112,7 +118,7 @@ and generate a temporary external kubeconfig when appropriate.
 
 ```bash
 python3 scripts/huawei-cloud.py huawei_get_cce_events \
-  region=cn-north-4 cluster_id=<cluster-id>
+  region=<region> cluster_id=<cluster-id>
 ```
 
 Follow these rules:
@@ -127,19 +133,19 @@ Follow these rules:
 ```bash
 # Query Warning Events (default)
 python3 scripts/huawei-cloud.py huawei_get_cce_events \
-  region=cn-north-4 cluster_id=<cluster-id>
+  region=<region> cluster_id=<cluster-id>
 
 # Query Events in a namespace
 python3 scripts/huawei-cloud.py huawei_get_cce_events \
-  region=cn-north-4 cluster_id=<cluster-id> namespace=default
+  region=<region> cluster_id=<cluster-id> namespace=default
 
 # Limit returned Event records
 python3 scripts/huawei-cloud.py huawei_get_cce_events \
-  region=cn-north-4 cluster_id=<cluster-id> limit=100
+  region=<region> cluster_id=<cluster-id> limit=100
 
 # Query all Event types only when explicitly needed
 python3 scripts/huawei-cloud.py huawei_get_cce_events \
-  region=cn-north-4 cluster_id=<cluster-id> event_type=all limit=100
+  region=<region> cluster_id=<cluster-id> event_type=all limit=100
 ```
 
 The tool returns only Warning Events by default, using the Kubernetes API server-side field selector. It first uses the external endpoint with a temporary
@@ -151,13 +157,13 @@ requests it with `event_type=all`.
 ```bash
 # Query an explicit historical window
 python3 scripts/huawei-cloud.py huawei_query_k8s_events_from_lts \
-  region=cn-north-4 cluster_id=<cluster-id> \
+  region=<region> cluster_id=<cluster-id> \
   start_time="2026-05-30 06:00:00" \
   end_time="2026-05-30 08:00:00"
 
 # Query with an LTS keyword filter
 python3 scripts/huawei-cloud.py huawei_query_k8s_events_from_lts \
-  region=cn-north-4 cluster_id=<cluster-id> \
+  region=<region> cluster_id=<cluster-id> \
   start_time="2026-05-30 00:00:00" \
   end_time="2026-05-30 23:59:59" \
   keywords=FailedScheduling
@@ -179,11 +185,11 @@ complete response object containing it) retains offline analysis behavior.
 ```bash
 # Query and analyze current Events
 python3 scripts/huawei-cloud.py huawei_analyze_cce_events \
-  region=cn-north-4 cluster_id=<cluster-id>
+  region=<region> cluster_id=<cluster-id>
 
 # Query and analyze historical LTS Events
 python3 scripts/huawei-cloud.py huawei_analyze_cce_events \
-  region=cn-north-4 cluster_id=<cluster-id> event_source=lts \
+  region=<region> cluster_id=<cluster-id> event_source=lts \
   start_time="2026-05-30 06:00:00" end_time="2026-05-30 08:00:00"
 
 # Analyze supplied Events without a cloud query
@@ -212,7 +218,7 @@ This skill is read-only. It never changes cloud resources, Kubernetes resources,
 
 | Parameter                               | Required/Optional                              | Description                                   | Default                                                                |
 | --------------------------------------- | ---------------------------------------------- | --------------------------------------------- | ---------------------------------------------------------------------- |
-| `region`                                | Required                                       | Huawei Cloud region                           | `HUAWEI_REGION`                                                        |
+| `region`                                | Required                                       | Region from request context or explicit user input | `HUAWEI_REGION`; otherwise prompt                               |
 | `cluster_id`                            | Required                                       | Exact CCE cluster ID                          | N/A                                                                    |
 | `ak`                                    | Optional                                       | Explicit AK for access paths that support it  | profile/environment fallback                                           |
 | `sk`                                    | Optional                                       | Explicit SK for access paths that support it  | profile/environment fallback                                           |
@@ -259,14 +265,14 @@ Run a current Event query first:
 
 ```bash
 python3 scripts/huawei-cloud.py huawei_get_cce_events \
-  region=cn-north-4 cluster_id=<cluster-id> limit=10
+  region=<region> cluster_id=<cluster-id> limit=10
 ```
 
 When default Event-to-LTS collection is enabled, verify a bounded historical query:
 
 ```bash
 python3 scripts/huawei-cloud.py huawei_query_k8s_events_from_lts \
-  region=cn-north-4 cluster_id=<cluster-id> \
+  region=<region> cluster_id=<cluster-id> \
   start_time="2026-05-30 06:00:00" \
   end_time="2026-05-30 07:00:00"
 ```

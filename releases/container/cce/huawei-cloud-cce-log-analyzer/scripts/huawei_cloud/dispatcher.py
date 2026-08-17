@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from typing import Any, Callable, Dict
 
 from . import cce, cce_app_logs, lts
@@ -9,8 +10,18 @@ from . import cce, cce_app_logs, lts
 Handler = Callable[[Dict[str, str]], Dict[str, Any]]
 
 
+def _resolve_region(params: Dict[str, str]) -> Dict[str, str]:
+    """Prefer an explicit region and otherwise use the configured region."""
+    resolved = dict(params)
+    if not resolved.get("region") and os.environ.get("HUAWEI_REGION"):
+        resolved["region"] = os.environ["HUAWEI_REGION"]
+    return resolved
+
+
 def _require(params: Dict[str, str], *keys: str) -> str | None:
     missing = [key for key in keys if not params.get(key)]
+    if missing == ["region"]:
+        return "region is required; provide region or set HUAWEI_REGION"
     return None if not missing else (f"{', '.join(missing)} are required" if len(missing) > 1 else f"{missing[0]} is required")
 
 
@@ -84,6 +95,7 @@ def dispatch_action(action: str, params: Dict[str, str]) -> Dict[str, Any]:
     params, credential_error = _normalize_cli_credentials(params)
     if credential_error:
         return {"success": False, "error": credential_error}
+    params = _resolve_region(params)
     required, handler = ACTION_SPECS[action]
     error = _require(params, *required)
     return {"success": False, "error": error} if error else handler(params)
