@@ -66,7 +66,7 @@ scaling workloads, or restarting components must be handed off as recommendation
 
 | Input             | Required    | Notes                                                                                                                     |
 | ----------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `region`          | Yes         | Example: `cn-north-4`                                                                                                     |
+| `region`          | Yes         | Request context or `HUAWEI_REGION`; otherwise ask the user                                                                                                     |
 | `project_id`      | Usually     | Required by most hcloud operations                                                                                        |
 | `cluster_id`      | Preferred   | Resolve by name with `ListClusters` if absent                                                                             |
 | `namespace`       | Usually     | Required for namespaced K8s objects                                                                                       |
@@ -80,6 +80,10 @@ scaling workloads, or restarting components must be handed off as recommendation
 
 If the target is vague, start with a namespace scan and ask for the specific service, ingress, source, destination, or domain before drawing a strong
 conclusion.
+
+## Region Selection
+
+Use the region supplied by the current request or established task context. If it is absent, use `HUAWEI_REGION`. If neither source provides a region, stop and ask the user to provide `region` or set `HUAWEI_REGION`; never infer it from an hcloud profile.
 
 ## Explicit Credential Propagation
 

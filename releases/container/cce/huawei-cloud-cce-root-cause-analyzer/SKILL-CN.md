@@ -57,7 +57,7 @@ tags: [huawei-cloud, cce, root-cause, kubectl, diagnosis]
 
 | 输入                   | 必填     | 说明                                            |
 | ---------------------- | -------- | ----------------------------------------------- |
-| `region`               | 是       | 例如 `cn-north-4`                               |
+| `region`               | 是       | 请求上下文或 `HUAWEI_REGION`，否则要求用户输入                               |
 | `project_id`           | 通常需要 | kubectl-cce 和多数 hcloud 操作需要              |
 | `cluster_id`           | 推荐     | 没有时先用 `hcloud CCE ListClusters` 按名称定位 |
 | `namespace`            | 可选     | 应用命名空间                                    |
@@ -69,6 +69,10 @@ tags: [huawei-cloud, cce, root-cause, kubectl, diagnosis]
 | `--cli-security-token` | 可选     | STS token，只能与显式 AK/SK 一起使用            |
 
 目标不明确时，先做只读广域快照，并在报告里说明还需要确认哪些对象，不能直接给高置信度结论。
+
+## 区域选择
+
+优先使用当前请求或已建立任务上下文中的 `region`；未提供时读取 `HUAWEI_REGION`；两者都没有时停止执行并要求用户提供 `region` 或设置 `HUAWEI_REGION`，不得从 hcloud profile 推断区域。
 
 ## 显式凭证透传
 

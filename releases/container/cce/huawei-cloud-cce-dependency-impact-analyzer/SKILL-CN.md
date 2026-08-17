@@ -46,7 +46,7 @@ hcloud CCE 查询集群 -> kubectl cce 拓扑快照 -> 目标匹配 -> 传播路
 
 | 输入              | 必填 | 说明                                                |
 | ----------------- | ---- | --------------------------------------------------- |
-| `region`          | 是   | 例如 `cn-north-4`                                   |
+| `region`          | 是   | 请求上下文或 `HUAWEI_REGION`，否则要求用户输入                                   |
 | `project_id`      | 是   | 显式传给 hcloud 和 kubectl-cce                      |
 | `cluster_id`      | 推荐 | 没有时先用 hcloud 按名称定位                        |
 | `namespace`       | 推荐 | 目标命名空间；仅在必要时使用全集群范围              |
@@ -54,6 +54,10 @@ hcloud CCE 查询集群 -> kubectl cce 拓扑快照 -> 目标匹配 -> 传播路
 | `label_selector`  | 可选 | 显式 selector 优先于名称前缀匹配                    |
 | `failure_symptom` | 可选 | 用户可见故障或疑似受影响路径                        |
 | `fault_time`      | 推荐 | 用于关联拓扑和可观测证据                            |
+
+## 区域选择
+
+优先使用当前请求或已建立任务上下文中的 `region`；未提供时读取 `HUAWEI_REGION`；两者都没有时停止执行并要求用户提供 `region` 或设置 `HUAWEI_REGION`，不得从 hcloud profile 推断区域。
 
 ## 核心命令
 

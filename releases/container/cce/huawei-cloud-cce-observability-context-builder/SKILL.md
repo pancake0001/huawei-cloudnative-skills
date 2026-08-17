@@ -42,7 +42,7 @@ Do not use legacy Python dispatchers, old skill execution actions, Huawei Cloud 
 
 | Input                                           | Required    | Notes                                                   |
 | ----------------------------------------------- | ----------- | ------------------------------------------------------- |
-| `region`                                        | Yes         | Example: `cn-north-4`                                   |
+| `region`                                        | Yes         | Request context or `HUAWEI_REGION`; otherwise ask the user                                   |
 | `project_id`                                    | Recommended | Required for reliable AK/SK and `kubectl cce` execution |
 | `cluster_id`                                    | Preferred   | Resolve by exact cluster name when absent               |
 | `namespace`                                     | Optional    | Narrow app-level collection                             |
@@ -51,6 +51,10 @@ Do not use legacy Python dispatchers, old skill execution actions, Huawei Cloud 
 | `symptoms`                                      | Recommended | User-visible symptom, alert text, or affected business  |
 
 If the target is ambiguous, collect cluster/namespace-level context first and record ambiguity as a data gap.
+
+## Region Selection
+
+Use the region supplied by the current request or established task context. If it is absent, use `HUAWEI_REGION`. If neither source provides a region, stop and ask the user to provide `region` or set `HUAWEI_REGION`; never infer it from an hcloud profile.
 
 ## Explicit Credential Propagation
 

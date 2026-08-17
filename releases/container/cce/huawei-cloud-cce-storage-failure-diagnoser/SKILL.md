@@ -50,7 +50,7 @@ running Kubernetes commands.
 
 | Input             | Required    | Notes                                                                                                              |
 | ----------------- | ----------- | ------------------------------------------------------------------------------------------------------------------ |
-| `region`          | Yes         | Example: `cn-north-4`                                                                                              |
+| `region`          | Yes         | Request context or `HUAWEI_REGION`; otherwise ask the user                                                                                              |
 | `project_id`      | Usually     | Required by kubectl-cce and hcloud cloud-resource commands                                                         |
 | `cluster_id`      | Preferred   | Resolve by name with hcloud if absent                                                                              |
 | `namespace`       | Recommended | Needed for PVC/Pod scope                                                                                           |
@@ -58,6 +58,10 @@ running Kubernetes commands.
 | `pod_name`        | Optional    | Specific Pod with mount or I/O symptom                                                                             |
 | `failure_symptom` | Recommended | `pvc_pending`, `failed_mount`, `failed_attach`, `capacity`, `readonly_fs`, `nfs_timeout`, `obs_403`, `terminating` |
 | `volume_id`       | Optional    | EVS/SFS/SFS Turbo/OBS identifier when known                                                                        |
+
+## Region Selection
+
+Use the region supplied by the current request or established task context. If it is absent, use `HUAWEI_REGION`. If neither source provides a region, stop and ask the user to provide `region` or set `HUAWEI_REGION`; never infer it from an hcloud profile.
 
 ## Explicit Credential Propagation
 

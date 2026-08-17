@@ -54,7 +54,7 @@ imports.
 
 | Input                               | Required    | Notes                                                                              |
 | ----------------------------------- | ----------- | ---------------------------------------------------------------------------------- |
-| `region`                            | Yes         | Example: `cn-north-4`                                                              |
+| `region`                            | Yes         | Request context or `HUAWEI_REGION`; otherwise ask the user                                                              |
 | `project_id`                        | Yes         | Pass explicitly to hcloud and kubectl-cce                                          |
 | `cluster_id`                        | Preferred   | Resolve by name with hcloud if absent                                              |
 | `namespace`                         | Optional    | Prefer scoped collection; retain cluster-wide view for core-system/network changes |
@@ -63,6 +63,10 @@ imports.
 | `hours` / `start_time` / `end_time` | Recommended | Use the narrowest useful incident window                                           |
 | `known_changes`                     | Optional    | User-provided deployment, configuration, policy, or infrastructure records         |
 | `log_group_id` / `log_stream_id`    | Optional    | Use only when approved log discovery cannot resolve the source                     |
+
+## Region Selection
+
+Use the region supplied by the current request or established task context. If it is absent, use `HUAWEI_REGION`. If neither source provides a region, stop and ask the user to provide `region` or set `HUAWEI_REGION`; never infer it from an hcloud profile.
 
 ## Explicit Credential Propagation
 
