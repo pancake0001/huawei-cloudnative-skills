@@ -53,7 +53,7 @@ must be handed off to a remediation skill after confirmation.
 
 | Input          | Required  | Notes                                                                 |
 | -------------- | --------- | --------------------------------------------------------------------- |
-| `region`       | Yes       | Request context or `HUAWEI_REGION`; otherwise ask the user                                                 |
+| `region`       | Yes       | Request context or `HW_REGION_NAME`; otherwise ask the user                                                 |
 | `project_id`   | Usually   | Required by most hcloud CCE operations                                |
 | `cluster_id`   | Preferred | If absent, resolve by cluster name with `ListClusters`                |
 | `cluster_name` | Optional  | Use only to locate `cluster_id`                                       |
@@ -65,7 +65,7 @@ At least one of `node_name` or `node_ip` should be provided. If both are missing
 
 ## Region Selection
 
-Use the region supplied by the current request or established task context. If it is absent, use `HUAWEI_REGION`. If neither source provides a region, stop and ask the user to provide `region` or set `HUAWEI_REGION`; never infer it from an hcloud profile.
+Use the region supplied by the current request or established task context. If it is absent, use `HW_REGION_NAME`. If neither source provides a region, stop and ask the user to provide `region` or set `HW_REGION_NAME`; never infer it from an hcloud profile.
 
 ## Explicit Credential Propagation
 

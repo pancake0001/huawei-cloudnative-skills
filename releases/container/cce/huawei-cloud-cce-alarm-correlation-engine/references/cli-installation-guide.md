@@ -45,11 +45,11 @@ Credential priority used by this skill:
 Optional environment fallback:
 
 ```bash
-export HUAWEI_AK=<ak>
-export HUAWEI_SK=<sk>
-export HUAWEI_REGION=<region>
-export HUAWEI_PROJECT_ID=<project-id>
-export HUAWEI_SECURITY_TOKEN=<security-token>
+export HW_ACCESS_KEY=<ak>
+export HW_SECRET_KEY=<sk>
+export HW_REGION_NAME=<region>
+export HW_PROJECT_ID=<project-id>
+export HW_SECURITY_TOKEN=<security-token>
 ```
 
 Never print AK/SK or security token values in terminal output, logs, commits, or chat responses.

@@ -145,8 +145,8 @@ def _get_events_with_cce_plugin(
     env = os.environ.copy()
     if explicit_credentials:
         for name in (
-            "HW_ACCESS_KEY", "HUAWEI_AK", "HUAWEICLOUD_SDK_AK", "HW_SECRET_KEY", "HUAWEI_SK", "HUAWEICLOUD_SDK_SK",
-            "HUAWEI_SECURITY_TOKEN", "HUAWEICLOUD_SDK_SECURITY_TOKEN", "HW_SECURITY_TOKEN", "HCLOUD_CONFIG_DIR",
+            "HW_ACCESS_KEY", "HUAWEICLOUD_SDK_AK", "HW_SECRET_KEY", "HUAWEICLOUD_SDK_SK",
+            "HUAWEICLOUD_SDK_SECURITY_TOKEN", "HW_SECURITY_TOKEN", "HCLOUD_CONFIG_DIR",
         ):
             env.pop(name, None)
     env.update({"CCE_CLUSTER_ID": cluster_id, "CCE_REGION": region, "HW_REGION": region})
@@ -206,7 +206,7 @@ def get_cce_events_with_kubectl(
     if external_result.get("success"):
         result = external_result
     else:
-        token = security_token or os.environ.get("HUAWEI_SECURITY_TOKEN") or os.environ.get("HW_SECURITY_TOKEN")
+        token = security_token or os.environ.get("HW_SECURITY_TOKEN")
         plugin_result = _get_events_with_cce_plugin(region, cluster_id, args, ak, sk, project_id, token)
         if not plugin_result.get("success"):
             return {
@@ -257,7 +257,7 @@ def get_cce_resource_with_kubectl(
     if external_result.get("success"):
         result = external_result
     else:
-        token = security_token or os.environ.get("HUAWEI_SECURITY_TOKEN") or os.environ.get("HW_SECURITY_TOKEN")
+        token = security_token or os.environ.get("HW_SECURITY_TOKEN")
         plugin_result = _get_events_with_cce_plugin(region, cluster_id, args, ak, sk, project_id, token)
         if not plugin_result.get("success"):
             return {
@@ -286,7 +286,7 @@ def get_cce_logconfigs_with_cce_plugin(
     if not cluster_id:
         return {"success": False, "error": "cluster_id is required"}
 
-    token = security_token or os.environ.get("HUAWEI_SECURITY_TOKEN") or os.environ.get("HW_SECURITY_TOKEN")
+    token = security_token or os.environ.get("HW_SECURITY_TOKEN")
     result = _get_events_with_cce_plugin(
         region,
         cluster_id,

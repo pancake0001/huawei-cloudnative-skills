@@ -14,9 +14,9 @@ def get_credentials(
 ) -> tuple[Optional[str], Optional[str], Optional[str]]:
     """Resolve explicit credentials before environment-variable fallback."""
     return (
-        ak or os.environ.get("HUAWEI_AK") or os.environ.get("HUAWEICLOUD_SDK_AK") or os.environ.get("HW_ACCESS_KEY"),
-        sk or os.environ.get("HUAWEI_SK") or os.environ.get("HUAWEICLOUD_SDK_SK") or os.environ.get("HW_SECRET_KEY"),
-        project_id or os.environ.get("HUAWEI_PROJECT_ID") or os.environ.get("HUAWEICLOUD_SDK_PROJECT_ID") or os.environ.get("HW_PROJECT_ID"),
+        ak or os.environ.get("HW_ACCESS_KEY") or os.environ.get("HUAWEICLOUD_SDK_AK"),
+        sk or os.environ.get("HW_SECRET_KEY") or os.environ.get("HUAWEICLOUD_SDK_SK"),
+        project_id or os.environ.get("HW_PROJECT_ID") or os.environ.get("HUAWEICLOUD_SDK_PROJECT_ID"),
     )
 
 
@@ -46,7 +46,7 @@ def resolve_hcloud_credentials(
     if has_hcloud_profile():
         return None, None, None, None
     access_key, secret_key, resolved_project_id = get_credentials()
-    return access_key, secret_key, resolved_project_id, os.environ.get("HUAWEI_SECURITY_TOKEN") or os.environ.get("HW_SECURITY_TOKEN")
+    return access_key, secret_key, resolved_project_id, os.environ.get("HW_SECURITY_TOKEN")
 
 
 def redact_command(command: list[str]) -> list[str]:

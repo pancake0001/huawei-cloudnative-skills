@@ -44,7 +44,7 @@ tags: [huawei-cloud, cce, kubectl, pod, diagnosis]
 
 | 输入            | 必填     | 说明                                        |
 | --------------- | -------- | ------------------------------------------- |
-| `region`        | 是       | 请求上下文或 `HUAWEI_REGION`，否则要求用户输入                           |
+| `region`        | 是       | 请求上下文或 `HW_REGION_NAME`，否则要求用户输入                           |
 | `project_id`    | 通常需要 | hcloud 操作需要项目 ID 或存在多项目时应提供 |
 | `cluster_id`    | 推荐     | 没有时先用 `ListClusters` 查找              |
 | `namespace`     | 是       | Kubernetes namespace                        |
@@ -54,7 +54,7 @@ tags: [huawei-cloud, cce, kubectl, pod, diagnosis]
 
 ## 区域选择
 
-优先使用当前请求或已建立任务上下文中的 `region`；未提供时读取 `HUAWEI_REGION`；两者都没有时停止执行并要求用户提供 `region` 或设置 `HUAWEI_REGION`，不得从 hcloud profile 推断区域。
+优先使用当前请求或已建立任务上下文中的 `region`；未提供时读取 `HW_REGION_NAME`；两者都没有时停止执行并要求用户提供 `region` 或设置 `HW_REGION_NAME`，不得从 hcloud profile 推断区域。
 
 ## 前置条件
 

@@ -83,8 +83,7 @@ def _plugin_kubectl(region: str, cluster_id: str, arguments: List[str], ak: Opti
     if explicit_cli_credentials:
         for name in (
             "HW_ACCESS_KEY", "HUAWEICLOUD_SDK_AK", "HW_SECRET_KEY", "HUAWEICLOUD_SDK_SK",
-            "CCE_PROJECT_ID", "HW_PROJECT_ID", "HUAWEI_SECURITY_TOKEN", "HW_SECURITY_TOKEN",
-            "HUAWEICLOUD_SECURITY_TOKEN", "HUAWEI_IAM_TOKEN", "HCLOUD_CONFIG_DIR",
+            "CCE_PROJECT_ID", "HW_PROJECT_ID", "HW_SECURITY_TOKEN", "HUAWEICLOUD_SECURITY_TOKEN", "HCLOUD_CONFIG_DIR",
         ):
             environment.pop(name, None)
     environment.update({"CCE_CLUSTER_ID": cluster_id, "CCE_REGION": region, "HW_REGION": region})
@@ -93,7 +92,7 @@ def _plugin_kubectl(region: str, cluster_id: str, arguments: List[str], ak: Opti
         for value, names in credentials:
             if value:
                 environment.update(dict.fromkeys(names, value))
-    token = security_token if explicit_cli_credentials else security_token or os.environ.get("HUAWEI_SECURITY_TOKEN") or os.environ.get("HW_SECURITY_TOKEN")
+    token = security_token if explicit_cli_credentials else security_token or os.environ.get("HW_SECURITY_TOKEN")
     if token and not explicit_cli_credentials:
         environment.update({"HW_SECURITY_TOKEN": token, "HUAWEICLOUD_SECURITY_TOKEN": token})
     command = ["kubectl", "cce", "--cluster-id", cluster_id, "--region", region]

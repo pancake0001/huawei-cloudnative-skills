@@ -68,25 +68,25 @@ fallback.
 **Security Rules**:
 
 - Never print, persist, or hardcode AK/SK, security tokens, kubeconfig content, or temporary client credentials.
-- Never use `echo $HUAWEI_AK` or `echo $HUAWEI_SK` to inspect credentials.
+- Never use `echo $HW_ACCESS_KEY` or `echo $HW_SECRET_KEY` to inspect credentials.
 - Prefer a local hcloud profile for external kubeconfig access.
 - Use least-privilege IAM identities and read-only Kubernetes RBAC permissions.
 
 **Optional Environment Fallback**:
 
 ```bash
-export HUAWEI_AK=<your-ak>
-export HUAWEI_SK=<your-sk>
-export HUAWEI_REGION=<region>
-export HUAWEI_PROJECT_ID=<project-id>
-export HUAWEI_SECURITY_TOKEN=<security-token>
+export HW_ACCESS_KEY=<your-ak>
+export HW_SECRET_KEY=<your-sk>
+export HW_REGION_NAME=<region>
+export HW_PROJECT_ID=<project-id>
+export HW_SECURITY_TOKEN=<security-token>
 ```
 
 ### 3. Region Selection
 
 - Use `region=<region>` from the current user request or established task context when it is available.
-- If no `region` parameter is supplied, use `HUAWEI_REGION`.
-- If neither source provides a region, return an error asking the user to provide `region` or set `HUAWEI_REGION`. Do not infer a target region from an hcloud profile or any other environment variable.
+- If no `region` parameter is supplied, use `HW_REGION_NAME`.
+- If neither source provides a region, return an error asking the user to provide `region` or set `HW_REGION_NAME`. Do not infer a target region from an hcloud profile or any other environment variable.
 
 ### 4. IAM Permission Requirements
 
@@ -219,7 +219,7 @@ This skill is read-only. It never changes cloud resources, Kubernetes resources,
 
 | Parameter                               | Required/Optional                              | Description                                   | Default                                                                |
 | --------------------------------------- | ---------------------------------------------- | --------------------------------------------- | ---------------------------------------------------------------------- |
-| `region`                                | Required                                       | Region from request context or explicit user input | `HUAWEI_REGION`; otherwise prompt                               |
+| `region`                                | Required                                       | Region from request context or explicit user input | `HW_REGION_NAME`; otherwise prompt                               |
 | `cluster_id`                            | Required                                       | Exact CCE cluster ID                          | N/A                                                                    |
 | `ak`                                    | Optional                                       | Explicit AK for access paths that support it  | profile/environment fallback                                           |
 | `sk`                                    | Optional                                       | Explicit SK for access paths that support it  | profile/environment fallback                                           |

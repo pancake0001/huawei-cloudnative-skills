@@ -70,7 +70,7 @@ threshold-based anomaly detection.
   Do not combine them with conflicting `ak`, `sk`, or `security_token` values.
 - **Security Rules**:
   - 🚫 Never expose AK/SK values in code, conversation, or commands
-  - 🚫 Never use `echo $HUAWEI_AK` or `echo $HUAWEI_SK` to check credentials
+  - 🚫 Never use `echo $HW_ACCESS_KEY` or `echo $HW_SECRET_KEY` to check credentials
   - ✅ Credential priority for hcloud calls is: explicit tool parameters > local hcloud profile > environment variables
   - ✅ AOM Prometheus signed HTTP and Kubernetes certificate setup use explicit tool parameters first; when explicit AK/SK is supplied, no authentication
     environment variable is used as a signing fallback
@@ -82,16 +82,16 @@ threshold-based anomaly detection.
 ```bash
 hcloud configure list
 
-export HUAWEI_AK=<your-ak>
-export HUAWEI_SK=<your-sk>
-export HUAWEI_REGION=<region>
+export HW_ACCESS_KEY=<your-ak>
+export HW_SECRET_KEY=<your-sk>
+export HW_REGION_NAME=<region>
 ```
 
 ### 3. Region Selection
 
 - Use `region=<region>` from the current user request or established task context when it is available.
-- If no `region` parameter is supplied, use `HUAWEI_REGION`.
-- If neither source provides a region, return an error asking the user to provide `region` or set `HUAWEI_REGION`. Do not infer a target region from an hcloud profile or any other environment variable.
+- If no `region` parameter is supplied, use `HW_REGION_NAME`.
+- If neither source provides a region, return an error asking the user to provide `region` or set `HW_REGION_NAME`. Do not infer a target region from an hcloud profile or any other environment variable.
 
 ### 4. IAM Permission Requirements
 
@@ -294,7 +294,7 @@ This skill is read-only. It does not create, update, delete, restart, scale, or 
 
 | Parameter    | Required/Optional | Description                                                  | Default               |
 | ------------ | ----------------- | ------------------------------------------------------------ | --------------------- |
-| `region`     | Required          | Region from request context or explicit user input           | `HUAWEI_REGION`; otherwise prompt |
+| `region`     | Required          | Region from request context or explicit user input           | `HW_REGION_NAME`; otherwise prompt |
 | `cluster_id` | Required          | CCE cluster ID                                               | N/A                   |
 | `namespace`  | Recommended       | Kubernetes namespace                                         | `default`             |
 | `ak`         | Optional          | Explicit AK; highest priority for all calls                  | profile/env fallback  |

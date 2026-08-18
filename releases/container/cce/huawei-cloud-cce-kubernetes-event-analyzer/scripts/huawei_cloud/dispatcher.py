@@ -13,8 +13,8 @@ Handler = Callable[[Dict[str, str]], Dict[str, Any]]
 def _resolve_region(params: Dict[str, str]) -> Dict[str, str]:
     """Prefer an explicit region and otherwise use the configured region."""
     resolved = dict(params)
-    if not resolved.get("region") and os.environ.get("HUAWEI_REGION"):
-        resolved["region"] = os.environ["HUAWEI_REGION"]
+    if not resolved.get("region") and os.environ.get("HW_REGION_NAME"):
+        resolved["region"] = os.environ["HW_REGION_NAME"]
     return resolved
 
 
@@ -23,7 +23,7 @@ def _require(params: Dict[str, str], *keys: str) -> str | None:
     if not missing:
         return None
     if missing == ["region"]:
-        return "region is required; provide region or set HUAWEI_REGION"
+        return "region is required; provide region or set HW_REGION_NAME"
     return f"{', '.join(missing)} are required" if len(missing) > 1 else f"{missing[0]} is required"
 
 

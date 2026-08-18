@@ -51,7 +51,7 @@ def get_security_token(security_token: Optional[str] = None) -> Optional[str]:
     token = security_token or _ACTIVE_SECURITY_TOKEN.get()
     if token or _EXPLICIT_CREDENTIALS.get():
         return token
-    return os.environ.get("HUAWEI_SECURITY_TOKEN") or os.environ.get("HUAWEICLOUD_SDK_SECURITY_TOKEN") or os.environ.get("HW_SECURITY_TOKEN")
+    return os.environ.get("HW_SECURITY_TOKEN") or os.environ.get("HUAWEICLOUD_SDK_SECURITY_TOKEN")
 
 
 def has_explicit_credentials() -> bool:
@@ -64,9 +64,9 @@ def get_credentials(
 ) -> tuple[Optional[str], Optional[str], Optional[str]]:
     """Resolve explicit credentials before environment-variable fallback."""
     return (
-        ak or os.environ.get("HUAWEI_AK") or os.environ.get("HUAWEICLOUD_SDK_AK") or os.environ.get("HW_ACCESS_KEY"),
-        sk or os.environ.get("HUAWEI_SK") or os.environ.get("HUAWEICLOUD_SDK_SK") or os.environ.get("HW_SECRET_KEY"),
-        project_id or os.environ.get("HUAWEI_PROJECT_ID") or os.environ.get("HUAWEICLOUD_SDK_PROJECT_ID") or os.environ.get("HW_PROJECT_ID"),
+        ak or os.environ.get("HW_ACCESS_KEY") or os.environ.get("HUAWEICLOUD_SDK_AK"),
+        sk or os.environ.get("HW_SECRET_KEY") or os.environ.get("HUAWEICLOUD_SDK_SK"),
+        project_id or os.environ.get("HW_PROJECT_ID") or os.environ.get("HUAWEICLOUD_SDK_PROJECT_ID"),
     )
 
 

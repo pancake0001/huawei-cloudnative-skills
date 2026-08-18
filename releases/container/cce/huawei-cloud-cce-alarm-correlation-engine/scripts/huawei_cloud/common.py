@@ -54,7 +54,7 @@ def get_security_token(security_token: Optional[str] = None) -> Optional[str]:
     token = security_token or _ACTIVE_SECURITY_TOKEN.get()
     if token or _EXPLICIT_CREDENTIALS.get():
         return token
-    return os.environ.get("HUAWEI_SECURITY_TOKEN") or os.environ.get("HUAWEICLOUD_SDK_SECURITY_TOKEN") or os.environ.get("HW_SECURITY_TOKEN")
+    return os.environ.get("HW_SECURITY_TOKEN") or os.environ.get("HUAWEICLOUD_SDK_SECURITY_TOKEN")
 
 
 def has_explicit_credentials() -> bool:
@@ -88,9 +88,9 @@ def get_credentials(ak: Optional[str] = None, sk: Optional[str] = None, project_
     if _has_hcloud_profile():
         return None, None, None
     return (
-        os.environ.get("HUAWEI_AK") or os.environ.get("HUAWEICLOUD_SDK_AK") or os.environ.get("HW_ACCESS_KEY"),
-        os.environ.get("HUAWEI_SK") or os.environ.get("HUAWEICLOUD_SDK_SK") or os.environ.get("HW_SECRET_KEY"),
-        os.environ.get("HUAWEI_PROJECT_ID") or os.environ.get("HUAWEICLOUD_SDK_PROJECT_ID"),
+        os.environ.get("HW_ACCESS_KEY") or os.environ.get("HUAWEICLOUD_SDK_AK"),
+        os.environ.get("HW_SECRET_KEY") or os.environ.get("HUAWEICLOUD_SDK_SK"),
+        os.environ.get("HW_PROJECT_ID") or os.environ.get("HUAWEICLOUD_SDK_PROJECT_ID"),
     )
 
 
@@ -323,7 +323,7 @@ def resolve_project_id_for_region(
     resolved = get_project_id_for_region(region, ak, sk)
     if resolved:
         return resolved
-    return os.environ.get("HUAWEI_PROJECT_ID") or os.environ.get("HUAWEICLOUD_SDK_PROJECT_ID")
+    return os.environ.get("HW_PROJECT_ID") or os.environ.get("HUAWEICLOUD_SDK_PROJECT_ID")
 
 
 def extract_items(data: Any, *keys: str) -> List[Dict[str, Any]]:

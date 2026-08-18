@@ -50,7 +50,7 @@ hcloud CCE 查询集群 -> kubectl cce 当前状态 -> 历史证据交接 -> 变
 
 | 输入                                | 必填 | 说明                                                            |
 | ----------------------------------- | ---- | --------------------------------------------------------------- |
-| `region`                            | 是   | 请求上下文或 `HUAWEI_REGION`，否则要求用户输入                                               |
+| `region`                            | 是   | 请求上下文或 `HW_REGION_NAME`，否则要求用户输入                                               |
 | `project_id`                        | 是   | 显式传给 hcloud 和 kubectl-cce                                  |
 | `cluster_id`                        | 推荐 | 没有时先用 hcloud 按名称定位                                    |
 | `namespace`                         | 可选 | 优先按命名空间采集；核心系统和网络变更保留全集群视角            |
@@ -62,7 +62,7 @@ hcloud CCE 查询集群 -> kubectl cce 当前状态 -> 历史证据交接 -> 变
 
 ## 区域选择
 
-优先使用当前请求或已建立任务上下文中的 `region`；未提供时读取 `HUAWEI_REGION`；两者都没有时停止执行并要求用户提供 `region` 或设置 `HUAWEI_REGION`，不得从 hcloud profile 推断区域。
+优先使用当前请求或已建立任务上下文中的 `region`；未提供时读取 `HW_REGION_NAME`；两者都没有时停止执行并要求用户提供 `region` 或设置 `HW_REGION_NAME`，不得从 hcloud profile 推断区域。
 
 ## 核心命令
 

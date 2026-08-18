@@ -37,9 +37,9 @@ Credential priority for hcloud calls is:
 Environment fallback examples:
 
 ```bash
-export HUAWEI_AK="<your-ak>"
-export HUAWEI_SK="<your-sk>"
-export HUAWEI_PROJECT_ID="<your-project-id>"
+export HW_ACCESS_KEY="<your-ak>"
+export HW_SECRET_KEY="<your-sk>"
+export HW_PROJECT_ID="<your-project-id>"
 ```
 
 ## AOM Prometheus HTTP Setup
@@ -50,7 +50,7 @@ hcloud profile material cannot be reused for signing.
 Temporary credentials are supported with:
 
 ```bash
-export HUAWEI_SECURITY_TOKEN="<security-token>"
+export HW_SECURITY_TOKEN="<security-token>"
 ```
 
 ## kubectl-cce Setup

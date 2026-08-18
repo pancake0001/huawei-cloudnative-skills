@@ -71,9 +71,9 @@ def _has_hcloud_profile() -> bool:
 
 def _env_credentials() -> tuple:
     return (
-        os.environ.get("HUAWEI_AK") or os.environ.get("HUAWEICLOUD_SDK_AK") or os.environ.get("HW_ACCESS_KEY"),
-        os.environ.get("HUAWEI_SK") or os.environ.get("HUAWEICLOUD_SDK_SK") or os.environ.get("HW_SECRET_KEY"),
-        os.environ.get("HUAWEI_PROJECT_ID") or os.environ.get("HUAWEICLOUD_SDK_PROJECT_ID"),
+        os.environ.get("HW_ACCESS_KEY") or os.environ.get("HUAWEICLOUD_SDK_AK"),
+        os.environ.get("HW_SECRET_KEY") or os.environ.get("HUAWEICLOUD_SDK_SK"),
+        os.environ.get("HW_PROJECT_ID") or os.environ.get("HUAWEICLOUD_SDK_PROJECT_ID"),
     )
 
 
@@ -83,9 +83,8 @@ def get_security_token(security_token: Optional[str] = None) -> Optional[str]:
     if token or _EXPLICIT_CREDENTIALS.get():
         return token
     return (
-        os.environ.get("HUAWEI_SECURITY_TOKEN")
+        os.environ.get("HW_SECURITY_TOKEN")
         or os.environ.get("HUAWEICLOUD_SDK_SECURITY_TOKEN")
-        or os.environ.get("HW_SECURITY_TOKEN")
     )
 
 

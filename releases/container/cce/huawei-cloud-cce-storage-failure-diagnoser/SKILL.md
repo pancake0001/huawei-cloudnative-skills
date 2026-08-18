@@ -50,7 +50,7 @@ running Kubernetes commands.
 
 | Input             | Required    | Notes                                                                                                              |
 | ----------------- | ----------- | ------------------------------------------------------------------------------------------------------------------ |
-| `region`          | Yes         | Request context or `HUAWEI_REGION`; otherwise ask the user                                                                                              |
+| `region`          | Yes         | Request context or `HW_REGION_NAME`; otherwise ask the user                                                                                              |
 | `project_id`      | Usually     | Required by kubectl-cce and hcloud cloud-resource commands                                                         |
 | `cluster_id`      | Preferred   | Resolve by name with hcloud if absent                                                                              |
 | `namespace`       | Recommended | Needed for PVC/Pod scope                                                                                           |
@@ -61,7 +61,7 @@ running Kubernetes commands.
 
 ## Region Selection
 
-Use the region supplied by the current request or established task context. If it is absent, use `HUAWEI_REGION`. If neither source provides a region, stop and ask the user to provide `region` or set `HUAWEI_REGION`; never infer it from an hcloud profile.
+Use the region supplied by the current request or established task context. If it is absent, use `HW_REGION_NAME`. If neither source provides a region, stop and ask the user to provide `region` or set `HW_REGION_NAME`; never infer it from an hcloud profile.
 
 ## Explicit Credential Propagation
 
