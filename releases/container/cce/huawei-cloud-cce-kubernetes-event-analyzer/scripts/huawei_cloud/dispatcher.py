@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from typing import Any, Callable, Dict
 
 from . import cce, cce_events_lts, common, event_analysis
@@ -9,10 +10,20 @@ from . import cce, cce_events_lts, common, event_analysis
 Handler = Callable[[Dict[str, str]], Dict[str, Any]]
 
 
+def _resolve_region(params: Dict[str, str]) -> Dict[str, str]:
+    """Prefer an explicit region and otherwise use the configured region."""
+    resolved = dict(params)
+    if not resolved.get("region") and os.environ.get("HW_REGION_NAME"):
+        resolved["region"] = os.environ["HW_REGION_NAME"]
+    return resolved
+
+
 def _require(params: Dict[str, str], *keys: str) -> str | None:
     missing = [key for key in keys if not params.get(key)]
     if not missing:
         return None
+    if missing == ["region"]:
+        return "region is required; provide region or set HW_REGION_NAME"
     return f"{', '.join(missing)} are required" if len(missing) > 1 else f"{missing[0]} is required"
 
 
@@ -53,7 +64,7 @@ def is_registered_action(action: str) -> bool:
 
 def dispatch_action(action: str, params: Dict[str, str]) -> Dict[str, Any]:
     try:
-        with common.credential_context(params) as normalized:
+        with common.credential_context(_resolve_region(params)) as normalized:
             required, handler = ACTION_SPECS[action]
             error = _require(normalized, *required)
             return {"success": False, "error": error} if error else handler(normalized)

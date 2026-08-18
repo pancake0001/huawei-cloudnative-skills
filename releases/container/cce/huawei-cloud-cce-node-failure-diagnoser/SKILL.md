@@ -53,7 +53,7 @@ must be handed off to a remediation skill after confirmation.
 
 | Input          | Required  | Notes                                                                 |
 | -------------- | --------- | --------------------------------------------------------------------- |
-| `region`       | Yes       | Example: `cn-north-4`                                                 |
+| `region`       | Yes       | Request context or `HW_REGION_NAME`; otherwise ask the user                                                 |
 | `project_id`   | Usually   | Required by most hcloud CCE operations                                |
 | `cluster_id`   | Preferred | If absent, resolve by cluster name with `ListClusters`                |
 | `cluster_name` | Optional  | Use only to locate `cluster_id`                                       |
@@ -62,6 +62,16 @@ must be handed off to a remediation skill after confirmation.
 | `namespace`    | Optional  | Needed when narrowing affected Pods or logs                           |
 
 At least one of `node_name` or `node_ip` should be provided. If both are missing, first list nodes and ask the user which node or symptom to focus on.
+
+## Region Selection
+
+Use the region supplied by the current request or established task context. If it is absent, use `HW_REGION_NAME`. If neither source provides a region, stop and ask the user to provide `region` or set `HW_REGION_NAME`; never infer it from an hcloud profile.
+
+## Explicit Credential Propagation
+
+Accept `--cli-access-key`, `--cli-secret-key`, and optional `--cli-security-token`. AK and SK must be supplied together; a token requires that pair. When
+provided, append all supplied options to every `hcloud` and `kubectl cce` command, pass them unchanged to delegated skills, and do not use an hcloud profile
+or authentication environment variables. Never print credential values.
 
 ## Prerequisites
 

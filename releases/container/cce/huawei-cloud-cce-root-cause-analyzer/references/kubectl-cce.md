@@ -23,9 +23,9 @@ exist, set or document `KUBECTL_BIN` and verify the selected binary.
 The plugin needs Huawei Cloud credentials plus the target project ID. Configure credentials through an approved local provider, protected environment, or
 tool-provided values. Do not print AK/SK, security tokens, Authorization headers, kubeconfig content, or plugin credential material.
 
-Common non-secret context variables include `HW_REGION`, `HUAWEI_REGION`, `HW_PROJECT_ID`, `HUAWEI_PROJECT_ID`, and `CCE_PROJECT_ID`. Credential aliases may
-include `HUAWEICLOUD_SDK_AK`/`HUAWEICLOUD_SDK_SK`, `HW_ACCESS_KEY`/`HW_SECRET_KEY`, and temporary-token variables such as `HUAWEICLOUD_SECURITY_TOKEN` or
-`HUAWEI_IAM_TOKEN`.
+For environment-variable mode, use the published plugin contract: `HW_ACCESS_KEY`/`HW_SECRET_KEY`, optional `HW_SECURITY_TOKEN`, and
+`HW_PROJECT_ID`/`HW_REGION`. In a sandboxed or agent runtime, pass `--cli-access-key`, `--cli-secret-key`, and optional `--cli-security-token` per
+invocation. Commands should always prefer explicit `--region <region>` and `--project-id <project-id>`.
 
 Always pass `--project-id <project-id>` when available instead of relying on implicit discovery.
 

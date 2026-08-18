@@ -137,11 +137,18 @@ def _get_events_with_external_kubeconfig(
 def _get_events_with_cce_plugin(
     region: str, cluster_id: str, args: List[str], ak: Optional[str], sk: Optional[str], project_id: Optional[str], security_token: Optional[str]
 ) -> Dict[str, Any]:
-    env_ak, env_sk, env_project_id = common.get_credentials()
+    explicit_credentials = common.has_explicit_credentials()
+    env_ak, env_sk, env_project_id = (None, None, None) if explicit_credentials else common.get_credentials()
     access_key = ak or env_ak
     secret_key = sk or env_sk
     resolved_project_id = project_id or env_project_id
     env = os.environ.copy()
+    if explicit_credentials:
+        for name in (
+            "HW_ACCESS_KEY", "HUAWEICLOUD_SDK_AK", "HW_SECRET_KEY", "HUAWEICLOUD_SDK_SK",
+            "HUAWEICLOUD_SDK_SECURITY_TOKEN", "HW_SECURITY_TOKEN", "HCLOUD_CONFIG_DIR",
+        ):
+            env.pop(name, None)
     env.update({"CCE_CLUSTER_ID": cluster_id, "CCE_REGION": region, "HW_REGION": region})
     if resolved_project_id:
         env.update({"CCE_PROJECT_ID": resolved_project_id, "HW_PROJECT_ID": resolved_project_id})
@@ -199,7 +206,7 @@ def get_cce_events_with_kubectl(
     if external_result.get("success"):
         result = external_result
     else:
-        token = security_token or os.environ.get("HUAWEI_SECURITY_TOKEN") or os.environ.get("HW_SECURITY_TOKEN")
+        token = security_token or os.environ.get("HW_SECURITY_TOKEN")
         plugin_result = _get_events_with_cce_plugin(region, cluster_id, args, ak, sk, project_id, token)
         if not plugin_result.get("success"):
             return {
@@ -250,7 +257,7 @@ def get_cce_resource_with_kubectl(
     if external_result.get("success"):
         result = external_result
     else:
-        token = security_token or os.environ.get("HUAWEI_SECURITY_TOKEN") or os.environ.get("HW_SECURITY_TOKEN")
+        token = security_token or os.environ.get("HW_SECURITY_TOKEN")
         plugin_result = _get_events_with_cce_plugin(region, cluster_id, args, ak, sk, project_id, token)
         if not plugin_result.get("success"):
             return {
@@ -279,7 +286,7 @@ def get_cce_logconfigs_with_cce_plugin(
     if not cluster_id:
         return {"success": False, "error": "cluster_id is required"}
 
-    token = security_token or os.environ.get("HUAWEI_SECURITY_TOKEN") or os.environ.get("HW_SECURITY_TOKEN")
+    token = security_token or os.environ.get("HW_SECURITY_TOKEN")
     result = _get_events_with_cce_plugin(
         region,
         cluster_id,

@@ -50,13 +50,17 @@ tags: [huawei-cloud, cce, kubectl, workload, diagnosis]
 
 | 输入         | 是否必需 | 说明                                            |
 | ------------ | -------- | ----------------------------------------------- |
-| `region`     | 是       | 例如：`cn-north-4`                              |
+| `region`     | 是       | 请求上下文或 `HW_REGION_NAME`，否则要求用户输入                              |
 | `project_id` | 通常需要 | 当 hcloud 操作要求项目 ID，或存在多个项目时传入 |
 | `cluster_id` | 优先提供 | 如果没有，先用 `ListClusters` 查找              |
 | `namespace`  | 是       | Kubernetes 命名空间                             |
 | `kind`       | 是       | `Deployment`、`StatefulSet` 或 `DaemonSet`      |
 | `name`       | 是       | 工作负载名称                                    |
 | `selector`   | 可选     | 未提供时从工作负载中推导                        |
+
+## 区域选择
+
+优先使用当前请求或已建立任务上下文中的 `region`；未提供时读取 `HW_REGION_NAME`；两者都没有时停止执行并要求用户提供 `region` 或设置 `HW_REGION_NAME`，不得从 hcloud profile 推断区域。
 
 ## 前置条件
 

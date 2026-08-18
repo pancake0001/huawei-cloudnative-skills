@@ -48,7 +48,7 @@ hcloud CCE/云侧存储查询 -> kubectl cce 存储证据 -> 可选 CSI 日志/�
 
 | 输入              | 必填     | 说明                                                                                                               |
 | ----------------- | -------- | ------------------------------------------------------------------------------------------------------------------ |
-| `region`          | 是       | 例如 `cn-north-4`                                                                                                  |
+| `region`          | 是       | 请求上下文或 `HW_REGION_NAME`，否则要求用户输入                                                                                                  |
 | `project_id`      | 通常需要 | kubectl-cce 和云资源 hcloud 命令需要                                                                               |
 | `cluster_id`      | 推荐     | 没有时先用 hcloud 按名称定位                                                                                       |
 | `namespace`       | 推荐     | PVC/Pod 场景需要                                                                                                   |
@@ -56,6 +56,10 @@ hcloud CCE/云侧存储查询 -> kubectl cce 存储证据 -> 可选 CSI 日志/�
 | `pod_name`        | 可选     | 有挂载或 I/O 异常的 Pod                                                                                            |
 | `failure_symptom` | 推荐     | `pvc_pending`、`failed_mount`、`failed_attach`、`capacity`、`readonly_fs`、`nfs_timeout`、`obs_403`、`terminating` |
 | `volume_id`       | 可选     | 已知 EVS/SFS/SFS Turbo/OBS 标识                                                                                    |
+
+## 区域选择
+
+优先使用当前请求或已建立任务上下文中的 `region`；未提供时读取 `HW_REGION_NAME`；两者都没有时停止执行并要求用户提供 `region` 或设置 `HW_REGION_NAME`，不得从 hcloud profile 推断区域。
 
 ## 核心命令与证据采集
 

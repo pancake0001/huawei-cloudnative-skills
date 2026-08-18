@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from typing import Any, Callable, Dict
 
 from . import cce, cce_app_logs, lts
@@ -9,8 +10,18 @@ from . import cce, cce_app_logs, lts
 Handler = Callable[[Dict[str, str]], Dict[str, Any]]
 
 
+def _resolve_region(params: Dict[str, str]) -> Dict[str, str]:
+    """Prefer an explicit region and otherwise use the configured region."""
+    resolved = dict(params)
+    if not resolved.get("region") and os.environ.get("HW_REGION_NAME"):
+        resolved["region"] = os.environ["HW_REGION_NAME"]
+    return resolved
+
+
 def _require(params: Dict[str, str], *keys: str) -> str | None:
     missing = [key for key in keys if not params.get(key)]
+    if missing == ["region"]:
+        return "region is required; provide region or set HW_REGION_NAME"
     return None if not missing else (f"{', '.join(missing)} are required" if len(missing) > 1 else f"{missing[0]} is required")
 
 
@@ -24,21 +35,25 @@ def _to_int(value: str | None, default: int) -> int:
 def _normalize_cli_credentials(params: Dict[str, str]) -> tuple[Dict[str, str], str | None]:
     """Map explicit CLI credentials and prevent fallback to local credential sources."""
     cli_keys = ("cli_access_key", "cli_secret_key", "cli_security_token")
-    if not any(params.get(key) for key in cli_keys):
-        return params, None
-    if not params.get("cli_access_key") or not params.get("cli_secret_key"):
-        return params, "cli_access_key and cli_secret_key must be provided together"
     normalized = dict(params)
-    normalized.update(
-        {
-            "ak": params["cli_access_key"],
-            "sk": params["cli_secret_key"],
-            "security_token": params.get("cli_security_token"),
-            "_explicit_cli_credentials": "true",
-        }
-    )
-    if params.get("cli_project_id"):
-        normalized["project_id"] = params["cli_project_id"]
+    for cli_key, internal_key in (("cli_access_key", "ak"), ("cli_secret_key", "sk"), ("cli_security_token", "security_token")):
+        value = normalized.pop(cli_key, None)
+        if not value:
+            continue
+        if normalized.get(internal_key) and normalized[internal_key] != value:
+            return params, f"{cli_key} and {internal_key} must not provide different values"
+        normalized[internal_key] = value
+    has_ak = bool(normalized.get("ak"))
+    has_sk = bool(normalized.get("sk"))
+    has_token = bool(normalized.get("security_token"))
+    if has_ak != has_sk:
+        return params, "cli_access_key and cli_secret_key must be provided together"
+    if has_token and not has_ak:
+        return params, "cli_security_token requires cli_access_key and cli_secret_key"
+    if has_ak:
+        normalized["_explicit_cli_credentials"] = "true"
+    if normalized.get("cli_project_id"):
+        normalized["project_id"] = normalized["cli_project_id"]
     return normalized, None
 
 
@@ -84,6 +99,7 @@ def dispatch_action(action: str, params: Dict[str, str]) -> Dict[str, Any]:
     params, credential_error = _normalize_cli_credentials(params)
     if credential_error:
         return {"success": False, "error": credential_error}
+    params = _resolve_region(params)
     required, handler = ACTION_SPECS[action]
     error = _require(params, *required)
     return {"success": False, "error": error} if error else handler(params)

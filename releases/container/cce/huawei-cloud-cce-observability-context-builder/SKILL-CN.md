@@ -41,7 +41,7 @@ tags: [huawei-cloud, cce, observability, kubectl, context]
 
 | 输入                                            | 必填 | 说明                                    |
 | ----------------------------------------------- | ---- | --------------------------------------- |
-| `region`                                        | 是   | 例如 `cn-north-4`                       |
+| `region`                                        | 是   | 请求上下文或 `HW_REGION_NAME`，否则要求用户输入                       |
 | `project_id`                                    | 推荐 | AK/SK 和 `kubectl cce` 稳定执行通常需要 |
 | `cluster_id`                                    | 推荐 | 没有时按集群名精确解析                  |
 | `namespace`                                     | 可选 | 限定应用命名空间                        |
@@ -50,6 +50,10 @@ tags: [huawei-cloud, cce, observability, kubectl, context]
 | `symptoms`                                      | 推荐 | 用户可感知故障、告警文本或受影响业务    |
 
 目标不明确时，先采集集群/命名空间级上下文，并把歧义写入数据缺口。
+
+## 区域选择
+
+优先使用当前请求或已建立任务上下文中的 `region`；未提供时读取 `HW_REGION_NAME`；两者都没有时停止执行并要求用户提供 `region` 或设置 `HW_REGION_NAME`，不得从 hcloud profile 推断区域。
 
 ## 前置条件
 

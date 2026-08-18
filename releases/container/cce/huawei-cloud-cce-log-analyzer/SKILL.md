@@ -27,8 +27,17 @@ Use this skill for read-only log queries and analysis, or for confirmed manageme
 - Pod stdout and CCE LogConfig tools require `kubectl`; when an external endpoint is unavailable, they fall back to `kubectl cce`. See `huawei-cloud-kubectl-cce-installer`.
 - The Cloud Native Logging add-on is required for CCE `LogConfig` tools. LTS `AGENT` collection requires a healthy iCagent.
 - Audit, kube-apiserver, and kube-scheduler tools require their matching CCE Log Center switch. The tools check the switch through `CCE ShowClusterConfig` and never enable it.
-- Explicit `--cli-access-key`, `--cli-secret-key`, and optional `--cli-security-token` use only the supplied credentials. They are forwarded to hcloud and `kubectl cce`; profile and credential environment-variable fallback are disabled. `--cli-project-id` or `project_id` can provide the target project when required. Without explicit CLI credentials, the order is `ak`/`sk`/`project_id`, local hcloud profile, then `HUAWEI_AK`, `HUAWEI_SK`, and `HUAWEI_PROJECT_ID`.
+- Explicit `--cli-access-key`, `--cli-secret-key`, and optional `--cli-security-token` use only the supplied credentials. AK/SK must be supplied together, and
+  a token requires that pair. They are forwarded to hcloud and `kubectl cce`; profile and credential environment-variable fallback are disabled.
+  `--cli-project-id` or `project_id` can provide the target project when required. Without explicit CLI credentials, the order is `ak`/`sk`/`project_id`, local
+  hcloud profile, then `HW_ACCESS_KEY`, `HW_SECRET_KEY`, and `HW_PROJECT_ID`.
 - LTS `start_time` and `end_time` use UTC `YYYY-MM-DD HH:MM:SS`. If omitted, the tools generate a recent UTC window.
+
+## Region Selection
+
+- Use `region=<region>` from the current user request or established task context when it is available.
+- If no `region` parameter is supplied, use `HW_REGION_NAME`.
+- If neither source provides a region, return an error asking the user to provide `region` or set `HW_REGION_NAME`. Do not infer a target region from an hcloud profile or any other environment variable.
 
 ## Tool Routing
 

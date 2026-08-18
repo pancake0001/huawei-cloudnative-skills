@@ -27,7 +27,6 @@ Supported credential names depend on the plugin version; common aliases include:
 
 - AK/SK: `HUAWEICLOUD_SDK_AK`/`HUAWEICLOUD_SDK_SK`, `HW_ACCESS_KEY`/`HW_SECRET_KEY`, or equivalent plugin-supported aliases.
 - Temporary AK/SK: include the matching security token such as `HUAWEICLOUD_SECURITY_TOKEN`.
-- IAM token: `HUAWEI_IAM_TOKEN`.
 - Project ID: pass `--project-id <project-id>` explicitly; environment aliases such as `CCE_PROJECT_ID` or `HW_PROJECT_ID` may be used only when already
   configured.
 

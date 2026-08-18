@@ -61,15 +61,28 @@ the user asks for a preview or confirms a recovery action.
 
 | Input                  | Required    | Notes                                                       |
 | ---------------------- | ----------- | ----------------------------------------------------------- |
-| `region`               | Yes         | Example: `cn-north-4`                                       |
+| `region`               | Yes         | Request context or `HW_REGION_NAME`; otherwise ask the user                                       |
 | `project_id`           | Usually     | Required by kubectl-cce and most hcloud operations          |
 | `cluster_id`           | Preferred   | Resolve by name with `hcloud CCE ListClusters` if absent    |
 | `namespace`            | Optional    | Use when the incident is scoped to an application namespace |
 | `target_name`          | Optional    | Workload, Service, Pod, Ingress, or business target         |
 | `fault_time` / `hours` | Recommended | Needed for event, alarm, metric, and change correlation     |
 | `symptoms`             | Recommended | User-visible failure signals and known alarms               |
+| `--cli-access-key`     | Optional    | Explicit AK for this diagnosis chain                        |
+| `--cli-secret-key`     | Optional    | Explicit SK; must be supplied with the explicit AK          |
+| `--cli-security-token` | Optional    | STS token; valid only with the explicit AK/SK pair          |
 
 If the target is ambiguous, first collect a broad read-only snapshot and state what object still needs confirmation before assigning high confidence.
+
+## Region Selection
+
+Use the region supplied by the current request or established task context. If it is absent, use `HW_REGION_NAME`. If neither source provides a region, stop and ask the user to provide `region` or set `HW_REGION_NAME`; never infer it from an hcloud profile.
+
+## Explicit Credential Propagation
+
+When the user provides `--cli-access-key` and `--cli-secret-key`, pass that pair and the optional `--cli-security-token` unchanged to every selected
+evidence dependency and to every `hcloud` or `kubectl cce` command. Do not use hcloud profiles or authentication environment variables in that execution
+chain. Reject an AK without an SK, an SK without an AK, or a security token without the AK/SK pair. Do not print credential values.
 
 ## Core Commands And Evidence Collection
 

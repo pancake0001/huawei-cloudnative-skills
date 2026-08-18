@@ -41,7 +41,7 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 Expected:
 
 - `kubectl` discovers the plugin as `kubectl-cce`.
-- The plugin uses `HUAWEICLOUD_SDK_AK`/`HUAWEICLOUD_SDK_SK` plus `CCE_PROJECT_ID`, temporary `HUAWEICLOUD_SECURITY_TOKEN` when needed, or `HUAWEI_IAM_TOKEN`.
+- The plugin uses `HUAWEICLOUD_SDK_AK`/`HUAWEICLOUD_SDK_SK` plus `CCE_PROJECT_ID` and temporary `HUAWEICLOUD_SECURITY_TOKEN` when needed.
 - The plugin starts its short-lived local proxy and reaches the CCE API Gateway endpoint.
 - If the default `<cluster-id>.cce.<region>.myhuaweicloud.com` endpoint is not valid, set `CCE_ENDPOINT` or pass `--endpoint`.
 - Do not generate, store, or patch kubeconfig files for this skill path.

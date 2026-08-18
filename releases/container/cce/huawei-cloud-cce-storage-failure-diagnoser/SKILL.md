@@ -50,7 +50,7 @@ running Kubernetes commands.
 
 | Input             | Required    | Notes                                                                                                              |
 | ----------------- | ----------- | ------------------------------------------------------------------------------------------------------------------ |
-| `region`          | Yes         | Example: `cn-north-4`                                                                                              |
+| `region`          | Yes         | Request context or `HW_REGION_NAME`; otherwise ask the user                                                                                              |
 | `project_id`      | Usually     | Required by kubectl-cce and hcloud cloud-resource commands                                                         |
 | `cluster_id`      | Preferred   | Resolve by name with hcloud if absent                                                                              |
 | `namespace`       | Recommended | Needed for PVC/Pod scope                                                                                           |
@@ -58,6 +58,16 @@ running Kubernetes commands.
 | `pod_name`        | Optional    | Specific Pod with mount or I/O symptom                                                                             |
 | `failure_symptom` | Recommended | `pvc_pending`, `failed_mount`, `failed_attach`, `capacity`, `readonly_fs`, `nfs_timeout`, `obs_403`, `terminating` |
 | `volume_id`       | Optional    | EVS/SFS/SFS Turbo/OBS identifier when known                                                                        |
+
+## Region Selection
+
+Use the region supplied by the current request or established task context. If it is absent, use `HW_REGION_NAME`. If neither source provides a region, stop and ask the user to provide `region` or set `HW_REGION_NAME`; never infer it from an hcloud profile.
+
+## Explicit Credential Propagation
+
+Accept `--cli-access-key`, `--cli-secret-key`, and optional `--cli-security-token`. AK and SK must be supplied together; a token requires that pair. When
+provided, append all supplied options to every `hcloud` and `kubectl cce` command, pass them unchanged to delegated skills, and do not use an hcloud profile
+or authentication environment variables. Never print credential values.
 
 ## Core Commands And Evidence Collection
 

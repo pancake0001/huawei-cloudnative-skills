@@ -24,9 +24,9 @@ test -f releases/container/cce/huawei-cloud-cce-alarm-correlation-engine/referen
 Use read-only tools first:
 
 ```bash
-python3 scripts/huawei-cloud.py huawei_list_aom_alarm_rules region=cn-north-4
-python3 scripts/huawei-cloud.py huawei_list_aom_action_rules region=cn-north-4
-python3 scripts/huawei-cloud.py huawei_list_aom_alarms region=cn-north-4
+python3 scripts/huawei-cloud.py huawei_list_aom_alarm_rules region=<region>
+python3 scripts/huawei-cloud.py huawei_list_aom_action_rules region=<region>
+python3 scripts/huawei-cloud.py huawei_list_aom_alarms region=<region>
 ```
 
 Expected result:
@@ -42,10 +42,10 @@ For a known CCE cluster:
 
 ```bash
 python3 scripts/huawei-cloud.py huawei_resolve_cce_aom_prom_instance \
-  region=cn-north-4 cluster_id=<cluster-id>
+  region=<region> cluster_id=<cluster-id>
 
 python3 scripts/huawei-cloud.py huawei_list_aom_alarm_rules \
-  region=cn-north-4 cluster_id=<cluster-id>
+  region=<region> cluster_id=<cluster-id>
 ```
 
 Expected result:
@@ -67,14 +67,14 @@ Example single-rule creation verification:
 
 ```bash
 python3 scripts/huawei-cloud.py huawei_create_aom_alarm_rule \
-  region=cn-north-4 cluster_id=<cluster-id> alarm_item=<template-alias>
+  region=<region> cluster_id=<cluster-id> alarm_item=<template-alias>
 
 python3 scripts/huawei-cloud.py huawei_create_aom_alarm_rule \
-  region=cn-north-4 cluster_id=<cluster-id> alarm_item=<template-alias> \
+  region=<region> cluster_id=<cluster-id> alarm_item=<template-alias> \
   bind_notification_rule_id=<action-rule-id> confirm=true
 
 python3 scripts/huawei-cloud.py huawei_list_aom_alarm_rules \
-  region=cn-north-4 cluster_id=<cluster-id>
+  region=<region> cluster_id=<cluster-id>
 ```
 
 ## Regression Checks

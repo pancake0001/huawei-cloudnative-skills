@@ -15,7 +15,7 @@ For an isolated credential path, pass `--cli-access-key`, `--cli-secret-key`, an
 
 ```bash
 python3 scripts/huawei-cloud.py huawei_query_kube_apiserver_logs \
-  region=cn-north-4 cluster_id=<cluster-id> hours=1 \
+  region=<region> cluster_id=<cluster-id> hours=1 \
   --cli-access-key=<ak> --cli-secret-key=<sk> \
   --cli-security-token=<sts-token> --cli-project-id=<project-id>
 ```
@@ -42,22 +42,22 @@ python3 scripts/huawei-cloud.py huawei_query_kube_apiserver_logs \
 ```bash
 # Pod stdout
 python3 scripts/huawei-cloud.py huawei_get_pod_stdout_logs \
-  region=cn-north-4 cluster_id=<cluster-id> namespace=default \
+  region=<region> cluster_id=<cluster-id> namespace=default \
   pod_name=<pod-name> tail_lines=200
 
 # Application logs after the user selects a LogConfig
 python3 scripts/huawei-cloud.py huawei_query_application_logs \
-  region=cn-north-4 cluster_id=<cluster-id> \
+  region=<region> cluster_id=<cluster-id> \
   logconfig_name=<selected-logconfig> logconfig_namespace=kube-system \
   hours=1 auto_paginate=true max_pages=5 limit=100
 
 # API server latency and status analysis
 python3 scripts/huawei-cloud.py huawei_analyze_kube_apiserver_logs \
-  region=cn-north-4 cluster_id=<cluster-id> hours=1 slow_latency_ms=1000
+  region=<region> cluster_id=<cluster-id> hours=1 slow_latency_ms=1000
 
 # Scheduler diagnosis
 python3 scripts/huawei-cloud.py huawei_analyze_kube_scheduler_logs \
-  region=cn-north-4 cluster_id=<cluster-id> hours=1
+  region=<region> cluster_id=<cluster-id> hours=1
 ```
 
 ## Collection Rule Changes

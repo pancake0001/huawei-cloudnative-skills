@@ -42,7 +42,7 @@ Do not use legacy Python dispatchers, old skill execution actions, Huawei Cloud 
 
 | Input                                           | Required    | Notes                                                   |
 | ----------------------------------------------- | ----------- | ------------------------------------------------------- |
-| `region`                                        | Yes         | Example: `cn-north-4`                                   |
+| `region`                                        | Yes         | Request context or `HW_REGION_NAME`; otherwise ask the user                                   |
 | `project_id`                                    | Recommended | Required for reliable AK/SK and `kubectl cce` execution |
 | `cluster_id`                                    | Preferred   | Resolve by exact cluster name when absent               |
 | `namespace`                                     | Optional    | Narrow app-level collection                             |
@@ -51,6 +51,16 @@ Do not use legacy Python dispatchers, old skill execution actions, Huawei Cloud 
 | `symptoms`                                      | Recommended | User-visible symptom, alert text, or affected business  |
 
 If the target is ambiguous, collect cluster/namespace-level context first and record ambiguity as a data gap.
+
+## Region Selection
+
+Use the region supplied by the current request or established task context. If it is absent, use `HW_REGION_NAME`. If neither source provides a region, stop and ask the user to provide `region` or set `HW_REGION_NAME`; never infer it from an hcloud profile.
+
+## Explicit Credential Propagation
+
+Accept `--cli-access-key`, `--cli-secret-key`, and optional `--cli-security-token`. AK and SK must be supplied together; a token requires that pair. When
+provided, append all supplied options to every `hcloud` and `kubectl cce` command, pass them unchanged to delegated skills, and do not use an hcloud profile
+or authentication environment variables. Never print credential values.
 
 ## Prerequisites
 

@@ -68,13 +68,14 @@ correlation, alarm-rule management, notification-rule management, and CCE alarm 
 - Credential priority for hcloud calls is: explicit tool parameters > local hcloud profile > environment variables
 - Tools that need `project_id` resolve it internally where possible: explicit `project_id` parameter first, then active hcloud profile/IAM project lookup for
   the target region, then environment fallback
-- CLI callers may pass `--cli-access-key`, `--cli-secret-key`, and `--cli-security-token`. These map to the internal credential fields and are passed explicitly
-  to every hcloud command. Do not combine an alias with a conflicting `ak`, `sk`, or `security_token` value.
+- CLI callers may pass `--cli-access-key`, `--cli-secret-key`, and optional `--cli-security-token`. AK/SK must be supplied together, and a token requires
+  that pair. These values are passed to every hcloud command; profile and authentication environment-variable fallback are disabled for the request. Do not
+  combine an alias with a conflicting `ak`, `sk`, or `security_token` value.
 
 **Security Rules**:
 
 - Never expose AK/SK, tokens, or credential-derived secrets in code, commands, logs, or responses
-- Never run `echo $HUAWEI_AK` or `echo $HUAWEI_SK`
+- Never run `echo $HW_ACCESS_KEY` or `echo $HW_SECRET_KEY`
 - Never write credentials to files
 - Prefer hcloud profile for normal use
 - Use IAM users with least privilege
@@ -82,14 +83,20 @@ correlation, alarm-rule management, notification-rule management, and CCE alarm 
 **Optional Environment Fallback**:
 
 ```bash
-export HUAWEI_AK=<your-ak>
-export HUAWEI_SK=<your-sk>
-export HUAWEI_REGION=cn-north-4
-export HUAWEI_PROJECT_ID=<project-id>
-export HUAWEI_SECURITY_TOKEN=<security-token>
+export HW_ACCESS_KEY=<your-ak>
+export HW_SECRET_KEY=<your-sk>
+export HW_REGION_NAME=<region>
+export HW_PROJECT_ID=<project-id>
+export HW_SECURITY_TOKEN=<security-token>
 ```
 
-### 3. IAM Permission Requirements
+### 3. Region Selection
+
+- Use `region=<region>` from the current user request or established task context when it is available.
+- If no `region` parameter is supplied, use `HW_REGION_NAME`.
+- If neither source provides a region, return an error asking the user to provide `region` or set `HW_REGION_NAME`. Do not infer a target region from an hcloud profile or any other environment variable.
+
+### 4. IAM Permission Requirements
 
 | Permission              | Purpose                                        |
 | ----------------------- | ---------------------------------------------- |
@@ -145,19 +152,19 @@ Follow these rules for every command:
 ```bash
 # Query active + historical alarms in a region
 python3 scripts/huawei-cloud.py huawei_list_aom_alarms \
-  region=cn-north-4
+  region=<region>
 
 # Query active + historical alarms for a cluster
 python3 scripts/huawei-cloud.py huawei_list_aom_alarms \
-  region=cn-north-4 cluster_id=<cluster-id>
+  region=<region> cluster_id=<cluster-id>
 
 # Query current active alarms only
 python3 scripts/huawei-cloud.py huawei_list_aom_current_alarms \
-  region=cn-north-4 cluster_id=<cluster-id>
+  region=<region> cluster_id=<cluster-id>
 
 # Analyze deduplicated, burst, attention, and chronic alarm groups
 python3 scripts/huawei-cloud.py huawei_analyze_aom_alarms \
-  region=cn-north-4 cluster_id=<cluster-id>
+  region=<region> cluster_id=<cluster-id>
 ```
 
 > Do not conclude "no issue" from absence of active alarms alone. Always consider historical alarms when diagnosing a recent or recovered problem.
@@ -167,15 +174,15 @@ python3 scripts/huawei-cloud.py huawei_analyze_aom_alarms \
 ```bash
 # Query all alarm rules in a region
 python3 scripts/huawei-cloud.py huawei_list_aom_alarm_rules \
-  region=cn-north-4
+  region=<region>
 
 # Query alarm rules related to one CCE cluster
 python3 scripts/huawei-cloud.py huawei_list_aom_alarm_rules \
-  region=cn-north-4 cluster_id=<cluster-id>
+  region=<region> cluster_id=<cluster-id>
 
 # Resolve the cluster AOM Prometheus instance
 python3 scripts/huawei-cloud.py huawei_resolve_cce_aom_prom_instance \
-  region=cn-north-4 cluster_id=<cluster-id>
+  region=<region> cluster_id=<cluster-id>
 ```
 
 `huawei_list_aom_alarm_rules` supports cluster filtering by `cluster_id` only. Do not use `cluster_name` as a filter.
@@ -185,17 +192,17 @@ python3 scripts/huawei-cloud.py huawei_resolve_cce_aom_prom_instance \
 ```bash
 # List existing action/notification rules
 python3 scripts/huawei-cloud.py huawei_list_aom_action_rules \
-  region=cn-north-4
+  region=<region>
 
 # Preview creating a notification action rule from an SMN topic
 python3 scripts/huawei-cloud.py huawei_create_aom_notification_action_rule \
-  region=cn-north-4 rule_name=auto-cluster-xxx \
+  region=<region> rule_name=auto-cluster-xxx \
   notification_topic_name=<smn-topic-name> \
   notification_topic_urn=<smn-topic-urn>
 
 # Confirm creation
 python3 scripts/huawei-cloud.py huawei_create_aom_notification_action_rule \
-  region=cn-north-4 rule_name=auto-cluster-xxx \
+  region=<region> rule_name=auto-cluster-xxx \
   notification_topic_name=<smn-topic-name> \
   notification_topic_urn=<smn-topic-urn> \
   confirm=true
@@ -209,24 +216,24 @@ explicit user selection, or ask the user to provide an SMN topic and create a no
 ```bash
 # Preview creating a CCE template metric alarm rule
 python3 scripts/huawei-cloud.py huawei_create_aom_alarm_rule \
-  region=cn-north-4 cluster_id=<cluster-id> \
+  region=<region> cluster_id=<cluster-id> \
   alarm_item=NodeCPUUsageHigherThanEightyPercent
 
 # Confirm creating a CCE template metric alarm rule
 python3 scripts/huawei-cloud.py huawei_create_aom_alarm_rule \
-  region=cn-north-4 cluster_id=<cluster-id> \
+  region=<region> cluster_id=<cluster-id> \
   alarm_item=NodeCPUUsageHigherThanEightyPercent \
   bind_notification_rule_id=<action-rule-id> \
   confirm=true
 
 # Preview creating an event alarm rule
 python3 scripts/huawei-cloud.py huawei_create_aom_event_alarm_rule \
-  region=cn-north-4 cluster_id=<cluster-id> \
+  region=<region> cluster_id=<cluster-id> \
   event_name="<event-name>"
 
 # Confirm creating an event alarm rule
 python3 scripts/huawei-cloud.py huawei_create_aom_event_alarm_rule \
-  region=cn-north-4 cluster_id=<cluster-id> \
+  region=<region> cluster_id=<cluster-id> \
   event_name="<event-name>" \
   bind_notification_rule_id=<action-rule-id> \
   confirm=true
@@ -242,21 +249,21 @@ template alias or rule name.
 ```bash
 # Preview batch creating CCE recommended alarm rules
 python3 scripts/huawei-cloud.py huawei_configure_cce_aom_alarm_rules \
-  region=cn-north-4 cluster_id=<cluster-id> \
+  region=<region> cluster_id=<cluster-id> \
   bind_notification_rule_id=<action-rule-id>
 
 # Confirm batch creation
 python3 scripts/huawei-cloud.py huawei_configure_cce_aom_alarm_rules \
-  region=cn-north-4 cluster_id=<cluster-id> \
+  region=<region> cluster_id=<cluster-id> \
   bind_notification_rule_id=<action-rule-id> confirm=true
 
 # Preview cleanup of CCE template alarm rules for a cluster
 python3 scripts/huawei-cloud.py huawei_cleanup_cce_aom_alarm_rules \
-  region=cn-north-4 cluster_id=<cluster-id>
+  region=<region> cluster_id=<cluster-id>
 
 # Confirm cleanup
 python3 scripts/huawei-cloud.py huawei_cleanup_cce_aom_alarm_rules \
-  region=cn-north-4 cluster_id=<cluster-id> \
+  region=<region> cluster_id=<cluster-id> \
   delete_auto_notification_rule=true confirm=true
 ```
 
@@ -268,26 +275,26 @@ from this tool; call `huawei_list_aom_action_rules` separately and present choic
 ```bash
 # Preview update
 python3 scripts/huawei-cloud.py huawei_update_aom_alarm_rule \
-  region=cn-north-4 rule_name=my-rule threshold=80
+  region=<region> rule_name=my-rule threshold=80
 
 # Confirm update
 python3 scripts/huawei-cloud.py huawei_update_aom_alarm_rule \
-  region=cn-north-4 rule_name=my-rule threshold=80 confirm=true
+  region=<region> rule_name=my-rule threshold=80 confirm=true
 
 # Preview delete
 python3 scripts/huawei-cloud.py huawei_delete_aom_alarm_rule \
-  region=cn-north-4 rule_name=my-rule
+  region=<region> rule_name=my-rule
 
 # Confirm delete
 python3 scripts/huawei-cloud.py huawei_delete_aom_alarm_rule \
-  region=cn-north-4 rule_name=my-rule confirm=true
+  region=<region> rule_name=my-rule confirm=true
 
 # Preview disable or enable
 python3 scripts/huawei-cloud.py huawei_disable_aom_alarm_rule \
-  region=cn-north-4 rule_id=<rule-id>
+  region=<region> rule_id=<rule-id>
 
 python3 scripts/huawei-cloud.py huawei_enable_aom_alarm_rule \
-  region=cn-north-4 rule_id=<rule-id>
+  region=<region> rule_id=<rule-id>
 ```
 
 ### 7. Action And Mute Rule Visibility
@@ -295,18 +302,18 @@ python3 scripts/huawei-cloud.py huawei_enable_aom_alarm_rule \
 ```bash
 # Query mute rules
 python3 scripts/huawei-cloud.py huawei_list_aom_mute_rules \
-  region=cn-north-4
+  region=<region>
 
 # Preview deleting an action rule
 python3 scripts/huawei-cloud.py huawei_delete_aom_action_rule \
-  region=cn-north-4 rule_name=<rule-name>
+  region=<region> rule_name=<rule-name>
 ```
 
 ### 8. Cluster Alarm Inspection
 
 ```bash
 python3 scripts/huawei-cloud.py huawei_aom_alarm_inspection \
-  region=cn-north-4 cluster_id=<cluster-id>
+  region=<region> cluster_id=<cluster-id>
 ```
 
 ## Risk Levels
@@ -348,7 +355,7 @@ This skill includes read-only query tools and mutation tools. Mutation tools mus
 
 | Parameter                               | Required/Optional | Description                                            | Default                                    |
 | --------------------------------------- | ----------------- | ------------------------------------------------------ | ------------------------------------------ |
-| `region`                                | Required          | Huawei Cloud region                                    | `HUAWEI_REGION`                            |
+| `region`                                | Required          | Region from the request context or explicit user input | `HW_REGION_NAME`; otherwise prompt          |
 | `cluster_id`                            | Tool-specific     | CCE cluster ID; required for cluster-scoped operations | N/A                                        |
 | `ak`                                    | Optional          | Explicit AK; highest priority for hcloud calls         | profile/env fallback                       |
 | `sk`                                    | Optional          | Explicit SK; highest priority for hcloud calls         | profile/env fallback                       |
@@ -414,16 +421,16 @@ Recommended workflow:
 Run read-only checks first:
 
 ```bash
-python3 scripts/huawei-cloud.py huawei_list_aom_alarms region=cn-north-4
-python3 scripts/huawei-cloud.py huawei_list_aom_alarm_rules region=cn-north-4
-python3 scripts/huawei-cloud.py huawei_list_aom_action_rules region=cn-north-4
+python3 scripts/huawei-cloud.py huawei_list_aom_alarms region=<region>
+python3 scripts/huawei-cloud.py huawei_list_aom_alarm_rules region=<region>
+python3 scripts/huawei-cloud.py huawei_list_aom_action_rules region=<region>
 ```
 
 For cluster-scoped checks:
 
 ```bash
 python3 scripts/huawei-cloud.py huawei_aom_alarm_inspection \
-  region=cn-north-4 cluster_id=<cluster-id>
+  region=<region> cluster_id=<cluster-id>
 ```
 
 Mutation verification:

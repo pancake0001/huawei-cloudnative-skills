@@ -50,7 +50,7 @@ Kubernetes 节点状态、kube-node-lease、Events、节点上的 Pods、必要�
 
 | 输入           | 必填     | 说明                                                           |
 | -------------- | -------- | -------------------------------------------------------------- |
-| `region`       | 是       | 例如 `cn-north-4`                                              |
+| `region`       | 是       | 请求上下文或 `HW_REGION_NAME`，否则要求用户输入                                              |
 | `project_id`   | 通常需要 | 大多数 hcloud CCE 操作需要                                     |
 | `cluster_id`   | 推荐     | 如果没有，用集群名通过 `ListClusters` 解析                     |
 | `cluster_name` | 可选     | 仅用于定位 `cluster_id`                                        |
@@ -59,6 +59,10 @@ Kubernetes 节点状态、kube-node-lease、Events、节点上的 Pods、必要�
 | `namespace`    | 可选     | 缩小受影响 Pod 或日志范围时使用                                |
 
 `node_name` 和 `node_ip` 至少提供一个。两者都没有时，先列出节点，让用户选择目标节点或症状范围。
+
+## 区域选择
+
+优先使用当前请求或已建立任务上下文中的 `region`；未提供时读取 `HW_REGION_NAME`；两者都没有时停止执行并要求用户提供 `region` 或设置 `HW_REGION_NAME`，不得从 hcloud profile 推断区域。
 
 ## 前置条件
 
