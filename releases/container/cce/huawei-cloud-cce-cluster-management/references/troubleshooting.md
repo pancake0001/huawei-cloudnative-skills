@@ -192,7 +192,7 @@ kubectl cce --help
 
 # 2. Test connectivity manually
 HW_ACCESS_KEY=<AK> HW_SECRET_KEY=<SK> HW_SECURITY_TOKEN=<token> \
-  kubectl cce --cluster-id <id> --region <region> --project-id <pid> get nodes
+  kubectl cce --cce-insecure-upstream-tls=true --cluster-id <id> --region <region> --project-id <pid> get nodes
 
 # 3. Confirm region matches the cluster's region
 # 4. Confirm HW_ACCESS_KEY / HW_SECRET_KEY (and HW_SECURITY_TOKEN for temp creds) are set

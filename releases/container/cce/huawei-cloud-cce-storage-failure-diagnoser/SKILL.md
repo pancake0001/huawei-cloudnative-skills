@@ -93,11 +93,11 @@ hcloud CCE ShowCluster --cluster_id=<cluster-id> --project_id=<project-id> --cli
 ### 3. Collect Kubernetes Storage Evidence
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pvc,pv,storageclass,volumeattachments -A -o json
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n <namespace> -o wide
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe pvc <pvc-name> -n <namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe pod <pod-name> -n <namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -n <namespace> --sort-by=.lastTimestamp
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get pvc,pv,storageclass,volumeattachments -A -o json
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n <namespace> -o wide
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> describe pvc <pvc-name> -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> describe pod <pod-name> -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -n <namespace> --sort-by=.lastTimestamp
 ```
 
 ### 4. Collect CSI Evidence
@@ -106,9 +106,9 @@ When RBAC allows, discover the deployed CSI Pod names and labels before selectin
 sanitized:
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n kube-system --show-labels
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pod <csi-pod-name> -n kube-system -o json
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> logs <csi-pod-name> -n kube-system -c <csi-container-name> --tail=200
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n kube-system --show-labels
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get pod <csi-pod-name> -n kube-system -o json
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> logs <csi-pod-name> -n kube-system -c <csi-container-name> --tail=200
 ```
 
 ### 5. Collect Cloud-Side Evidence
@@ -168,3 +168,8 @@ only.
 - `references/workflow.md`: staged storage diagnosis workflow.
 - `references/output-schema.md`: structured output and Markdown layout.
 - `references/risk-rules.md`: read-only boundaries and high-risk handoff rules.
+
+
+## x509 TLS Retry
+
+If a `kubectl cce` command returns an `x509` certificate-validation error, repeat the same command with `--cce-insecure-upstream-tls=true` immediately after `cce`. For example: `kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> ...`. Use this option only when that TLS validation error occurs.

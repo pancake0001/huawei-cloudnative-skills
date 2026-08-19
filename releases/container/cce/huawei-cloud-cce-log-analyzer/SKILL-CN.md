@@ -105,3 +105,8 @@ R2、R1 工具必须先发现目标或日志目的端、执行不带 `confirm=tr
 | [tool-reference.md](references/tool-reference.md) | 工具参数和命令示例 |
 | [risk-rules.md](references/risk-rules.md) | 风险、确认和数据安全边界 |
 | [output-schema.md](references/output-schema.md) | 查询与分析结果字段解释 |
+
+
+## x509 TLS 重试
+
+当 `kubectl cce` 返回 `x509` 证书校验错误时，使用完全相同的命令，并在 `cce` 后追加 `--cce-insecure-upstream-tls=true` 重试。例如：`kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> ...`。仅在出现该 TLS 校验错误时使用此参数。

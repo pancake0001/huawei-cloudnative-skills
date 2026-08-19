@@ -99,16 +99,16 @@ hcloud CCE ShowCluster --cluster_id=<cluster-id> --project_id=<project-id> --cli
 Use namespace scope when known. Use `-A` only for cluster-wide changes and keep evidence bounded.
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get deploy,sts,ds,rs,pods,svc,ingress,endpoints,endpointslices,networkpolicy -n <namespace> -o json
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get nodes -o json
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -n <namespace> --sort-by=.lastTimestamp
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get deploy,sts,ds,rs,pods,svc,ingress,endpoints,endpointslices,networkpolicy -n <namespace> -o json
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get nodes -o json
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -n <namespace> --sort-by=.lastTimestamp
 ```
 
 For rollout evidence, inspect retained controller revisions without changing the workload:
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> rollout history <deployment|statefulset|daemonset>/<workload-name> -n <namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get rs -n <namespace> -o json
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> rollout history <deployment|statefulset|daemonset>/<workload-name> -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get rs -n <namespace> -o json
 ```
 
 ### 4. Collect Configuration And Security Metadata Safely
@@ -116,15 +116,15 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 Collect ConfigMap and Secret metadata only. Do not retrieve `data`, `binaryData`, or `stringData` from the cluster.
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get configmap,secret -n <namespace> -o custom-columns='KIND:.kind,NAMESPACE:.metadata.namespace,NAME:.metadata.name,RESOURCE_VERSION:.metadata.resourceVersion,CREATED_AT:.metadata.creationTimestamp'
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get role,rolebinding,serviceaccount -n <namespace> -o json
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get configmap,secret -n <namespace> -o custom-columns='KIND:.kind,NAMESPACE:.metadata.namespace,NAME:.metadata.name,RESOURCE_VERSION:.metadata.resourceVersion,CREATED_AT:.metadata.creationTimestamp'
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get role,rolebinding,serviceaccount -n <namespace> -o json
 ```
 
 When a Gateway API or cluster-wide RBAC change is suspected, collect only the relevant objects and record unavailable CRDs or RBAC as data gaps:
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get gateway,httproute -n <namespace> -o json
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get clusterrole,clusterrolebinding -o json
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get gateway,httproute -n <namespace> -o json
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get clusterrole,clusterrolebinding -o json
 ```
 
 Current resourceVersion, creation timestamps, managed fields, and retained ReplicaSets do not by themselves prove the change time, actor, prior value, or
@@ -207,3 +207,8 @@ must be prohibitions or verification text.
 - `references/capability-map.md`: evidence sources, privacy controls, and known gaps.
 - `references/output-schema.md`: structured output and Markdown layout.
 - `references/risk-rules.md`: read-only boundaries and remediation handoff rules.
+
+
+## x509 TLS Retry
+
+If a `kubectl cce` command returns an `x509` certificate-validation error, repeat the same command with `--cce-insecure-upstream-tls=true` immediately after `cce`. For example: `kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> ...`. Use this option only when that TLS validation error occurs.

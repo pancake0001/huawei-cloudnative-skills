@@ -17,7 +17,7 @@ This skill diagnoses CCE/Kubernetes node failures through Huawei Cloud `hcloud` 
 Execution model:
 
 ```text
-hcloud CCE cluster discovery -> kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> read-only node evidence -> ranked diagnosis report
+hcloud CCE cluster discovery -> kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> read-only node evidence -> ranked diagnosis report
 ```
 
 Use CCE hcloud commands for cluster-level and CCE node metadata. Use kubectl-cce for Kubernetes API access:
@@ -139,7 +139,7 @@ Configure plugin credentials through approved tool parameters, a protected shell
 Pass cluster, region, and project ID explicitly in diagnostic commands:
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get namespaces
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get namespaces
 ```
 
 Use `CCE_ENDPOINT` or `--endpoint` only when the default `<cluster-id>.cce.<region>.myhuaweicloud.com` endpoint is invalid. If plugin access fails, report the
@@ -151,12 +151,12 @@ normal `get` commands in diagnosis reports.
 ### 5. Verify Kubernetes Read Access
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> cluster-info
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i get nodes
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list leases -n kube-node-lease
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list events -A
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list pods -A
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i get pods/log -A
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> cluster-info
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i get nodes
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list leases -n kube-node-lease
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list events -A
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list pods -A
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i get pods/log -A
 ```
 
 If RBAC denies a read, report the missing verb/resource and continue only with allowed evidence.
@@ -168,25 +168,25 @@ Read `references/workflow.md` for detailed evidence order and failure rules.
 Start with the cluster and node baseline:
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get nodes -o wide
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe node <node-name>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get lease <node-name> -n kube-node-lease -o yaml
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -A --field-selector involvedObject.kind=Node,involvedObject.name=<node-name> --sort-by=.lastTimestamp
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get nodes -o wide
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> describe node <node-name>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get lease <node-name> -n kube-node-lease -o yaml
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -A --field-selector involvedObject.kind=Node,involvedObject.name=<node-name> --sort-by=.lastTimestamp
 ```
 
 Then inspect workload impact on the node:
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -A --field-selector spec.nodeName=<node-name> -o wide
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -A --field-selector spec.nodeName=<node-name> -o custom-columns="NAMESPACE:.metadata.namespace,NAME:.metadata.name,READY:.status.containerStatuses[*].ready,RESTARTS:.status.containerStatuses[*].restartCount,PHASE:.status.phase,REASON:.status.reason,NODE:.spec.nodeName"
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -A --sort-by=.lastTimestamp
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -A --field-selector spec.nodeName=<node-name> -o wide
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -A --field-selector spec.nodeName=<node-name> -o custom-columns="NAMESPACE:.metadata.namespace,NAME:.metadata.name,READY:.status.containerStatuses[*].ready,RESTARTS:.status.containerStatuses[*].restartCount,PHASE:.status.phase,REASON:.status.reason,NODE:.spec.nodeName"
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -A --sort-by=.lastTimestamp
 ```
 
 Use metrics-server when available:
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> top node <node-name>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> top pods -A --sort-by=memory
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> top node <node-name>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> top pods -A --sort-by=memory
 ```
 
 If `kubectl cce ... top` returns `Metrics API not available`, record it as a verification gap and avoid inventing resource trends.
@@ -257,7 +257,7 @@ Read `references/verification-method.md` for the CLI verification checklist. A v
 
 - `hcloud version`, `hcloud configure list`, and `kubectl version --client` work.
 - `hcloud CCE ListClusters` and `ShowCluster` work, and `kubectl cce ...` can reach the cluster through the CCE API Gateway.
-- `kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id>` can read nodes, leases, events, and pods.
+- `kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id>` can read nodes, leases, events, and pods.
 - Repository/package search finds no SDK dispatcher entrypoints in this skill package.
 
 ## References
@@ -271,3 +271,8 @@ Read `references/verification-method.md` for the CLI verification checklist. A v
 - Huawei Cloud KooCLI documentation: https://support.huaweicloud.com/hcli/
 - Huawei Cloud CCE documentation: https://support.huaweicloud.com/cce/
 - Kubernetes kubectl reference: https://kubernetes.io/docs/reference/kubectl/
+
+
+## x509 TLS Retry
+
+If a `kubectl cce` command returns an `x509` certificate-validation error, repeat the same command with `--cce-insecure-upstream-tls=true` immediately after `cce`. For example: `kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> ...`. Use this option only when that TLS validation error occurs.

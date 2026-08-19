@@ -18,10 +18,10 @@ The final user-facing report may be Markdown, but it should be easy to map to th
     "selector": "optional"
   },
   "cli_path": {
-    "hcloud_commands": ["hcloud CCE ShowCluster ...", "kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get ns"],
+    "hcloud_commands": ["hcloud CCE ShowCluster ...", "kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get ns"],
     "kubectl_commands": [
-      "kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe pod ...",
-      "kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events ..."
+      "kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> describe pod ...",
+      "kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get events ..."
     ],
     "mutating_commands_run": false
   },

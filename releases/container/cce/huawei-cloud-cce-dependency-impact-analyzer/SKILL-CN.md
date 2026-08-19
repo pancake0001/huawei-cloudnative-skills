@@ -82,10 +82,10 @@ hcloud CCE ShowCluster --cluster_id=<cluster-id> --project_id=<project-id> --cli
 ### 3. 采集命名空间拓扑
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get namespace <namespace> -o json
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get deploy,sts,ds,rs,pods,svc,ingress,endpoints,endpointslices -n <namespace> -o json
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get nodes -o json
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -n <namespace> --sort-by=.lastTimestamp
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get namespace <namespace> -o json
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get deploy,sts,ds,rs,pods,svc,ingress,endpoints,endpointslices -n <namespace> -o json
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get nodes -o json
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -n <namespace> --sort-by=.lastTimestamp
 ```
 
 仅当命名空间未知或故障为集群级时使用 `-A`，并限制报告中的输出规模。Kubernetes 版本或 RBAC 不支持 EndpointSlice 时，使用 Endpoints 并记录数据缺口。
@@ -156,3 +156,8 @@ git diff --check
 - `references/workflow.md`：拓扑匹配、传播和交接流程。
 - `references/output-schema.md`：结构化输出和 Markdown 布局。
 - `references/risk-rules.md`：只读边界和置信度限制。
+
+
+## x509 TLS 重试
+
+当 `kubectl cce` 返回 `x509` 证书校验错误时，使用完全相同的命令，并在 `cce` 后追加 `--cce-insecure-upstream-tls=true` 重试。例如：`kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> ...`。仅在出现该 TLS 校验错误时使用此参数。

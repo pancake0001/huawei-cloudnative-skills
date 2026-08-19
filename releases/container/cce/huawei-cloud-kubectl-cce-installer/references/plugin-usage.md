@@ -33,10 +33,10 @@ For trusted sandbox/agent runtimes that inject credentials per invocation and co
 
 ```bash
 # Mode 1 (env vars)
-kubectl cce --cluster-id <cluster-id> --region "${HW_REGION}" get namespaces
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region "${HW_REGION}" get namespaces
 
 # Mode 2 (runtime injection — runtime supplies the real values; never log them)
-kubectl cce --cluster-id <cluster-id> --region <region> \
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> \
   --cli-access-key <access-key> --cli-secret-key <secret-key> \
   [--cli-security-token <token>] get namespaces
 ```
@@ -53,3 +53,8 @@ Do not run `install_kubectl_cce.sh` on Windows. Download the matching Windows `k
 ```powershell
 kubectl plugin list
 ```
+
+
+## x509 TLS Retry
+
+If a `kubectl cce` command returns an `x509` certificate-validation error, repeat the same command with `--cce-insecure-upstream-tls=true` immediately after `cce`. For example: `kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> ...`. Use this option only when that TLS validation error occurs.

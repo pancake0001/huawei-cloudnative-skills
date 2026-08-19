@@ -270,7 +270,7 @@ def kubectl_cce(ctx: CredentialCtx, region: str, cluster_id: str,
     HW_SECURITY_TOKEN, HW_PROJECT_ID) which the plugin reads automatically.
     """
     cmd = [
-        "kubectl", "cce",
+        "kubectl", "cce", "--cce-insecure-upstream-tls=true",
         f"--cluster-id={cluster_id}",
         f"--region={region}",
     ]

@@ -15,7 +15,7 @@ evidence.
 Always inspect `kube-node-lease/<node-name>` for NotReady or Unknown nodes:
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get lease <node-name> -n kube-node-lease -o yaml
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get lease <node-name> -n kube-node-lease -o yaml
 ```
 
 Lease freshness is a strong liveness signal.

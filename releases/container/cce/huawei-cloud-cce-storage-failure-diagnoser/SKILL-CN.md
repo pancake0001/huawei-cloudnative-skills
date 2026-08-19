@@ -85,11 +85,11 @@ hcloud CCE ShowCluster --cluster_id=<cluster-id> --project_id=<project-id> --cli
 ### 3. 采集 Kubernetes 存储证据
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pvc,pv,storageclass,volumeattachments -A -o json
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n <namespace> -o wide
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe pvc <pvc-name> -n <namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe pod <pod-name> -n <namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -n <namespace> --sort-by=.lastTimestamp
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get pvc,pv,storageclass,volumeattachments -A -o json
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n <namespace> -o wide
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> describe pvc <pvc-name> -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> describe pod <pod-name> -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -n <namespace> --sort-by=.lastTimestamp
 ```
 
 ### 4. 采集 CSI 证据
@@ -97,9 +97,9 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 RBAC 允许时采集 CSI 证据。不同 CCE 版本的 CSI label 可能不同，先发现实际 Pod 名称和 label，再选择目标；日志必须限量并脱敏：
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n kube-system --show-labels
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pod <csi-pod-name> -n kube-system -o json
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> logs <csi-pod-name> -n kube-system -c <csi-container-name> --tail=200
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n kube-system --show-labels
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get pod <csi-pod-name> -n kube-system -o json
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> logs <csi-pod-name> -n kube-system -c <csi-container-name> --tail=200
 ```
 
 ### 5. 采集云侧证据
@@ -154,3 +154,8 @@ rg -n -P "^kubectl (?!cce|version|plugin)" .
 - `references/workflow.md`：分阶段存储诊断流程。
 - `references/output-schema.md`：结构化输出和 Markdown 布局。
 - `references/risk-rules.md`：只读边界和高风险动作交接。
+
+
+## x509 TLS 重试
+
+当 `kubectl cce` 返回 `x509` 证书校验错误时，使用完全相同的命令，并在 `cce` 后追加 `--cce-insecure-upstream-tls=true` 重试。例如：`kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> ...`。仅在出现该 TLS 校验错误时使用此参数。

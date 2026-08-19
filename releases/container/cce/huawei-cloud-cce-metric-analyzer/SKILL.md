@@ -526,3 +526,8 @@ See [Output Schema](references/output-schema.md) for the complete JSON response 
 | [IAM Policies](references/iam-policies.md)                     | Required read-only Huawei Cloud and Kubernetes permissions              |
 | [Verification Method](references/verification-method.md)       | Static checks and smoke tests                                           |
 | [Acceptance Criteria](references/acceptance-criteria.md)       | Functional, security, documentation, and quality gates                  |
+
+
+## x509 TLS Retry
+
+If a `kubectl cce` command returns an `x509` certificate-validation error, repeat the same command with `--cce-insecure-upstream-tls=true` immediately after `cce`. For example: `kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> ...`. Use this option only when that TLS validation error occurs.
