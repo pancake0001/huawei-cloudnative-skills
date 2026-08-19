@@ -98,21 +98,21 @@ Use the installed `hcloud` help if a parameter name differs in the local KooCLI 
 Read [references/kubectl-cce.md](references/kubectl-cce.md) before running Kubernetes commands.
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get ns
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -A -o wide
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get deploy,sts,ds,rs,svc,ingress,endpoints,endpointslices -A -o wide
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get nodes,pv,pvc,storageclass -A -o wide
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -A --sort-by=.lastTimestamp
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get ns
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -A -o wide
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get deploy,sts,ds,rs,svc,ingress,endpoints,endpointslices -A -o wide
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get nodes,pv,pvc,storageclass -A -o wide
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -A --sort-by=.lastTimestamp
 ```
 
 For scoped targets:
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe pod <pod-name> -n <namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> logs <pod-name> -n <namespace> --all-containers --tail=200
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> logs <pod-name> -n <namespace> --all-containers --previous --tail=200
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> top pods -n <namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> top nodes
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> describe pod <pod-name> -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> logs <pod-name> -n <namespace> --all-containers --tail=200
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> logs <pod-name> -n <namespace> --all-containers --previous --tail=200
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> top pods -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> top nodes
 ```
 
 `top`, logs, and previous logs may fail due to Metrics API, RBAC, container restart history, or plugin limitations. Record the failure as a data gap.
@@ -173,8 +173,8 @@ Read [references/risk-rules.md](references/risk-rules.md) before acting.
 
 ```bash
 hcloud CCE ShowCluster --cli-region=<region> --cli-output=json --cluster_id=<cluster-id> --project_id=<project-id>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get ns
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -A --sort-by=.lastTimestamp
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get ns
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -A --sort-by=.lastTimestamp
 ```
 
 Repository checks:
@@ -193,3 +193,8 @@ git diff --check
 | [Risk Rules](references/risk-rules.md)         | Read-only safety rules               |
 | [Output Schema](references/output-schema.md)   | Context package report format        |
 | [kubectl-cce Usage](references/kubectl-cce.md) | Plugin setup and command constraints |
+
+
+## x509 TLS Retry
+
+If a `kubectl cce` command returns an `x509` certificate-validation error, repeat the same command with `--cce-insecure-upstream-tls=true` immediately after `cce`. For example: `kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> ...`. Use this option only when that TLS validation error occurs.

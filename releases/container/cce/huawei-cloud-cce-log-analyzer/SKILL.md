@@ -108,3 +108,8 @@ For R2 and R1 tools, discover the destination or exact target, call the tool wit
 | [tool-reference.md](references/tool-reference.md) | Choosing parameters or running a command |
 | [risk-rules.md](references/risk-rules.md) | Evaluating risk, confirmation, or data-security boundaries |
 | [output-schema.md](references/output-schema.md) | Interpreting query and analysis results |
+
+
+## x509 TLS Retry
+
+If a `kubectl cce` command returns an `x509` certificate-validation error, repeat the same command with `--cce-insecure-upstream-tls=true` immediately after `cce`. For example: `kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> ...`. Use this option only when that TLS validation error occurs.

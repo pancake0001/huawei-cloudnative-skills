@@ -37,7 +37,7 @@ Run:
 
 ```bash
 kubectl plugin list
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get ns
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get ns
 ```
 
 Expected:
@@ -51,12 +51,12 @@ Expected:
 ## Step 4: Kubernetes Read Access
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> cluster-info
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i get nodes
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list leases -n kube-node-lease
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list events -A
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list pods -A
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i get pods/log -A
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> cluster-info
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i get nodes
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list leases -n kube-node-lease
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list events -A
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list pods -A
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i get pods/log -A
 ```
 
 Expected:
@@ -66,12 +66,12 @@ Expected:
 ## Step 5: Node Evidence Baseline
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get nodes -o wide
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe node <node-name>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get lease <node-name> -n kube-node-lease -o yaml
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -A --field-selector involvedObject.kind=Node,involvedObject.name=<node-name> --sort-by=.lastTimestamp
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -A --field-selector spec.nodeName=<node-name> -o wide
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> top node <node-name>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get nodes -o wide
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> describe node <node-name>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get lease <node-name> -n kube-node-lease -o yaml
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -A --field-selector involvedObject.kind=Node,involvedObject.name=<node-name> --sort-by=.lastTimestamp
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -A --field-selector spec.nodeName=<node-name> -o wide
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> top node <node-name>
 ```
 
 Expected:

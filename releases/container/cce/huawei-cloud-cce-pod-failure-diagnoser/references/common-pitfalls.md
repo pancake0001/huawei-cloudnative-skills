@@ -12,14 +12,14 @@ This document lists common traps when diagnosing CCE Pod failures with `hcloud C
 
 ```bash
 # With pod_name
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pod <pod-name> -n <namespace> -o wide
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get pod <pod-name> -n <namespace> -o wide
 
 # With workload_name, first derive the selector
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get deployment <workload-name> -n <namespace> -o yaml
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n <namespace> --selector='<selector>' -o wide
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get deployment <workload-name> -n <namespace> -o yaml
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n <namespace> --selector='<selector>' -o wide
 
 # With a known label selector
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n <namespace> --selector='app=my-app' -o wide
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n <namespace> --selector='app=my-app' -o wide
 ```
 
 ## Pitfall 2: Wrong Namespace
@@ -31,15 +31,15 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 **Solution**: Verify namespaces and scan by name carefully:
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get ns
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n <namespace> -o wide
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -A | grep <pod-name-fragment>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get ns
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n <namespace> -o wide
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -A | grep <pod-name-fragment>
 ```
 
 On Windows PowerShell, use:
 
 ```powershell
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -A | Select-String <pod-name-fragment>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -A | Select-String <pod-name-fragment>
 ```
 
 ## Pitfall 3: ImagePullBackOff With Log Requests
@@ -51,8 +51,8 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 **Solution**: Use Events as primary evidence:
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe pod <pod-name> -n <namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -n <namespace> --field-selector involvedObject.name=<pod-name> --sort-by=.lastTimestamp
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> describe pod <pod-name> -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -n <namespace> --field-selector involvedObject.name=<pod-name> --sort-by=.lastTimestamp
 ```
 
 Focus on image name, tag, pull secret, registry, DNS, timeout, unauthorized, or repository-not-found messages.
@@ -81,9 +81,9 @@ The final report should include a recommendation block, not only the Event text.
 **Solution**: Read previous logs first, then correlate memory limits:
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> logs <pod-name> -n <namespace> --all-containers --previous --tail=200
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe pod <pod-name> -n <namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> top pod <pod-name> -n <namespace> --containers
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> logs <pod-name> -n <namespace> --all-containers --previous --tail=200
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> describe pod <pod-name> -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> top pod <pod-name> -n <namespace> --containers
 ```
 
 If metrics are unavailable, report the gap instead of inferring a memory trend.
@@ -97,16 +97,16 @@ If metrics are unavailable, report the gap instead of inferring a memory trend.
 **Solution**:
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe pod <pod-name> -n <namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -n <namespace> --field-selector involvedObject.name=<pod-name> --sort-by=.lastTimestamp
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get nodes -o wide
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> describe pod <pod-name> -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -n <namespace> --field-selector involvedObject.name=<pod-name> --sort-by=.lastTimestamp
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get nodes -o wide
 ```
 
 For `FailedMount` or `FailedAttachVolume`, inspect PVC/PV and consider handing off to storage diagnosis:
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pvc -n <namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe pvc <pvc-name> -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get pvc -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> describe pvc <pvc-name> -n <namespace>
 ```
 
 ## Pitfall 6: Evicted Without Node Pressure Evidence
@@ -118,9 +118,9 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 **Solution**:
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe pod <pod-name> -n <namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe node <node-name>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> top node
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> describe pod <pod-name> -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> describe node <node-name>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> top node
 ```
 
 If node-level pressure is confirmed, hand off to `huawei-cloud-cce-node-failure-diagnoser`.
@@ -149,7 +149,7 @@ Use the default CCE API Gateway endpoint first. If that endpoint is not valid fo
 **Solution**:
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get ns
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get ns
 ```
 
 If the default endpoint is not valid, retry with `--endpoint <cce-api-gateway-endpoint>` or set `CCE_ENDPOINT`.
@@ -163,16 +163,16 @@ If the default endpoint is not valid, retry with `--endpoint <cce-api-gateway-en
 **Solution**:
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> top pod -n <namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get apiservices | grep metrics
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n kube-system | grep metrics
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> top pod -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get apiservices | grep metrics
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n kube-system | grep metrics
 ```
 
 On PowerShell:
 
 ```powershell
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get apiservices | Select-String metrics
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n kube-system | Select-String metrics
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get apiservices | Select-String metrics
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n kube-system | Select-String metrics
 ```
 
 If metrics remain unavailable, mark metrics as a gap and continue with Events/logs/status.

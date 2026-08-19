@@ -67,7 +67,7 @@ Project ID is cached in process memory only.
 >
 > **Addon Status Field:** The addon's current status is in `status.status` (e.g., `running`, `upgrading`, `abnormal`), not `spec.status`. After
 > `huawei_update_cce_addon`, the addon may enter `upgrading` state — wait for it to return to `running` before subsequent operations. | `huawei_cce_node_cordon`
-> | kubectl cce | `kubectl cce --cluster-id <id> --region <r> --project-id <pid> cordon <node>` | No EIP needed. confirm required. | |
+> | kubectl cce | `kubectl cce --cce-insecure-upstream-tls=true --cluster-id <id> --region <r> --project-id <pid> cordon <node>` | No EIP needed. confirm required. | |
 > `huawei_cce_node_uncordon` | kubectl cce | `kubectl cce ... uncordon <node>` | confirm required. | | `huawei_cce_node_drain` | kubectl cce |
 > `kubectl cce ... drain <node> --ignore-daemonsets --delete-emptydir-data --grace-period=30 --timeout=120s` | Native drain: cordon + evict, respects PDB.
 > confirm required. | | `huawei_cce_node_status` | kubectl cce | `kubectl cce ... get node <node> -o json` | Returns `schedulable`, `ready`, conditions. |
@@ -166,7 +166,7 @@ The `kubectl_cce()` helper in `hcloud_runner.py` builds the command:
 ```bash
 # Environment variables set inline (same shell process)
 HW_ACCESS_KEY=<AK> HW_SECRET_KEY=<SK> HW_SECURITY_TOKEN=<token> \
-  kubectl cce \
+  kubectl cce --cce-insecure-upstream-tls=true \
     --cluster-id <cluster_id> \
     --region <region> \
     --project-id <project_id> \
@@ -201,3 +201,8 @@ See [troubleshooting.md](troubleshooting.md) for resolution steps per error cate
 - [kubectl Documentation](https://kubernetes.io/docs/reference/kubectl/)
 - [kubectl-cce Plugin](https://support.huaweicloud.com/engineer/cloudeye/cce_03_0123.html)
 - [CCE Password Salting and Encryption](https://support.huaweicloud.com/api-cce/add-salt.html)
+
+
+## x509 TLS Retry
+
+If a `kubectl cce` command returns an `x509` certificate-validation error, repeat the same command with `--cce-insecure-upstream-tls=true` immediately after `cce`. For example: `kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> ...`. Use this option only when that TLS validation error occurs.

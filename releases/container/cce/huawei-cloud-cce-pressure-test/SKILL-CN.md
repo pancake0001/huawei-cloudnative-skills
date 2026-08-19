@@ -138,7 +138,7 @@ kubectl plugin list
 通过受批准的工具参数、受保护的 shell 环境或本地凭据提供方配置插件认证，不要打印凭据值。诊断命令中显式传入集群、区域和项目 ID：
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get namespaces
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get namespaces
 ```
 
 仅当默认 `<cluster-id>.cce.<region>.myhuaweicloud.com` endpoint 不适用于当前环境时，才设置 `CCE_ENDPOINT` 或传入
@@ -149,22 +149,22 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 ### 4. 验证 Kubernetes 访问
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> cluster-info
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i get deployments -n <namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list pods -n <namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list events -n <namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i get pods/log -n <namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list jobs -n <client-namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> cluster-info
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i get deployments -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list pods -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list events -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i get pods/log -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list jobs -n <client-namespace>
 ```
 
 只有用户批准变更后，才检查对应写权限：
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i create jobs -n <client-namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i create services -n <namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i patch services -n <namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i patch ingress -n <namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i update deployments/scale -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i create jobs -n <client-namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i create services -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i patch services -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i patch ingress -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i update deployments/scale -n <namespace>
 ```
 
 RBAC 拒绝读取时，在报告中写明缺少的 verb/resource，并只继续采集允许读取的证据。RBAC 拒绝变更时，不能切换到 SDK 或手写 API 绕过。
@@ -189,12 +189,12 @@ RBAC 拒绝读取时，在报告中写明缺少的 verb/resource，并只继续�
 先看 Kubernetes 对象和健康状态：
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get nodes -o wide
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get deploy,sts,ds,svc,endpoints,endpointslice,ingress,hpa,pdb -n <namespace> -o wide
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n <namespace> -o wide
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -n <namespace> --sort-by=.lastTimestamp
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> top pods -n <namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> top nodes
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get nodes -o wide
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get deploy,sts,ds,svc,endpoints,endpointslice,ingress,hpa,pdb -n <namespace> -o wide
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n <namespace> -o wide
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -n <namespace> --sort-by=.lastTimestamp
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> top pods -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> top nodes
 ```
 
 `kubectl cce ... top` 不可用时，记录为指标缺口，不要编造资源趋势。
@@ -228,9 +228,9 @@ k6 run --vus <vus> --duration <duration> <script.js>
 ConfigMap 和 Job 模板见 `references/manifest-templates.md`。批准后才执行：
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> apply -f <approved-k6-manifest.yaml>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> wait --for=condition=complete job/<job-name> -n <client-namespace> --timeout=<timeout>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> logs job/<job-name> -n <client-namespace> --all-containers
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> apply -f <approved-k6-manifest.yaml>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> wait --for=condition=complete job/<job-name> -n <client-namespace> --timeout=<timeout>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> logs job/<job-name> -n <client-namespace> --all-containers
 ```
 
 Job 出现 `ImagePullBackOff` 或 `ErrImagePull` 时，以 Pod Events 为主证据，建议把 k6 镜像同步到同区域 SWR。
@@ -244,8 +244,8 @@ Kubernetes 路由 manifest 模板见 `references/manifest-templates.md`。
 手动扩缩容弹性测试只在批准后执行：
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> scale deployment/<workload-name> -n <namespace> --replicas=<replicas>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> rollout status deployment/<workload-name> -n <namespace> --timeout=180s
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> scale deployment/<workload-name> -n <namespace> --replicas=<replicas>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> rollout status deployment/<workload-name> -n <namespace> --timeout=180s
 ```
 
 创建收费 ELB 前必须评审子网、AZ、规格、公网/私网暴露和成本影响。优先复用已有 ingress-controller ELB。
@@ -298,7 +298,7 @@ CLI 验证清单见 `references/verification-method.md`。有效实现应满足�
 
 - `hcloud version`、`hcloud configure list`、`kubectl version --client` 可用，并且本地 `k6 version` 或已批准的集群内 Job 镜像验证可用。
 - `hcloud CCE ListClusters`、`ShowCluster`、`ShowClusterEndpoints` 可用，`kubectl cce ...` 能读取目标集群。
-- `kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id>` 能读取目标 namespace 和工作负载。
+- `kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id>` 能读取目标 namespace 和工作负载。
 - 大流量前先执行冒烟压测。
 - 本 skill 包中搜索不到 SDK dispatcher 入口。
 
@@ -315,3 +315,8 @@ CLI 验证清单见 `references/verification-method.md`。有效实现应满足�
 - Huawei Cloud KooCLI documentation: https://support.huaweicloud.com/hcli/
 - Huawei Cloud CCE documentation: https://support.huaweicloud.com/cce/
 - Kubernetes kubectl reference: https://kubernetes.io/docs/reference/kubectl/
+
+
+## x509 TLS 重试
+
+当 `kubectl cce` 返回 `x509` 证书校验错误时，使用完全相同的命令，并在 `cce` 后追加 `--cce-insecure-upstream-tls=true` 重试。例如：`kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> ...`。仅在出现该 TLS 校验错误时使用此参数。

@@ -150,7 +150,7 @@ def _kubectl_get_with_cce_plugin(region: str, cluster_id: str, resource_args: Li
         env["HW_SECURITY_TOKEN"] = sec_token
         env["HUAWEICLOUD_SECURITY_TOKEN"] = sec_token
 
-    command = ["kubectl", "cce", "--cluster-id", cluster_id, "--region", region]
+    command = ["kubectl", "cce", "--cce-insecure-upstream-tls=true", "--cluster-id", cluster_id, "--region", region]
     if proj_id:
         command.extend(["--project-id", proj_id])
     if access_key:

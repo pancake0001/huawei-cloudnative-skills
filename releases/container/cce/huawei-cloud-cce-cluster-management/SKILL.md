@@ -445,3 +445,8 @@ See [verification-method.md](references/verification-method.md) for detailed ver
   `--ignore-daemonsets --delete-emptydir-data` flags.
 - Turbo clusters recommended for best performance with ENI network
 - Create cluster / create node pool use the Python SDK fallback due to a known hcloud metadata parsing defect; all other operations use hcloud CLI
+
+
+## x509 TLS Retry
+
+If a `kubectl cce` command returns an `x509` certificate-validation error, repeat the same command with `--cce-insecure-upstream-tls=true` immediately after `cce`. For example: `kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> ...`. Use this option only when that TLS validation error occurs.

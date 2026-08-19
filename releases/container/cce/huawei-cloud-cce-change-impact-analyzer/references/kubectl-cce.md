@@ -34,7 +34,7 @@ Always pass `--project-id <project-id>` when available instead of relying on imp
 Always pass cluster, region, and project explicitly:
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get namespaces
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get namespaces
 ```
 
 For CCE API Gateway endpoint issues, first record the sanitized error. Use `CCE_ENDPOINT` or a documented plugin endpoint option only when the default endpoint
@@ -58,3 +58,8 @@ When plugin access fails, report:
 5. Whether the failure is likely missing binary, incompatible OS/arch, missing credentials, missing project ID, endpoint reachability, cluster state, or RBAC.
 
 Do not bypass the plugin by generating kubeconfig or switching to SDK calls.
+
+
+## x509 TLS Retry
+
+If a `kubectl cce` command returns an `x509` certificate-validation error, repeat the same command with `--cce-insecure-upstream-tls=true` immediately after `cce`. For example: `kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> ...`. Use this option only when that TLS validation error occurs.

@@ -45,7 +45,7 @@ Run:
 
 ```bash
 kubectl plugin list
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get ns
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get ns
 ```
 
 Expected:
@@ -61,11 +61,11 @@ Expected:
 Run:
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> cluster-info
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i get deployments -n <namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list pods -n <namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i get events -n <namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i get pods/log -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> cluster-info
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i get deployments -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list pods -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i get events -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i get pods/log -n <namespace>
 ```
 
 Expected:
@@ -78,12 +78,12 @@ Expected:
 For a known workload, run only read commands:
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get deployment <name> -n <namespace> -o yaml
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe deployment <name> -n <namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> rollout status deployment/<name> -n <namespace> --timeout=30s
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get rs -n <namespace> --selector='<selector>' -o yaml
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n <namespace> --selector='<selector>' -o wide
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -n <namespace> --sort-by=.lastTimestamp
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get deployment <name> -n <namespace> -o yaml
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> describe deployment <name> -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> rollout status deployment/<name> -n <namespace> --timeout=30s
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get rs -n <namespace> --selector='<selector>' -o yaml
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n <namespace> --selector='<selector>' -o wide
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -n <namespace> --sort-by=.lastTimestamp
 ```
 
 Adjust resource names for StatefulSet or DaemonSet.

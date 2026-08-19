@@ -78,11 +78,11 @@ Produce a concise Markdown report for users, and optionally include the JSON-com
     "hcloud": [
       "hcloud CCE ListClusters ...",
       "hcloud CCE ShowCluster ...",
-      "kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get ns"
+      "kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get ns"
     ],
     "kubectl": [
-      "kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get deployment ...",
-      "kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods ..."
+      "kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get deployment ...",
+      "kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods ..."
     ],
     "mutating_commands_run": false
   },

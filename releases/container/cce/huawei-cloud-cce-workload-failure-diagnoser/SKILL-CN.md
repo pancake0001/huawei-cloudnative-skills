@@ -13,7 +13,7 @@ tags: [huawei-cloud, cce, kubectl, workload, diagnosis]
 
 此 skill 通过华为云 `hcloud` CLI 和 Kubernetes `kubectl` 诊断 CCE 工作负载发布和可用性故障。
 
-**执行模型**：`hcloud CCE` 查询集群 -> `kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id>`
+**执行模型**：`hcloud CCE` 查询集群 -> `kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id>`
 只读采集工作负载证据 -> 根因排序与移交建议。
 
 集群级操作使用 CCE hcloud 命令：
@@ -24,7 +24,7 @@ tags: [huawei-cloud, cce, kubectl, workload, diagnosis]
 
 通过 kubectl-cce 插件接入后，使用 `kubectl cce`
 查看 Kubernetes 资源。工作负载、ReplicaSet、Pod、Event、日志、PVC、Service、Ingress、HPA 和 Node 都属于 Kubernetes 资源，应通过
-`kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id>` 检查。
+`kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id>` 检查。
 
 此 skill 不使用 Python SDK dispatcher、旧 skill 执行动作、旧 Huawei workload 动作或捆绑 SDK 脚本。
 
@@ -125,7 +125,7 @@ kubectl plugin list
 通过受批准的工具参数、受保护的 shell 环境或本地凭据提供方配置插件认证，不要打印凭据值。诊断命令中显式传入集群、区域和项目 ID：
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get namespaces
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get namespaces
 ```
 
 仅当默认 `<cluster-id>.cce.<region>.myhuaweicloud.com` endpoint 不适用于当前环境时，才设置 `CCE_ENDPOINT` 或传入
@@ -136,10 +136,10 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 ### 5. 验证 Kubernetes 访问
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> cluster-info
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i get deployments -n <namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list pods -n <namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i get pods/log -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> cluster-info
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i get deployments -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list pods -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i get pods/log -n <namespace>
 ```
 
 如果 RBAC 拒绝某个读操作，报告缺失权限，并停止或基于部分证据继续诊断。
@@ -151,9 +151,9 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 当多个命名空间中的大量工作负载同时不可用时，先检查集群级共性证据，再下钻单个工作负载：
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get nodes -o wide
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe node <node-name>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -A --sort-by=.lastTimestamp
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get nodes -o wide
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> describe node <node-name>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -A --sort-by=.lastTimestamp
 ```
 
 如果所有候选节点都是 `Ready=Unknown`、`NotReady`，或带有 `node.kubernetes.io/unreachable`、`node.cloudprovider.kubernetes.io/shutdown`
@@ -162,18 +162,18 @@ taint，则应将共性的节点/调度阻塞排在单个工作负载症状之�
 ### Deployment 证据
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get deployment <name> -n <namespace> -o yaml
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe deployment <name> -n <namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> rollout status deployment/<name> -n <namespace> --timeout=30s
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> rollout history deployment/<name> -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get deployment <name> -n <namespace> -o yaml
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> describe deployment <name> -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> rollout status deployment/<name> -n <namespace> --timeout=30s
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> rollout history deployment/<name> -n <namespace>
 ```
 
 从 `spec.selector.matchLabels` 推导 selector，然后检查 ReplicaSet 和 Pod：
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get rs -n <namespace> --selector='<selector>' -o yaml
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n <namespace> --selector='<selector>' -o wide
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n <namespace> --selector='<selector>' -o yaml
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get rs -n <namespace> --selector='<selector>' -o yaml
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n <namespace> --selector='<selector>' -o wide
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n <namespace> --selector='<selector>' -o yaml
 ```
 
 按 ownerReference 过滤 ReplicaSet，只保留指向 Deployment UID 的对象。将 `deployment.kubernetes.io/revision` 最大的 ReplicaSet 视为新版本。
@@ -181,10 +181,10 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 ### StatefulSet 证据
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get statefulset <name> -n <namespace> -o yaml
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe statefulset <name> -n <namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> rollout status statefulset/<name> -n <namespace> --timeout=30s
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n <namespace> --selector='<selector>' -o wide
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get statefulset <name> -n <namespace> -o yaml
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> describe statefulset <name> -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> rollout status statefulset/<name> -n <namespace> --timeout=30s
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n <namespace> --selector='<selector>' -o wide
 ```
 
 对比 `spec.replicas`、`status.currentReplicas`、`status.updatedReplicas`、`status.readyReplicas`、`status.availableReplicas`，以及 `spec.updateStrategy`
@@ -193,10 +193,10 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 ### DaemonSet 证据
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get daemonset <name> -n <namespace> -o yaml
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe daemonset <name> -n <namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> rollout status daemonset/<name> -n <namespace> --timeout=30s
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n <namespace> --selector='<selector>' -o wide
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get daemonset <name> -n <namespace> -o yaml
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> describe daemonset <name> -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> rollout status daemonset/<name> -n <namespace> --timeout=30s
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n <namespace> --selector='<selector>' -o wide
 ```
 
 对比 `desiredNumberScheduled`、`currentNumberScheduled`、`updatedNumberScheduled`、`numberReady`、`numberAvailable`、`numberUnavailable` 和节点调度约束。
@@ -206,14 +206,14 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 采集工作负载、ReplicaSet 和 Pod 事件。尽量使用 UID 相关过滤，并始终避免把命名空间下所有 Warning 事件都当作目标工作负载证据。
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -n <namespace> --sort-by=.lastTimestamp
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -n <namespace> --field-selector involvedObject.name=<name> --sort-by=.lastTimestamp
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -n <namespace> --sort-by=.lastTimestamp
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -n <namespace> --field-selector involvedObject.name=<name> --sort-by=.lastTimestamp
 ```
 
 Kubernetes Events v1 API 可用时：
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events.events.k8s.io -n <namespace> --sort-by=.eventTime -o yaml
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get events.events.k8s.io -n <namespace> --sort-by=.eventTime -o yaml
 ```
 
 只保留 involved object UID/name 能映射到工作负载、所属 ReplicaSet 或选中 Pod 的事件。
@@ -223,33 +223,33 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 对每个未 Ready 的新版本 Pod，检查状态、事件、日志和资源压力：
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe pod <pod-name> -n <namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> logs <pod-name> -n <namespace> --all-containers --tail=200
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> logs <pod-name> -n <namespace> --all-containers --previous --tail=200
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> top pod <pod-name> -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> describe pod <pod-name> -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> logs <pod-name> -n <namespace> --all-containers --tail=200
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> logs <pod-name> -n <namespace> --all-containers --previous --tail=200
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> top pod <pod-name> -n <namespace>
 ```
 
 如果出现调度或节点压力迹象：
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get nodes -o wide
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe node <node-name>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get nodes -o wide
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> describe node <node-name>
 ```
 
 如果出现存储迹象：
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pvc -n <namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe pvc <pvc-name> -n <namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pv
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get pvc -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> describe pvc <pvc-name> -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get pv
 ```
 
 如果出现流量或 readiness 路径问题：
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get svc,endpoints,ingress -n <namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe svc <service-name> -n <namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe ingress <ingress-name> -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get svc,endpoints,ingress -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> describe svc <service-name> -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> describe ingress <ingress-name> -n <namespace>
 ```
 
 ## 根因排序
@@ -315,7 +315,7 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 - `hcloud version`、`hcloud configure list` 和 `kubectl version --client` 可用。
 - `hcloud CCE ListClusters` 和 `ShowCluster` 能找到目标集群。
 - `kubectl cce ...` 能通过 CCE API Gateway 读取目标集群。
-- `kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id>` 能读取目标命名空间。
+- `kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id>` 能读取目标命名空间。
 - 仓库/包内搜索不到 SDK dispatcher 入口。
 
 ## 参考文档
@@ -327,3 +327,8 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 - 华为云 KooCLI 文档：https://support.huaweicloud.com/hcli/
 - 华为云 CCE 文档：https://support.huaweicloud.com/cce/
 - Kubernetes kubectl 参考：https://kubernetes.io/docs/reference/kubectl/
+
+
+## x509 TLS 重试
+
+当 `kubectl cce` 返回 `x509` 证书校验错误时，使用完全相同的命令，并在 `cce` 后追加 `--cce-insecure-upstream-tls=true` 重试。例如：`kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> ...`。仅在出现该 TLS 校验错误时使用此参数。

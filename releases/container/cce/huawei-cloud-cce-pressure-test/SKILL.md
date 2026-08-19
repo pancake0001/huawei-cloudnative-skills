@@ -155,7 +155,7 @@ Configure plugin credentials through approved tool parameters, a protected shell
 Pass cluster, region, and project ID explicitly in diagnostic commands:
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get namespaces
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get namespaces
 ```
 
 Use `CCE_ENDPOINT` or `--endpoint` only when the default `<cluster-id>.cce.<region>.myhuaweicloud.com` endpoint is not valid for the current environment. If
@@ -168,22 +168,22 @@ The plugin intentionally blocks streaming commands such as `exec`, `attach`, and
 ### 4. Verify Kubernetes Access
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> cluster-info
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i get deployments -n <namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list pods -n <namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list events -n <namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i get pods/log -n <namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list jobs -n <client-namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> cluster-info
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i get deployments -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list pods -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list events -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i get pods/log -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list jobs -n <client-namespace>
 ```
 
 Check write permissions only when the user has approved a mutating step:
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i create jobs -n <client-namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i create services -n <namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i patch services -n <namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i patch ingress -n <namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i update deployments/scale -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i create jobs -n <client-namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i create services -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i patch services -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i patch ingress -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i update deployments/scale -n <namespace>
 ```
 
 If RBAC denies a read, report the missing verb/resource and continue only with allowed evidence. If RBAC denies a requested mutation, do not work around it with
@@ -209,12 +209,12 @@ Read `references/workflow.md` before running a test. The standard flow is:
 Start with Kubernetes object and health evidence:
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get nodes -o wide
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get deploy,sts,ds,svc,endpoints,endpointslice,ingress,hpa,pdb -n <namespace> -o wide
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n <namespace> -o wide
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -n <namespace> --sort-by=.lastTimestamp
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> top pods -n <namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> top nodes
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get nodes -o wide
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get deploy,sts,ds,svc,endpoints,endpointslice,ingress,hpa,pdb -n <namespace> -o wide
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n <namespace> -o wide
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -n <namespace> --sort-by=.lastTimestamp
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> top pods -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> top nodes
 ```
 
 If `kubectl cce ... top` is unavailable, record a metrics gap and do not invent resource trends.
@@ -249,9 +249,9 @@ it requires explicit approval after the manifest is shown.
 Read `references/manifest-templates.md` for the ConfigMap and Job template. Apply only after approval:
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> apply -f <approved-k6-manifest.yaml>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> wait --for=condition=complete job/<job-name> -n <client-namespace> --timeout=<timeout>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> logs job/<job-name> -n <client-namespace> --all-containers
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> apply -f <approved-k6-manifest.yaml>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> wait --for=condition=complete job/<job-name> -n <client-namespace> --timeout=<timeout>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> logs job/<job-name> -n <client-namespace> --all-containers
 ```
 
 If the Job fails with `ImagePullBackOff` or `ErrImagePull`, diagnose it with Pod Events and recommend mirroring the k6 image to regional SWR.
@@ -266,8 +266,8 @@ For Kubernetes route manifests, read `references/manifest-templates.md`.
 For manual scale elasticity tests, apply only after approval:
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> scale deployment/<workload-name> -n <namespace> --replicas=<replicas>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> rollout status deployment/<workload-name> -n <namespace> --timeout=180s
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> scale deployment/<workload-name> -n <namespace> --replicas=<replicas>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> rollout status deployment/<workload-name> -n <namespace> --timeout=180s
 ```
 
 For chargeable ELB creation, use hcloud only after reviewing subnet, AZ, flavor, public/private exposure, and cost impact. Prefer reusing an existing
@@ -323,7 +323,7 @@ Read `references/verification-method.md` for the CLI verification checklist. A v
 
 - `hcloud version`, `hcloud configure list`, `kubectl version --client`, and either `k6 version` or approved in-cluster Job image validation work.
 - `hcloud CCE ListClusters`, `ShowCluster`, and `ShowClusterEndpoints` work, and `kubectl cce ...` can reach the cluster through the CCE API Gateway.
-- `kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id>` can read the target namespace and workload.
+- `kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id>` can read the target namespace and workload.
 - Smoke traffic is run before larger traffic.
 - Repository/package search finds no SDK dispatcher entrypoints in this skill package.
 
@@ -340,3 +340,8 @@ Read `references/verification-method.md` for the CLI verification checklist. A v
 - Huawei Cloud KooCLI documentation: https://support.huaweicloud.com/hcli/
 - Huawei Cloud CCE documentation: https://support.huaweicloud.com/cce/
 - Kubernetes kubectl reference: https://kubernetes.io/docs/reference/kubectl/
+
+
+## x509 TLS Retry
+
+If a `kubectl cce` command returns an `x509` certificate-validation error, repeat the same command with `--cce-insecure-upstream-tls=true` immediately after `cce`. For example: `kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> ...`. Use this option only when that TLS validation error occurs.

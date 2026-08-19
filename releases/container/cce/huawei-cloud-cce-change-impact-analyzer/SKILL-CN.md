@@ -89,16 +89,16 @@ hcloud CCE ShowCluster --cluster_id=<cluster-id> --project_id=<project-id> --cli
 命名空间明确时优先按 namespace 采集。仅对集群级变更使用 `-A`，并控制证据规模。
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get deploy,sts,ds,rs,pods,svc,ingress,endpoints,endpointslices,networkpolicy -n <namespace> -o json
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get nodes -o json
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -n <namespace> --sort-by=.lastTimestamp
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get deploy,sts,ds,rs,pods,svc,ingress,endpoints,endpointslices,networkpolicy -n <namespace> -o json
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get nodes -o json
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -n <namespace> --sort-by=.lastTimestamp
 ```
 
 读取保留的控制器 revision 证据，不改变工作负载：
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> rollout history <deployment|statefulset|daemonset>/<workload-name> -n <namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get rs -n <namespace> -o json
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> rollout history <deployment|statefulset|daemonset>/<workload-name> -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get rs -n <namespace> -o json
 ```
 
 ### 4. 安全采集配置和安全元数据
@@ -106,15 +106,15 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 只采集 ConfigMap 和 Secret metadata，不从集群读取 `data`、`binaryData` 或 `stringData`。
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get configmap,secret -n <namespace> -o custom-columns='KIND:.kind,NAMESPACE:.metadata.namespace,NAME:.metadata.name,RESOURCE_VERSION:.metadata.resourceVersion,CREATED_AT:.metadata.creationTimestamp'
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get role,rolebinding,serviceaccount -n <namespace> -o json
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get configmap,secret -n <namespace> -o custom-columns='KIND:.kind,NAMESPACE:.metadata.namespace,NAME:.metadata.name,RESOURCE_VERSION:.metadata.resourceVersion,CREATED_AT:.metadata.creationTimestamp'
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get role,rolebinding,serviceaccount -n <namespace> -o json
 ```
 
 怀疑 Gateway API 或集群级 RBAC 变更时，只采集相关对象；CRD 不存在或 RBAC 被拒绝时记录为数据缺口：
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get gateway,httproute -n <namespace> -o json
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get clusterrole,clusterrolebinding -o json
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get gateway,httproute -n <namespace> -o json
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get clusterrole,clusterrolebinding -o json
 ```
 
 当前 resourceVersion、创建时间、managed fields 和保留的 ReplicaSet 本身不能证明变更时间、操作者、历史值或因果关系。
@@ -188,3 +188,8 @@ git diff --check
 - `references/capability-map.md`：证据来源、隐私控制和已知缺口。
 - `references/output-schema.md`：结构化输出和 Markdown 布局。
 - `references/risk-rules.md`：只读边界和恢复交接规则。
+
+
+## x509 TLS 重试
+
+当 `kubectl cce` 返回 `x509` 证书校验错误时，使用完全相同的命令，并在 `cce` 后追加 `--cce-insecure-upstream-tls=true` 重试。例如：`kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> ...`。仅在出现该 TLS 校验错误时使用此参数。

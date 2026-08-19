@@ -66,7 +66,7 @@ hcloud CCE 查询集群 -> kubectl cce 只读采集资源 -> 发布漏斗分析 
 
 5. 验证 Kubernetes 读权限
 
-   先跑 `kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> cluster-info`，再用 `kubectl cce ... auth can-i`
+   先跑 `kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> cluster-info`，再用 `kubectl cce ... auth can-i`
    检查目标命名空间里的 Deployment/Pod/Event/Pod logs 读取权限。网络不可达或 RBAC 不足要作为诊断缺口写入报告。
 
 6. 采集工作负载证据

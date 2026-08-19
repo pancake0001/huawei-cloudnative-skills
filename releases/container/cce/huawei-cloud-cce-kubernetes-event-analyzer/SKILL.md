@@ -172,7 +172,7 @@ python3 scripts/huawei-cloud.py huawei_query_k8s_events_from_lts \
 
 LTS time format is UTC `YYYY-MM-DD HH:MM:SS`; the tool always interprets input values as UTC, not the local time zone of the host. The cluster must have the
 Cloud Native Log Collection add-on (`log-agent`) installed and healthy with the `default-event` Event-to-LTS `LogConfig`. The tool uses
-`kubectl cce --cluster-id <cluster-id> --region <region> get logconfigs.logging.openvessel.io -A -o json`, selects `default-event`, and reads
+`kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> get logconfigs.logging.openvessel.io -A -o json`, selects `default-event`, and reads
 `outputDetail.LTS.ltsGroupID` and `ltsStreamID`. LTS queries default to `event_type=Warning`, using `Warning` as a server-side keyword filter. For large
 clusters, request full Event history only after user confirmation with `event_type=all`; this removes the type keyword filter. LTS filtering is keyword
 matching, not a structured-field selector.
@@ -325,3 +325,8 @@ logging configuration as part of verification.
 | [Output Schema](references/output-schema.md)             | Query, analysis, and Event record fields                                         |
 | [kubectl-cce](references/kubectl-cce.md)                 | kubectl-cce installation, credentials, and access fallback                       |
 | [Acceptance Criteria](references/acceptance-criteria.md) | Expected outcomes for current, historical, and combined query-and-analysis flows |
+
+
+## x509 TLS Retry
+
+If a `kubectl cce` command returns an `x509` certificate-validation error, repeat the same command with `--cce-insecure-upstream-tls=true` immediately after `cce`. For example: `kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> ...`. Use this option only when that TLS validation error occurs.

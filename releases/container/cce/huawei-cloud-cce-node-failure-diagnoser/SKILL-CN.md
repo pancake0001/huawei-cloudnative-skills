@@ -16,7 +16,7 @@ tags: [huawei-cloud, cce, kubectl, node, diagnosis]
 执行模型：
 
 ```text
-hcloud CCE 查询集群 -> kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> 只读采集节点证据 -> 排名诊断报告
+hcloud CCE 查询集群 -> kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> 只读采集节点证据 -> 排名诊断报告
 ```
 
 CCE hcloud 只用于集群级和 CCE 节点元数据：
@@ -28,7 +28,7 @@ CCE hcloud 只用于集群级和 CCE 节点元数据：
 - `hcloud CCE ShowNode`
 
 Kubernetes 节点状态、kube-node-lease、Events、节点上的 Pods、必要时的 Pod 日志，以及 metrics-server 指标，都使用
-`kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id>` 采集。
+`kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id>` 采集。
 
 不要使用 Python SDK dispatcher、旧 skill 执行动作、旧 Huawei node action 或 Huawei Cloud SDK import。
 
@@ -127,7 +127,7 @@ kubectl plugin list
 通过受批准的工具参数、受保护的 shell 环境或本地凭据提供方配置插件认证，不要打印凭据值。诊断命令中显式传入集群、区域和项目 ID：
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get namespaces
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get namespaces
 ```
 
 仅当默认 `<cluster-id>.cce.<region>.myhuaweicloud.com` endpoint 不适用于当前环境时，才设置 `CCE_ENDPOINT` 或传入
@@ -138,12 +138,12 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 ### 5. 验证 Kubernetes 只读权限
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> cluster-info
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i get nodes
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list leases -n kube-node-lease
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list events -A
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list pods -A
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i get pods/log -A
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> cluster-info
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i get nodes
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list leases -n kube-node-lease
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list events -A
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list pods -A
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i get pods/log -A
 ```
 
 若 RBAC 拒绝某项读取，在报告中记录缺失权限，只继续采集允许读取的证据。
@@ -155,25 +155,25 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 节点基线：
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get nodes -o wide
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe node <node-name>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get lease <node-name> -n kube-node-lease -o yaml
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -A --field-selector involvedObject.kind=Node,involvedObject.name=<node-name> --sort-by=.lastTimestamp
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get nodes -o wide
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> describe node <node-name>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get lease <node-name> -n kube-node-lease -o yaml
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -A --field-selector involvedObject.kind=Node,involvedObject.name=<node-name> --sort-by=.lastTimestamp
 ```
 
 节点影响面：
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -A --field-selector spec.nodeName=<node-name> -o wide
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -A --field-selector spec.nodeName=<node-name> -o custom-columns="NAMESPACE:.metadata.namespace,NAME:.metadata.name,READY:.status.containerStatuses[*].ready,RESTARTS:.status.containerStatuses[*].restartCount,PHASE:.status.phase,REASON:.status.reason,NODE:.spec.nodeName"
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -A --sort-by=.lastTimestamp
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -A --field-selector spec.nodeName=<node-name> -o wide
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -A --field-selector spec.nodeName=<node-name> -o custom-columns="NAMESPACE:.metadata.namespace,NAME:.metadata.name,READY:.status.containerStatuses[*].ready,RESTARTS:.status.containerStatuses[*].restartCount,PHASE:.status.phase,REASON:.status.reason,NODE:.spec.nodeName"
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -A --sort-by=.lastTimestamp
 ```
 
 指标可用时：
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> top node <node-name>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> top pods -A --sort-by=memory
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> top node <node-name>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> top pods -A --sort-by=memory
 ```
 
 `kubectl cce ... top` 返回 `Metrics API not available` 时，把它记录为验证缺口，不要编造资源趋势。
@@ -243,7 +243,7 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 
 - `hcloud version`、`hcloud configure list`、`kubectl version --client` 可用。
 - `hcloud CCE ListClusters`、`ShowCluster` 可用，`kubectl cce ...` 能读取目标集群。
-- `kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id>` 能读取 nodes、leases、events、pods。
+- `kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id>` 能读取 nodes、leases、events、pods。
 - 技能包中没有 SDK dispatcher 入口残留。
 
 ## 参考文档
@@ -254,3 +254,8 @@ kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id
 - `references/risk-rules.md` - 只读边界和移交规则。
 - `references/verification-method.md` - 环境和 CLI 验证。
 - `references/iam-policies.md` - IAM 与 Kubernetes RBAC 要求。
+
+
+## x509 TLS 重试
+
+当 `kubectl cce` 返回 `x509` 证书校验错误时，使用完全相同的命令，并在 `cce` 后追加 `--cce-insecure-upstream-tls=true` 重试。例如：`kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> ...`。仅在出现该 TLS 校验错误时使用此参数。

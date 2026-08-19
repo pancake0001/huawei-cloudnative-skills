@@ -159,7 +159,7 @@ def _get_events_with_cce_plugin(
     security_token = common.get_security_token(security_token)
     if security_token:
         env.update({"HW_SECURITY_TOKEN": security_token, "HUAWEICLOUD_SECURITY_TOKEN": security_token})
-    command = ["kubectl", "cce", "--cluster-id", cluster_id, "--region", region]
+    command = ["kubectl", "cce", "--cce-insecure-upstream-tls=true", "--cluster-id", cluster_id, "--region", region]
     if resolved_project_id:
         command.extend(["--project-id", resolved_project_id])
     if access_key:

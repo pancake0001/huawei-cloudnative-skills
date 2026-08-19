@@ -19,12 +19,12 @@ The final report may be Markdown, but it should map cleanly to this JSON shape. 
     "hcloud_commands": [
       "hcloud CCE ShowCluster ...",
       "hcloud CCE ListNodes ...",
-      "kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get ns"
+      "kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get ns"
     ],
     "kubectl_commands": [
-      "kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe node ...",
-      "kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get lease ...",
-      "kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -A --field-selector spec.nodeName=..."
+      "kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> describe node ...",
+      "kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get lease ...",
+      "kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -A --field-selector spec.nodeName=..."
     ],
     "mutating_commands_run": false
   },

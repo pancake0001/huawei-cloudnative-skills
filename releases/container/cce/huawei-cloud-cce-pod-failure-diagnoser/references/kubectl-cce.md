@@ -35,7 +35,7 @@ Supported credential names depend on the plugin version; common aliases include:
 Always pass cluster, region, and project ID explicitly in diagnostic examples:
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get namespaces
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get namespaces
 ```
 
 Use the default CCE API Gateway endpoint first. Set `CCE_ENDPOINT` or pass `--endpoint` only when `<cluster-id>.cce.<region>.myhuaweicloud.com` is not valid for
@@ -57,3 +57,8 @@ If plugin access fails, report:
 - whether the gap is plugin installation, credential, API Gateway reachability, or Kubernetes RBAC.
 
 Do not switch to kubeconfig generation or SDK calls to bypass the failure.
+
+
+## x509 TLS Retry
+
+If a `kubectl cce` command returns an `x509` certificate-validation error, repeat the same command with `--cce-insecure-upstream-tls=true` immediately after `cce`. For example: `kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> ...`. Use this option only when that TLS validation error occurs.

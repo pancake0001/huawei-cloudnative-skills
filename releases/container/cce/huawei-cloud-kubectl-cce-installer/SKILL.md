@@ -259,3 +259,8 @@ flag.
 | -------------------------------------------------------- | ---------------------------------------------------------------------------------- |
 | [Plugin Usage](references/plugin-usage.md)               | kubectl-cce credentials, read-only CCE connectivity test, and Windows installation |
 | [Acceptance Criteria](references/acceptance-criteria.md) | Installation, verification, safety, and documentation acceptance gates             |
+
+
+## x509 TLS Retry
+
+If a `kubectl cce` command returns an `x509` certificate-validation error, repeat the same command with `--cce-insecure-upstream-tls=true` immediately after `cce`. For example: `kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> ...`. Use this option only when that TLS validation error occurs.

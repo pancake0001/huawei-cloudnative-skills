@@ -42,7 +42,7 @@ Read `references/kubectl-cce.md`, then configure kubectl-cce plugin access and v
 
 ```bash
 kubectl plugin list
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get ns
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get ns
 ```
 
 The plugin uses `HUAWEICLOUD_SDK_AK`/`HUAWEICLOUD_SDK_SK` plus `CCE_PROJECT_ID`, temporary `HUAWEICLOUD_SECURITY_TOKEN` when needed, or `HUAWEI_IAM_TOKEN`. It
@@ -54,29 +54,29 @@ starts a short-lived local proxy for the CCE API Gateway and does not generate o
 Verify cluster and RBAC:
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> cluster-info
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list pods -n <namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list events -n <namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i get pods/log -n <namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list jobs -n <client-namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> cluster-info
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list pods -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list events -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i get pods/log -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list jobs -n <client-namespace>
 ```
 
 Collect baseline objects:
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get nodes -o wide
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get deploy,sts,ds -n <namespace> -o wide
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get svc,endpoints,endpointslice,ingress -n <namespace> -o wide
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get hpa,pdb -n <namespace> -o wide
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n <namespace> -o wide
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -n <namespace> --sort-by=.lastTimestamp
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get nodes -o wide
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get deploy,sts,ds -n <namespace> -o wide
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get svc,endpoints,endpointslice,ingress -n <namespace> -o wide
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get hpa,pdb -n <namespace> -o wide
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n <namespace> -o wide
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -n <namespace> --sort-by=.lastTimestamp
 ```
 
 Collect metrics if available:
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> top pods -n <namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> top nodes
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> top pods -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> top nodes
 ```
 
 Record `Metrics API not available` as a data gap instead of switching to SDK or guessing trends.
@@ -86,23 +86,23 @@ Record `Metrics API not available` as a data gap instead of switching to SDK or 
 For an existing Ingress route:
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get ingress <ingress-name> -n <namespace> -o yaml
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe ingress <ingress-name> -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get ingress <ingress-name> -n <namespace> -o yaml
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> describe ingress <ingress-name> -n <namespace>
 ```
 
 For a Service route:
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get svc <service-name> -n <namespace> -o yaml
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get endpoints <service-name> -n <namespace> -o yaml
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get endpointslice -n <namespace> -l kubernetes.io/service-name=<service-name> -o yaml
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get svc <service-name> -n <namespace> -o yaml
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get endpoints <service-name> -n <namespace> -o yaml
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get endpointslice -n <namespace> -l kubernetes.io/service-name=<service-name> -o yaml
 ```
 
 For the target workload:
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get <workload-kind> <workload-name> -n <namespace> -o yaml
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n <namespace> -l '<selector>' -o wide
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get <workload-kind> <workload-name> -n <namespace> -o yaml
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n <namespace> -l '<selector>' -o wide
 ```
 
 Do not create or patch Service/Ingress until the user approves an exact manifest.
@@ -136,9 +136,9 @@ Use an in-cluster k6 Job when the target is internal or local reachability is no
 traffic. Read `manifest-templates.md`, write a manifest, show it to the user, and only then run:
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> apply -f <approved-k6-manifest.yaml>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> wait --for=condition=complete job/<job-name> -n <client-namespace> --timeout=<timeout>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> logs job/<job-name> -n <client-namespace> --all-containers
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> apply -f <approved-k6-manifest.yaml>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> wait --for=condition=complete job/<job-name> -n <client-namespace> --timeout=<timeout>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> logs job/<job-name> -n <client-namespace> --all-containers
 ```
 
 ## 7. Smoke Before Load
@@ -168,11 +168,11 @@ For each phase, record:
 Collect after each phase:
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n <namespace> -o wide
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get hpa -n <namespace> -o yaml
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -n <namespace> --sort-by=.lastTimestamp
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> top pods -n <namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> logs job/<job-name> -n <client-namespace> --all-containers
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n <namespace> -o wide
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get hpa -n <namespace> -o yaml
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -n <namespace> --sort-by=.lastTimestamp
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> top pods -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> logs job/<job-name> -n <client-namespace> --all-containers
 ```
 
 If a local k6 process is used, save stdout/stderr and the script.
@@ -189,8 +189,8 @@ Use at least two phases:
 Manual scaling requires an approved command:
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> scale deployment/<workload-name> -n <namespace> --replicas=<replicas>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> rollout status deployment/<workload-name> -n <namespace> --timeout=180s
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> scale deployment/<workload-name> -n <namespace> --replicas=<replicas>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> rollout status deployment/<workload-name> -n <namespace> --timeout=180s
 ```
 
 Do not change HPA, nodepool, cluster autoscaler, or resource limits inside this skill unless the user explicitly approves the exact command and rollback.
@@ -202,8 +202,8 @@ Generate the report using `output-schema.md`. Put summary, bottleneck/root analy
 Cleanup is also a mutation. Show delete commands separately and run them only after approval:
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> delete job/<job-name> -n <client-namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> delete configmap/<configmap-name> -n <client-namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> delete job/<job-name> -n <client-namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> delete configmap/<configmap-name> -n <client-namespace>
 ```
 
 Never delete user workloads, Services, Ingresses, ELBs, EIPs, or namespaces automatically.

@@ -95,7 +95,7 @@ def _plugin_kubectl(region: str, cluster_id: str, arguments: List[str], ak: Opti
     token = security_token if explicit_cli_credentials else security_token or os.environ.get("HW_SECURITY_TOKEN")
     if token and not explicit_cli_credentials:
         environment.update({"HW_SECURITY_TOKEN": token, "HUAWEICLOUD_SECURITY_TOKEN": token})
-    command = ["kubectl", "cce", "--cluster-id", cluster_id, "--region", region]
+    command = ["kubectl", "cce", "--cce-insecure-upstream-tls=true", "--cluster-id", cluster_id, "--region", region]
     resolved_project_id = project_id if explicit_cli_credentials else project_id or env_project
     if resolved_project_id:
         command.extend(["--project-id", resolved_project_id])

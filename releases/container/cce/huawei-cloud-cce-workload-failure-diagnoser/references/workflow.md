@@ -6,10 +6,10 @@ This workflow uses CCE `hcloud` commands only for Huawei Cloud cluster access an
 
 1. Confirm `region`, `project_id`, `cluster_id`, `namespace`, `kind`, and `name`.
 2. Use `hcloud CCE ListClusters` and `ShowCluster` to confirm the target cluster exists and is available.
-3. Read `references/kubectl-cce.md`, then use `kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id>` for authenticated read-only
+3. Read `references/kubectl-cce.md`, then use `kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id>` for authenticated read-only
    Kubernetes collection; do not generate kubeconfig.
 4. If the default CCE API Gateway endpoint is not valid for the current environment, set `CCE_ENDPOINT` or pass `--endpoint`.
-5. Verify access with `kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> cluster-info` and `kubectl cce ... auth can-i`.
+5. Verify access with `kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> cluster-info` and `kubectl cce ... auth can-i`.
 6. When several workloads are failing at once, inspect Nodes and cluster events first to detect a shared scheduling or node readiness blocker.
 7. Read the workload YAML and describe output.
 8. Record `metadata.uid`, `metadata.generation`, `status.observedGeneration`, selector, desired/current/updated/ready/available replicas, strategy, and

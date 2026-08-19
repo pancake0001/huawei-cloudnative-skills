@@ -14,7 +14,7 @@ tags: [huawei-cloud, cce, kubectl, workload, diagnosis]
 
 This skill diagnoses CCE workload rollout and availability failures through the Huawei Cloud `hcloud` CLI and Kubernetes `kubectl`.
 
-**Execution model**: `hcloud CCE` cluster discovery -> `kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id>` read-only workload
+**Execution model**: `hcloud CCE` cluster discovery -> `kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id>` read-only workload
 evidence -> cause ranking and handoff recommendations.
 
 Use CCE hcloud commands for cluster-level metadata:
@@ -24,7 +24,7 @@ Use CCE hcloud commands for cluster-level metadata:
 - `hcloud CCE ShowClusterEndpoints`
 
 Use `kubectl cce` for Kubernetes resources through kubectl-cce plugin access. Workloads, ReplicaSets, Pods, Events, logs, PVCs, Services, Ingresses, HPAs, and
-Nodes are Kubernetes resources. Inspect them with `kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id>`.
+Nodes are Kubernetes resources. Inspect them with `kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id>`.
 
 Do not use Python SDK dispatchers, legacy skill execution actions, old Huawei workload actions, or bundled SDK scripts for this skill.
 
@@ -134,7 +134,7 @@ Configure plugin credentials through approved tool parameters, a protected shell
 Pass cluster, region, and project ID explicitly in diagnostic commands:
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get namespaces
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get namespaces
 ```
 
 Use `CCE_ENDPOINT` or `--endpoint` only when the default `<cluster-id>.cce.<region>.myhuaweicloud.com` endpoint is invalid. If plugin access fails, report the
@@ -146,10 +146,10 @@ normal `get` commands in diagnosis reports.
 ### 5. Verify Kubernetes Access
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> cluster-info
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i get deployments -n <namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list pods -n <namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i get pods/log -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> cluster-info
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i get deployments -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i list pods -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> auth can-i get pods/log -n <namespace>
 ```
 
 If RBAC denies a read, report the missing permission and stop or continue with partial evidence.
@@ -161,9 +161,9 @@ Read `references/workflow.md` for detailed evidence ordering and failure rules.
 When many workloads across several namespaces are simultaneously unavailable, first check cluster-wide evidence before deep-diving a single workload:
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get nodes -o wide
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe node <node-name>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -A --sort-by=.lastTimestamp
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get nodes -o wide
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> describe node <node-name>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -A --sort-by=.lastTimestamp
 ```
 
 If all candidate nodes are `Ready=Unknown`, `NotReady`, or tainted with node.kubernetes.io/unreachable or node.cloudprovider.kubernetes.io/shutdown, rank the
@@ -172,18 +172,18 @@ common node/scheduling blocker above individual workload symptoms.
 ### Deployment Evidence
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get deployment <name> -n <namespace> -o yaml
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe deployment <name> -n <namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> rollout status deployment/<name> -n <namespace> --timeout=30s
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> rollout history deployment/<name> -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get deployment <name> -n <namespace> -o yaml
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> describe deployment <name> -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> rollout status deployment/<name> -n <namespace> --timeout=30s
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> rollout history deployment/<name> -n <namespace>
 ```
 
 Derive the selector from `spec.selector.matchLabels`, then inspect ReplicaSets and Pods:
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get rs -n <namespace> --selector='<selector>' -o yaml
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n <namespace> --selector='<selector>' -o wide
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n <namespace> --selector='<selector>' -o yaml
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get rs -n <namespace> --selector='<selector>' -o yaml
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n <namespace> --selector='<selector>' -o wide
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n <namespace> --selector='<selector>' -o yaml
 ```
 
 Filter ReplicaSets by ownerReference pointing to the Deployment UID. Treat the highest deployment.kubernetes.io/revision annotation as the new version.
@@ -191,10 +191,10 @@ Filter ReplicaSets by ownerReference pointing to the Deployment UID. Treat the h
 ### StatefulSet Evidence
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get statefulset <name> -n <namespace> -o yaml
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe statefulset <name> -n <namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> rollout status statefulset/<name> -n <namespace> --timeout=30s
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n <namespace> --selector='<selector>' -o wide
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get statefulset <name> -n <namespace> -o yaml
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> describe statefulset <name> -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> rollout status statefulset/<name> -n <namespace> --timeout=30s
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n <namespace> --selector='<selector>' -o wide
 ```
 
 Compare `spec.replicas`, `status.currentReplicas`, `status.updatedReplicas`, `status.readyReplicas`, `status.availableReplicas`, and partition settings in
@@ -203,10 +203,10 @@ Compare `spec.replicas`, `status.currentReplicas`, `status.updatedReplicas`, `st
 ### DaemonSet Evidence
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get daemonset <name> -n <namespace> -o yaml
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe daemonset <name> -n <namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> rollout status daemonset/<name> -n <namespace> --timeout=30s
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n <namespace> --selector='<selector>' -o wide
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get daemonset <name> -n <namespace> -o yaml
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> describe daemonset <name> -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> rollout status daemonset/<name> -n <namespace> --timeout=30s
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n <namespace> --selector='<selector>' -o wide
 ```
 
 Compare `desiredNumberScheduled`, `currentNumberScheduled`, `updatedNumberScheduled`, `numberReady`, `numberAvailable`, `numberUnavailable`, and node scheduling
@@ -217,14 +217,14 @@ constraints.
 Collect workload, ReplicaSet, and Pod events. Prefer UID-related filtering when possible, and always avoid treating all namespace warnings as workload evidence.
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -n <namespace> --sort-by=.lastTimestamp
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -n <namespace> --field-selector involvedObject.name=<name> --sort-by=.lastTimestamp
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -n <namespace> --sort-by=.lastTimestamp
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -n <namespace> --field-selector involvedObject.name=<name> --sort-by=.lastTimestamp
 ```
 
 When the Kubernetes Events v1 API is available:
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events.events.k8s.io -n <namespace> --sort-by=.eventTime -o yaml
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get events.events.k8s.io -n <namespace> --sort-by=.eventTime -o yaml
 ```
 
 Keep events whose involved object UID/name maps to the workload, owned ReplicaSets, or selected Pods.
@@ -234,33 +234,33 @@ Keep events whose involved object UID/name maps to the workload, owned ReplicaSe
 For every new-version Pod that is not Ready, inspect state, events, logs, and resource pressure:
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe pod <pod-name> -n <namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> logs <pod-name> -n <namespace> --all-containers --tail=200
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> logs <pod-name> -n <namespace> --all-containers --previous --tail=200
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> top pod <pod-name> -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> describe pod <pod-name> -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> logs <pod-name> -n <namespace> --all-containers --tail=200
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> logs <pod-name> -n <namespace> --all-containers --previous --tail=200
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> top pod <pod-name> -n <namespace>
 ```
 
 If scheduling or node pressure appears:
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get nodes -o wide
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe node <node-name>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get nodes -o wide
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> describe node <node-name>
 ```
 
 If storage appears:
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pvc -n <namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe pvc <pvc-name> -n <namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get pv
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get pvc -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> describe pvc <pvc-name> -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get pv
 ```
 
 If traffic or readiness path appears:
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get svc,endpoints,ingress -n <namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe svc <service-name> -n <namespace>
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> describe ingress <ingress-name> -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get svc,endpoints,ingress -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> describe svc <service-name> -n <namespace>
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> describe ingress <ingress-name> -n <namespace>
 ```
 
 ## Cause Ranking
@@ -326,7 +326,7 @@ Read `references/verification-method.md` for the CLI verification checklist. A v
 - `hcloud version`, `hcloud configure list`, and `kubectl version --client` work.
 - `hcloud CCE ListClusters` and `ShowCluster` find the target cluster.
 - `kubectl cce ...` can reach the cluster through the CCE API Gateway.
-- `kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id>` can read the target namespace.
+- `kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id>` can read the target namespace.
 - Repository/package search finds no SDK dispatcher entrypoints in this skill package.
 
 ## References
@@ -338,3 +338,8 @@ Read `references/verification-method.md` for the CLI verification checklist. A v
 - Huawei Cloud KooCLI documentation: https://support.huaweicloud.com/hcli/
 - Huawei Cloud CCE documentation: https://support.huaweicloud.com/cce/
 - Kubernetes kubectl reference: https://kubernetes.io/docs/reference/kubectl/
+
+
+## x509 TLS Retry
+
+If a `kubectl cce` command returns an `x509` certificate-validation error, repeat the same command with `--cce-insecure-upstream-tls=true` immediately after `cce`. For example: `kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> ...`. Use this option only when that TLS validation error occurs.

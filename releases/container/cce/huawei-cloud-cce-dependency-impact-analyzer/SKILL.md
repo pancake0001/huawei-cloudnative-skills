@@ -92,10 +92,10 @@ hcloud CCE ShowCluster --cluster_id=<cluster-id> --project_id=<project-id> --cli
 ### 3. Collect Namespace Topology
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get namespace <namespace> -o json
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get deploy,sts,ds,rs,pods,svc,ingress,endpoints,endpointslices -n <namespace> -o json
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get nodes -o json
-kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -n <namespace> --sort-by=.lastTimestamp
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get namespace <namespace> -o json
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get deploy,sts,ds,rs,pods,svc,ingress,endpoints,endpointslices -n <namespace> -o json
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get nodes -o json
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -n <namespace> --sort-by=.lastTimestamp
 ```
 
 Use `-A` only when the namespace is unknown or the incident is cluster-wide, and keep the report bounded. If EndpointSlice is unavailable because of Kubernetes
@@ -175,3 +175,8 @@ verification text.
 - `references/workflow.md`: topology matching, propagation, and handoff workflow.
 - `references/output-schema.md`: structured output and Markdown layout.
 - `references/risk-rules.md`: read-only boundaries and confidence limits.
+
+
+## x509 TLS Retry
+
+If a `kubectl cce` command returns an `x509` certificate-validation error, repeat the same command with `--cce-insecure-upstream-tls=true` immediately after `cce`. For example: `kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> ...`. Use this option only when that TLS validation error occurs.
