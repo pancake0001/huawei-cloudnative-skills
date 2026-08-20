@@ -7,6 +7,13 @@ from typing import Any, Dict, Optional
 from .common import get_credentials_with_region, get_security_token
 
 
+def _aom_prom_host(region: str) -> str:
+    """Return the regional AOM Prometheus endpoint host."""
+    if region == "cn-north-7":
+        return "aomperform.cn-north-7.myhuaweicloud.com"
+    return f"aom.{region}.myhuaweicloud.com"
+
+
 def get_aom_prom_metrics_http(
     region: str,
     aom_instance_id: str,
@@ -40,7 +47,8 @@ def get_aom_prom_metrics_http(
     end_time = end if end else now
     start_time = start if start else (end_time - hours * 3600)
 
-    base_url = f"https://aom.{region}.myhuaweicloud.com"
+    host_header = _aom_prom_host(region)
+    base_url = f"https://{host_header}"
     query_params = [
         ("end", str(end_time)),
         ("query", query),
@@ -67,7 +75,6 @@ def get_aom_prom_metrics_http(
     )
 
     timestamp = time_module.strftime("%Y%m%dT%H%M%SZ", time_module.gmtime(now))
-    host_header = f"aom.{region}.myhuaweicloud.com"
     canonical_header_items = [
         ("host", host_header),
         ("x-project-id", proj_id),
