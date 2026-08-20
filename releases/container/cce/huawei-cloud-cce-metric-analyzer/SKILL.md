@@ -21,6 +21,8 @@ reads only when Kubernetes resource relationships are required → Pod/Node metr
 > **Execution method**: Cloud service queries are executed through the local `hcloud` CLI. AOM Prometheus `query_range` calls are the only exception and use
 > signed HTTPS requests because the required Prometheus range-query path is not compatible with hcloud. Do not call Huawei Cloud SDKs, curl IAM flows,
 > openstack, or hand-written cloud APIs outside the bundled dispatcher.
+> For AOM Prometheus range queries in `cn-north-7`, the dispatcher uses `aomperform.cn-north-7.myhuaweicloud.com`; other regions use
+> `aom.<region>.myhuaweicloud.com`.
 
 **Related Skills**: use pod/node diagnosers, Kubernetes event analyzer, capacity/cost skills, or auto-remediation runner for follow-up diagnosis or explicitly
 requested remediation.
