@@ -10,10 +10,10 @@ from typing import Any, Dict, List, Optional
 
 from .common import (
     _safe_delete_file,
+    is_standard_uuid,
     run_hcloud,
 )
 from . import kubectl_client
-
 
 def list_cce_clusters(
     region: str,
@@ -65,6 +65,27 @@ def list_cce_clusters(
         "count": len(clusters),
         "clusters": clusters[offset:offset + limit],
     }
+
+
+def resolve_cce_cluster_id(
+    region: str,
+    value: str,
+    ak: Optional[str] = None,
+    sk: Optional[str] = None,
+    project_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Validate a cluster UUID or resolve one exact cluster-name match."""
+    if is_standard_uuid(value):
+        return {"success": True, "id": value, "resolved_from_name": False}
+    result = list_cce_clusters(region, ak, sk, project_id, limit=1000)
+    if not result.get("success"):
+        return {"success": False, "error": f"Unable to list CCE clusters for cluster_id resolution: {result.get('error', '')}"}
+    matches = [cluster for cluster in result.get("clusters", []) if cluster.get("name") == value]
+    if len(matches) == 1 and is_standard_uuid(matches[0].get("id")):
+        return {"success": True, "id": matches[0]["id"], "resolved_from_name": True}
+    if len(matches) > 1:
+        return {"success": False, "error": f"cluster_id '{value}' matched multiple CCE clusters; provide a standard UUID"}
+    return {"success": False, "error": f"cluster_id must be a standard UUID. No CCE cluster named '{value}' was found"}
 
 
 def list_cce_cluster_nodes(

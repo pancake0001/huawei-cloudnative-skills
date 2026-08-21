@@ -14,6 +14,12 @@ from typing import Any, Dict, Iterator, List, Optional
 _PROJECT_ID_CACHE = {}
 _ACTIVE_SECURITY_TOKEN: ContextVar[Optional[str]] = ContextVar("active_security_token", default=None)
 _EXPLICIT_CREDENTIALS: ContextVar[bool] = ContextVar("explicit_credentials", default=False)
+_STANDARD_UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$", re.IGNORECASE)
+
+
+def is_standard_uuid(value: str | None) -> bool:
+    """Return whether a value has the canonical UUID representation used by cloud APIs."""
+    return bool(_STANDARD_UUID_RE.fullmatch(value or ""))
 
 
 def normalize_cli_credentials(params: Dict[str, str]) -> Dict[str, str]:

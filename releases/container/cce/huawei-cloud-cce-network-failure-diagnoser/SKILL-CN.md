@@ -300,3 +300,8 @@ kubectl-cce 插件会阻断 `exec`、`attach` 和
 ## x509 TLS 重试
 
 当 `kubectl cce` 返回 `x509` 证书校验错误时，使用完全相同的命令，并在 `cce` 后追加 `--cce-insecure-upstream-tls=true` 重试。例如：`kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> ...`。仅在出现该 TLS 校验错误时使用此参数。
+
+
+## 集群 ID 输入
+
+`cluster_id` 应传入标准 UUID。若输入值不是标准 UUID，先调用集群资源列表查询，并按集群名称做精确匹配；仅在唯一匹配时将名称转换为对应 UUID。未匹配或匹配到多个集群时，必须要求用户提供 UUID，不得猜测或任意选择集群。

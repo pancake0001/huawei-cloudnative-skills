@@ -1,6 +1,42 @@
 from .common import *
 
 
+MAX_ECS_RESOLUTION_PAGES = 100
+
+
+def resolve_ecs_instance_id(region: str, value: str, ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None) -> Dict[str, Any]:
+    """Validate an ECS UUID or resolve one exact server-name match."""
+    if is_standard_uuid(value):
+        return {"success": True, "id": value, "resolved_from_name": False}
+
+    matches = []
+    marker = None
+    seen_markers = set()
+    for _ in range(MAX_ECS_RESOLUTION_PAGES):
+        params = {"project_id": project_id, "limit": 100}
+        if marker:
+            params["marker"] = marker
+        result = run_hcloud("ECS", "ListCloudServers", region, params, ak=ak, sk=sk, project_id=project_id)
+        if not result.get("success"):
+            return {"success": False, "error": f"Unable to list ECS instances for instance_id resolution: {result.get('error', '')}"}
+        servers = (result.get("data") or {}).get("servers") or []
+        matches.extend(item for item in servers if item.get("name") == value)
+        if len(servers) < 100:
+            break
+        marker = servers[-1].get("id")
+        if not marker or marker in seen_markers:
+            return {"success": False, "error": "ECS instance listing returned an invalid pagination marker; provide instance_id as a standard UUID"}
+        seen_markers.add(marker)
+    else:
+        return {"success": False, "error": f"ECS instance listing exceeded {MAX_ECS_RESOLUTION_PAGES} pages; provide instance_id as a standard UUID"}
+
+    if len(matches) == 1 and is_standard_uuid(matches[0].get("id")):
+        return {"success": True, "id": matches[0]["id"], "resolved_from_name": True}
+    if len(matches) > 1:
+        return {"success": False, "error": f"instance_id '{value}' matched multiple ECS instances; provide a standard UUID"}
+    return {"success": False, "error": f"instance_id must be a standard UUID. No ECS instance named '{value}' was found"}
+
+
 def get_ecs_metrics(region: str, instance_id: str, ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None) -> Dict[str, Any]:
     """Get monitoring metrics for a specific ECS instance."""
     _, _, proj_id = get_credentials(ak, sk, project_id)

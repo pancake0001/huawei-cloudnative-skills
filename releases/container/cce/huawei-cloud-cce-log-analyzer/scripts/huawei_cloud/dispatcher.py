@@ -102,4 +102,18 @@ def dispatch_action(action: str, params: Dict[str, str]) -> Dict[str, Any]:
     params = _resolve_region(params)
     required, handler = ACTION_SPECS[action]
     error = _require(params, *required)
-    return {"success": False, "error": error} if error else handler(params)
+    if error:
+        return {"success": False, "error": error}
+    resolution = None
+    if params.get("cluster_id"):
+        input_cluster_id = params["cluster_id"]
+        resolution = common.resolve_cce_cluster_id(
+            params["region"], input_cluster_id, params.get("ak"), params.get("sk"), params.get("project_id"), params.get("security_token")
+        )
+        if not resolution.get("success"):
+            return resolution
+        params["cluster_id"] = resolution["id"]
+    result = handler(params)
+    if resolution and resolution.get("resolved_from_name") and result.get("success"):
+        result["resolved_resource_ids"] = [{"parameter": "cluster_id", "input": input_cluster_id, "resolved_id": resolution["id"]}]
+    return result
