@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import subprocess
 import tempfile
 from typing import Any, Dict, List, Optional
@@ -35,6 +36,7 @@ def set_injected_credentials(ak: Optional[str], sk: Optional[str],
 
 
 _PROJECT_ID_CACHE = {}
+_STANDARD_UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$", re.IGNORECASE)
 
 # Cached check for hcloud CLI config credentials
 _HCLOUD_CONFIG_CHECKED = False
@@ -196,6 +198,26 @@ def run(
         return {"success": False, "error": f"Failed to parse hcloud output: {e}", "raw": r.stdout[:500]}
     except Exception as e:
         return {"success": False, "error": str(e), "error_type": type(e).__name__}
+
+
+def resolve_cce_cluster_id(ctx: CredentialCtx, region: str, value: str) -> Dict[str, Any]:
+    """Validate a cluster UUID or resolve one exact CCE cluster-name match."""
+    if _STANDARD_UUID_RE.fullmatch(value or ""):
+        return {"success": True, "id": value, "resolved_from_name": False}
+    result = run(ctx, region, "CCE", "ListClusters", {})
+    if not result.get("success"):
+        return {"success": False, "error": f"Unable to list CCE clusters for cluster_id resolution: {result.get('error', '')}"}
+    matches = [
+        item for item in ((result.get("data") or {}).get("items") or [])
+        if ((item.get("metadata") or {}).get("name") == value)
+    ]
+    if len(matches) == 1:
+        cluster_id = (matches[0].get("metadata") or {}).get("uid")
+        if _STANDARD_UUID_RE.fullmatch(cluster_id or ""):
+            return {"success": True, "id": cluster_id, "resolved_from_name": True}
+    if len(matches) > 1:
+        return {"success": False, "error": f"cluster_id '{value}' matched multiple CCE clusters; provide a standard UUID"}
+    return {"success": False, "error": f"cluster_id must be a standard UUID. No CCE cluster named '{value}' was found"}
 
 
 def run_with_body(

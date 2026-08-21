@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from typing import Any, Callable, Dict
 
-from . import cce_cluster_monitoring, cce_metrics, common, ecs, elb, network
+from . import cce, cce_cluster_monitoring, cce_metrics, common, ecs, elb, network
 
 
 Handler = Callable[[Dict[str, str]], Dict[str, Any]]
@@ -387,6 +387,28 @@ def dispatch_action(action: str, params: Dict[str, str]) -> Dict[str, Any]:
             error = _require(normalized, *required)
             if error:
                 return {"success": False, "error": error}
-            return handler(normalized)
+            resolutions = []
+            for parameter, resolver in (
+                ("cluster_id", cce.resolve_cce_cluster_id),
+                ("instance_id", ecs.resolve_ecs_instance_id),
+                ("elb_id", elb.resolve_elb_id),
+                ("eip_id", network.resolve_eip_id),
+                ("nat_gateway_id", network.resolve_nat_gateway_id),
+            ):
+                if not normalized.get(parameter):
+                    continue
+                input_value = normalized[parameter]
+                resolution = resolver(
+                    normalized["region"], input_value, normalized.get("ak"), normalized.get("sk"), normalized.get("project_id")
+                )
+                if not resolution.get("success"):
+                    return resolution
+                normalized[parameter] = resolution["id"]
+                if resolution.get("resolved_from_name"):
+                    resolutions.append({"parameter": parameter, "input": input_value, "resolved_id": resolution["id"]})
+            result = handler(normalized)
+            if resolutions and result.get("success"):
+                result["resolved_resource_ids"] = resolutions
+            return result
     except ValueError as exc:
         return {"success": False, "error": str(exc)}

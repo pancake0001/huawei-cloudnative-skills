@@ -1,5 +1,36 @@
 from .common import *
 
+
+MAX_EIP_RESOLUTION_PAGES = 100
+MAX_NAT_RESOLUTION_PAGES = 100
+
+
+def resolve_eip_id(region: str, value: str, ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None) -> Dict[str, Any]:
+    """Validate an EIP UUID or resolve one exact public-IP match."""
+    if is_standard_uuid(value):
+        return {"success": True, "id": value, "resolved_from_name": False}
+    matches = []
+    page_size = 2000
+    for page in range(MAX_EIP_RESOLUTION_PAGES):
+        result = run_hcloud(
+            "EIP", "ListPublicips/v3", region,
+            {"limit": page_size, "offset": page * page_size, "project_id": project_id},
+            ak=ak, sk=sk, project_id=project_id,
+        )
+        if not result.get("success"):
+            return {"success": False, "error": f"Unable to list EIPs for eip_id resolution: {result.get('error', '')}"}
+        page_eips = (result.get("data") or {}).get("publicips", []) or []
+        matches.extend(item for item in page_eips if item.get("public_ip_address") == value)
+        if len(page_eips) < page_size:
+            break
+    else:
+        return {"success": False, "error": f"EIP listing exceeded {MAX_EIP_RESOLUTION_PAGES} pages; provide eip_id as a standard UUID"}
+    if len(matches) == 1 and is_standard_uuid(matches[0].get("id")):
+        return {"success": True, "id": matches[0]["id"], "resolved_from_name": True}
+    if len(matches) > 1:
+        return {"success": False, "error": f"eip_id '{value}' matched multiple EIPs; provide a standard UUID"}
+    return {"success": False, "error": f"eip_id must be a standard UUID. No EIP with public address '{value}' was found"}
+
 def list_eip_addresses(region: str, ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None, limit: int = 100) -> Dict[str, Any]:
     """List EIP (Elastic IP) addresses in the specified region using hcloud."""
     result = run_hcloud(
@@ -291,7 +322,7 @@ def get_nat_gateway_metrics(region: str, nat_gateway_id: str, hours: int = 1, pe
             "error": f"查询NAT网关监控失败: {str(e)}"
         }
 
-def list_nat_gateways(region: str, ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None, limit: int = 100, offset: int = 0, id: str = None, name: str = None, description: str = None, spec: str = None, router_id: str = None, internal_network_id: str = None, status: str = None, admin_state_up: bool = None, created_at: str = None) -> Dict[str, Any]:
+def list_nat_gateways(region: str, ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None, limit: int = 100, offset: int = 0, marker: str = None, id: str = None, name: str = None, description: str = None, spec: str = None, router_id: str = None, internal_network_id: str = None, status: str = None, admin_state_up: bool = None, created_at: str = None) -> Dict[str, Any]:
     """List NAT gateways in the specified region using hcloud."""
     params = {
         "limit": limit,
@@ -304,7 +335,9 @@ def list_nat_gateways(region: str, ak: Optional[str] = None, sk: Optional[str] =
         "created_at": created_at,
         "project_id": project_id,
     }
-    if offset:
+    if marker:
+        params["marker"] = marker
+    elif offset:
         params["marker"] = offset
     if spec:
         params["spec.1"] = spec
@@ -334,3 +367,31 @@ def list_nat_gateways(region: str, ak: Optional[str] = None, sk: Optional[str] =
         "nat_gateways": nat_gateways,
         "total_count": data.get("total_count", len(nat_gateways)),
     }
+
+
+def resolve_nat_gateway_id(region: str, value: str, ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None) -> Dict[str, Any]:
+    """Validate a NAT gateway UUID or resolve one exact gateway-name match."""
+    if is_standard_uuid(value):
+        return {"success": True, "id": value, "resolved_from_name": False}
+    matches = []
+    marker = None
+    seen_markers = set()
+    for _ in range(MAX_NAT_RESOLUTION_PAGES):
+        result = list_nat_gateways(region, ak, sk, project_id, limit=2000, marker=marker)
+        if not result.get("success"):
+            return {"success": False, "error": f"Unable to list NAT gateways for nat_gateway_id resolution: {result.get('error', '')}"}
+        nat_gateways = result.get("nat_gateways", [])
+        matches.extend(item for item in nat_gateways if item.get("name") == value)
+        if len(nat_gateways) < 2000:
+            break
+        marker = nat_gateways[-1].get("id")
+        if not marker or marker in seen_markers:
+            return {"success": False, "error": "NAT gateway listing returned an invalid pagination marker; provide nat_gateway_id as a standard UUID"}
+        seen_markers.add(marker)
+    else:
+        return {"success": False, "error": f"NAT gateway listing exceeded {MAX_NAT_RESOLUTION_PAGES} pages; provide nat_gateway_id as a standard UUID"}
+    if len(matches) == 1 and is_standard_uuid(matches[0].get("id")):
+        return {"success": True, "id": matches[0]["id"], "resolved_from_name": True}
+    if len(matches) > 1:
+        return {"success": False, "error": f"nat_gateway_id '{value}' matched multiple NAT gateways; provide a standard UUID"}
+    return {"success": False, "error": f"nat_gateway_id must be a standard UUID. No NAT gateway named '{value}' was found"}

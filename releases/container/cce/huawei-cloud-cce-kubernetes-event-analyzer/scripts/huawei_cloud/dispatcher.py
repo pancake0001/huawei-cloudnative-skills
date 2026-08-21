@@ -67,6 +67,19 @@ def dispatch_action(action: str, params: Dict[str, str]) -> Dict[str, Any]:
         with common.credential_context(_resolve_region(params)) as normalized:
             required, handler = ACTION_SPECS[action]
             error = _require(normalized, *required)
-            return {"success": False, "error": error} if error else handler(normalized)
+            if error:
+                return {"success": False, "error": error}
+            resolution = None
+            if normalized.get("cluster_id"):
+                resolution = cce.resolve_cce_cluster_id(
+                    normalized["region"], normalized["cluster_id"], normalized.get("ak"), normalized.get("sk"), normalized.get("project_id")
+                )
+                if not resolution.get("success"):
+                    return resolution
+                normalized["cluster_id"] = resolution["id"]
+            result = handler(normalized)
+            if resolution and resolution.get("resolved_from_name") and result.get("success"):
+                result["resolved_resource_ids"] = [{"parameter": "cluster_id", "input": params["cluster_id"], "resolved_id": resolution["id"]}]
+            return result
     except ValueError as exc:
         return {"success": False, "error": str(exc)}

@@ -1,5 +1,37 @@
 from .common import *
 
+
+MAX_ELB_RESOLUTION_PAGES = 100
+
+
+def resolve_elb_id(region: str, value: str, ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None) -> Dict[str, Any]:
+    """Validate an ELB UUID or resolve one exact load-balancer name match."""
+    if is_standard_uuid(value):
+        return {"success": True, "id": value, "resolved_from_name": False}
+    matches = []
+    marker = None
+    seen_markers = set()
+    for _ in range(MAX_ELB_RESOLUTION_PAGES):
+        result = list_elb_loadbalancers(region, ak, sk, project_id, limit=100, marker=marker)
+        if not result.get("success"):
+            return {"success": False, "error": f"Unable to list ELB resources for elb_id resolution: {result.get('error', '')}"}
+        loadbalancers = result.get("loadbalancers", [])
+        matches.extend(item for item in loadbalancers if item.get("name") == value)
+        next_marker = ((result.get("page_info") or {}).get("next_marker"))
+        if not next_marker:
+            break
+        if next_marker in seen_markers:
+            return {"success": False, "error": "ELB listing returned a repeated pagination marker; provide elb_id as a standard UUID"}
+        seen_markers.add(next_marker)
+        marker = next_marker
+    else:
+        return {"success": False, "error": f"ELB listing exceeded {MAX_ELB_RESOLUTION_PAGES} pages; provide elb_id as a standard UUID"}
+    if len(matches) == 1 and is_standard_uuid(matches[0].get("id")):
+        return {"success": True, "id": matches[0]["id"], "resolved_from_name": True}
+    if len(matches) > 1:
+        return {"success": False, "error": f"elb_id '{value}' matched multiple load balancers; provide a standard UUID"}
+    return {"success": False, "error": f"elb_id must be a standard UUID. No load balancer named '{value}' was found"}
+
 def list_elb_loadbalancers(region: str, ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None, limit: int = 100, marker: str = None) -> Dict[str, Any]:
     """List ELB load balancers in the specified region using hcloud."""
     result = run_hcloud(

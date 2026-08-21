@@ -418,6 +418,19 @@ def dispatch_action(action: str, params: Dict[str, str]) -> Dict[str, Any]:
             error = _require(normalized, *required)
             if error:
                 return {"success": False, "error": error}
-            return handler(normalized)
+            resolutions = []
+            if normalized.get("cluster_id"):
+                resolved = common.resolve_cce_cluster_id(
+                    normalized["region"], normalized["cluster_id"], normalized.get("ak"), normalized.get("sk"), normalized.get("project_id")
+                )
+                if not resolved.get("success"):
+                    return resolved
+                if resolved.get("resolved_from_name"):
+                    resolutions.append({"parameter": "cluster_id", "input": normalized["cluster_id"], "resolved_id": resolved["id"]})
+                    normalized["cluster_id"] = resolved["id"]
+            result = handler(normalized)
+            if resolutions and result.get("success"):
+                result["resolved_resource_ids"] = resolutions
+            return result
     except ValueError as exc:
         return {"success": False, "error": str(exc), "error_type": type(exc).__name__}

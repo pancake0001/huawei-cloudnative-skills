@@ -9,6 +9,9 @@ import subprocess
 from typing import Any, Optional
 
 
+_STANDARD_UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$", re.IGNORECASE)
+
+
 def get_credentials(
     ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None
 ) -> tuple[Optional[str], Optional[str], Optional[str]]:
@@ -134,3 +137,30 @@ def hcloud_command(
     if resolved_security_token:
         command.append(f"--cli-security-token={resolved_security_token}")
     return command
+
+
+def resolve_cce_cluster_id(
+    region: str,
+    value: str,
+    ak: Optional[str] = None,
+    sk: Optional[str] = None,
+    project_id: Optional[str] = None,
+    security_token: Optional[str] = None,
+) -> dict[str, Any]:
+    """Validate a cluster UUID or resolve one exact CCE cluster-name match."""
+    if _STANDARD_UUID_RE.fullmatch(value or ""):
+        return {"success": True, "id": value, "resolved_from_name": False}
+    result = run_hcloud(hcloud_command("CCE", "ListClusters", region, ak, sk, project_id, security_token))
+    if not result.get("success"):
+        return {"success": False, "error": f"Unable to list CCE clusters for cluster_id resolution: {result.get('error', '')}"}
+    matches = [
+        item for item in ((result.get("data") or {}).get("items") or [])
+        if ((item.get("metadata") or {}).get("name") == value)
+    ]
+    if len(matches) == 1:
+        cluster_id = (matches[0].get("metadata") or {}).get("uid")
+        if _STANDARD_UUID_RE.fullmatch(cluster_id or ""):
+            return {"success": True, "id": cluster_id, "resolved_from_name": True}
+    if len(matches) > 1:
+        return {"success": False, "error": f"cluster_id '{value}' matched multiple CCE clusters; provide a standard UUID"}
+    return {"success": False, "error": f"cluster_id must be a standard UUID. No CCE cluster named '{value}' was found"}

@@ -8,7 +8,7 @@ import json
 import os
 from typing import Any, Dict, Optional
 
-from .hcloud_runner import resolve_credentials, run
+from .hcloud_runner import resolve_cce_cluster_id, resolve_credentials, run
 from . import special_ops
 
 
@@ -139,18 +139,35 @@ def dispatch_action(action: str, params: Dict[str, str]) -> Dict[str, Any]:
     params = dict(params)  # copy to avoid mutation
     params["_action"] = action
 
+    resolution = None
+    if params.get("cluster_id"):
+        region = params.get("region") or os.environ.get("HW_REGION_NAME")
+        if not region:
+            return {"success": False, "error": "region is required"}
+        ctx = resolve_credentials(params.get("ak"), params.get("sk"), params.get("project_id"), region)
+        if not ctx.ak or not ctx.sk:
+            return {"success": False, "error": "Credentials not provided. Set HW_ACCESS_KEY and HW_SECRET_KEY."}
+        input_cluster_id = params["cluster_id"]
+        resolution = resolve_cce_cluster_id(ctx, region, input_cluster_id)
+        if not resolution.get("success"):
+            return resolution
+        params["cluster_id"] = resolution["id"]
+
     if action in SIMPLE_TOOLS:
         service, operation, required, confirm_required = SIMPLE_TOOLS[action]
         error = _check_required(params, required)
         if error:
             return {"success": False, "error": error}
-        return _handle_simple(params, service, operation, required, confirm_required)
-
-    if action in SPECIAL_TOOLS:
+        result = _handle_simple(params, service, operation, required, confirm_required)
+    elif action in SPECIAL_TOOLS:
         handler, required = SPECIAL_TOOLS[action]
         error = _check_required(params, required)
         if error:
             return {"success": False, "error": error}
-        return handler(params)
+        result = handler(params)
+    else:
+        return {"success": False, "error": f"Unknown action: {action}"}
 
-    return {"success": False, "error": f"Unknown action: {action}"}
+    if resolution and resolution.get("resolved_from_name") and result.get("success"):
+        result["resolved_resource_ids"] = [{"parameter": "cluster_id", "input": input_cluster_id, "resolved_id": resolution["id"]}]
+    return result
