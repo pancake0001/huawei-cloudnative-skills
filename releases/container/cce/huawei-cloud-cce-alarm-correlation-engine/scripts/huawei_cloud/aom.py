@@ -2105,25 +2105,80 @@ def update_aom_alarm_rule(
     sk: Optional[str] = None,
     project_id: Optional[str] = None,
 ) -> Dict[str, Any]:
-    params = _build_metric_alarm_params(
-        rule_name=rule_name,
-        metric_name=updates.get("metric_name", ""),
-        namespace=updates.get("namespace", ""),
-        comparison_operator=updates.get("comparison_operator", ">"),
-        threshold=str(updates.get("threshold", "")),
-        period=int(updates.get("period", 60) or 60),
-        evaluation_periods=int(updates.get("evaluation_periods", 1) or 1),
-        statistic=updates.get("statistic", "average"),
-        alarm_level=int(updates.get("alarm_level", 2) or 2),
-        create_fields=updates,
-        action_id="update-alarm-action",
-    )
-    if not confirm:
-        preview = _preview("AddOrUpdateMetricOrEventAlarmRule", region, params, "HIGH", "Preview only. Add confirm=true to update the AOM alarm rule through hcloud.")
-        preview["rule_payload"] = dict(params)
-        return preview
+    existing = _existing_alarm_rule(region, rule_name, None, ak, sk, project_id)
+    if not existing:
+        return {"success": False, "error": f"Alarm rule not found: {rule_name}"}
 
-    result = run_hcloud("AOM", "AddOrUpdateMetricOrEventAlarmRule", region, params, ak, sk, project_id)
+    raw = copy.deepcopy(existing.get("raw") or {})
+    body = {
+        "alarm_rule_name": raw.get("alarm_rule_name") or rule_name,
+        "alarm_rule_type": raw.get("alarm_rule_type"),
+        "alarm_rule_enable": raw.get("alarm_rule_enable", True),
+        "alarm_rule_description": raw.get("alarm_rule_description"),
+        "prom_instance_id": raw.get("prom_instance_id"),
+        "event_alarm_spec": raw.get("event_alarm_spec"),
+        "metric_alarm_spec": raw.get("metric_alarm_spec"),
+        "alarm_notifications": raw.get("alarm_notifications"),
+    }
+    body = {key: value for key, value in body.items() if value is not None}
+
+    if updates.get("alarm_description") or updates.get("alarm_rule_description"):
+        body["alarm_rule_description"] = updates.get("alarm_description") or updates.get("alarm_rule_description")
+    if "is_turn_on" in updates or "alarm_rule_enable" in updates:
+        body["alarm_rule_enable"] = updates.get("is_turn_on", updates.get("alarm_rule_enable"))
+    if updates.get("prom_instance_id"):
+        body["prom_instance_id"] = updates["prom_instance_id"]
+    if updates.get("bind_notification_rule_id"):
+        notifications = dict(body.get("alarm_notifications") or {})
+        notifications["bind_notification_rule_id"] = _resolve_notification_rule_name(
+            region, str(updates["bind_notification_rule_id"]), ak, sk, project_id
+        )
+        body["alarm_notifications"] = notifications
+
+    threshold = updates.get("threshold_value", updates.get("threshold"))
+    spec_key = "metric_alarm_spec" if body.get("alarm_rule_type") == "metric" else "event_alarm_spec"
+    spec = body.get(spec_key)
+    if isinstance(spec, dict):
+        conditions = spec.get("trigger_conditions") or []
+        if conditions:
+            condition = conditions[0]
+            if threshold is not None:
+                thresholds = dict(condition.get("thresholds") or {})
+                severity = _severity_name(updates.get("alarm_level")) if updates.get("alarm_level") is not None else next(iter(thresholds), "Major")
+                thresholds[severity] = str(threshold)
+                condition["thresholds"] = thresholds
+            if updates.get("promql") and spec_key == "metric_alarm_spec":
+                condition["promql"] = updates["promql"]
+            if updates.get("promql_for") and spec_key == "metric_alarm_spec":
+                condition["promql_for"] = updates["promql_for"]
+            if updates.get("trigger_interval"):
+                condition["trigger_interval"] = updates["trigger_interval"]
+
+    resolved_project_id = resolve_project_id_for_region(region, ak, sk, project_id)
+    if not resolved_project_id:
+        return {"success": False, "error": "Project ID not found. Please provide project_id."}
+    payload = {
+        "query": {"action_id": "update-alarm-action"},
+        "body": body,
+        "path": {"project_id": resolved_project_id},
+    }
+    if raw.get("enterprise_project_id"):
+        payload["header"] = {"Enterprise-Project-Id": raw["enterprise_project_id"]}
+    if not confirm:
+        return {
+            "success": True,
+            "action": "update_aom_alarm_rule",
+            "region": region,
+            "risk": "HIGH",
+            "confirm_required": True,
+            "will_execute": False,
+            "executed": False,
+            "rule_name": rule_name,
+            "rule_payload": payload,
+            "message": "Preview only. Add confirm=true to update the existing AOM alarm rule through hcloud.",
+        }
+
+    result = run_hcloud_json_input("AOM", "AddOrUpdateMetricOrEventAlarmRule", region, payload, ak, sk, resolved_project_id)
     result.update({"action": "update_aom_alarm_rule", "executed": result["success"]})
     return result
 

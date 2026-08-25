@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from typing import Any, Callable, Dict
 
-from . import cce, cce_app_logs, lts
+from . import cce, cce_app_logs, common, lts
 
 Handler = Callable[[Dict[str, str]], Dict[str, Any]]
 

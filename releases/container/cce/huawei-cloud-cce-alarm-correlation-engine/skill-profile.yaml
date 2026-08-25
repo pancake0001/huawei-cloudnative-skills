@@ -16,6 +16,8 @@ tools:
   - huawei_create_aom_alarm_rule
   - huawei_create_aom_event_alarm_rule
   - huawei_configure_cce_aom_alarm_rules
+  - huawei_cleanup_cce_aom_alarm_rules
+  - huawei_create_aom_notification_action_rule
   - huawei_update_aom_alarm_rule
   - huawei_delete_aom_alarm_rule
   - huawei_disable_aom_alarm_rule
