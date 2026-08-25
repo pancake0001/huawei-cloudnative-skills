@@ -424,6 +424,7 @@ def _query_logs_with_pagination(
 def get_cce_logconfigs_action(params: Dict[str, str]) -> Dict[str, Any]:
     cluster_id = params["cluster_id"]
     namespace = params.get("namespace") or "kube-system"
+    common.emit_diagnostic("logconfig.query.start", cluster_id=cluster_id, namespace=namespace)
 
     try:
         custom_api = _get_cce_custom_objects_api(params)
@@ -435,6 +436,7 @@ def get_cce_logconfigs_action(params: Dict[str, str]) -> Dict[str, Any]:
         for group, version, plural in _logconfig_cr_combinations():
             api_version = f"{group}/{version}/{plural}"
             tried.append(api_version)
+            common.emit_diagnostic("logconfig.query.probe", cluster_id=cluster_id, namespace=namespace, api_version=api_version)
             try:
                 api_result = custom_api.list_namespaced_custom_object(
                     group=group, version=version, namespace=namespace, plural=plural
@@ -459,9 +461,13 @@ def get_cce_logconfigs_action(params: Dict[str, str]) -> Dict[str, Any]:
                         }
                     )
                 successful_probes += 1
+                common.emit_diagnostic(
+                    "logconfig.query.probe_success", api_version=api_version, item_count=len(api_result.get("items", []))
+                )
                 if logconfigs:
                     break
             except Exception as exc:
+                common.emit_diagnostic("logconfig.query.probe_failure", api_version=api_version, error=str(exc)[:1000])
                 probe_errors.append(
                     {
                         "api_version": api_version,
@@ -472,6 +478,7 @@ def get_cce_logconfigs_action(params: Dict[str, str]) -> Dict[str, Any]:
                 continue
 
         if not successful_probes:
+            common.emit_diagnostic("logconfig.query.failure", cluster_id=cluster_id, namespace=namespace, probe_errors=probe_errors)
             return {
                 "success": False,
                 "error": "unable to query CCE LogConfig resources through the available CRD APIs",
@@ -481,6 +488,7 @@ def get_cce_logconfigs_action(params: Dict[str, str]) -> Dict[str, Any]:
                 "probe_errors": probe_errors,
             }
 
+        common.emit_diagnostic("logconfig.query.success", cluster_id=cluster_id, namespace=namespace, count=len(logconfigs))
         return {
             "success": True,
             "cluster_id": cluster_id,
@@ -491,6 +499,7 @@ def get_cce_logconfigs_action(params: Dict[str, str]) -> Dict[str, Any]:
             "logconfigs": logconfigs,
         }
     except Exception as exc:
+        common.emit_diagnostic("logconfig.query.failure", cluster_id=cluster_id, namespace=namespace, error=str(exc)[:1000])
         return {"success": False, "error": str(exc), "error_type": type(exc).__name__}
 
 

@@ -6,10 +6,17 @@ import json
 import os
 import re
 import subprocess
+import sys
 from typing import Any, Optional
 
 
 _STANDARD_UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$", re.IGNORECASE)
+
+
+def emit_diagnostic(event: str, **fields: Any) -> None:
+    """Write structured diagnostics to stderr without contaminating JSON stdout."""
+    payload = {"event": event, **fields}
+    print(f"[cce-log-analyzer] {json.dumps(payload, ensure_ascii=True, default=str, sort_keys=True)}", file=sys.stderr)
 
 
 def get_credentials(
