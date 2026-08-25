@@ -423,7 +423,7 @@ def _query_logs_with_pagination(
 
 def get_cce_logconfigs_action(params: Dict[str, str]) -> Dict[str, Any]:
     cluster_id = params["cluster_id"]
-    namespace = params.get("namespace")
+    namespace = params.get("namespace") or "kube-system"
 
     try:
         custom_api = _get_cce_custom_objects_api(params)
@@ -436,10 +436,9 @@ def get_cce_logconfigs_action(params: Dict[str, str]) -> Dict[str, Any]:
             api_version = f"{group}/{version}/{plural}"
             tried.append(api_version)
             try:
-                if namespace:
-                    api_result = custom_api.list_namespaced_custom_object(group=group, version=version, namespace=namespace, plural=plural)
-                else:
-                    api_result = custom_api.list_cluster_custom_object(group=group, version=version, plural=plural)
+                api_result = custom_api.list_namespaced_custom_object(
+                    group=group, version=version, namespace=namespace, plural=plural
+                )
                 for item in api_result.get("items", []):
                     metadata = item.get("metadata", {})
                     spec = item.get("spec", {})
@@ -477,7 +476,7 @@ def get_cce_logconfigs_action(params: Dict[str, str]) -> Dict[str, Any]:
                 "success": False,
                 "error": "unable to query CCE LogConfig resources through the available CRD APIs",
                 "cluster_id": cluster_id,
-                "namespace": namespace or "all",
+                "namespace": namespace,
                 "tried_api_combinations": tried,
                 "probe_errors": probe_errors,
             }
@@ -485,7 +484,7 @@ def get_cce_logconfigs_action(params: Dict[str, str]) -> Dict[str, Any]:
         return {
             "success": True,
             "cluster_id": cluster_id,
-            "namespace": namespace or "all",
+            "namespace": namespace,
             "count": len(logconfigs),
             "tried_api_combinations": tried,
             "probe_errors": probe_errors,
