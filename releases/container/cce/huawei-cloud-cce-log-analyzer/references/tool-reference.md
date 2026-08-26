@@ -26,7 +26,7 @@ python3 scripts/huawei-cloud.py huawei_query_kube_apiserver_logs \
 |---|---|---|---|
 | `huawei_get_pod_stdout_logs` | `region`, `cluster_id`, `pod_name` | `namespace`, `container`, `previous`, `tail_lines` | `tail_lines` defaults to 1000; `previous=true` reads a terminated container instance. |
 | `huawei_analyze_pod_stdout_realtime_logs` | `region`, `cluster_id`, `pod_name` | `namespace`, `container`, `wait_seconds`, `tail_lines` | Samples twice; `wait_seconds` defaults to 30. |
-| `huawei_get_cce_logconfigs` | `region`, `cluster_id` | - | Requires Cloud Native Logging add-on. |
+| `huawei_get_cce_logconfigs` | `region`, `cluster_id` | `namespace`, `project_id` | Requires Cloud Native Logging add-on. `namespace` defaults to `kube-system`; `project_id` is optional when explicit CLI credentials are used. |
 | `huawei_list_lts_access_configs` | `region` | `access_config_name` | Filter returned rules by target `cluster_id` before showing users application-log choices. |
 | `huawei_query_application_logs` | `region`, `cluster_id`, one rule selector | `hours`, `start_time`, `end_time`, `keywords`, `auto_paginate`, `max_pages`, `limit` | Selector is `logconfig_name` or `access_config_id`/`access_config_name`. User must choose it first. |
 | `huawei_analyze_application_logs` | `region`, `cluster_id`, one rule selector | Same as query plus `sample_limit` | Avoid `keywords` when reporting an unscoped abnormal ratio. |

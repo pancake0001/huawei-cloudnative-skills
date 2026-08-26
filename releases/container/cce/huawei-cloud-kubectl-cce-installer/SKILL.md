@@ -1,271 +1,101 @@
 ---
 name: huawei-cloud-kubectl-cce-installer
 description: >
-  Install, upgrade, verify, or troubleshoot local kubectl and the Huawei Cloud kubectl-cce plugin. Trigger when a user asks to install kubectl, install
-  kubectl-cce, configure the CCE kubectl plugin, verify kubectl-cce availability, or repair local command prerequisites for CCE Kubernetes resource access.
-tags: [kubectl, kubectl-cce, cce, huawei-cloud, kubernetes]
+  Query specific Kubernetes resources in Huawei Cloud CCE clusters through kubectl cce. Trigger when users ask to get, describe, inspect, or view a Pod,
+  workload, Service, ConfigMap, node, namespace, or other CCE Kubernetes resource, or when they ask to install or repair the local kubectl-cce
+  prerequisites. Install kubectl and kubectl-cce only when they are missing locally.
+tags: [kubectl, kubectl-cce, cce, huawei-cloud, kubernetes, resource-query]
 ---
 
-# Huawei Cloud CCE kubectl Installer
+# Huawei Cloud CCE Kubectl Resource Query
 
-## Overview
+Use this skill to retrieve specific CCE Kubernetes resources through `kubectl cce`. Resource access is the primary task. Local installation is only a
+prerequisite recovery step when `kubectl` or the `kubectl-cce` plugin is unavailable.
 
-Install and verify the local `kubectl` and `kubectl-cce` prerequisites used for Huawei Cloud CCE Kubernetes resource access. This skill changes only the local
-machine; it never creates, updates, or deletes cloud or Kubernetes resources.
+## Scope And Safety
 
-**Architecture**: `scripts/install_kubectl_cce.sh` -> local OS package paths and official download/source repositories -> `kubectl` and `kubectl-cce` binaries
--> `kubectl plugin list` verification.
+- Use `kubectl cce`; do not use a direct Kubernetes API client.
+- Read-only commands only: `get`, `describe`, and `logs`.
+- Never use `-A`, `--all-namespaces`, or another whole-cluster resource query.
+- For namespaced resources, require `--namespace <namespace>` and, where feasible, a specific resource name.
+- For cluster-scoped resources such as `node`, `namespace`, `persistentvolume`, and `storageclass`, require an exact resource name. Do not list every
+  instance.
+- Never run `apply`, `create`, `delete`, `edit`, `patch`, `replace`, `scale`, `rollout`, `cordon`, `drain`, or `exec`.
+- Do not print credentials, tokens, kubeconfig content, or Secret data.
 
-**Execution Method**: Run the bundled shell script only. Do not replace its download URLs, build tags, installation paths, or verification steps with ad hoc
-commands unless the user explicitly asks for a different method.
+## Required Context
 
-**Capabilities**:
+| Input | Requirement |
+| --- | --- |
+| `cluster_id` | Required standard UUID. If the user gives a name, resolve it with `hcloud CCE ListClusters` before running kubectl. |
+| `region` | Required. Use an explicit value, then `HW_REGION_NAME`; otherwise ask the user. |
+| Resource kind | Required, for example `pod`, `deployment`, `service`, `configmap`, or `node`. |
+| Namespace or exact name | At least one is required. Namespaced resources require a namespace; cluster-scoped resources require an exact name. |
 
-- Detect the local OS, architecture, executable availability, and plugin discovery state
-- Show a no-change installation plan before execution
-- Select the latest missing Linux `kubectl` package from Huawei Cloud OBS for the local architecture
-- Fall back to the official Kubernetes stable release, then build the same stable tag when download fails
-- Install `kubectl-cce` v0.2.1 from its Gitee Release on Linux when available
-- Build the fixed `kubectl-cce` v0.2.1 source tag when a Release asset is unavailable or download fails
-- Verify `kubectl` and `kubectl-cce` plugin discovery after installation
-
-**Typical Use Cases**:
-
-- "Install kubectl and kubectl-cce on this machine"
-- "Check whether kubectl-cce is available"
-- "Show the installation plan for CCE kubectl access"
-- "Repair a missing kubectl-cce plugin"
-
-## Prerequisites
-
-### 1. Runtime Dependencies
-
-- Bash, `curl`, `tar`, `cp`, and `chmod` for Linux/macOS installation
-- `git` and Go only when source-build fallback is needed
-- Write access to the selected `--bin-dir`; `/usr/local/bin` normally requires elevation
-- Internet access to Kubernetes and Gitee release/source endpoints
-- Network steps use timeouts by default: 10 seconds to connect, 300 seconds to download, 600 seconds to clone sources, and 900 seconds to build sources
-
-### 2. Credential Configuration
-
-Installation itself needs no Huawei Cloud credentials. Do not request, print, or save AK/SK, security tokens, IAM tokens, or kubeconfig content during
-installation.
-
-After installation, `kubectl cce` requires credentials only when it accesses a CCE cluster. Read [plugin-usage.md](references/plugin-usage.md) before
-configuring that access.
-
-### 3. Local Permission Requirements
-
-| Permission                              | Purpose                                                 |
-| --------------------------------------- | ------------------------------------------------------- |
-| Read/execute access                     | Detect existing `kubectl` and `kubectl-cce` executables |
-| Write access to `--bin-dir`             | Install a missing executable                            |
-| Elevated local permission when required | Write to protected directories such as `/usr/local/bin` |
-
-**Permission Failure Handling**:
-
-1. Report the target installation directory and the local permission error.
-2. Ask the user to select a writable directory or explicitly authorize an elevated command.
-3. Do not retry with `sudo` automatically.
-
-## Core Commands
-
-All commands use the bundled installer script:
-
-```bash
-bash scripts/install_kubectl_cce.sh [--check] [--execute] [--reinstall] [--bin-dir <directory>]
-```
-
-### 1. Local State Check
-
-```bash
-bash scripts/install_kubectl_cce.sh --check
-```
-
-This is read-only. It reports the OS, architecture, installed binaries, `kubectl` client version, and `kubectl plugin list` output.
-
-### 2. Installation Plan
-
-```bash
-bash scripts/install_kubectl_cce.sh --bin-dir /usr/local/bin
-```
-
-This is read-only. It shows which executables are missing and the exact download or source-build fallback without changing the machine.
-
-### 3. Confirmed Installation
-
-```bash
-sudo bash scripts/install_kubectl_cce.sh --execute --bin-dir /usr/local/bin
-```
-
-Run only after the user confirms the previewed installation path and actions. The script does not overwrite existing `kubectl` or `kubectl-cce` executables.
-
-### 4. Confirmed Plugin Reinstallation
-
-To explicitly replace an existing `kubectl-cce` without changing `kubectl`, first run the same command without `--execute` to inspect the plan. Then, after
-confirmation:
-
-```bash
-sudo bash scripts/install_kubectl_cce.sh --reinstall --execute --bin-dir <existing-plugin-directory>
-```
-
-`--reinstall` replaces only `kubectl-cce` with the pinned version. It does not replace `kubectl`.
-
-### 4. Source-Build Fallback
-
-- For Linux, list the public OBS package repository and select the latest package for the local `amd64` or `arm64` architecture. Package names determine release
-  ordering.
-- If OBS lookup, download, or extraction fails, download the official Kubernetes stable release; build the same stable tag only if that download fails.
-- When the Linux `kubectl-cce` v0.2.1 asset is unavailable or download fails, build the fixed `v0.2.1` source tag.
-- On macOS, build `kubectl-cce` v0.2.1 from source because the Release has no macOS asset.
-
-The fallback requires `git` and Go. If either is absent, return the missing dependency rather than installing it automatically.
-
-### 5. Windows Manual Installation
-
-The bundled script does not run on Windows. Download the matching Windows `kubectl` binary from the
-[official Kubernetes release site](https://kubernetes.io/releases/download/) and the matching `kubectl-cce` ZIP from the
-[Gitee `v0.2.1` Release](https://gitee.com/pancake0001/kubectl-cce-plugin/releases/tag/v0.2.1). Extract the files, place them in a user-selected directory on
-`PATH`, and verify with `kubectl version --client` and `kubectl plugin list`. See [plugin-usage.md](references/plugin-usage.md) for the plugin-specific steps.
-
-## Risk Levels
-
-This skill modifies only local binaries and does not operate on cloud resources. It must still use a plan-and-confirm flow for system changes.
-
-| Level | Meaning                                                                    | Execution Guidance                                                            |
-| ----- | -------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| R3    | Read-only local inspection                                                 | May run automatically                                                         |
-| R1    | Local executable installation, replacement, or PATH-adjacent system change | Show the plan first and require explicit user confirmation before `--execute` |
-
-| Operation               | Risk Level | Description                                          |
-| ----------------------- | ---------- | ---------------------------------------------------- |
-| `--check`               | R3         | Inspect local tools and plugin discovery             |
-| Default script mode     | R3         | Show installation plan without making changes        |
-| `--execute`             | R1         | Install missing binaries into the selected directory |
-| Source-build fallback   | R1         | Clone fixed source tags and compile missing binaries |
-| `--reinstall --execute` | R1         | Explicitly replace the existing `kubectl-cce` binary |
-
-## Parameter Reference
-
-| Parameter               | Required/Optional     | Description                                             | Default          |
-| ----------------------- | --------------------- | ------------------------------------------------------- | ---------------- |
-| `--check`               | Optional              | Run only local inspection and verification              | Disabled         |
-| `--execute`             | Required for mutation | Install missing binaries after explicit confirmation    | Disabled         |
-| `--reinstall`           | Optional              | Replace an existing `kubectl-cce`; requires `--execute` | Disabled         |
-| `--bin-dir <directory>` | Optional              | Target directory for newly installed executables        | `/usr/local/bin` |
-| `--help`                | Optional              | Display script usage                                    | N/A              |
-
-Set `KUBECTL_CCE_CONNECT_TIMEOUT`, `KUBECTL_CCE_DOWNLOAD_TIMEOUT`, `KUBECTL_CCE_SOURCE_CLONE_TIMEOUT`, or `KUBECTL_CCE_SOURCE_BUILD_TIMEOUT` to positive integer
-seconds only when the default timeout is unsuitable.
-
-## 参数确认
-
-The installer may inspect the local machine without confirmation, but installation is an R1 local-system change. Confirm the following values with the user
-before running `--execute`.
-
-| Parameter            | Resolution                                                                          | Confirmation Requirement                                                         |
-| -------------------- | ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| Installation mode    | `--check` and the default plan are read-only; `--execute` installs missing binaries | Explicit confirmation required for `--execute`                                   |
-| `--bin-dir`          | Defaults to `/usr/local/bin`; may be changed to a writable user-selected directory  | Confirm the target directory before installation                                 |
-| Existing executables | Detected from `PATH`; `--reinstall` can replace only `kubectl-cce`                  | Report the detected state; require explicit approval for `--reinstall --execute` |
-| Network timeouts     | Use defaults unless the user provides positive integer overrides                    | Confirm non-default values when they materially extend the wait time             |
-
-Never infer a writable installation directory, use `sudo` automatically, or install a missing build dependency without the user's explicit approval.
-
-## Output Format
-
-The script writes human-readable output to standard output and exits nonzero when it cannot complete the requested operation.
-
-**Key output fields**:
-
-- `platform`: detected operating system
-- `arch`: normalized CPU architecture
-- `kubectl_present`: whether `kubectl` is in `PATH`
-- `kubectl_cce_present`: whether `kubectl-cce` is in `PATH`
-- `bin_dir`: selected installation directory
-- `PLAN`: planned changes in no-change mode
-- Error text: missing dependency, unsupported platform, download/build failure, or plugin discovery failure
+Credentials follow the plugin rules in [plugin-usage.md](references/plugin-usage.md). Use explicit `--cli-access-key`, `--cli-secret-key`, and optional
+`--cli-security-token` only when the caller supplies them. Do not fall back to other credentials in that case.
 
 ## Workflow
 
-1. Run `--check` and record the current local state.
-2. Run the default plan command with the intended `--bin-dir`.
-3. Present the planned downloads, source-build fallback, target directory, and R1 local-system impact to the user. Use `--reinstall` only when the user
-   explicitly requested a plugin replacement.
-4. Wait for explicit confirmation.
-5. Run the same command with `--execute`.
-6. Verify `kubectl version --client` and `kubectl plugin list`.
-7. For CCE access configuration, read [plugin-usage.md](references/plugin-usage.md) and perform only a read-only cluster request if the user asks to test
-   connectivity.
+1. Confirm the target cluster UUID, region, resource kind, namespace, and exact resource name when required.
+2. Check local prerequisites:
 
-## Verification
+   ```bash
+   bash scripts/install_kubectl_cce.sh --check
+   ```
 
-Run the read-only check first:
+3. When both `kubectl` and `kubectl-cce` are available, query the requested resource.
+4. When either executable is missing, read [installation.md](references/installation.md), then show the installer plan. Installation or replacement is an R1
+   local change and requires explicit confirmation:
+
+   ```bash
+   bash scripts/install_kubectl_cce.sh --bin-dir <directory>
+   sudo bash scripts/install_kubectl_cce.sh --execute --bin-dir <directory>
+   ```
+
+5. Verify installation with `kubectl version --client` and `kubectl plugin list`, then run only the requested read-only resource query.
+
+## Core Commands
+
+Use one explicit namespace per namespaced query:
 
 ```bash
-bash scripts/install_kubectl_cce.sh --check
+kubectl cce --cluster-id <cluster-id> --region <region> \
+  get pod <pod-name> --namespace <namespace> -o yaml
+
+kubectl cce --cluster-id <cluster-id> --region <region> \
+  describe deployment <deployment-name> --namespace <namespace>
+
+kubectl cce --cluster-id <cluster-id> --region <region> \
+  get service <service-name> --namespace <namespace> -o yaml
 ```
 
-After a confirmed installation, verify:
+For a cluster-scoped resource, use an exact name:
 
 ```bash
-kubectl version --client
-kubectl plugin list
+kubectl cce --cluster-id <cluster-id> --region <region> \
+  get node <node-name> -o yaml
 ```
 
-The plugin is ready when `kubectl plugin list` contains `kubectl-cce`. Do not rely on `kubectl cce --version`: the source tag does not expose a stable version
-flag.
+For credential modes, Windows usage, installation fallbacks, and x509 retry behavior, read [plugin-usage.md](references/plugin-usage.md). If a command fails
+with an x509 upstream TLS validation error, retry that same command once with `--cce-insecure-upstream-tls=true` immediately after `cce`.
 
-## Best Practices
+## Risk Levels
 
-1. **Inspect before installing** - always run `--check` and the no-change plan first.
-2. **Use an explicit target directory** - show `--bin-dir` before asking for confirmation.
-3. **Preserve existing binaries** - do not request `--execute` as an upgrade mechanism unless the user explicitly asks for replacement support.
-4. **Use the local architecture** - select the latest amd64 or arm64 OBS package matching the host CPU.
-5. **Separate installation from cluster access** - do not validate the plugin by mutating a cluster; use a read-only request only when requested.
+| Operation | Level | Guidance |
+| --- | --- | --- |
+| Resource query and local prerequisite check | R3 | May run automatically. |
+| Local binary installation, source build, or plugin replacement | R1 | Preview first and require explicit confirmation before `--execute`. |
 
-## Notes
+## Output
 
-- Installation and source compilation are R1 local-system actions and require explicit confirmation.
-- The script never writes Huawei Cloud credentials, tokens, or kubeconfig files.
-- `kubectl-cce` must be named exactly `kubectl-cce` for Kubernetes plugin discovery.
-- On Windows, do not run the bundled script; use the official Kubernetes download and matching Gitee Release ZIP as described in
-  [plugin-usage.md](references/plugin-usage.md).
-
-## Troubleshooting
-
-| Symptom                                    | Likely Cause                                          | Action                                                                                            |
-| ------------------------------------------ | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `curl`, `tar`, `cp`, or `chmod` is missing | Local prerequisite is absent                          | Install the missing local prerequisite through the user-approved system method, then retry        |
-| Download fails                             | Network restriction or unavailable Release asset      | Allow the script to use its fixed-tag source-build fallback after confirmation                    |
-| Network step times out                     | Endpoint, proxy, or connection is slow or unavailable | Check connectivity, then increase the relevant `KUBECTL_CCE_*_TIMEOUT` value if the user approves |
-| Source build fails                         | `git`/Go missing or source build dependency failure   | Install the reported build prerequisite, then rerun the plan and confirmed installation           |
-| Permission denied in `--bin-dir`           | Protected target directory                            | Select a writable directory or run an explicitly approved elevated command                        |
-| Plugin not listed                          | Target directory is not in `PATH`                     | Add the selected `--bin-dir` to `PATH`, then rerun `kubectl plugin list`                          |
-| macOS plugin missing                       | v0.2.1 has no macOS Release asset                     | Use the fixed `v0.2.1` source-build fallback                                                      |
-
-## Limitations
-
-- The bundled script executes only on Linux and macOS. Windows uses manual downloads from the official Kubernetes release site and Gitee; the script must not be
-  used.
-- The script installs missing binaries only unless `--reinstall --execute` is explicitly confirmed; that mode replaces only `kubectl-cce`.
-- The skill does not configure Huawei Cloud credentials or retrieve kubeconfig files.
-- The skill does not test cluster connectivity unless the user explicitly requests a separate read-only CCE command.
-- Source build depends on the availability of the pinned Git tags and a compatible local Go toolchain.
+Return the cluster ID, region, resource kind, namespace when applicable, resource name, and requested status or fields. State clearly whether the resource is
+not found, access is denied, prerequisites are missing, or an installation confirmation is needed.
 
 ## References
 
-| Document                                                 | Use                                                                                |
-| -------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| [Plugin Usage](references/plugin-usage.md)               | kubectl-cce credentials, read-only CCE connectivity test, and Windows installation |
-| [Acceptance Criteria](references/acceptance-criteria.md) | Installation, verification, safety, and documentation acceptance gates             |
-
-
-## x509 TLS Retry
-
-If a `kubectl cce` command returns an `x509` certificate-validation error, repeat the same command with `--cce-insecure-upstream-tls=true` immediately after `cce`. For example: `kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> ...`. Use this option only when that TLS validation error occurs.
-
-
-## Cluster ID Input
-
-`cluster_id` must use a standard UUID. If the input is not a standard UUID, first list CCE clusters and perform an exact cluster-name match; convert the name to its UUID only when there is one match. If there is no match or more than one match, require the user to provide a UUID. Never guess or arbitrarily select a cluster.
+| Document | Use |
+| --- | --- |
+| [Plugin Usage](references/plugin-usage.md) | Credentials, command forms, x509 retry, Windows installation, and installer fallback. |
+| [Installation](references/installation.md) | Local prerequisites, installer parameters, source fallback, confirmation, and troubleshooting. |
+| [Acceptance Criteria](references/acceptance-criteria.md) | Resource-query and installation acceptance checks. |

@@ -1,5 +1,11 @@
 # kubectl-cce Plugin Usage
 
+## Resource Query Constraints
+
+Use this plugin for a specifically scoped, read-only CCE resource query. Always provide `--cluster-id` and `--region`; for namespaced resources, provide
+`--namespace <namespace>`. Do not use `-A` or `--all-namespaces`. For cluster-scoped resources, provide an exact resource name rather than listing all
+resources. Do not use mutation commands or print Secret data, credentials, tokens, or kubeconfig contents.
+
 ## Release Source
 
 Use the [Gitee `pancake0001/kubectl-cce-plugin` Release `v0.2.1`](https://gitee.com/pancake0001/kubectl-cce-plugin/releases/tag/v0.2.1) when an asset exists.
@@ -29,16 +35,16 @@ For trusted sandbox/agent runtimes that inject credentials per invocation and co
 > ⚠️ Do **not** use Mode 2 in ordinary multi-user environments: CLI args are visible in `ps aux` and leak credentials. Prefer Mode 1 there. Mode 2 is safe only
 > where the runtime controls process visibility (sandbox).
 
-## Read-only Test
+## Read-only Resource Queries
 
 ```bash
 # Mode 1 (env vars)
-kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region "${HW_REGION}" get namespaces
+kubectl cce --cluster-id <cluster-id> --region "${HW_REGION}" get pod <pod-name> --namespace <namespace>
 
 # Mode 2 (runtime injection — runtime supplies the real values; never log them)
-kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> \
+kubectl cce --cluster-id <cluster-id> --region <region> \
   --cli-access-key <access-key> --cli-secret-key <secret-key> \
-  [--cli-security-token <token>] get namespaces
+  [--cli-security-token <token>] get pod <pod-name> --namespace <namespace>
 ```
 
 Do not run write operations during installation verification.

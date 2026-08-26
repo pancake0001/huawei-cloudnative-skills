@@ -132,8 +132,11 @@ python3 scripts/huawei-cloud.py huawei_analyze_application_logs \
 ```bash
 python3 scripts/huawei-cloud.py huawei_get_cce_logconfigs \
   region=<region> \
-  cluster_id=<cluster-id>
+  cluster_id=<cluster-id> \
+  namespace=kube-system
 ```
+
+The query is scoped to one namespace and defaults to `kube-system`; it never uses an all-namespace Kubernetes request. `project_id` is optional when credentials are passed with `--cli-access-key` and `--cli-secret-key`.
 
 ### Create a LogConfig (Preview → Confirm)
 
