@@ -45,7 +45,8 @@ Credentials follow the plugin rules in [plugin-usage.md](references/plugin-usage
    ```
 
 3. When both `kubectl` and `kubectl-cce` are available, query the requested resource.
-4. When either executable is missing, show the installer plan. Installation or replacement is an R1 local change and requires explicit confirmation:
+4. When either executable is missing, read [installation.md](references/installation.md), then show the installer plan. Installation or replacement is an R1
+   local change and requires explicit confirmation:
 
    ```bash
    bash scripts/install_kubectl_cce.sh --bin-dir <directory>
@@ -96,4 +97,5 @@ not found, access is denied, prerequisites are missing, or an installation confi
 | Document | Use |
 | --- | --- |
 | [Plugin Usage](references/plugin-usage.md) | Credentials, command forms, x509 retry, Windows installation, and installer fallback. |
+| [Installation](references/installation.md) | Local prerequisites, installer parameters, source fallback, confirmation, and troubleshooting. |
 | [Acceptance Criteria](references/acceptance-criteria.md) | Resource-query and installation acceptance checks. |

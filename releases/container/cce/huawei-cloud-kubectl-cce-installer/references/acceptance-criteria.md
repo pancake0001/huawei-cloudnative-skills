@@ -27,3 +27,4 @@
 - No cloud resources, Kubernetes resources, credentials, tokens, kubeconfig files, or Secret data are created, changed, printed, or stored by the skill.
 - R1 installation actions require a preview and explicit user confirmation before `--execute`.
 - `SKILL.md` documents triggers, configurable parameters, confirmation requirements, fallback behavior, and verification commands.
+- `references/installation.md` documents local dependencies, installer commands, source fallback, Windows installation, confirmation, and troubleshooting.
