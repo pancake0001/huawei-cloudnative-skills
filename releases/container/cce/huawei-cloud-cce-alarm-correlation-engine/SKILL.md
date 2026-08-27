@@ -495,4 +495,4 @@ Mutation verification:
 
 ## Cluster ID Input
 
-`cluster_id` must use a standard UUID. If the input is not a standard UUID, first list CCE clusters and perform an exact cluster-name match; convert the name to its UUID only when there is one match. If there is no match or more than one match, require the user to provide a UUID. Never guess or arbitrarily select a cluster.
+`cluster_id` must use a standard UUID. A UUID is verified with `hcloud CCE ShowCluster` before any AOM query or mutation. If the input is not a standard UUID, first list CCE clusters and perform an exact cluster-name match; convert the name to its UUID only when there is one match. If verification or name matching fails, return the error and do not query AOM. Never guess or arbitrarily select a cluster.

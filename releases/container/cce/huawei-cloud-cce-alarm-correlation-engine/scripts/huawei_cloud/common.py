@@ -250,6 +250,13 @@ def resolve_cce_cluster_id(
 ) -> Dict[str, Any]:
     """Return a standard cluster UUID, resolving an exact cluster name when needed."""
     if _STANDARD_UUID_RE.fullmatch(value or ""):
+        result = run_hcloud("CCE", "ShowCluster", region, [("cluster_id", value)], ak, sk, project_id)
+        if not result.get("success"):
+            return {
+                "success": False,
+                "error": f"Unable to verify CCE cluster_id '{value}': {result.get('error', '')}",
+                "cluster_id": value,
+            }
         return {"success": True, "id": value, "resolved_from_name": False}
 
     result = run_hcloud("CCE", "ListClusters", region, [], ak, sk, project_id)

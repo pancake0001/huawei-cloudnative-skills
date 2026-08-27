@@ -69,11 +69,27 @@ Use the parameter that controls the collection source, not the namespace where a
 | Collection mode | Namespace parameter | Scope |
 |---|---|---|
 | CCE LogConfig, one workload stdout or container file | `workload_namespace` (or `namespace`) with `workload_name`/`app_name` | One workload in one namespace. |
-| CCE LogConfig, all container stdout in selected namespaces | `all_containers=true` and `namespaces='["default"]'` | All container stdout in the listed namespaces. Omit `namespaces` only when all namespaces are intended. |
+| CCE LogConfig, all container stdout in selected namespaces | `all_containers=true` and `namespaces='["default"]'` | All container stdout in the listed namespaces. Use a JSON array or `default,kube-system`; `[default]` is invalid. Omit `namespaces` only when all namespaces are intended. |
 | LTS Access Config, `K8S_CCE` container stdout or file | `namespace_regex`, for example `^default$` | Namespace regex; `pod_name_regex` is also required. |
 | Node file collection | None | `host_file` applies to all eligible nodes in the bound host group. Namespace filtering does not apply. |
 
+For `huawei_get_pod_stdout_logs` and `huawei_analyze_pod_stdout_realtime_logs`, both `pod_name` and `namespace` are required. Do not infer the namespace or
+fall back to `default`.
+
 `logconfig_namespace` is only the Kubernetes namespace that stores the LogConfig custom resource, normally `kube-system`; it does not limit which application logs are collected. Review the previewed `request_body` before confirmation.
+
+### `namespaces` Input
+
+Use `namespaces` only with `source_type=container_stdout all_containers=true` to limit collection to one or more application namespaces. It is not the
+LogConfig storage namespace and is not the single-workload `namespace` selector.
+
+| Intended scope | Input |
+| --- | --- |
+| One namespace | `namespaces='["default"]'` or `namespaces=default` |
+| Multiple namespaces | `namespaces='["default","kube-system"]'` or `namespaces=default,kube-system` |
+| Every namespace | Omit `namespaces` entirely, only after the user explicitly requests cluster-wide collection. |
+
+Quote JSON arrays so the shell passes them unchanged. Each value must be a valid Kubernetes namespace name. `[default]` is not a valid input format.
 
 ## Operating Workflow
 
