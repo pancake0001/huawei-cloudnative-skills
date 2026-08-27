@@ -4,6 +4,7 @@ description: >
   Query and analyze Kubernetes Events in Huawei Cloud CCE clusters. Trigger when users ask about CCE events, Kubernetes warning events, FailedScheduling,
   FailedMount, ImagePullBackOff, event patterns, historical events in LTS, or event-based diagnosis for a CCE cluster or namespace.
 tags: [CCE, Kubernetes, events, observability]
+version: 1.0.0
 ---
 
 # Huawei Cloud CCE Kubernetes Event Analyzer
@@ -48,8 +49,9 @@ fallback.
 
 - Python 3.8+ for the dispatcher and result processing
 - `hcloud` (KooCLI) for cluster lookup and temporary external kubeconfig generation
-- `kubectl` for current Event reads
-- `kubectl-cce` when the cluster has no usable external endpoint; see [kubectl-cce.md](references/kubectl-cce.md)
+- `kubectl` for current Event reads.
+- **kubectl cce dependency:** Use [huawei-cloud-kubectl-cce-installer](../huawei-cloud-kubectl-cce-installer/SKILL.md) for plugin availability, installation,
+  credential handling, and command usage. Follow its [plugin usage](references/kubectl-cce.md) contract.
 - `hcloud` LTS command support and the Cloud Native Log Collection add-on (`log-agent`) with a `default-event` Event-to-LTS `LogConfig`.
   `huawei_query_k8s_events_from_lts` reads `logconfigs.logging.openvessel.io` through `kubectl cce`, then invokes `hcloud LTS ListLogs` using the configured LTS
   IDs.
@@ -302,7 +304,7 @@ logging configuration as part of verification.
 | Symptom                                 | Likely Cause                                                             | Action                                                                                               |
 | --------------------------------------- | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
 | External kubeconfig access fails        | No external endpoint, invalid profile, or missing CCE permission         | Verify `cce:cluster:get` and `cce:cluster:createCert`; the tool then tries `kubectl cce`             |
-| `kubectl cce` fallback fails            | Plugin missing or plugin credentials unavailable                         | Install/configure the plugin using [kubectl-cce.md](references/kubectl-cce.md)                       |
+| `kubectl cce` fallback fails            | Plugin missing or plugin credentials unavailable                         | Install/configure the plugin using [installer plugin usage](references/kubectl-cce.md)              |
 | LTS query finds no default Event stream | Default Event collection is not enabled or has not finished provisioning | Enable default Event collection through the log-agent add-on, then retry                             |
 | LTS query returns no records            | Time window, keywords, retention, or event collection does not match     | Narrow or correct the window and verify the default LTS group and stream                             |
 | Too many current Events                 | Broad cluster query                                                      | Warning is the default; provide `namespace` and a lower `limit` to further reduce data at the source |
@@ -323,7 +325,7 @@ logging configuration as part of verification.
 | [Workflow](references/workflow.md)                       | Event query sequence, grouping, patterns, and time-window analysis               |
 | [Risk Rules](references/risk-rules.md)                   | Read-only boundaries, redaction, and handoff constraints                         |
 | [Output Schema](references/output-schema.md)             | Query, analysis, and Event record fields                                         |
-| [kubectl-cce](references/kubectl-cce.md)                 | kubectl-cce installation, credentials, and access fallback                       |
+| [Installer plugin usage](references/kubectl-cce.md)       | kubectl-cce installation, credentials, and access fallback                       |
 | [Acceptance Criteria](references/acceptance-criteria.md) | Expected outcomes for current, historical, and combined query-and-analysis flows |
 
 
@@ -334,4 +336,4 @@ If a `kubectl cce` command returns an `x509` certificate-validation error, repea
 
 ## Cluster ID Input
 
-`cluster_id` must use a standard UUID. If the input is not a standard UUID, first list CCE clusters and perform an exact cluster-name match; convert the name to its UUID only when there is one match. If there is no match or more than one match, require the user to provide a UUID. Never guess or arbitrarily select a cluster.
+`cluster_id` must use a standard UUID. A UUID is verified with `CCE ShowCluster` before the requested operation. If the input is not a standard UUID, first list CCE clusters and perform an exact cluster-name match; convert the name to its UUID only when there is one match. If there is no match or more than one match, require the user to provide a UUID. Never guess or arbitrarily select a cluster.

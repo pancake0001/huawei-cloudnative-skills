@@ -1,7 +1,7 @@
 # Workflow
 
 1. Scope: confirm region, project_id, cluster_id, namespace, target_name/service_name/workload_name, label_selector, and failure symptom.
-2. Read `references/kubectl-cce.md`, verify `hcloud`, `kubectl`, and `kubectl-cce`, and resolve cluster metadata with hcloud.
+2. Read `kubectl-cce.md`, verify `hcloud`, `kubectl`, and `kubectl-cce`, and resolve cluster metadata with hcloud.
 3. Snapshot: collect Deployments, StatefulSets, DaemonSets, ReplicaSets, Pods, Services, Ingresses, Endpoints, EndpointSlices, Nodes, and related Events through
    `kubectl cce`.
 4. Target matching: prefer explicit label_selector; otherwise match target Pods by Service selector, ownerReference, workload prefix, Pod name, or stable

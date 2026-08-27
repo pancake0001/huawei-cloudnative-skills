@@ -3,7 +3,7 @@
 ## 1. Scope And Evidence Sources
 
 1. Confirm region, project_id, cluster_id, namespace or cluster-wide scope, target object, symptoms, fault_time, and time window.
-2. Read `references/kubectl-cce.md`, verify `hcloud`, `kubectl`, and `kubectl-cce`, and resolve cluster metadata with hcloud.
+2. Read `kubectl-cce.md`, verify `hcloud`, `kubectl`, and `kubectl-cce`, and resolve cluster metadata with hcloud.
 3. Collect current Kubernetes topology and current Events through `kubectl cce`.
 4. Collect historical Events, AOM alarms, metrics, and logs through the dedicated event, alarm, metric, or log skills when the current state is not enough.
 5. Collect cloud-side read-only state with hcloud when identifiers are known: CCE node pools/add-ons, ELB/EIP/NAT/VPC/security groups/ACLs.

@@ -11,6 +11,5 @@ references:
   - references/risk-rules.md
   - references/output-schema.md
   - references/acceptance-criteria.md
-  - references/kubectl-cce.md
 guardrails:
   max_auto_risk: R3

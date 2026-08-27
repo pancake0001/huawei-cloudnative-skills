@@ -1,48 +1,54 @@
-# kubectl-cce Usage
+# kubectl-cce Plugin Usage
 
-Use the `kubectl cce` plugin as the only Kubernetes access path for this skill. Do not generate or patch kubeconfig, call the Kubernetes SDK, or fall back to
-SDK dispatcher actions.
+If `kubectl` or the `kubectl-cce` plugin is unavailable, use the `huawei-cloud-kubectl-cce-installer` skill to install or repair the local prerequisites
+before querying cluster resources.
 
-## Setup
+## Resource Query Constraints
 
-Use `huawei-cloud-kubectl-cce-installer` when `kubectl` or `kubectl-cce` is missing. Verify:
+Use this plugin for read-only CCE resource queries. Always provide `--cluster-id` and `--region`; for namespaced resources, provide
+`--namespace <namespace>` whenever the tool input supports it. Default to a specific namespace or resource name instead of `-A` or `--all-namespaces`.
+
+Cluster-wide reads are allowed only when a tool explicitly requires a read-only aggregation or inventory, such as default Warning Event collection,
+Pod/Service/Ingress metric aggregation, LogConfig discovery, or node inventory. In those cases, query only the required resource type and apply an
+available namespace, label selector, field selector, or result limit to reduce returned data. For cluster-scoped resources, prefer an exact resource
+name unless the tool explicitly requires inventory. Do not use mutation commands or print Secret data, credentials, tokens, or kubeconfig contents.
+
+## Credential Options
+
+The plugin accepts two credential modes. Name the mechanism **names** below (public plugin docs); never show, print, log, or persist credential **values**.
+
+### Mode 1 — Environment variables (default; ordinary interactive environments)
+
+For users whose environment cannot inject CLI args. The plugin reads credentials from the process environment. Set them through an approved local credential
+provider (protected shell rc, systemd environment file, or secrets manager) before invoking the plugin:
+
+- `HW_ACCESS_KEY` / `HW_SECRET_KEY` — permanent AK/SK
+- `HW_SECURITY_TOKEN` — required when using temporary AK/SK
+- `HW_PROJECT_ID` / `HW_REGION` — target project and region
+
+### Mode 2 — CLI flags (v0.2.1+; sandboxed/agent runtimes)
+
+For trusted sandbox/agent runtimes that inject credentials per invocation and control process visibility. Pass:
+
+- `--cli-access-key <ak>` / `--cli-secret-key <sk>`
+- `--cli-security-token <token>` — for temporary credentials
+
+> ⚠️ **Risk notice:** CLI arguments can be visible in process listings such as `ps aux`, which may expose credentials to other local users or processes.
+> Prefer Mode 1 where process visibility is not controlled, and use Mode 2 only after evaluating this exposure risk for the current environment.
+
+## Read-only Resource Queries
 
 ```bash
-kubectl version --client
-kubectl plugin list
+# Mode 1 (env vars)
+kubectl cce --cluster-id <cluster-id> --region "${HW_REGION}" get pod <pod-name> --namespace <namespace>
+
+# Mode 2 (runtime injection — runtime supplies the real values; never log them)
+kubectl cce --cluster-id <cluster-id> --region <region> \
+  --cli-access-key <access-key> --cli-secret-key <secret-key> \
+  [--cli-security-token <token>] get pod <pod-name> --namespace <namespace>
 ```
 
-The executable must be named `kubectl-cce` so kubectl discovers it as `kubectl cce`. Windows uses `kubectl-cce.exe`; Linux sandboxes require Linux-compatible
-binaries. If kubectl is not in `PATH`, set `KUBECTL_BIN` to the platform-native path.
-
-## Credentials
-
-Configure credentials through an approved local provider, protected environment, or tool-provided values. Do not print AK/SK, security tokens, Authorization
-headers, kubeconfig content, or plugin credential material.
-
-For environment-variable mode, use the published plugin contract: `HW_ACCESS_KEY`/`HW_SECRET_KEY`, optional `HW_SECURITY_TOKEN`, and
-`HW_PROJECT_ID`/`HW_REGION`. In a sandboxed or agent runtime, pass `--cli-access-key`, `--cli-secret-key`, and optional `--cli-security-token` per
-invocation. Commands should always prefer explicit `--region <region>` and `--project-id <project-id>`.
-
-## Command Pattern
-
-Always pass cluster, region, and project explicitly:
-
-```bash
-kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get ns
-```
-
-Prefer bounded read-only commands:
-
-```bash
-kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -A -o wide
-kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -A --sort-by=.lastTimestamp
-kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> logs <pod-name> -n <namespace> --all-containers --tail=200
-kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> top pods -n <namespace>
-```
-
-Do not use `exec`, `attach`, `port-forward`, `logs -f`, `watch`, or mutation commands.
-
+Do not run write operations during installation verification.
 
 ## x509 TLS Retry
 

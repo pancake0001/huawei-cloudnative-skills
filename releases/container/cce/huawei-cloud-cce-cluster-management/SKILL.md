@@ -19,8 +19,8 @@ The skill executes Huawei Cloud API calls through **hcloud (KooCLI)** and Kubern
 kubectl-cce plugin). The plugin connects to the CCE API Gateway using AK/SK credentials — no cluster EIP or manual kubeconfig required. Two operations (create
 cluster, create node pool) fall back to the Python SDK because of a known hcloud metadata parsing defect — see [cce-api-guide.md](references/cce-api-guide.md).
 
-**Dependency**: This skill requires `kubectl` and the `kubectl-cce` plugin. Install them via the
-[huawei-cloud-kubectl-cce-installer](../huawei-cloud-kubectl-cce-installer/SKILL.md) skill.
+**kubectl cce dependency**: Use [huawei-cloud-kubectl-cce-installer](../huawei-cloud-kubectl-cce-installer/SKILL.md) for plugin availability, installation,
+credential handling, and command usage. Follow its [plugin usage](references/kubectl-cce.md) contract.
 
 ## ⛔ Security Constraints
 
@@ -454,4 +454,4 @@ If a `kubectl cce` command returns an `x509` certificate-validation error, repea
 
 ## Cluster ID Input
 
-`cluster_id` must use a standard UUID. If the input is not a standard UUID, first list CCE clusters and perform an exact cluster-name match; convert the name to its UUID only when there is one match. If there is no match or more than one match, require the user to provide a UUID. Never guess or arbitrarily select a cluster.
+`cluster_id` must use a standard UUID. A UUID is verified with `CCE ShowCluster` before the requested operation. If the input is not a standard UUID, first list CCE clusters and perform an exact cluster-name match; convert the name to its UUID only when there is one match. If there is no match or more than one match, require the user to provide a UUID. Never guess or arbitrarily select a cluster.

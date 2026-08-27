@@ -24,7 +24,7 @@ kubectl version --client
 kubectl cce --version
 ```
 
-If `kubectl cce` is unavailable, follow [kubectl-cce.md](kubectl-cce.md).
+If `kubectl cce` is unavailable, follow the [installer plugin usage](kubectl-cce.md).
 
 ## Functional Smoke Tests
 

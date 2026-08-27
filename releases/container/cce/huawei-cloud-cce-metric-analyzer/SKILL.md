@@ -6,6 +6,7 @@ description: |
   Use this skill when the user wants to: (1) query Pod/Node/CoreDNS/nginx-ingress/autoscaler/control-plane CPU, memory, disk, QPS, latency, request, connection, certificate, scaling, or error-rate metrics, (2) get resource usage TopN rankings, (3) query ECS/ELB/EIP/NAT cloud resource metrics, (4) aggregate cluster monitoring data with anomaly detection, (5) detect threshold-based resource anomalies.
   Trigger: user mentions "metric analysis", "指标分析", "CCE metrics", "CCE 指标", "AOM metrics", "AOM 指标", "CoreDNS metrics", "CoreDNS 指标", "nginx ingress metrics", "nginx-ingress 指标", "autoscaler metrics", "autoscaler 指标", "HPA metrics", "HPA 指标", "apiserver metrics", "etcd metrics", "controller manager metrics", "scheduler metrics", "control plane metrics", "控制面指标", "certificate expiration", "证书过期", "resource metrics", "资源指标", "CPU usage", "CPU 使用率", "memory usage", "内存使用率", "performance monitoring", "性能监控", "TopN", "resource ranking", "资源排名"
 tags: [cce, metrics, aom, observability, analysis]
+version: 1.0.0
 ---
 
 # Huawei Cloud CCE Metric Analyzer
@@ -53,7 +54,7 @@ threshold-based anomaly detection.
 - Python 3.8+ for the dispatcher and result processing
 - hcloud (KooCLI) 7.2.2+ for CCE/ECS/ELB/VPC/EIP/NAT/CES/IAM cloud service queries
 - `kubectl` only for Kubernetes resource reads that cannot be derived from AOM/hcloud, such as Pod `label_selector` filtering, Ingress TLS certificate checks,
-  and LoadBalancer Service discovery for ELB/EIP association; clusters without external EIP require the `kubectl cce` plugin from `kubectl-cce-plugin/README.md`
+  and LoadBalancer Service discovery for ELB/EIP association; clusters without external EIP require `kubectl cce`.
 - Prometheus-related monitoring data is queried from AOM Prometheus with signed HTTPS requests; the cluster must have the Prometheus add-on integrated with AOM,
   otherwise these tools may return empty metric series
 - Controller-manager, scheduler, and etcd metrics require the `kube-controller-manager`, `kube-scheduler`, and `etcd-server` ServiceMonitors to be enabled
@@ -62,7 +63,8 @@ threshold-based anomaly detection.
   PodMonitors to be enabled separately in AOM; ingress request metrics also require `nginx_ingress_controller_requests` to be explicitly allowed in the
   ingress-controller PodMonitor
 - Run environment check before first use (see Verification section)
-- Install and use `kubectl-cce` according to [references/kubectl-cce.md](references/kubectl-cce.md)
+- **kubectl cce dependency:** Use [huawei-cloud-kubectl-cce-installer](../huawei-cloud-kubectl-cce-installer/SKILL.md) for plugin availability, installation,
+  credential handling, and command usage. Follow its [plugin usage](references/kubectl-cce.md) contract.
 
 ### 2. Credential Configuration
 
@@ -401,56 +403,13 @@ Optional custom PromQL overrides are supported for QPS, 4xx/5xx, success rate, P
 
 Optional custom PromQL overrides are supported for unschedulable Pods, node states, scale events, errors, node groups, HPA replicas, CPU, and memory.
 
-### Kubernetes Control Plane Tool Parameters
+### Detailed Parameters
 
-Applies to `huawei_get_cce_apiserver_metrics`, `huawei_get_cce_etcd_metrics`, `huawei_get_cce_controller_manager_metrics`, and
-`huawei_get_cce_scheduler_metrics`.
-
-`huawei_get_cce_apiserver_metrics` defaults to `cluster="<cluster_id>",component="apiserver"` and does not add namespace or Pod labels. Its default P95 latency
-excludes `WATCH|CONNECT` requests and also returns `latency_p95_by_verb_ms` for diagnosis. Use `metric_selector` only when the Prometheus labels differ.
-
-`huawei_get_cce_etcd_metrics` defaults to `cluster="<cluster_id>"` and does not add namespace or Pod labels. Use `metric_selector` only when the Prometheus
-labels differ.
-
-`huawei_get_cce_controller_manager_metrics` defaults to `cluster="<cluster_id>"` because CCE AOM workqueue metrics may not expose stable controller-manager Pod
-labels. It returns both aggregate workqueue metrics and per-queue `name` breakdowns.
-
-`huawei_get_cce_scheduler_metrics` defaults to `cluster="<cluster_id>"` and returns aggregate metrics plus `result`, `profile/result`, and `queue` breakdowns.
-
-Controller-manager, scheduler, and etcd metrics depend on AOM ServiceMonitor collection being enabled for the corresponding `kube-controller-manager`,
-`kube-scheduler`, and `etcd-server` endpoints. If ServiceMonitor is not enabled, the tools can run successfully but return empty series.
-
-| Parameter         | Required | Description                                                                 | Default                                                                                                                |
-| ----------------- | -------- | --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `namespace`       | No       | Namespace of control-plane Pods. Use an empty value to query all namespaces | `kube-system`                                                                                                          |
-| `pod_regex`       | No       | Regex used to match target component Pods                                   | component-specific                                                                                                     |
-| `metric_selector` | No       | Custom apiserver/etcd/controller-manager/scheduler metric label selector    | apiserver: `cluster="<cluster_id>",component="apiserver"`; etcd/controller-manager/scheduler: `cluster="<cluster_id>"` |
-| `hours`           | No       | Metrics lookback hours                                                      | 1                                                                                                                      |
-
-### Cloud Resource Tool Parameters
-
-| Tool                             | Required ID Parameter | Optional Parameters |
-| -------------------------------- | --------------------- | ------------------- |
-| `huawei_get_ecs_metrics`         | `instance_id`         | none                |
-| `huawei_get_elb_metrics`         | `elb_id`              | `hours`             |
-| `huawei_get_eip_metrics`         | `eip_id`              | `hours`             |
-| `huawei_get_nat_gateway_metrics` | `nat_gateway_id`      | `hours`             |
-
-### `huawei_cce_cluster_monitoring_aggregation` Parameters
-
-| Parameter                               | Required | Description                                            | Default                                       |
-| --------------------------------------- | -------- | ------------------------------------------------------ | --------------------------------------------- |
-| `start_time`                            | Yes      | Start time (YYYY-MM-DD HH:MM:SS)                       | N/A                                           |
-| `end_time`                              | Yes      | End time (YYYY-MM-DD HH:MM:SS)                         | N/A                                           |
-| `namespace`                             | No       | Namespace filter                                       | `default`                                     |
-| `top_n`                                 | No       | Number of top items                                    | 10                                            |
-| `security_token`                        | No       | Temporary security token for AK/SK session credentials | env fallback                                  |
-| `--cli-access-key` / `--cli-secret-key` | No       | Explicit AK/SK for hcloud and `kubectl cce`            | Overrides profile/environment credentials     |
-| `--cli-security-token`                  | No       | STS security token paired with explicit AK/SK          | Explicitly passed to hcloud and `kubectl cce` |
+See [control-plane-and-cloud-parameters.md](references/control-plane-and-cloud-parameters.md) for control-plane metrics, cloud-resource metrics, and cluster aggregation parameters.
 
 ## Output Format
 
-See [Output Schema](references/output-schema.md) for the complete JSON response structure.
+See [Output Schema](references/output-schema.md) for the JSON response structure.
 
 **Key output fields**:
 
@@ -529,14 +488,10 @@ See [Output Schema](references/output-schema.md) for the complete JSON response 
 | [Verification Method](references/verification-method.md)       | Static checks and smoke tests                                           |
 | [Acceptance Criteria](references/acceptance-criteria.md)       | Functional, security, documentation, and quality gates                  |
 
-
 ## x509 TLS Retry
 
 If a `kubectl cce` command returns an `x509` certificate-validation error, repeat the same command with `--cce-insecure-upstream-tls=true` immediately after `cce`. For example: `kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> ...`. Use this option only when that TLS validation error occurs.
 
-
 ## Cluster ID Input
 
-`cluster_id` must use a standard UUID. If the input is not a standard UUID, first list CCE clusters and perform an exact cluster-name match; convert the name to its UUID only when there is one match. If there is no match or more than one match, require the user to provide a UUID. Never guess or arbitrarily select a cluster.
-
-For cloud metric tools, `instance_id`, `elb_id`, and `nat_gateway_id` follow the same UUID-or-exact-name rule. `eip_id` accepts either its UUID or an exact public IP address, because EIPs do not have an independent resource-name field.
+`cluster_id` must use a standard UUID. A UUID is verified with `CCE ShowCluster` before the requested operation. If the input is not a standard UUID, first list CCE clusters and perform an exact cluster-name match; convert the name to its UUID only when there is one match. If there is no match or more than one match, require the user to provide a UUID. Never guess or arbitrarily select a cluster. Cloud metric tools follow the same UUID-or-exact-name rule for `instance_id`, `elb_id`, and `nat_gateway_id`; `eip_id` also accepts an exact public IP address because it has no independent resource-name field.

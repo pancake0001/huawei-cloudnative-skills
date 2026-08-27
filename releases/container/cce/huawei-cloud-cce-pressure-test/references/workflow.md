@@ -38,7 +38,7 @@ hcloud CCE ShowCluster --cluster_id=<cluster-id> --project_id=<project-id> --det
 hcloud CCE ShowClusterEndpoints --cluster_id=<cluster-id> --project_id=<project-id> --cli-region=<region> --cli-output=json
 ```
 
-Read `references/kubectl-cce.md`, then configure kubectl-cce plugin access and verify the plugin path:
+Read `kubectl-cce.md`, then configure kubectl-cce plugin access and verify the plugin path:
 
 ```bash
 kubectl plugin list
