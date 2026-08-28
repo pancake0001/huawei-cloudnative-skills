@@ -1,14 +1,14 @@
 ---
 name: huawei-cloud-cce-log-analyzer
-description: >-
-  Query and analyze Huawei Cloud CCE workload, audit, and control-plane logs. Use when users ask for Pod stdout/stderr, application logs collected by CCE LogConfig or LTS Access Config, Kubernetes audit evidence, kube-apiserver API errors or latency, or kube-scheduler scheduling failures. Trigger: CCE logs, Kubernetes logs, Pod logs, application logs, audit logs, LTS logs, kube-apiserver logs, kube-scheduler logs, log analysis, log collection, 日志查询, 日志分析, 审计日志, 调度器日志.
+description: "Query and analyze Huawei Cloud CCE workload, audit, and control-plane logs. Trigger: CCE logs, Kubernetes logs, Pod logs, application logs, audit logs, LTS logs, kube-apiserver logs, kube-scheduler logs, log analysis, log collection, 日志查询, 日志分析, 审计日志, 调度器日志."
 metadata:
   tags: [cce, kubernetes, logs, lts, observability]
+version: 1.0.0
 ---
 
 # Huawei Cloud CCE Log Analyzer
 
-## Scope
+## Overview
 
 Use this skill for read-only log queries and analysis, or for confirmed management of CCE LogConfig and LTS Access Config collection rules. It does not modify workloads, log groups, log streams, LTS log data, or unrelated cloud resources.
 
@@ -24,7 +24,9 @@ Use this skill for read-only log queries and analysis, or for confirmed manageme
 ## Prerequisites
 
 - Python 3.8+, `hcloud`, and credentials with the required CCE and LTS permissions.
-- Pod stdout and CCE LogConfig tools require `kubectl`; when an external endpoint is unavailable, they fall back to `kubectl cce`. See `huawei-cloud-kubectl-cce-installer`.
+- Pod stdout and CCE LogConfig tools require `kubectl`; when an external endpoint is unavailable, they fall back to `kubectl cce`.
+- **kubectl cce dependency:** Use [huawei-cloud-kubectl-cce-installer](../huawei-cloud-kubectl-cce-installer/SKILL.md) for plugin availability, installation,
+  credential handling, and command usage. Follow its [plugin usage](references/kubectl-cce.md) contract.
 - The Cloud Native Logging add-on is required for CCE `LogConfig` tools. LTS `AGENT` collection requires a healthy iCagent.
 - Audit, kube-apiserver, and kube-scheduler tools require their matching CCE Log Center switch. The tools check the switch through `CCE ShowClusterConfig` and never enable it.
 - Explicit `--cli-access-key`, `--cli-secret-key`, and optional `--cli-security-token` use only the supplied credentials. AK/SK must be supplied together, and
@@ -39,7 +41,7 @@ Use this skill for read-only log queries and analysis, or for confirmed manageme
 - If no `region` parameter is supplied, use `HW_REGION_NAME`.
 - If neither source provides a region, return an error asking the user to provide `region` or set `HW_REGION_NAME`. Do not infer a target region from an hcloud profile or any other environment variable.
 
-## Tool Routing
+## Core Commands And Tool Routing
 
 | Tool | Risk | Purpose |
 |---|---:|---|
@@ -62,18 +64,34 @@ Use this skill for read-only log queries and analysis, or for confirmed manageme
 
 Use `python3 scripts/huawei-cloud.py help` to print the available actions and required parameters. Full invocation and parameter details are in [references/tool-reference.md](references/tool-reference.md).
 
-## Collection Scope
+## Parameters And Collection Scope
 
 Use the parameter that controls the collection source, not the namespace where a LogConfig object is stored.
 
 | Collection mode | Namespace parameter | Scope |
 |---|---|---|
 | CCE LogConfig, one workload stdout or container file | `workload_namespace` (or `namespace`) with `workload_name`/`app_name` | One workload in one namespace. |
-| CCE LogConfig, all container stdout in selected namespaces | `all_containers=true` and `namespaces='["default"]'` | All container stdout in the listed namespaces. Omit `namespaces` only when all namespaces are intended. |
+| CCE LogConfig, all container stdout in selected namespaces | `all_containers=true` and `namespaces='["default"]'` | All container stdout in the listed namespaces. Use a JSON array or `default,kube-system`; `[default]` is invalid. Omit `namespaces` only when all namespaces are intended. |
 | LTS Access Config, `K8S_CCE` container stdout or file | `namespace_regex`, for example `^default$` | Namespace regex; `pod_name_regex` is also required. |
 | Node file collection | None | `host_file` applies to all eligible nodes in the bound host group. Namespace filtering does not apply. |
 
+For `huawei_get_pod_stdout_logs` and `huawei_analyze_pod_stdout_realtime_logs`, both `pod_name` and `namespace` are required. Do not infer the namespace or
+fall back to `default`.
+
 `logconfig_namespace` is only the Kubernetes namespace that stores the LogConfig custom resource, normally `kube-system`; it does not limit which application logs are collected. Review the previewed `request_body` before confirmation.
+
+### `namespaces` Input
+
+Use `namespaces` only with `source_type=container_stdout all_containers=true` to limit collection to one or more application namespaces. It is not the
+LogConfig storage namespace and is not the single-workload `namespace` selector.
+
+| Intended scope | Input |
+| --- | --- |
+| One namespace | `namespaces='["default"]'` or `namespaces=default` |
+| Multiple namespaces | `namespaces='["default","kube-system"]'` or `namespaces=default,kube-system` |
+| Every namespace | Omit `namespaces` entirely, only after the user explicitly requests cluster-wide collection. |
+
+Quote JSON arrays so the shell passes them unchanged. Each value must be a valid Kubernetes namespace name. `[default]` is not a valid input format.
 
 ## Operating Workflow
 
@@ -109,6 +127,22 @@ For R2 and R1 tools, discover the destination or exact target, call the tool wit
 | [risk-rules.md](references/risk-rules.md) | Evaluating risk, confirmation, or data-security boundaries |
 | [output-schema.md](references/output-schema.md) | Interpreting query and analysis results |
 
+## Output Format
+
+See [output-schema.md](references/output-schema.md) for the response shape. Summaries include the target, time window, source, findings, and any query limits.
+
+## Verification
+
+Confirm the returned source, time window, and collection-rule or Pod target match the requested scope before interpreting results.
+
+## Best Practices
+
+Start with a narrow namespace, Pod, time window, or selected collection rule, then expand only when the initial evidence is insufficient.
+
+## Notes
+
+Missing data can indicate unavailable collection, retention expiry, or an unmatched source rule; it does not prove that the workload is healthy.
+
 
 ## x509 TLS Retry
 
@@ -117,4 +151,4 @@ If a `kubectl cce` command returns an `x509` certificate-validation error, repea
 
 ## Cluster ID Input
 
-`cluster_id` must use a standard UUID. If the input is not a standard UUID, first list CCE clusters and perform an exact cluster-name match; convert the name to its UUID only when there is one match. If there is no match or more than one match, require the user to provide a UUID. Never guess or arbitrarily select a cluster.
+`cluster_id` must use a standard UUID. A UUID is verified with `CCE ShowCluster` before the requested operation. If the input is not a standard UUID, first list CCE clusters and perform an exact cluster-name match; convert the name to its UUID only when there is one match. If there is no match or more than one match, require the user to provide a UUID. Never guess or arbitrarily select a cluster.

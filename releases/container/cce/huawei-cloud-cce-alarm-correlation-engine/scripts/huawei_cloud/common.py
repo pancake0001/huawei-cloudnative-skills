@@ -250,15 +250,35 @@ def resolve_cce_cluster_id(
 ) -> Dict[str, Any]:
     """Return a standard cluster UUID, resolving an exact cluster name when needed."""
     if _STANDARD_UUID_RE.fullmatch(value or ""):
+        result = run_hcloud("CCE", "ShowCluster", region, [("cluster_id", value)], ak, sk, project_id)
+        if not result.get("success"):
+            return {
+                "success": False,
+                "error": f"Unable to verify CCE cluster_id '{value}': {result.get('error', '')}",
+                "cluster_id": value,
+            }
         return {"success": True, "id": value, "resolved_from_name": False}
 
-    result = run_hcloud("CCE", "ListClusters", region, [], ak, sk, project_id)
-    if not result.get("success"):
-        return {"success": False, "error": f"Unable to list CCE clusters for cluster_id resolution: {result.get('error', '')}"}
-    matches = [
-        item for item in ((result.get("data") or {}).get("items") or [])
-        if ((item.get("metadata") or {}).get("name") == value)
-    ]
+    matches = []
+    seen_pages = set()
+    offset = 0
+    page_limit = 100
+    while True:
+        result = run_hcloud(
+            "CCE", "ListClusters", region,
+            [("limit", str(page_limit)), ("offset", str(offset))], ak, sk, project_id,
+        )
+        if not result.get("success"):
+            return {"success": False, "error": f"Unable to list CCE clusters for cluster_id resolution: {result.get('error', '')}"}
+        items = ((result.get("data") or {}).get("items") or [])
+        page_ids = tuple((item.get("metadata") or {}).get("uid") for item in items)
+        if page_ids and page_ids in seen_pages:
+            return {"success": False, "error": "CCE cluster listing returned a repeated page; provide cluster_id as a standard UUID"}
+        seen_pages.add(page_ids)
+        matches.extend(item for item in items if ((item.get("metadata") or {}).get("name") == value))
+        if len(items) < page_limit:
+            break
+        offset += len(items)
     if len(matches) == 1:
         cluster_id = (matches[0].get("metadata") or {}).get("uid")
         if _STANDARD_UUID_RE.fullmatch(cluster_id or ""):

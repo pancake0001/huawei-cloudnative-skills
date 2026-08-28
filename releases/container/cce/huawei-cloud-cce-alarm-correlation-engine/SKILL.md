@@ -6,6 +6,7 @@ description: |
   Use this skill when the user wants to: (1) query AOM active and historical alarms, (2) analyze alarm deduplication, alarm storms, severity grouping, burst alarms, and chronic alarms, (3) inspect CCE cluster alarm health, (4) query, create, update, delete, enable, or disable AOM alarm rules, (5) query or create notification action rules, (6) batch configure or clean CCE recommended AOM alarm rules from the cloud-side CCE alarm template.
   Trigger: user mentions "alarm correlation", "AOM alarm", "alarm rule", "alarm storm", "alarm inspection", "notification rule", "告警关联", "AOM 告警", "告警规则", "告警风暴", "通知规则", or "CCE 告警".
 tags: [cce, alarm-correlation, aom, observability, alarm-management]
+version: 1.0.0
 ---
 
 # Huawei Cloud CCE Alarm Correlation Engine
@@ -495,4 +496,4 @@ Mutation verification:
 
 ## Cluster ID Input
 
-`cluster_id` must use a standard UUID. If the input is not a standard UUID, first list CCE clusters and perform an exact cluster-name match; convert the name to its UUID only when there is one match. If there is no match or more than one match, require the user to provide a UUID. Never guess or arbitrarily select a cluster.
+`cluster_id` must use a standard UUID. A UUID is verified with `hcloud CCE ShowCluster` before any AOM query or mutation. If the input is not a standard UUID, first list CCE clusters and perform an exact cluster-name match; convert the name to its UUID only when there is one match. If verification or name matching fails, return the error and do not query AOM. Never guess or arbitrarily select a cluster.

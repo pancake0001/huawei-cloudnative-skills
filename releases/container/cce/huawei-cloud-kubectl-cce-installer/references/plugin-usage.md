@@ -1,16 +1,17 @@
 # kubectl-cce Plugin Usage
 
+If `kubectl` or the `kubectl-cce` plugin is unavailable, use the `huawei-cloud-kubectl-cce-installer` skill to install or repair the local prerequisites
+before querying cluster resources.
+
 ## Resource Query Constraints
 
-Use this plugin for a specifically scoped, read-only CCE resource query. Always provide `--cluster-id` and `--region`; for namespaced resources, provide
-`--namespace <namespace>`. Do not use `-A` or `--all-namespaces`. For cluster-scoped resources, provide an exact resource name rather than listing all
-resources. Do not use mutation commands or print Secret data, credentials, tokens, or kubeconfig contents.
+Use this plugin for read-only CCE resource queries. Always provide `--cluster-id` and `--region`; for namespaced resources, provide
+`--namespace <namespace>` whenever the tool input supports it. Default to a specific namespace or resource name instead of `-A` or `--all-namespaces`.
 
-## Release Source
-
-Use the [Gitee `pancake0001/kubectl-cce-plugin` Release `v0.2.1`](https://gitee.com/pancake0001/kubectl-cce-plugin/releases/tag/v0.2.1) when an asset exists.
-Its published assets support Linux and Windows amd64/arm64; it does not publish a macOS asset. The installer falls back to building the fixed `v0.2.1` source
-tag with Go when the asset is unavailable or its download fails.
+Cluster-wide reads are allowed only when a tool explicitly requires a read-only aggregation or inventory, such as default Warning Event collection,
+Pod/Service/Ingress metric aggregation, LogConfig discovery, or node inventory. In those cases, query only the required resource type and apply an
+available namespace, label selector, field selector, or result limit to reduce returned data. For cluster-scoped resources, prefer an exact resource
+name unless the tool explicitly requires inventory. Do not use mutation commands or print Secret data, credentials, tokens, or kubeconfig contents.
 
 ## Credential Options
 
@@ -32,8 +33,8 @@ For trusted sandbox/agent runtimes that inject credentials per invocation and co
 - `--cli-access-key <ak>` / `--cli-secret-key <sk>`
 - `--cli-security-token <token>` — for temporary credentials
 
-> ⚠️ Do **not** use Mode 2 in ordinary multi-user environments: CLI args are visible in `ps aux` and leak credentials. Prefer Mode 1 there. Mode 2 is safe only
-> where the runtime controls process visibility (sandbox).
+> ⚠️ **Risk notice:** CLI arguments can be visible in process listings such as `ps aux`, which may expose credentials to other local users or processes.
+> Prefer Mode 1 where process visibility is not controlled, and use Mode 2 only after evaluating this exposure risk for the current environment.
 
 ## Read-only Resource Queries
 
@@ -48,18 +49,6 @@ kubectl cce --cluster-id <cluster-id> --region <region> \
 ```
 
 Do not run write operations during installation verification.
-
-## Windows Installation
-
-Do not run `install_kubectl_cce.sh` on Windows. Download the matching Windows `kubectl.exe` from the
-[official Kubernetes release site](https://kubernetes.io/releases/download/), then download the matching `kubectl-cce` v0.2.1 ZIP asset from the
-[Gitee Release](https://gitee.com/pancake0001/kubectl-cce-plugin/releases/tag/v0.2.1). Extract both executables, place them in a user-selected directory on
-`PATH`, then verify:
-
-```powershell
-kubectl plugin list
-```
-
 
 ## x509 TLS Retry
 

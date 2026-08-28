@@ -18,6 +18,7 @@ DEFAULT_ERROR_PATTERNS = [
     r"segmentation fault", r"stacktrace",
 ]
 DEFAULT_WARNING_PATTERNS = [r"\bwarn(?:ing)?\b", r"\bdeprecated\b", r"\bretry(?:ing)?\b", r"\bslow\b"]
+_KUBERNETES_NAMESPACE_RE = re.compile(r"^[a-z0-9]([-a-z0-9]*[a-z0-9])?$")
 
 
 def _get_policy_name(params: Dict[str, str]) -> Optional[str]:
@@ -54,6 +55,18 @@ def _parse_text_list(value: Optional[str], default: List[str]) -> List[str]:
     except json.JSONDecodeError:
         pass
     return [item.strip() for item in text.split(",") if item.strip()]
+
+
+def _parse_logconfig_namespaces(value: Optional[str]) -> List[str]:
+    """Parse and validate namespace scope for all-container stdout collection."""
+    namespaces = _parse_text_list(value, [])
+    invalid = [namespace for namespace in namespaces if not _KUBERNETES_NAMESPACE_RE.fullmatch(namespace)]
+    if invalid:
+        raise ValueError(
+            "namespaces must be a JSON array such as '[\"default\"]' or a comma-separated list such as 'default,kube-system'; "
+            f"invalid namespace value(s): {', '.join(invalid)}"
+        )
+    return namespaces
 
 
 def _parse_json_value(value: Optional[str], default: Any) -> Any:
@@ -317,16 +330,9 @@ def _build_incident_windows(anomalies: List[Dict[str, Any]], gap_minutes: int) -
     return windows
 
 
-def _logconfig_cr_combinations() -> List[Tuple[str, str, str]]:
-    return [
-        ("logging.openvessel.io", "v1", "logconfigs"),
-        ("lts.opentelekomcloud.com", "v1", "logconfigs"),
-        ("lts.huaweicloud.com", "v1", "logconfigs"),
-        ("lts.io", "v1", "logconfigs"),
-        ("logging.huaweicloud.com", "v1", "logconfigs"),
-        ("lts.opentelekomcloud.com", "v1alpha1", "logconfigs"),
-        ("lts.opentelekomcloud.com", "v1beta1", "logconfigs"),
-    ]
+LOGCONFIG_API_GROUP = "logging.openvessel.io"
+LOGCONFIG_API_VERSION = "v1"
+LOGCONFIG_PLURAL = "logconfigs"
 
 
 def _get_cce_custom_objects_api(params: Dict[str, str]) -> Any:
@@ -428,65 +434,59 @@ def get_cce_logconfigs_action(params: Dict[str, str]) -> Dict[str, Any]:
     try:
         custom_api = _get_cce_custom_objects_api(params)
 
-        logconfigs = []
-        tried = []
+        api_version = f"{LOGCONFIG_API_GROUP}/{LOGCONFIG_API_VERSION}/{LOGCONFIG_PLURAL}"
         probe_errors = []
-        successful_probes = 0
-        for group, version, plural in _logconfig_cr_combinations():
-            api_version = f"{group}/{version}/{plural}"
-            tried.append(api_version)
-            try:
-                api_result = custom_api.list_namespaced_custom_object(
-                    group=group, version=version, namespace=namespace, plural=plural
-                )
-                for item in api_result.get("items", []):
-                    metadata = item.get("metadata", {})
-                    spec = item.get("spec", {})
-                    input_detail = spec.get("inputDetail", {})
-                    output_detail = spec.get("outputDetail", {})
-                    logconfigs.append(
-                        {
-                            "name": metadata.get("name"),
-                            "logconfig_name": metadata.get("name"),
-                            "policy_name": metadata.get("name"),
-                            "namespace": metadata.get("namespace"),
-                            "creation_time": str(metadata.get("creationTimestamp")),
-                            "input_type": input_detail.get("type"),
-                            "output_type": output_detail.get("type"),
-                            "spec": spec,
-                            "status": item.get("status", {}),
-                            "api_version": f"{group}/{version}",
-                        }
-                    )
-                successful_probes += 1
-                if logconfigs:
-                    break
-            except Exception as exc:
-                probe_errors.append(
-                    {
-                        "api_version": api_version,
-                        "error_type": type(exc).__name__,
-                        "error": str(exc)[:1000],
-                    }
-                )
-                continue
-
-        if not successful_probes:
+        try:
+            api_result = custom_api.list_namespaced_custom_object(
+                group=LOGCONFIG_API_GROUP,
+                version=LOGCONFIG_API_VERSION,
+                namespace=namespace,
+                plural=LOGCONFIG_PLURAL,
+            )
+        except Exception as exc:
+            probe_errors.append(
+                {
+                    "api_version": api_version,
+                    "error_type": type(exc).__name__,
+                    "error": str(exc)[:1000],
+                }
+            )
             return {
                 "success": False,
-                "error": "unable to query CCE LogConfig resources through the available CRD APIs",
+                "error": f"unable to query CCE LogConfig resources through {api_version}",
                 "cluster_id": cluster_id,
                 "namespace": namespace,
-                "tried_api_combinations": tried,
+                "tried_api_combinations": [api_version],
                 "probe_errors": probe_errors,
             }
+
+        logconfigs = []
+        for item in api_result.get("items", []):
+            metadata = item.get("metadata", {})
+            spec = item.get("spec", {})
+            input_detail = spec.get("inputDetail", {})
+            output_detail = spec.get("outputDetail", {})
+            logconfigs.append(
+                {
+                    "name": metadata.get("name"),
+                    "logconfig_name": metadata.get("name"),
+                    "policy_name": metadata.get("name"),
+                    "namespace": metadata.get("namespace"),
+                    "creation_time": str(metadata.get("creationTimestamp")),
+                    "input_type": input_detail.get("type"),
+                    "output_type": output_detail.get("type"),
+                    "spec": spec,
+                    "status": item.get("status", {}),
+                    "api_version": f"{LOGCONFIG_API_GROUP}/{LOGCONFIG_API_VERSION}",
+                }
+            )
 
         return {
             "success": True,
             "cluster_id": cluster_id,
             "namespace": namespace,
             "count": len(logconfigs),
-            "tried_api_combinations": tried,
+            "tried_api_combinations": [api_version],
             "probe_errors": probe_errors,
             "logconfigs": logconfigs,
         }
@@ -568,7 +568,7 @@ def _build_logconfig_body(params: Dict[str, str]) -> Dict[str, Any]:
     if source_type == "container_stdout":
         if all_containers:
             input_detail["containerStdout"] = {"allContainers": True}
-            namespaces = _parse_text_list(params.get("namespaces"), [])
+            namespaces = _parse_logconfig_namespaces(params.get("namespaces"))
             if namespaces:
                 input_detail["containerStdout"]["namespaces"] = namespaces
         else:
@@ -608,6 +608,37 @@ def _build_logconfig_body(params: Dict[str, str]) -> Dict[str, Any]:
     }
 
 
+def _is_not_found_error(error: Exception) -> bool:
+    text = str(error).lower()
+    return "notfound" in text or "not found" in text or "(404)" in text
+
+
+def _logconfig_summary(item: Dict[str, Any]) -> Dict[str, Any]:
+    metadata = item.get("metadata", {})
+    spec = item.get("spec", {})
+    input_detail = spec.get("inputDetail", {})
+    lts_detail = (spec.get("outputDetail", {}) or {}).get("LTS", {})
+    return {
+        "name": metadata.get("name"),
+        "namespace": metadata.get("namespace"),
+        "creation_time": metadata.get("creationTimestamp"),
+        "source_type": input_detail.get("type"),
+        "log_group_id": lts_detail.get("ltsGroupID"),
+        "log_stream_id": lts_detail.get("ltsStreamID"),
+        "spec": spec,
+    }
+
+
+def _logconfig_change_summary(existing: Dict[str, Any], requested: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+    old = _logconfig_summary(existing)
+    new = _logconfig_summary(requested)
+    return {
+        key: {"current": old.get(key), "requested": new.get(key)}
+        for key in ("source_type", "log_group_id", "log_stream_id", "spec")
+        if old.get(key) != new.get(key)
+    }
+
+
 def create_cce_logconfig_action(params: Dict[str, str]) -> Dict[str, Any]:
     destination_check = lts.require_explicit_cluster_log_destination(params)
     if destination_check:
@@ -618,6 +649,46 @@ def create_cce_logconfig_action(params: Dict[str, str]) -> Dict[str, Any]:
         version = params.get("api_version", "v1")
         plural = params.get("plural", "logconfigs")
         namespace = body["metadata"]["namespace"]
+        custom_api = _get_cce_custom_objects_api(params)
+        existing = None
+        try:
+            existing = custom_api.get_namespaced_custom_object(
+                group=group,
+                version=version,
+                namespace=namespace,
+                plural=plural,
+                name=body["metadata"]["name"],
+            )
+        except Exception as exc:
+            if not _is_not_found_error(exc):
+                raise
+
+        if existing:
+            changes = _logconfig_change_summary(existing, body)
+            if not _to_bool(params.get("update_existing"), False):
+                return {
+                    "success": False,
+                    "error": "CCE LogConfig with the same name already exists; creation will not overwrite it",
+                    "requires_update_existing": True,
+                    "cluster_id": params["cluster_id"],
+                    "logconfig_name": body["metadata"]["name"],
+                    "logconfig_namespace": namespace,
+                    "existing": _logconfig_summary(existing),
+                    "requested_changes": changes,
+                    "request_body": body,
+                }
+            if not _to_bool(params.get("confirm"), False):
+                return {
+                    "success": False,
+                    "requires_confirmation": True,
+                    "message": "Updating an existing CCE LogConfig changes log collection. Re-run with update_existing=true and confirm=true after review.",
+                    "cluster_id": params["cluster_id"],
+                    "logconfig_name": body["metadata"]["name"],
+                    "logconfig_namespace": namespace,
+                    "existing": _logconfig_summary(existing),
+                    "requested_changes": changes,
+                    "request_body": body,
+                }
 
         if not _to_bool(params.get("confirm"), False):
             return {
@@ -631,7 +702,6 @@ def create_cce_logconfig_action(params: Dict[str, str]) -> Dict[str, Any]:
                 "request_body": body,
             }
 
-        custom_api = _get_cce_custom_objects_api(params)
         response = custom_api.create_namespaced_custom_object(
             group=group,
             version=version,
@@ -649,6 +719,7 @@ def create_cce_logconfig_action(params: Dict[str, str]) -> Dict[str, Any]:
             "source_type": body["spec"]["inputDetail"]["type"],
             "log_group_id": body["spec"]["outputDetail"]["LTS"]["ltsGroupID"],
             "log_stream_id": body["spec"]["outputDetail"]["LTS"]["ltsStreamID"],
+            "updated_existing": bool(existing),
             "response": response,
         }
     except Exception as exc:

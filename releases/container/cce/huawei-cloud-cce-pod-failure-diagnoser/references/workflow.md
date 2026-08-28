@@ -5,7 +5,7 @@ This workflow is read-only and uses only `hcloud CCE` plus `kubectl`.
 ## Evidence Order
 
 1. Scope: confirm `region`, `project_id`, `cluster_id`, `namespace`, and one of `pod_name`, `workload_name`, or `selector`.
-2. CLI setup: read `references/kubectl-cce.md`, verify `hcloud`, masked hcloud credentials, `kubectl`, cluster metadata, endpoint reachability, kubectl-cce
+2. CLI setup: read `kubectl-cce.md`, verify `hcloud`, masked hcloud credentials, `kubectl`, cluster metadata, endpoint reachability, kubectl-cce
    plugin access, and read RBAC.
 3. First sweep: list all Pods, non-Running Pods, readiness, restart counts, and nodes before choosing the target Pod.
 4. Pod snapshot: read phase/status, reason/message, node, owner references, QoS, conditions, container states, last states, restart counts, image, and resource

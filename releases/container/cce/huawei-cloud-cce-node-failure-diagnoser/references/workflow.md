@@ -5,7 +5,7 @@ This workflow is read-only and uses only `hcloud CCE` plus `kubectl`.
 ## Evidence Order
 
 1. Scope: confirm `region`, `project_id`, `cluster_id`, and one of `node_name` or `node_ip`.
-2. CLI setup: read `references/kubectl-cce.md`, verify hcloud, masked credentials, kubectl, cluster metadata, endpoint reachability, kubectl-cce plugin access,
+2. CLI setup: read `kubectl-cce.md`, verify hcloud, masked credentials, kubectl, cluster metadata, endpoint reachability, kubectl-cce plugin access,
    and read RBAC.
 3. Node inventory: list CCE nodes with hcloud when node ID metadata is useful; list Kubernetes nodes with kubectl for actual health state.
 4. Node snapshot: inspect Ready condition, pressure conditions, NetworkUnavailable, taints, unschedulable state, labels, capacity, allocatable, and allocated

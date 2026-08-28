@@ -95,9 +95,9 @@ hcloud configure list
 kubectl version --client
 ```
 
-If `kubectl`, `kubectl-cce`, or `hcloud` is missing, stop this diagnosis flow and use `huawei-cloud-kubectl-cce-installer` or the approved platform-specific
-installation procedure. This diagnoser must not download or execute installer scripts. The installation path must select a platform-native binary, pin an
-approved version, verify its published checksum or signature, and then rerun the version checks above.
+If `kubectl` or `kubectl-cce` is missing, stop this diagnosis flow and use `huawei-cloud-kubectl-cce-installer`. If `hcloud` is missing, install or repair
+KooCLI through the approved platform-specific procedure. This diagnoser must not download or execute installer scripts. The installation path must select a
+platform-native binary, pin an approved version, verify its published checksum or signature, and then rerun the version checks above.
 
 ### 2. Locate The CCE Cluster
 

@@ -24,38 +24,49 @@ def list_cce_clusters(
     offset: int = 0,
 ) -> Dict[str, Any]:
     """List CCE clusters via hcloud."""
-    result = run_hcloud(
-        "CCE",
-        "ListClusters",
-        region,
-        {"project_id": project_id},
-        ak=ak,
-        sk=sk,
-        project_id=project_id,
-    )
-    if not result.get("success"):
-        return result
-
     clusters = []
-    for cluster in (result.get("data") or {}).get("items", []) or []:
-        metadata = cluster.get("metadata") or {}
-        spec = cluster.get("spec") or {}
-        status = cluster.get("status") or {}
-        network = spec.get("network") or {}
-        item = {
-            "id": metadata.get("uid"),
-            "name": metadata.get("name"),
-            "status": status.get("phase", "Unknown"),
-            "type": spec.get("type", "Unknown"),
-            "version": spec.get("version", "Unknown"),
-            "created_at": metadata.get("creationTimestamp") or metadata.get("creation_timestamp"),
-        }
-        if network:
-            item["network"] = {
-                "vpc_id": network.get("vpc") or network.get("vpc_id"),
-                "subnet_id": network.get("subnet") or network.get("subnet_id"),
+    page_limit = 100
+    page_offset = 0
+    seen_pages = set()
+    while True:
+        result = run_hcloud(
+            "CCE",
+            "ListClusters",
+            region,
+            {"project_id": project_id, "limit": page_limit, "offset": page_offset},
+            ak=ak,
+            sk=sk,
+            project_id=project_id,
+        )
+        if not result.get("success"):
+            return result
+        page = (result.get("data") or {}).get("items", []) or []
+        page_ids = tuple((cluster.get("metadata") or {}).get("uid") for cluster in page)
+        if page_ids and page_ids in seen_pages:
+            return {"success": False, "error": "CCE cluster listing returned a repeated page"}
+        seen_pages.add(page_ids)
+        for cluster in page:
+            metadata = cluster.get("metadata") or {}
+            spec = cluster.get("spec") or {}
+            status = cluster.get("status") or {}
+            network = spec.get("network") or {}
+            item = {
+                "id": metadata.get("uid"),
+                "name": metadata.get("name"),
+                "status": status.get("phase", "Unknown"),
+                "type": spec.get("type", "Unknown"),
+                "version": spec.get("version", "Unknown"),
+                "created_at": metadata.get("creationTimestamp") or metadata.get("creation_timestamp"),
             }
-        clusters.append(item)
+            if network:
+                item["network"] = {
+                    "vpc_id": network.get("vpc") or network.get("vpc_id"),
+                    "subnet_id": network.get("subnet") or network.get("subnet_id"),
+                }
+            clusters.append(item)
+        if len(page) < page_limit:
+            break
+        page_offset += len(page)
 
     return {
         "success": True,
@@ -76,6 +87,21 @@ def resolve_cce_cluster_id(
 ) -> Dict[str, Any]:
     """Validate a cluster UUID or resolve one exact cluster-name match."""
     if is_standard_uuid(value):
+        result = run_hcloud(
+            "CCE",
+            "ShowCluster",
+            region,
+            {"cluster_id": value, "project_id": project_id},
+            ak=ak,
+            sk=sk,
+            project_id=project_id,
+        )
+        if not result.get("success"):
+            return {
+                "success": False,
+                "error": f"Unable to verify CCE cluster_id '{value}': {result.get('error', '')}",
+                "cluster_id": value,
+            }
         return {"success": True, "id": value, "resolved_from_name": False}
     result = list_cce_clusters(region, ak, sk, project_id, limit=1000)
     if not result.get("success"):

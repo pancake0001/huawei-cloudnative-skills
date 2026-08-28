@@ -5,7 +5,7 @@ This workflow is read-only and uses `hcloud CCE`, `kubectl`, and optional read-o
 ## Evidence Order
 
 1. Scope: confirm `region`, `project_id`, `cluster_id`, `namespace`, `failure_symptom`, and the target object or path.
-2. CLI setup: read `references/kubectl-cce.md`, verify hcloud, masked credentials, kubectl, cluster metadata, endpoint reachability, kubectl-cce plugin access,
+2. CLI setup: read `kubectl-cce.md`, verify hcloud, masked credentials, kubectl, cluster metadata, endpoint reachability, kubectl-cce plugin access,
    and read RBAC.
 3. Node base layer: check nodes and CNI-related conditions before interpreting Service or Ingress failures.
 4. DNS layer: inspect kube-dns/CoreDNS Service, EndpointSlices, Pods, Events, and logs when the symptom involves DNS.

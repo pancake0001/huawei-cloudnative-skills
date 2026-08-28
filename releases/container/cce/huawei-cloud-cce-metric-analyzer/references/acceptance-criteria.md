@@ -29,7 +29,7 @@
 | ------ | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | DOC-01 | SKILL size          | `SKILL.md` is at or below 500 lines                                                                                                                                                            |
 | DOC-02 | Required references | `cli-installation-guide.md`, `iam-policies.md`, `verification-method.md`, and `acceptance-criteria.md` exist under `references/`                                                               |
-| DOC-03 | kubectl-cce guide   | `references/kubectl-cce.md` exists, links to the installer's canonical install/credential doc, and contains the skill-specific usage + exception localization (not expanded in the main SKILL) |
+| DOC-03 | kubectl-cce guide   | The main SKILL links to the installer's canonical `plugin-usage.md`; skill-specific runtime behavior remains documented in the main SKILL. |
 | DOC-04 | Risk rules          | Read-only risk boundaries are documented in `references/risk-rules.md`                                                                                                                         |
 
 ## Quality Acceptance

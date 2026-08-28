@@ -341,6 +341,32 @@ def create_access_config_action(params: Dict[str, str]) -> Dict[str, Any]:
         return {"success": False, "error": str(exc)}
     name = params.get("access_config_name") or params.get("name")
     path_type = _access_config_path_type(params) or ("CONTAINER_STDOUT" if api_body else None)
+    existing_result = list_access_configs(
+        params["region"],
+        access_config_name=name,
+        ak=params.get("ak"),
+        sk=params.get("sk"),
+        project_id=params.get("project_id"),
+        security_token=params.get("security_token"),
+    )
+    if not existing_result.get("success"):
+        return {
+            "success": False,
+            "error": f"unable to check existing LTS Access Configs before creation: {existing_result.get('error', '')}",
+        }
+    existing = [
+        item for item in existing_result.get("access_configs", [])
+        if item.get("access_config_name") == name
+    ]
+    if existing:
+        return {
+            "success": False,
+            "error": "LTS Access Config with the same name already exists; creation will not overwrite it",
+            "access_config_name": name,
+            "existing_access_configs": existing,
+            "requires_new_name": True,
+        }
+
     if not _to_bool(params.get("confirm"), False):
         return {
             "success": False,

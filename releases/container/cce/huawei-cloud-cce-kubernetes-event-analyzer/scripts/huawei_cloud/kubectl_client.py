@@ -20,7 +20,11 @@ def _parse_json_output(output: str, source: str) -> Dict[str, Any]:
     try:
         return {"success": True, "data": json.loads(text or "{}")}
     except json.JSONDecodeError as exc:
-        return {"success": False, "error": f"{source} returned non-JSON output: {exc}"}
+        try:
+            data, _ = json.JSONDecoder().raw_decode(text)
+            return {"success": True, "data": data}
+        except json.JSONDecodeError:
+            return {"success": False, "error": f"{source} returned non-JSON output: {exc}"}
 
 
 def _run_command(cmd: List[str], env: Optional[Dict[str, str]] = None, timeout: int = 60) -> Dict[str, Any]:
@@ -42,6 +46,12 @@ def _run_command(cmd: List[str], env: Optional[Dict[str, str]] = None, timeout: 
 
     result = _parse_json_output(proc.stdout, cmd[0])
     result["command"] = safe_cmd
+    data = result.get("data")
+    if result.get("success") and isinstance(data, dict):
+        error_code = data.get("error_code") or data.get("errorCode")
+        if error_code:
+            result["success"] = False
+            result["error"] = data.get("error_msg") or data.get("errorMessage") or data.get("message") or error_code
     return result
 
 

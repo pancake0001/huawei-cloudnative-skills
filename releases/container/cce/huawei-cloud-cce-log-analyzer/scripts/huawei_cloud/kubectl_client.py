@@ -149,7 +149,11 @@ class KubectlCustomObjectsApi:
             explicit_cli_credentials=self.params.get("_explicit_cli_credentials") == "true", stdin=stdin, expect_json=expect_json,
         )
         if not result.get("success"):
-            raise RuntimeError(result.get("error", "kubectl command failed"))
+            errors = [result.get("error", "kubectl command failed")]
+            for key, label in (("kubeconfig_error", "external kubeconfig"), ("plugin_error", "kubectl cce")):
+                if result.get(key):
+                    errors.append(f"{label}: {result[key]}")
+            raise RuntimeError("; ".join(errors))
         return result.get("data") or {}
 
     def list_namespaced_custom_object(self, group: str, version: str, namespace: str, plural: str) -> Dict[str, Any]:

@@ -1,36 +1,54 @@
-# kubectl-cce Usage
+# kubectl-cce Plugin Usage
 
-Use `kubectl` only when the metric analyzer must read Kubernetes resources that AOM and hcloud cannot derive, such as Pod label filtering, Ingress TLS Secrets,
-or LoadBalancer Services.
+If `kubectl` or the `kubectl-cce` plugin is unavailable, use the `huawei-cloud-kubectl-cce-installer` skill to install or repair the local prerequisites
+before querying cluster resources.
 
-## Install & credentials
+## Resource Query Constraints
 
-Install `kubectl` + `kubectl-cce` v0.2.1 and configure credentials (env-var or runtime `--cli-*` injection) per the canonical doc:
-[huawei-cloud-kubectl-cce-installer plugin-usage.md](../../huawei-cloud-kubectl-cce-installer/references/plugin-usage.md).
+Use this plugin for read-only CCE resource queries. Always provide `--cluster-id` and `--region`; for namespaced resources, provide
+`--namespace <namespace>` whenever the tool input supports it. Default to a specific namespace or resource name instead of `-A` or `--all-namespaces`.
 
-## Runtime behavior (read-only)
+Cluster-wide reads are allowed only when a tool explicitly requires a read-only aggregation or inventory, such as default Warning Event collection,
+Pod/Service/Ingress metric aggregation, LogConfig discovery, or node inventory. In those cases, query only the required resource type and apply an
+available namespace, label selector, field selector, or result limit to reduce returned data. For cluster-scoped resources, prefer an exact resource
+name unless the tool explicitly requires inventory. Do not use mutation commands or print Secret data, credentials, tokens, or kubeconfig contents.
 
-- The LLM emits the bare command (no credential flags).
-- Credential visibility is informational, never a gate — do not abort if env vars are not visible (sandbox injects at the runtime entry).
-- On auth failure, localize per the table below; in the injection branch, never ask the user for AK/SK values.
+## Credential Options
 
-## Credential / access failure localization
+The plugin accepts two credential modes. Name the mechanism **names** below (public plugin docs); never show, print, log, or persist credential **values**.
 
-| Symptom                                  | env-var-mode cause                  | injection-mode cause                             | Action                                                                                                                     |
-| ---------------------------------------- | ----------------------------------- | ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
-| `401` / `InvalidAK` / auth failed        | env vars not set / wrong            | runtime did not inject / injected expired values | env-var: set vars in the **execution** env; injection: check **runtime credential supply**, do not ask the user for values |
-| plugin missing / `kubectl cce` not found | not installed                       | not installed (install env ≠ credential env)     | run the installer; not a credential issue                                                                                  |
-| `403` permission denied                  | AK lacks IAM perms                  | injected AK lacks IAM perms                      | grant IAM; mode-independent                                                                                                |
-| timeout / connection refused             | network / EIP / region              | runtime network egress                           | separate from auth (auth = `401`/`InvalidAK`; network = `timeout`/`refused`)                                               |
-| region / project mismatch                | `HW_REGION` / `HW_PROJECT_ID` wrong | `--region` / `--project-id` or runtime misconfig | check region/project, not credentials                                                                                      |
+### Mode 1 — Environment variables (default; ordinary interactive environments)
 
-## Use
+For users whose environment cannot inject CLI args. The plugin reads credentials from the process environment. Set them through an approved local credential
+provider (protected shell rc, systemd environment file, or secrets manager) before invoking the plugin:
+
+- `HW_ACCESS_KEY` / `HW_SECRET_KEY` — permanent AK/SK
+- `HW_SECURITY_TOKEN` — required when using temporary AK/SK
+- `HW_PROJECT_ID` / `HW_REGION` — target project and region
+
+### Mode 2 — CLI flags (v0.2.1+; sandboxed/agent runtimes)
+
+For trusted sandbox/agent runtimes that inject credentials per invocation and control process visibility. Pass:
+
+- `--cli-access-key <ak>` / `--cli-secret-key <sk>`
+- `--cli-security-token <token>` — for temporary credentials
+
+> ⚠️ **Risk notice:** CLI arguments can be visible in process listings such as `ps aux`, which may expose credentials to other local users or processes.
+> Prefer Mode 1 where process visibility is not controlled, and use Mode 2 only after evaluating this exposure risk for the current environment.
+
+## Read-only Resource Queries
 
 ```bash
-kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> get pods -A
-kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> get svc,ingress -A
+# Mode 1 (env vars)
+kubectl cce --cluster-id <cluster-id> --region "${HW_REGION}" get pod <pod-name> --namespace <namespace>
+
+# Mode 2 (runtime injection — runtime supplies the real values; never log them)
+kubectl cce --cluster-id <cluster-id> --region <region> \
+  --cli-access-key <access-key> --cli-secret-key <secret-key> \
+  [--cli-security-token <token>] get pod <pod-name> --namespace <namespace>
 ```
 
+Do not run write operations during installation verification.
 
 ## x509 TLS Retry
 

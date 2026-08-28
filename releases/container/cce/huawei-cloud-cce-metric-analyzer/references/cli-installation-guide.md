@@ -55,7 +55,7 @@ export HW_SECURITY_TOKEN="<security-token>"
 
 ## kubectl-cce Setup
 
-Install and use `kubectl-cce` according to [kubectl-cce.md](kubectl-cce.md). The plugin is only needed for Kubernetes resource reads such as Pod labels, Ingress
+Install and use `kubectl-cce` according to the [installer plugin usage](kubectl-cce.md). The plugin is only needed for Kubernetes resource reads such as Pod labels, Ingress
 TLS Secrets, and LoadBalancer Services.
 
 ## Verification

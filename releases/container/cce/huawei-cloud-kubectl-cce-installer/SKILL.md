@@ -4,7 +4,8 @@ description: >
   Query specific Kubernetes resources in Huawei Cloud CCE clusters through kubectl cce. Trigger when users ask to get, describe, inspect, or view a Pod,
   workload, Service, ConfigMap, node, namespace, or other CCE Kubernetes resource, or when they ask to install or repair the local kubectl-cce
   prerequisites. Install kubectl and kubectl-cce only when they are missing locally.
-tags: [kubectl, kubectl-cce, cce, huawei-cloud, kubernetes, resource-query]
+tags: [kubectl, kubectl-cce, cce, kubernetes, resource-query]
+version: 1.0.0
 ---
 
 # Huawei Cloud CCE Kubectl Resource Query
@@ -12,7 +13,7 @@ tags: [kubectl, kubectl-cce, cce, huawei-cloud, kubernetes, resource-query]
 Use this skill to retrieve specific CCE Kubernetes resources through `kubectl cce`. Resource access is the primary task. Local installation is only a
 prerequisite recovery step when `kubectl` or the `kubectl-cce` plugin is unavailable.
 
-## Scope And Safety
+## Overview And Safety
 
 - Use `kubectl cce`; do not use a direct Kubernetes API client.
 - Read-only commands only: `get`, `describe`, and `logs`.
@@ -23,7 +24,7 @@ prerequisite recovery step when `kubectl` or the `kubectl-cce` plugin is unavail
 - Never run `apply`, `create`, `delete`, `edit`, `patch`, `replace`, `scale`, `rollout`, `cordon`, `drain`, or `exec`.
 - Do not print credentials, tokens, kubeconfig content, or Secret data.
 
-## Required Context
+## Prerequisites And Required Context
 
 | Input | Requirement |
 | --- | --- |
@@ -77,8 +78,9 @@ kubectl cce --cluster-id <cluster-id> --region <region> \
   get node <node-name> -o yaml
 ```
 
-For credential modes, Windows usage, installation fallbacks, and x509 retry behavior, read [plugin-usage.md](references/plugin-usage.md). If a command fails
-with an x509 upstream TLS validation error, retry that same command once with `--cce-insecure-upstream-tls=true` immediately after `cce`.
+For credential modes, command forms, and x509 retry behavior, read [plugin-usage.md](references/plugin-usage.md). For Windows usage and installation
+fallbacks, read [installation.md](references/installation.md). If a command fails with an x509 upstream TLS validation error, retry that same command once
+with `--cce-insecure-upstream-tls=true` immediately after `cce`.
 
 ## Risk Levels
 
@@ -87,15 +89,31 @@ with an x509 upstream TLS validation error, retry that same command once with `-
 | Resource query and local prerequisite check | R3 | May run automatically. |
 | Local binary installation, source build, or plugin replacement | R1 | Preview first and require explicit confirmation before `--execute`. |
 
-## Output
+## Output Format
 
 Return the cluster ID, region, resource kind, namespace when applicable, resource name, and requested status or fields. State clearly whether the resource is
 not found, access is denied, prerequisites are missing, or an installation confirmation is needed.
+
+## Parameters And Confirmation
+
+Confirm `cluster_id`, `region`, resource kind, namespace, and exact resource name before issuing a query. Confirm the target installation directory before any `--execute` action.
+
+## Verification
+
+After installation, run `kubectl version --client` and `kubectl plugin list`; after a query, verify that the returned resource identity matches the requested cluster, namespace, and name.
+
+## Best Practices
+
+Use the narrowest requested resource query and avoid broad list operations even when the caller can access the whole cluster.
+
+## Notes
+
+When the requested resource cannot be scoped to a namespace or exact name, ask the user to narrow the target instead of expanding to a cluster-wide query.
 
 ## References
 
 | Document | Use |
 | --- | --- |
-| [Plugin Usage](references/plugin-usage.md) | Credentials, command forms, x509 retry, Windows installation, and installer fallback. |
-| [Installation](references/installation.md) | Local prerequisites, installer parameters, source fallback, confirmation, and troubleshooting. |
+| [Plugin Usage](references/plugin-usage.md) | Credentials, command forms, and x509 retry. |
+| [Installation](references/installation.md) | Local prerequisites, installer parameters, Windows usage, source fallback, confirmation, and troubleshooting. |
 | [Acceptance Criteria](references/acceptance-criteria.md) | Resource-query and installation acceptance checks. |

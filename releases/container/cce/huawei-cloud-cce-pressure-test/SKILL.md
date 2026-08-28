@@ -6,7 +6,8 @@ description: >
   route/client/job/metrics evidence, and k6 for traffic generation. Use this skill for CCE pressure test, load test, stress test, performance test, k6 test, ELB
   traffic test, end-to-end traffic path validation, elasticity evaluation, 压测, 负载测试, 性能测试, 全链路压测, 弹性评估, and traffic generation. Do not use
   the Python SDK dispatcher.
-tags: [huawei-cloud, cce, hcloud, koocli, kubectl, k6, elb, pressure-test]
+tags: [cce, hcloud, kubectl, k6, pressure-test]
+version: 1.0.0
 ---
 
 # Huawei Cloud CCE Pressure Test
@@ -289,7 +290,7 @@ Rank findings by direct evidence and the first failing layer:
 After identifying the top finding, read `references/scenario-guides.md` and apply the matching scenario. Reports should include concrete next checks and
 candidate fixes for every material finding, not just a generic phrase such as "pressure test failed" or "image pull failed".
 
-## Report Format
+## Output Format
 
 Use `references/output-schema.md` as the detailed schema. Put decision-critical information first; raw commands and supporting tables come after the conclusion.
 
@@ -326,6 +327,14 @@ Read `references/verification-method.md` for the CLI verification checklist. A v
 - `kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id>` can read the target namespace and workload.
 - Smoke traffic is run before larger traffic.
 - Repository/package search finds no SDK dispatcher entrypoints in this skill package.
+
+## Best Practices
+
+Use a staged traffic plan, verify smoke traffic first, and stop immediately when an approved safety threshold is exceeded.
+
+## Notes
+
+Collected evidence indicates the test environment only and does not prove production capacity without equivalent workload, network, and scaling conditions.
 
 ## References
 

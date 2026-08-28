@@ -142,6 +142,8 @@ The query is scoped to one namespace and defaults to `kube-system`; it never use
 
 Before previewing a creation, call the tool without `log_group_id` or `log_stream_id`. When the target cluster's `k8s-log-<cluster-id>` group and streams exist, it lists that dedicated destination. If the group or a stream is missing, it also returns existing LTS log groups and streams as alternatives. Prefer creating the missing dedicated destination, but an existing non-dedicated destination is valid when the user explicitly selects it. The user must provide both IDs in the next call. The tool never creates or selects LTS destinations.
 
+If the same `logconfig_namespace` and `logconfig_name` already exist, creation stops and returns the existing rule plus requested changes. It never overwrites by default. To intentionally update that exact LogConfig, review the diff and provide both `update_existing=true` and `confirm=true`.
+
 1. Call without `confirm=true` to preview the generated `request_body`
 2. Inspect the preview output with the user
 3. Call with `confirm=true` only after user confirmation
@@ -166,6 +168,8 @@ python3 scripts/huawei-cloud.py huawei_create_cce_logconfig \
 ```
 
 For **all container stdout in selected namespaces**, do not provide a workload selector. `logconfig_namespace` remains the namespace where the LogConfig resource is stored and does not control the collection scope.
+
+Pass the actual collection scope through `namespaces`: use `namespaces='["default"]'` for one namespace or `namespaces='["default","kube-system"]'` for several. A comma-separated form such as `namespaces=default,kube-system` is also valid. Omit the parameter only after the user explicitly requests collection from every namespace.
 
 ```bash
 python3 scripts/huawei-cloud.py huawei_create_cce_logconfig \
@@ -271,6 +275,8 @@ python3 scripts/huawei-cloud.py huawei_list_lts_access_configs \
 ```
 
 ### Create an Access Config (Preview -> Confirm)
+
+If an LTS Access Config with the same `access_config_name` already exists, creation stops and returns the existing rule summary. It never overwrites or deletes an existing Access Config; provide a new name or use a dedicated update workflow.
 
 Before previewing a creation, discover the destination with `region`, `access_config_name`, and `cluster_id`, without `log_group_id` or `log_stream_id`. When the cluster-specific group `k8s-log-<cluster-id>` and its streams exist, the tool lists that dedicated destination. If the group or a stream is missing, it also returns existing LTS log groups and streams as user-selectable alternatives. Prefer creating the missing dedicated destination, but an existing non-dedicated destination is valid when the user explicitly selects it. The user must provide both IDs in the next call. It never creates a log group or log stream and never chooses one on the user's behalf.
 
