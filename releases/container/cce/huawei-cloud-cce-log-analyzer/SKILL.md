@@ -8,6 +8,9 @@ version: 1.0.0
 
 # Huawei Cloud CCE Log Analyzer
 
+## Cluster Target Gate
+For any operation that targets CCE resources inside a cluster, require `region` and `cluster_id` before invoking a downstream tool or command. Validate that the cluster ID is a standard UUID, or resolve an exact cluster name to one existing UUID in the supplied region. If either value is missing, invalid, or cannot be resolved, stop and ask the user for the correct region and cluster ID. Do not continue with an unscoped, region-wide, or all-namespaces fallback.
+
 ## Overview
 
 Use this skill for read-only log queries and analysis, or for confirmed management of CCE LogConfig and LTS Access Config collection rules. It does not modify workloads, log groups, log streams, LTS log data, or unrelated cloud resources.

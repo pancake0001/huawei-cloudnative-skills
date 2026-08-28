@@ -10,6 +10,9 @@ tags: [huawei-cloud, cce, kubectl, dependency, impact]
 
 # Huawei Cloud CCE Dependency Impact Analyzer
 
+## Cluster Target Gate
+For any operation that targets CCE resources inside a cluster, require `region` and `cluster_id` before invoking a downstream tool or command. Validate that the cluster ID is a standard UUID, or resolve an exact cluster name to one existing UUID in the supplied region. If either value is missing, invalid, or cannot be resolved, stop and ask the user for the correct region and cluster ID. Do not continue with an unscoped, region-wide, or all-namespaces fallback.
+
 ## Overview
 
 Map CCE service topology and estimate incident blast radius. Explain how an unhealthy workload or Pod set can affect Services, EndpointSlices, Ingress

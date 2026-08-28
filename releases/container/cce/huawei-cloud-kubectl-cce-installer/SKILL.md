@@ -28,8 +28,8 @@ prerequisite recovery step when `kubectl` or the `kubectl-cce` plugin is unavail
 
 | Input | Requirement |
 | --- | --- |
-| `cluster_id` | Required standard UUID. If the user gives a name, resolve it with `hcloud CCE ListClusters` before running kubectl. |
-| `region` | Required. Use an explicit value, then `HW_REGION_NAME`; otherwise ask the user. |
+| `cluster_id` | Required standard UUID. An exact name may be resolved with `hcloud CCE ListClusters`, but never run `kubectl cce` until it resolves to one UUID. |
+| `region` | Required. Obtain it from the request or current context, then `HW_REGION_NAME`; otherwise ask the user. |
 | Resource kind | Required, for example `pod`, `deployment`, `service`, `configmap`, or `node`. |
 | Namespace or exact name | At least one is required. Namespaced resources require a namespace; cluster-scoped resources require an exact name. |
 
@@ -38,15 +38,17 @@ Credentials follow the plugin rules in [plugin-usage.md](references/plugin-usage
 
 ## Workflow
 
-1. Confirm the target cluster UUID, region, resource kind, namespace, and exact resource name when required.
-2. Check local prerequisites:
+1. Before any resource query, validate the target region and cluster ID. If either is missing, or the cluster ID cannot be resolved to one existing UUID in that
+   region, do not run `kubectl cce`; ask the user to provide the correct region and cluster ID.
+2. Confirm the resource kind, namespace, and exact resource name when required.
+3. Check local prerequisites:
 
    ```bash
    bash scripts/install_kubectl_cce.sh --check
    ```
 
-3. When both `kubectl` and `kubectl-cce` are available, query the requested resource.
-4. When either executable is missing, read [installation.md](references/installation.md), then show the installer plan. Installation or replacement is an R1
+4. When both `kubectl` and `kubectl-cce` are available, query the requested resource.
+5. When either executable is missing, read [installation.md](references/installation.md), then show the installer plan. Installation or replacement is an R1
    local change and requires explicit confirmation:
 
    ```bash
@@ -54,7 +56,7 @@ Credentials follow the plugin rules in [plugin-usage.md](references/plugin-usage
    sudo bash scripts/install_kubectl_cce.sh --execute --bin-dir <directory>
    ```
 
-5. Verify installation with `kubectl version --client` and `kubectl plugin list`, then run only the requested read-only resource query.
+6. Verify installation with `kubectl version --client` and `kubectl plugin list`, then run only the requested read-only resource query.
 
 ## Core Commands
 
@@ -96,7 +98,8 @@ not found, access is denied, prerequisites are missing, or an installation confi
 
 ## Parameters And Confirmation
 
-Confirm `cluster_id`, `region`, resource kind, namespace, and exact resource name before issuing a query. Confirm the target installation directory before any `--execute` action.
+Confirm `cluster_id`, `region`, resource kind, namespace, and exact resource name before issuing a query. If `cluster_id` is missing or cannot be resolved in
+the supplied region, stop and ask the user for the correct region and cluster ID. Confirm the target installation directory before any `--execute` action.
 
 ## Verification
 

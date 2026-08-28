@@ -8,6 +8,9 @@ before querying cluster resources.
 Use this plugin for read-only CCE resource queries. Always provide `--cluster-id` and `--region`; for namespaced resources, provide
 `--namespace <namespace>` whenever the tool input supports it. Default to a specific namespace or resource name instead of `-A` or `--all-namespaces`.
 
+Before invoking `kubectl cce`, validate that `cluster_id` resolves to one existing CCE cluster UUID in the supplied region. If the region or cluster ID is
+missing, invalid, or cannot be resolved, do not run the resource query; ask the user to provide the correct region and cluster ID.
+
 Cluster-wide reads are allowed only when a tool explicitly requires a read-only aggregation or inventory, such as default Warning Event collection,
 Pod/Service/Ingress metric aggregation, LogConfig discovery, or node inventory. In those cases, query only the required resource type and apply an
 available namespace, label selector, field selector, or result limit to reduce returned data. For cluster-scoped resources, prefer an exact resource

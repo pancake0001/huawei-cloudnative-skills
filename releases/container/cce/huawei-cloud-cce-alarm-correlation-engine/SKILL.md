@@ -496,4 +496,4 @@ Mutation verification:
 
 ## Cluster ID Input
 
-`cluster_id` must use a standard UUID. A UUID is verified with `hcloud CCE ShowCluster` before any AOM query or mutation. If the input is not a standard UUID, first list CCE clusters and perform an exact cluster-name match; convert the name to its UUID only when there is one match. If verification or name matching fails, return the error and do not query AOM. Never guess or arbitrarily select a cluster.
+For any cluster-targeted AOM operation, `cluster_id` and `region` are required. A UUID is verified with `hcloud CCE ShowCluster` before any AOM query or mutation. If the input is not a standard UUID, first list CCE clusters and perform an exact cluster-name match; convert the name to its UUID only when there is one match. If either value is missing, or verification or name matching fails, return the error and do not query AOM. When an invalid `cluster_id` was supplied, never fall back to a region-wide query. Never guess or arbitrarily select a cluster.

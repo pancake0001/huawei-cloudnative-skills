@@ -10,6 +10,9 @@ tags: [huawei-cloud, cce, kubectl, change-impact, analysis]
 
 # Huawei Cloud CCE Change Impact Analyzer
 
+## Cluster Target Gate
+For any operation that targets CCE resources inside a cluster, require `region` and `cluster_id` before invoking a downstream tool or command. Validate that the cluster ID is a standard UUID, or resolve an exact cluster name to one existing UUID in the supplied region. If either value is missing, invalid, or cannot be resolved, stop and ask the user for the correct region and cluster ID. Do not continue with an unscoped, region-wide, or all-namespaces fallback.
+
 ## Overview
 
 Turn "what changed before the incident" into evidence-based causal attribution. Correlate current topology, Kubernetes Events, historical evidence, AOM alarms,
