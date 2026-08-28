@@ -24,49 +24,31 @@ def list_cce_clusters(
     offset: int = 0,
 ) -> Dict[str, Any]:
     """List CCE clusters via hcloud."""
+    # CCE ListClusters returns all items and does not accept limit or offset parameters.
+    result = run_hcloud("CCE", "ListClusters", region, None, ak=ak, sk=sk, project_id=project_id)
+    if not result.get("success"):
+        return result
+
     clusters = []
-    page_limit = 100
-    page_offset = 0
-    seen_pages = set()
-    while True:
-        result = run_hcloud(
-            "CCE",
-            "ListClusters",
-            region,
-            {"project_id": project_id, "limit": page_limit, "offset": page_offset},
-            ak=ak,
-            sk=sk,
-            project_id=project_id,
-        )
-        if not result.get("success"):
-            return result
-        page = (result.get("data") or {}).get("items", []) or []
-        page_ids = tuple((cluster.get("metadata") or {}).get("uid") for cluster in page)
-        if page_ids and page_ids in seen_pages:
-            return {"success": False, "error": "CCE cluster listing returned a repeated page"}
-        seen_pages.add(page_ids)
-        for cluster in page:
-            metadata = cluster.get("metadata") or {}
-            spec = cluster.get("spec") or {}
-            status = cluster.get("status") or {}
-            network = spec.get("network") or {}
-            item = {
-                "id": metadata.get("uid"),
-                "name": metadata.get("name"),
-                "status": status.get("phase", "Unknown"),
-                "type": spec.get("type", "Unknown"),
-                "version": spec.get("version", "Unknown"),
-                "created_at": metadata.get("creationTimestamp") or metadata.get("creation_timestamp"),
+    for cluster in (result.get("data") or {}).get("items", []) or []:
+        metadata = cluster.get("metadata") or {}
+        spec = cluster.get("spec") or {}
+        status = cluster.get("status") or {}
+        network = spec.get("network") or {}
+        item = {
+            "id": metadata.get("uid"),
+            "name": metadata.get("name"),
+            "status": status.get("phase", "Unknown"),
+            "type": spec.get("type", "Unknown"),
+            "version": spec.get("version", "Unknown"),
+            "created_at": metadata.get("creationTimestamp") or metadata.get("creation_timestamp"),
+        }
+        if network:
+            item["network"] = {
+                "vpc_id": network.get("vpc") or network.get("vpc_id"),
+                "subnet_id": network.get("subnet") or network.get("subnet_id"),
             }
-            if network:
-                item["network"] = {
-                    "vpc_id": network.get("vpc") or network.get("vpc_id"),
-                    "subnet_id": network.get("subnet") or network.get("subnet_id"),
-                }
-            clusters.append(item)
-        if len(page) < page_limit:
-            break
-        page_offset += len(page)
+        clusters.append(item)
 
     return {
         "success": True,
@@ -108,7 +90,23 @@ def resolve_cce_cluster_id(
         return {"success": False, "error": f"Unable to list CCE clusters for cluster_id resolution: {result.get('error', '')}"}
     matches = [cluster for cluster in result.get("clusters", []) if cluster.get("name") == value]
     if len(matches) == 1 and is_standard_uuid(matches[0].get("id")):
-        return {"success": True, "id": matches[0]["id"], "resolved_from_name": True}
+        cluster_id = matches[0]["id"]
+        verification = run_hcloud(
+            "CCE",
+            "ShowCluster",
+            region,
+            {"cluster_id": cluster_id, "project_id": project_id},
+            ak=ak,
+            sk=sk,
+            project_id=project_id,
+        )
+        if not verification.get("success"):
+            return {
+                "success": False,
+                "error": f"Unable to verify CCE cluster resolved from name '{value}': {verification.get('error', '')}",
+                "cluster_id": cluster_id,
+            }
+        return {"success": True, "id": cluster_id, "resolved_from_name": True}
     if len(matches) > 1:
         return {"success": False, "error": f"cluster_id '{value}' matched multiple CCE clusters; provide a standard UUID"}
     return {"success": False, "error": f"cluster_id must be a standard UUID. No CCE cluster named '{value}' was found"}

@@ -66,24 +66,33 @@ pure diagnosis.
 
 ## Parameters
 
+### Input Parameter Validation
+Required parameters must be provided before execution. A required `cluster_id`, or an optional `cluster_id` supplied by the user, must pass the following validation before any cluster-targeted request. Query tools may query the region globally only when their optional `cluster_id` is omitted:
+1. Check whether `cluster_id` is a standard UUID:
+   - UUID: call `hcloud CCE ShowCluster` to verify it.
+   - Otherwise: call `hcloud CCE ListClusters`, perform an exact and unique name match, convert it to a UUID, then call `ShowCluster` to verify it.
+If a required `cluster_id` is missing, or any supplied `cluster_id` is invalid, unmatched, or ambiguous, stop the operation and require the user to provide the correct region and cluster ID. A supplied invalid `cluster_id` must never fall back to a global query; never guess or select a cluster. For any other required resource identifier, first use the corresponding read-only query tool to list candidates when the user cannot provide an unambiguous value, then ask the user to choose; never select a candidate automatically.
+
+### Input Parameters
+
 Collect these values before preparing any traffic:
 
-| Input                    | Required                             | Notes                                                            |
-| ------------------------ | ------------------------------------ | ---------------------------------------------------------------- |
-| `region`                 | Yes                                  | Example: `cn-north-4`                                            |
-| `project_id`             | Usually                              | Required by most hcloud CCE operations                           |
-| `cluster_id`             | Preferred                            | If absent, resolve by cluster name with `ListClusters`           |
-| `cluster_name`           | Optional                             | Use only to locate `cluster_id`                                  |
-| `namespace`              | Usually                              | Target workload namespace                                        |
-| `workload_name`          | Usually                              | Deployment, StatefulSet, or DaemonSet name                       |
-| `workload_kind`          | Optional                             | Default to Deployment when not specified                         |
-| `target_url`             | Required before traffic              | External URL, ingress URL, or service URL from an approved route |
-| `target_port`            | Optional                             | Container or Service target port                                 |
-| `host_header`            | Optional                             | Required when Ingress host rules are used                        |
-| `traffic_model`          | Yes                                  | `smoke`, `keepalive`, `short`, `ramp`, or user-defined k6 script |
-| `vus`, `duration`, `rps` | Yes                                  | Start small, then ramp only after smoke success                  |
-| `test_window`            | Required for production-like targets | Include owner and stop conditions                                |
-| `output_dir`             | Recommended                          | Store run summary, logs, evidence, and report                    |
+| Input | Required | Notes |
+| --- | --- | --- |
+| `region` | Yes | Example: `cn-north-4`. |
+| `project_id` | Usually | Required by most hcloud CCE operations. |
+| `cluster_id` | Preferred | If absent, resolve by cluster name with `ListClusters`. |
+| `cluster_name` | Optional | Use only to locate `cluster_id`. |
+| `namespace` | Usually | Target workload namespace. |
+| `workload_name` | Usually | Deployment, StatefulSet, or DaemonSet name. |
+| `workload_kind` | Optional | Default to Deployment when not specified. |
+| `target_url` | Required before traffic | External URL, Ingress URL, or Service URL from an approved route. |
+| `target_port` | Optional | Container or Service target port. |
+| `host_header` | Optional | Required when Ingress host rules are used. |
+| `traffic_model` | Yes | `smoke`, `keepalive`, `short`, `ramp`, or a user-defined k6 script. |
+| `vus`, `duration`, `rps` | Yes | Start small, then ramp only after smoke success. |
+| `test_window` | Required for production-like targets | Include owner and stop conditions. |
+| `output_dir` | Recommended | Store run summary, logs, evidence, and report. |
 
 If any target, owner, or traffic limit is ambiguous, stop before sending traffic and ask for confirmation.
 

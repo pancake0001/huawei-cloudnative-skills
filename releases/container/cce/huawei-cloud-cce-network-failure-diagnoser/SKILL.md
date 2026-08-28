@@ -64,22 +64,31 @@ scaling workloads, or restarting components must be handed off as recommendation
 
 ## Parameters
 
-| Input             | Required    | Notes                                                                                                                     |
-| ----------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `region`          | Yes         | Request context or `HW_REGION_NAME`; otherwise ask the user                                                                                                     |
-| `project_id`      | Usually     | Required by most hcloud operations                                                                                        |
-| `cluster_id`      | Preferred   | Resolve by name with `ListClusters` if absent                                                                             |
-| `namespace`       | Usually     | Required for namespaced K8s objects                                                                                       |
-| `failure_symptom` | Recommended | `dns_failure`, `service_unreachable`, `ingress_502_504`, `external_access_failed`, `network_policy_block`, `intermittent` |
-| `service_name`    | Optional    | Target Service                                                                                                            |
-| `ingress_name`    | Optional    | Target Ingress                                                                                                            |
-| `source_pod`      | Optional    | Source Pod name or selector                                                                                               |
-| `destination_pod` | Optional    | Destination Pod name or selector                                                                                          |
-| `domain`          | Optional    | Domain involved in DNS/Ingress failure                                                                                    |
-| `elb_id`          | Optional    | ELB load balancer ID for north-south checks                                                                               |
+### Input Parameter Validation
+This skill requires both `region` and `cluster_id` before diagnosis. It never performs a region-wide fallback. The supplied `cluster_id` must pass the following validation before any downstream query:
+1. Check whether `cluster_id` is a standard UUID:
+   - UUID: call `hcloud CCE ShowCluster` to verify it.
+   - Otherwise: call `hcloud CCE ListClusters`, perform an exact and unique name match, convert it to a UUID, then call `ShowCluster` to verify it.
+If a required `cluster_id` is missing, or any supplied `cluster_id` is invalid, unmatched, or ambiguous, stop the operation and require the user to provide the correct region and cluster ID. A supplied invalid `cluster_id` must never fall back to a global query; never guess or select a cluster. For any other required resource identifier, first use the corresponding read-only query tool to list candidates when the user cannot provide an unambiguous value, then ask the user to choose; never select a candidate automatically.
 
-If the target is vague, start with a namespace scan and ask for the specific service, ingress, source, destination, or domain before drawing a strong
-conclusion.
+### Input Parameters
+
+| Input | Required | Notes |
+| --- | --- | --- |
+| `region` | Yes | Request context or `HW_REGION_NAME`; otherwise ask the user. |
+| `project_id` | Operation-specific | Resolve through hcloud or active credentials when needed; ask the user only when the target project cannot be determined. |
+| `cluster_id` | Yes | Target CCE cluster UUID, or an exact cluster name resolved and verified through hcloud. |
+| `namespace` | Operation-specific | Required for a namespaced target; omit only for an explicitly cluster-wide diagnosis. |
+| `failure_symptom` | Recommended | `dns_failure`, `service_unreachable`, `ingress_502_504`, `external_access_failed`, `network_policy_block`, or `intermittent`. |
+| `service_name` | Optional | Target Service. |
+| `ingress_name` | Optional | Target Ingress. |
+| `source_pod` | Optional | Source Pod name or selector. |
+| `destination_pod` | Optional | Destination Pod name or selector. |
+| `domain` | Optional | Domain involved in DNS or Ingress failure. |
+| `elb_id` | Optional | ELB load-balancer ID for north-south checks. |
+| `--cli-access-key`, `--cli-secret-key`, `--cli-security-token` | Optional | Explicit credentials forwarded unchanged to hcloud and `kubectl cce`. |
+
+If the target is vague, first gather a bounded namespace view and ask the user for the specific Service, Ingress, source, destination, or domain before drawing a strong conclusion.
 
 ## Region Selection
 

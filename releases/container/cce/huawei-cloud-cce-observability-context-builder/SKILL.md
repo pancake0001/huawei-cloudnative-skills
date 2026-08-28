@@ -40,17 +40,26 @@ Do not use legacy Python dispatchers, old skill execution actions, Huawei Cloud 
 
 ## Parameters
 
-| Input                                           | Required    | Notes                                                   |
-| ----------------------------------------------- | ----------- | ------------------------------------------------------- |
-| `region`                                        | Yes         | Request context or `HW_REGION_NAME`; otherwise ask the user                                   |
-| `project_id`                                    | Recommended | Required for reliable AK/SK and `kubectl cce` execution |
-| `cluster_id`                                    | Preferred   | Resolve by exact cluster name when absent               |
-| `namespace`                                     | Optional    | Narrow app-level collection                             |
-| `workload`, `pod`, `node`, `service`, `ingress` | Optional    | Target object hints                                     |
-| `fault_time`, `start_time`, `end_time`, `hours` | Recommended | Default to recent 1 hour if unclear                     |
-| `symptoms`                                      | Recommended | User-visible symptom, alert text, or affected business  |
+### Input Parameter Validation
+This skill requires both `region` and `cluster_id` before collection. It never performs a region-wide fallback. The supplied `cluster_id` must pass the following validation before any downstream query:
+1. Check whether `cluster_id` is a standard UUID:
+   - UUID: call `hcloud CCE ShowCluster` to verify it.
+   - Otherwise: call `hcloud CCE ListClusters`, perform an exact and unique name match, convert it to a UUID, then call `ShowCluster` to verify it.
+If a required `cluster_id` is missing, or any supplied `cluster_id` is invalid, unmatched, or ambiguous, stop the operation and require the user to provide the correct region and cluster ID. A supplied invalid `cluster_id` must never fall back to a global query; never guess or select a cluster. For any other required resource identifier, first use the corresponding read-only query tool to list candidates when the user cannot provide an unambiguous value, then ask the user to choose; never select a candidate automatically.
 
-If the target is ambiguous, collect cluster/namespace-level context first and record ambiguity as a data gap.
+### Input Parameters
+
+| Input | Required | Notes |
+| --- | --- | --- |
+| `region` | Yes | Request context or `HW_REGION_NAME`; otherwise ask the user. |
+| `project_id` | Operation-specific | Resolve through hcloud or active credentials when needed; ask the user only when the target project cannot be determined. |
+| `cluster_id` | Yes | Target CCE cluster UUID, or an exact cluster name resolved and verified through hcloud. |
+| `namespace` | Optional | Narrow app-level collection. |
+| `workload`, `pod`, `node`, `service`, `ingress` | Optional | Target object hints. |
+| `fault_time`, `start_time`, `end_time`, `hours` | Recommended | Default to recent 1 hour if unclear. |
+| `symptoms` | Recommended | User-visible symptom, alert text, or affected business. |
+
+If the target is ambiguous, collect cluster or namespace-level context first and record ambiguity as a data gap.
 
 ## Region Selection
 

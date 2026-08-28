@@ -229,7 +229,8 @@ def _resolve_cce_aom_prom_instance(params: Dict[str, str]) -> Dict[str, Any]:
 def _update_aom_alarm_rule(params: Dict[str, str]) -> Dict[str, Any]:
     return aom.update_aom_alarm_rule(
         params["region"],
-        params["rule_name"],
+        params.get("rule_name"),
+        params.get("rule_id"),
         _alarm_rule_fields(params, "updates"),
         params.get("confirm", "").lower() == "true",
         params.get("ak"),
@@ -241,7 +242,8 @@ def _update_aom_alarm_rule(params: Dict[str, str]) -> Dict[str, Any]:
 def _delete_aom_alarm_rule(params: Dict[str, str]) -> Dict[str, Any]:
     return aom.delete_aom_alarm_rule(
         params["region"],
-        params["rule_name"],
+        params.get("rule_name"),
+        params.get("rule_id"),
         params.get("confirm", "").lower() == "true",
         params.get("ak"),
         params.get("sk"),
@@ -252,7 +254,8 @@ def _delete_aom_alarm_rule(params: Dict[str, str]) -> Dict[str, Any]:
 def _disable_aom_alarm_rule(params: Dict[str, str]) -> Dict[str, Any]:
     return aom.disable_aom_alarm_rule(
         params["region"],
-        params["rule_id"],
+        params.get("rule_name"),
+        params.get("rule_id"),
         params.get("confirm", "").lower() == "true",
         params.get("ak"),
         params.get("sk"),
@@ -263,7 +266,8 @@ def _disable_aom_alarm_rule(params: Dict[str, str]) -> Dict[str, Any]:
 def _enable_aom_alarm_rule(params: Dict[str, str]) -> Dict[str, Any]:
     return aom.enable_aom_alarm_rule(
         params["region"],
-        params["rule_id"],
+        params.get("rule_name"),
+        params.get("rule_id"),
         params.get("confirm", "").lower() == "true",
         params.get("ak"),
         params.get("sk"),
@@ -384,21 +388,18 @@ def _aom_alarm_inspection_action(params: Dict[str, str]) -> Dict[str, Any]:
 
 ACTION_SPECS: Dict[str, tuple[tuple[str, ...], Handler]] = {
     "huawei_list_aom_alarm_rules": (("region",), _list_aom_alarm_rules),
-    "huawei_create_aom_alarm_rule": (
-        ("region",),
-        _create_aom_alarm_rule,
-    ),
+    "huawei_create_aom_alarm_rule": (("region", "cluster_id"), _create_aom_alarm_rule),
     "huawei_create_aom_event_alarm_rule": (("region", "cluster_id", "event_name"), _create_aom_event_alarm_rule),
     "huawei_configure_cce_aom_alarm_rules": (("region", "cluster_id"), _configure_cce_aom_alarm_rules),
     "huawei_cleanup_cce_aom_alarm_rules": (("region", "cluster_id"), _cleanup_cce_aom_alarm_rules),
     "huawei_create_aom_notification_action_rule": (("region", "rule_name", "notification_topic_urn", "notification_topic_name"), _create_aom_notification_action_rule),
     "huawei_resolve_cce_aom_prom_instance": (("region", "cluster_id"), _resolve_cce_aom_prom_instance),
-    "huawei_update_aom_alarm_rule": (("region", "rule_name"), _update_aom_alarm_rule),
-    "huawei_delete_aom_alarm_rule": (("region", "rule_name"), _delete_aom_alarm_rule),
-    "huawei_disable_aom_alarm_rule": (("region", "rule_id"), _disable_aom_alarm_rule),
-    "huawei_enable_aom_alarm_rule": (("region", "rule_id"), _enable_aom_alarm_rule),
+    "huawei_update_aom_alarm_rule": (("region",), _update_aom_alarm_rule),
+    "huawei_delete_aom_alarm_rule": (("region",), _delete_aom_alarm_rule),
+    "huawei_disable_aom_alarm_rule": (("region",), _disable_aom_alarm_rule),
+    "huawei_enable_aom_alarm_rule": (("region",), _enable_aom_alarm_rule),
     "huawei_list_aom_action_rules": (("region",), _list_aom_action_rules),
-    "huawei_delete_aom_action_rule": (("region", "rule_name"), _delete_aom_action_rule),
+    "huawei_delete_aom_action_rule": (("region", "cluster_id", "rule_name"), _delete_aom_action_rule),
     "huawei_list_aom_mute_rules": (("region",), _list_aom_mute_rules),
     "huawei_list_aom_current_alarms": (("region",), _list_aom_current_alarms),
     "huawei_list_aom_alarms": (("region",), _list_aom_alarms),

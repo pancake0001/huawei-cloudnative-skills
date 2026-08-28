@@ -59,18 +59,27 @@ the user asks for a preview or confirms a recovery action.
 
 ## Parameters
 
-| Input                  | Required    | Notes                                                       |
-| ---------------------- | ----------- | ----------------------------------------------------------- |
-| `region`               | Yes         | Request context or `HW_REGION_NAME`; otherwise ask the user                                       |
-| `project_id`           | Usually     | Required by kubectl-cce and most hcloud operations          |
-| `cluster_id`           | Preferred   | Resolve by name with `hcloud CCE ListClusters` if absent    |
-| `namespace`            | Optional    | Use when the incident is scoped to an application namespace |
-| `target_name`          | Optional    | Workload, Service, Pod, Ingress, or business target         |
-| `fault_time` / `hours` | Recommended | Needed for event, alarm, metric, and change correlation     |
-| `symptoms`             | Recommended | User-visible failure signals and known alarms               |
-| `--cli-access-key`     | Optional    | Explicit AK for this diagnosis chain                        |
-| `--cli-secret-key`     | Optional    | Explicit SK; must be supplied with the explicit AK          |
-| `--cli-security-token` | Optional    | STS token; valid only with the explicit AK/SK pair          |
+### Input Parameter Validation
+This skill requires both `region` and `cluster_id` before analysis. It never performs a region-wide fallback. The supplied `cluster_id` must pass the following validation before any downstream query:
+1. Check whether `cluster_id` is a standard UUID:
+   - UUID: call `hcloud CCE ShowCluster` to verify it.
+   - Otherwise: call `hcloud CCE ListClusters`, perform an exact and unique name match, convert it to a UUID, then call `ShowCluster` to verify it.
+If a required `cluster_id` is missing, or any supplied `cluster_id` is invalid, unmatched, or ambiguous, stop the operation and require the user to provide the correct region and cluster ID. A supplied invalid `cluster_id` must never fall back to a global query; never guess or select a cluster. For any other required resource identifier, first use the corresponding read-only query tool to list candidates when the user cannot provide an unambiguous value, then ask the user to choose; never select a candidate automatically.
+
+### Input Parameters
+
+| Input | Required | Notes |
+| --- | --- | --- |
+| `region` | Yes | Request context or `HW_REGION_NAME`; otherwise ask the user. |
+| `project_id` | Operation-specific | Resolve through hcloud or active credentials when needed; ask the user only when the target project cannot be determined. |
+| `cluster_id` | Yes | Target CCE cluster UUID, or an exact cluster name resolved and verified through hcloud. |
+| `namespace` | Optional | Use when the incident is scoped to an application namespace. |
+| `target_name` | Optional | Workload, Service, Pod, Ingress, or business target. |
+| `fault_time` / `hours` | Recommended | Needed for Event, alarm, metric, and change correlation. |
+| `symptoms` | Recommended | User-visible failure signals and known alarms. |
+| `--cli-access-key` | Optional | Explicit AK for this diagnosis chain. |
+| `--cli-secret-key` | Optional | Explicit SK; must be supplied with the explicit AK. |
+| `--cli-security-token` | Optional | STS token; valid only with the explicit AK/SK pair. |
 
 If the target is ambiguous, first collect a broad read-only snapshot and state what object still needs confirmation before assigning high confidence.
 

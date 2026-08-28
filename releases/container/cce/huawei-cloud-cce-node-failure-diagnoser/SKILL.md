@@ -51,15 +51,24 @@ must be handed off to a remediation skill after confirmation.
 
 ## Parameters
 
-| Input          | Required  | Notes                                                                 |
-| -------------- | --------- | --------------------------------------------------------------------- |
-| `region`       | Yes       | Request context or `HW_REGION_NAME`; otherwise ask the user                                                 |
-| `project_id`   | Usually   | Required by most hcloud CCE operations                                |
-| `cluster_id`   | Preferred | If absent, resolve by cluster name with `ListClusters`                |
-| `cluster_name` | Optional  | Use only to locate `cluster_id`                                       |
-| `node_name`    | Preferred | Kubernetes node name, often the internal IP in CCE                    |
-| `node_ip`      | Optional  | Use to match `kubectl cce ... get nodes -o wide` or CCE node metadata |
-| `namespace`    | Optional  | Needed when narrowing affected Pods or logs                           |
+### Input Parameter Validation
+This skill requires both `region` and `cluster_id` before diagnosis. It never performs a region-wide fallback. The supplied `cluster_id` must pass the following validation before any downstream query:
+1. Check whether `cluster_id` is a standard UUID:
+   - UUID: call `hcloud CCE ShowCluster` to verify it.
+   - Otherwise: call `hcloud CCE ListClusters`, perform an exact and unique name match, convert it to a UUID, then call `ShowCluster` to verify it.
+If a required `cluster_id` is missing, or any supplied `cluster_id` is invalid, unmatched, or ambiguous, stop the operation and require the user to provide the correct region and cluster ID. A supplied invalid `cluster_id` must never fall back to a global query; never guess or select a cluster. For any other required resource identifier, first use the corresponding read-only query tool to list candidates when the user cannot provide an unambiguous value, then ask the user to choose; never select a candidate automatically.
+
+### Input Parameters
+
+| Input | Required | Notes |
+| --- | --- | --- |
+| `region` | Yes | Request context or `HW_REGION_NAME`; otherwise ask the user. |
+| `project_id` | Operation-specific | Resolve through hcloud or active credentials when needed; ask the user only when the target project cannot be determined. |
+| `cluster_id` | Yes | Target CCE cluster UUID, or an exact cluster name resolved and verified through hcloud. |
+| `cluster_name` | Optional | Use only to locate `cluster_id`. |
+| `node_name` | Preferred | Kubernetes node name, often the internal IP in CCE. |
+| `node_ip` | Optional | Use to match `kubectl cce ... get nodes -o wide` or CCE node metadata. |
+| `namespace` | Optional | Needed when narrowing affected Pods or logs. |
 
 At least one of `node_name` or `node_ip` should be provided. If both are missing, first list nodes and ask the user which node or symptom to focus on.
 

@@ -3,7 +3,7 @@ name: huawei-cloud-cce-cluster-management
 description: |
   Huawei Cloud CCE (Cloud Container Engine) cluster lifecycle management skill using hcloud CLI (KooCLI) for Huawei Cloud API calls and kubectl cce plugin for Kubernetes node operations (cordon/uncordon/drain/status).
   Use this skill when the user wants to: (1) create, delete, hibernate, or awake CCE clusters, (2) list clusters and query cluster/node/nodepool/addon information, (3) manage node pools (create, delete, resize), (4) manage nodes (create, delete, cordon, uncordon, drain), (5) manage addons (install, uninstall, update), (6) bind/unbind cluster EIP for public access, (7) get cluster kubeconfig.
-  Trigger: user mentions "CCE cluster", "create cluster", "delete cluster", "node pool", "node management", "hibernate cluster", "awake cluster", "addon", "kubeconfig", "EIP binding", "CCE 集群", "创建集群", "删除集群", "节点池", "节点管理", "休眠集群", "唤醒集群", "插件", "kubeconfig", "EIP 绑定"
+  Trigger: user mentions "CCE cluster", "create cluster", "delete cluster", "node pool", "node management", "hibernate cluster", "awake cluster", "addon", "kubeconfig", or "EIP binding"
 tags: [cce, kubernetes, cluster-management, nodepool, addon]
 version: 2.0.0
 ---
@@ -216,11 +216,16 @@ Ensure the IAM user has the minimum required permissions:
 
 ---
 
-## 参数确认
+## Parameter Confirmation
 
-Before executing any command, confirm the following parameters with the user:
+### Input Parameter Validation
+Required parameters must be provided before execution. A required `cluster_id`, or an optional `cluster_id` supplied by the user, must pass the following validation before any cluster-targeted request. Query tools may query the region globally only when their optional `cluster_id` is omitted:
+1. Check whether `cluster_id` is a standard UUID:
+   - UUID: call `hcloud CCE ShowCluster` to verify it.
+   - Otherwise: call `hcloud CCE ListClusters`, perform an exact and unique name match, convert it to a UUID, then call `ShowCluster` to verify it.
+If a required `cluster_id` is missing, or any supplied `cluster_id` is invalid, unmatched, or ambiguous, stop the operation and require the user to provide the correct region and cluster ID. A supplied invalid `cluster_id` must never fall back to a global query; never guess or select a cluster. For any other required resource identifier, first use the corresponding read-only query tool to list candidates when the user cannot provide an unambiguous value, then ask the user to choose; never select a candidate automatically.
 
-### 认证参数
+### Authentication Parameters
 
 | Parameter         | Env Variable        | Required | Description                                        |
 | ----------------- | ------------------- | -------- | -------------------------------------------------- |
@@ -230,11 +235,12 @@ Before executing any command, confirm the following parameters with the user:
 | Security Token    | `HW_SECURITY_TOKEN` | ❌       | Temporary credential security token, STS only      |
 | Node Password     | `CCE_NODE_PASSWORD` | ❌       | Node login password, auto-generated if not set     |
 
-### 集群参数
+### Cluster Parameters
 
 | Parameter                | Required | Default    | Description                                                           |
 | ------------------------ | -------- | ---------- | --------------------------------------------------------------------- |
 | `cluster_name`           | ✅       | —          | Cluster name, recommended `<env>-<app>-cluster`                       |
+| `cluster_id`             | Operation-specific | N/A | Target CCE cluster UUID, or an exact cluster name resolved and verified through hcloud. Required for cluster-scoped query, control, node-pool, and node operations; not required when creating a cluster. |
 | `cluster_type`           | ❌       | `Turbo`    | Cluster type (Turbo/VirtualMachine)                                   |
 | `container_network_type` | ❌       | `eni`      | Container network type, `eni` for Turbo clusters                      |
 | `cluster_version`        | ❌       | API latest | Kubernetes version, auto-select latest if omitted                     |
@@ -243,7 +249,7 @@ Before executing any command, confirm the following parameters with the user:
 | `flavor_id`              | ✅       | —          | Node flavor, e.g. `c7.large.2`                                        |
 | `confirm`                | ❌       | `false`    | Danger confirmation flag, required `true` for delete/hibernate/resize |
 
-### 节点池参数
+### Node Pool Parameters
 
 | Parameter          | Required | Default | Description                                     |
 | ------------------ | -------- | ------- | ----------------------------------------------- |
@@ -255,7 +261,7 @@ Before executing any command, confirm the following parameters with the user:
 | `root_volume_size` | ❌       | `40`    | Root disk size (GB)                             |
 | `data_volume_size` | ❌       | `100`   | Data disk size (GB)                             |
 
-### 其他参数
+### Other Parameters
 
 | Parameter  | Required | Default | Description                                        |
 | ---------- | -------- | ------- | -------------------------------------------------- |

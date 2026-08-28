@@ -66,17 +66,64 @@ Use `python3 scripts/huawei-cloud.py help` to print the available actions and re
 
 ## Parameters And Collection Scope
 
+### Input Parameter Validation
+Required parameters must be provided before execution. A required `cluster_id`, or an optional `cluster_id` supplied by the user, must pass the following validation before any cluster-targeted request. Query tools may query the region globally only when their optional `cluster_id` is omitted:
+1. Check whether `cluster_id` is a standard UUID:
+   - UUID: call `hcloud CCE ShowCluster` to verify it.
+   - Otherwise: call `hcloud CCE ListClusters`, perform an exact and unique name match, convert it to a UUID, then call `ShowCluster` to verify it.
+If a required `cluster_id` is missing, or any supplied `cluster_id` is invalid, unmatched, or ambiguous, stop the operation and require the user to provide the correct region and cluster ID. A supplied invalid `cluster_id` must never fall back to a global query; never guess or select a cluster. For any other required resource identifier, first use the corresponding read-only query tool to list candidates when the user cannot provide an unambiguous value, then ask the user to choose; never select a candidate automatically.
+
+### Input Parameters
+
+| Parameter | Required | Description |
+| --- | --- | --- |
+| `region` | Yes | Region from request context or `HW_REGION_NAME`; otherwise ask the user. |
+| `cluster_id` | Operation-specific | Target CCE cluster UUID, or an exact cluster name resolved and verified through hcloud. Required for Pod, LogConfig, audit, control-plane, and application-log operations. |
+| `project_id` | Optional | Target project ID. Required by some `kubectl cce` paths; explicit credentials or hcloud profile may supply it where supported. |
+| `namespace`, `pod_name`, `container` | Operation-specific | Pod stdout queries require both `namespace` and `pod_name`; `container` narrows a multi-container Pod. |
+| `logconfig_name`, `access_config_id`, `access_config_name` | Operation-specific | Application-log query and analysis require exactly one user-selected collection-rule identifier. |
+| `log_group_id`, `log_stream_id` | Create only | User-selected LTS destination IDs for LogConfig or LTS Access Config creation. |
+| `hours`, `start_time`, `end_time` | Optional | Narrow bounded query window; start with `hours=1` when the user has not specified a window. |
+| `keywords` | Optional | LTS keyword filter. Do not use it for an unscoped abnormal-ratio analysis unless the user requests keyword-scoped analysis. |
+| `limit`, `max_pages`, `auto_paginate`, `sample_limit` | Optional | Result and analysis bounds; expand only when the initial result is insufficient. |
+| `--cli-access-key`, `--cli-secret-key`, `--cli-security-token` | Optional | Explicit credentials forwarded unchanged to hcloud and `kubectl cce`. |
+
+### Tool Parameters
+
+| Tool | Required | Optional |
+| --- | --- | --- |
+| `huawei_get_pod_stdout_logs` | `region`, `cluster_id`, `namespace`, `pod_name` | `container`, `previous`, `tail_lines` |
+| `huawei_analyze_pod_stdout_realtime_logs` | `region`, `cluster_id`, `namespace`, `pod_name` | `container`, `wait_seconds`, `tail_lines` |
+| `huawei_get_cce_logconfigs` | `region`, `cluster_id` | `namespace`, `project_id` |
+| `huawei_list_lts_access_configs` | `region` | `access_config_name` |
+| `huawei_query_application_logs` | `region`, `cluster_id`, one of `logconfig_name`, `access_config_id`, or `access_config_name` | `hours`, `start_time`, `end_time`, `keywords`, `auto_paginate`, `max_pages`, `limit` |
+| `huawei_analyze_application_logs` | `region`, `cluster_id`, one of `logconfig_name`, `access_config_id`, or `access_config_name` | Query options plus `sample_limit` |
+| `huawei_query_cce_audit_logs` | `region`, `cluster_id` | `audit_type`, `pod_name`, `resource_name`, `namespace`, `hours`, `start_time`, `end_time` |
+| `huawei_analyze_cce_audit_timeline` | `region`, `cluster_id` | `resource_name`, `resources`, `namespace`, `verbs`, `hours`, `timeline_limit`, `include_read_events` |
+| `huawei_query_kube_apiserver_logs` | `region`, `cluster_id` | `hours`, `start_time`, `end_time`, `keywords`, `limit`, `max_pages`, `auto_paginate` |
+| `huawei_analyze_kube_apiserver_logs` | `region`, `cluster_id` | `hours`, `slow_latency_ms`, `limit`, `max_pages`, `auto_paginate`, `sample_limit` |
+| `huawei_query_kube_scheduler_logs` | `region`, `cluster_id` | `hours`, `start_time`, `end_time`, `keywords`, `limit`, `max_pages`, `auto_paginate` |
+| `huawei_analyze_kube_scheduler_logs` | `region`, `cluster_id` | `hours`, `limit`, `max_pages`, `auto_paginate`, `sample_limit` |
+
+| Tool | Required | Optional | Notes |
+| --- | --- | --- | --- |
+| `huawei_create_cce_logconfig` | `region`, `cluster_id`, `logconfig_name`, `source_type` | Source-specific selector or file fields, destination IDs, `update_existing`, `confirm` | A confirmed create requires the source-specific selector/file fields and user-selected `log_group_id` plus `log_stream_id`. |
+| `huawei_delete_cce_logconfig` | `region`, `cluster_id`, `logconfig_name` | `logconfig_namespace`, `confirm` | Preview the exact rule before confirmation. |
+| `huawei_create_lts_access_config` | `region`, `access_config_name` | `access_config_type`, collection-source fields, destination IDs, `confirm` | A confirmed create requires collection-source fields and user-selected `log_group_id` plus `log_stream_id`. |
+| `huawei_delete_lts_access_config` | `region`, `access_config_id` | `confirm` | Preview the exact rule before confirmation. |
+
+### Collection Scope
+
 Use the parameter that controls the collection source, not the namespace where a LogConfig object is stored.
 
 | Collection mode | Namespace parameter | Scope |
-|---|---|---|
+| --- | --- | --- |
 | CCE LogConfig, one workload stdout or container file | `workload_namespace` (or `namespace`) with `workload_name`/`app_name` | One workload in one namespace. |
 | CCE LogConfig, all container stdout in selected namespaces | `all_containers=true` and `namespaces='["default"]'` | All container stdout in the listed namespaces. Use a JSON array or `default,kube-system`; `[default]` is invalid. Omit `namespaces` only when all namespaces are intended. |
 | LTS Access Config, `K8S_CCE` container stdout or file | `namespace_regex`, for example `^default$` | Namespace regex; `pod_name_regex` is also required. |
 | Node file collection | None | `host_file` applies to all eligible nodes in the bound host group. Namespace filtering does not apply. |
 
-For `huawei_get_pod_stdout_logs` and `huawei_analyze_pod_stdout_realtime_logs`, both `pod_name` and `namespace` are required. Do not infer the namespace or
-fall back to `default`.
+For `huawei_get_pod_stdout_logs` and `huawei_analyze_pod_stdout_realtime_logs`, both `pod_name` and `namespace` are required. Do not infer the namespace or fall back to `default`.
 
 `logconfig_namespace` is only the Kubernetes namespace that stores the LogConfig custom resource, normally `kube-system`; it does not limit which application logs are collected. Review the previewed `request_body` before confirmation.
 

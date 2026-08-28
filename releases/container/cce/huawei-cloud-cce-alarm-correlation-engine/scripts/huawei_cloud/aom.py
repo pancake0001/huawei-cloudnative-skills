@@ -2056,7 +2056,7 @@ def cleanup_cce_aom_alarm_rules(
         if not rule_name:
             failed.append({"rule": rule, "reason": "missing rule_name"})
             continue
-        result = delete_aom_alarm_rule(region, rule_name, confirm=True, ak=ak, sk=sk, project_id=project_id)
+        result = delete_aom_alarm_rule(region, rule_name=rule_name, confirm=True, ak=ak, sk=sk, project_id=project_id)
         entry = {"rule_name": rule_name, "kind": rule.get("rule_type"), "rule_id": rule.get("rule_id"), "result": result}
         if result.get("success"):
             deleted.append(entry)
@@ -2096,20 +2096,63 @@ def cleanup_cce_aom_alarm_rules(
     }
 
 
+def _resolve_aom_alarm_rule_identifier(
+    region: str,
+    rule_name: Optional[str],
+    rule_id: Optional[str],
+    ak: Optional[str],
+    sk: Optional[str],
+    project_id: Optional[str],
+) -> Dict[str, Any]:
+    """Resolve a supplied rule name or ID to one AOM alarm rule."""
+    if not rule_name and not rule_id:
+        return {"success": False, "error": "one of rule_name or rule_id is required"}
+
+    result = list_aom_alarm_rules(region, ak, sk, project_id, limit=200, offset=0)
+    if not result.get("success"):
+        return {"success": False, "error": f"Unable to list AOM alarm rules for identifier resolution: {result.get('error', '')}"}
+
+    rules = result.get("rules") or []
+    name_matches = [rule for rule in rules if rule_name and rule.get("rule_name") == rule_name]
+    id_matches = [rule for rule in rules if rule_id and str(rule.get("rule_id")) == str(rule_id)]
+    if rule_name and rule_id:
+        matches = [rule for rule in name_matches if str(rule.get("rule_id")) == str(rule_id)]
+        if not matches:
+            return {"success": False, "error": f"rule_name '{rule_name}' and rule_id '{rule_id}' do not identify the same AOM alarm rule"}
+    else:
+        matches = name_matches or id_matches
+
+    if not matches:
+        identifier = f"rule_name '{rule_name}'" if rule_name else f"rule_id '{rule_id}'"
+        return {"success": False, "error": f"AOM alarm rule not found for {identifier}"}
+    if len(matches) > 1:
+        identifier = f"rule_name '{rule_name}'" if rule_name else f"rule_id '{rule_id}'"
+        return {"success": False, "error": f"{identifier} matched multiple AOM alarm rules; provide both rule_name and rule_id"}
+
+    rule = matches[0]
+    resolved_name = rule.get("rule_name")
+    resolved_id = rule.get("rule_id")
+    if not resolved_name or not resolved_id:
+        return {"success": False, "error": "Resolved AOM alarm rule is missing rule_name or rule_id"}
+    return {"success": True, "rule_name": str(resolved_name), "rule_id": str(resolved_id), "raw": rule.get("raw") or {}}
+
+
 def update_aom_alarm_rule(
     region: str,
-    rule_name: str,
+    rule_name: Optional[str],
+    rule_id: Optional[str],
     updates: Dict[str, Any],
     confirm: bool = False,
     ak: Optional[str] = None,
     sk: Optional[str] = None,
     project_id: Optional[str] = None,
 ) -> Dict[str, Any]:
-    existing = _existing_alarm_rule(region, rule_name, None, ak, sk, project_id)
-    if not existing:
-        return {"success": False, "error": f"Alarm rule not found: {rule_name}"}
+    resolved = _resolve_aom_alarm_rule_identifier(region, rule_name, rule_id, ak, sk, project_id)
+    if not resolved.get("success"):
+        return resolved
 
-    raw = copy.deepcopy(existing.get("raw") or {})
+    rule_name = resolved["rule_name"]
+    raw = copy.deepcopy(resolved["raw"])
     body = {
         "alarm_rule_name": raw.get("alarm_rule_name") or rule_name,
         "alarm_rule_type": raw.get("alarm_rule_type"),
@@ -2185,12 +2228,17 @@ def update_aom_alarm_rule(
 
 def delete_aom_alarm_rule(
     region: str,
-    rule_name: str,
+    rule_name: Optional[str] = None,
+    rule_id: Optional[str] = None,
     confirm: bool = False,
     ak: Optional[str] = None,
     sk: Optional[str] = None,
     project_id: Optional[str] = None,
 ) -> Dict[str, Any]:
+    resolved = _resolve_aom_alarm_rule_identifier(region, rule_name, rule_id, ak, sk, project_id)
+    if not resolved.get("success"):
+        return resolved
+    rule_name = resolved["rule_name"]
     params = [("alarm_rules.1", rule_name)]
     if not confirm:
         return _preview("DeleteMetricOrEventAlarmRule", region, params, "HIGH", "Preview only. Add confirm=true to delete the AOM alarm rule through hcloud.")
@@ -2199,22 +2247,28 @@ def delete_aom_alarm_rule(
     return result
 
 
-def _find_rule_by_id(region: str, rule_id: str, ak: Optional[str], sk: Optional[str], project_id: Optional[str]) -> Optional[Dict[str, Any]]:
-    result = list_aom_alarm_rules(region, ak, sk, project_id, limit=200, offset=0)
-    for item in result.get("rules", []):
-        raw = item.get("raw", {})
-        if str(item.get("rule_id")) == str(rule_id):
-            return raw
-    return None
-
-
-def _set_alarm_rule_enabled(region: str, rule_id: str, enabled: bool, confirm: bool, ak: Optional[str], sk: Optional[str], project_id: Optional[str]) -> Dict[str, Any]:
+def _set_alarm_rule_enabled(
+    region: str,
+    rule_name: Optional[str],
+    rule_id: Optional[str],
+    enabled: bool,
+    confirm: bool,
+    ak: Optional[str],
+    sk: Optional[str],
+    project_id: Optional[str],
+) -> Dict[str, Any]:
+    resolved = _resolve_aom_alarm_rule_identifier(region, rule_name, rule_id, ak, sk, project_id)
+    if not resolved.get("success"):
+        return resolved
+    rule_name = resolved["rule_name"]
+    rule_id = resolved["rule_id"]
     if not confirm:
         action = "enable" if enabled else "disable"
         return {
             "success": True,
             "action": f"{action}_aom_alarm_rule",
             "region": region,
+            "rule_name": rule_name,
             "rule_id": rule_id,
             "risk": "HIGH" if not enabled else "MEDIUM",
             "confirm_required": True,
@@ -2223,9 +2277,7 @@ def _set_alarm_rule_enabled(region: str, rule_id: str, enabled: bool, confirm: b
             "message": f"Preview only. Add confirm=true to {action} the AOM alarm rule through hcloud.",
         }
 
-    rule = _find_rule_by_id(region, rule_id, ak, sk, project_id)
-    if not rule:
-        return {"success": False, "error": f"Alarm rule not found by rule_id={rule_id}"}
+    rule = resolved["raw"]
     resolved_project_id = resolve_project_id_for_region(region, ak, sk, project_id)
     if not resolved_project_id:
         return {
@@ -2260,12 +2312,28 @@ def _set_alarm_rule_enabled(region: str, rule_id: str, enabled: bool, confirm: b
     return result
 
 
-def disable_aom_alarm_rule(region: str, rule_id: str, confirm: bool = False, ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None) -> Dict[str, Any]:
-    return _set_alarm_rule_enabled(region, rule_id, False, confirm, ak, sk, project_id)
+def disable_aom_alarm_rule(
+    region: str,
+    rule_name: Optional[str] = None,
+    rule_id: Optional[str] = None,
+    confirm: bool = False,
+    ak: Optional[str] = None,
+    sk: Optional[str] = None,
+    project_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    return _set_alarm_rule_enabled(region, rule_name, rule_id, False, confirm, ak, sk, project_id)
 
 
-def enable_aom_alarm_rule(region: str, rule_id: str, confirm: bool = False, ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None) -> Dict[str, Any]:
-    return _set_alarm_rule_enabled(region, rule_id, True, confirm, ak, sk, project_id)
+def enable_aom_alarm_rule(
+    region: str,
+    rule_name: Optional[str] = None,
+    rule_id: Optional[str] = None,
+    confirm: bool = False,
+    ak: Optional[str] = None,
+    sk: Optional[str] = None,
+    project_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    return _set_alarm_rule_enabled(region, rule_name, rule_id, True, confirm, ak, sk, project_id)
 
 
 def list_aom_action_rules(region: str, ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None, enterprise_project_id: Optional[str] = None) -> Dict[str, Any]:
