@@ -10,9 +10,6 @@ tags: [huawei-cloud, cce, kubectl, pod, diagnosis]
 
 # Huawei Cloud CCE Pod Failure Diagnoser
 
-## Cluster Target Gate
-For any operation that targets CCE resources inside a cluster, require `region` and `cluster_id` before invoking a downstream tool or command. Validate that the cluster ID is a standard UUID, or resolve an exact cluster name to one existing UUID in the supplied region. If either value is missing, invalid, or cannot be resolved, stop and ask the user for the correct region and cluster ID. Do not continue with an unscoped, region-wide, or all-namespaces fallback.
-
 ## Overview
 
 This skill diagnoses single-resource Pod failures in Huawei Cloud CCE clusters through the Huawei Cloud `hcloud` CLI and Kubernetes `kubectl`.
@@ -50,17 +47,26 @@ recommendations only.
 
 ## Parameters
 
+### Input Parameter Validation
+This skill requires both `region` and `cluster_id` before diagnosis. It never performs a region-wide fallback. The supplied `cluster_id` must pass the following validation before any downstream query:
+1. Check whether `cluster_id` is a standard UUID:
+   - UUID: call `hcloud CCE ShowCluster` to verify it.
+   - Otherwise: call `hcloud CCE ListClusters`, perform an exact and unique name match, convert it to a UUID, then call `ShowCluster` to verify it.
+If a required `cluster_id` is missing, or any supplied `cluster_id` is invalid, unmatched, or ambiguous, stop the operation and require the user to provide the correct region and cluster ID. A supplied invalid `cluster_id` must never fall back to a global query; never guess or select a cluster. For any other required resource identifier, first use the corresponding read-only query tool to list candidates when the user cannot provide an unambiguous value, then ask the user to choose; never select a candidate automatically.
+
+### Input Parameters
+
 Collect these values before diagnosis:
 
-| Input           | Required  | Notes                                                                       |
-| --------------- | --------- | --------------------------------------------------------------------------- |
-| `region`        | Yes       | Request context or `HW_REGION_NAME`; otherwise ask the user                                                       |
-| `project_id`    | Usually   | Include when hcloud operation requires it or multiple projects are possible |
-| `cluster_id`    | Preferred | If absent, find it with `ListClusters`                                      |
-| `namespace`     | Yes       | Kubernetes namespace                                                        |
-| `pod_name`      | Preferred | Target Pod name                                                             |
-| `workload_name` | Optional  | Use to derive the Pod selector when Pod name is unknown                     |
-| `selector`      | Optional  | Kubernetes label selector, for example `app=my-app`                         |
+| Input | Required | Notes |
+| --- | --- | --- |
+| `region` | Yes | Request context or `HW_REGION_NAME`; otherwise ask the user. |
+| `project_id` | Operation-specific | Resolve through hcloud or active credentials when needed; ask the user only when the target project cannot be determined. |
+| `cluster_id` | Yes | Target CCE cluster UUID, or an exact cluster name resolved and verified through hcloud. |
+| `namespace` | Yes | Kubernetes namespace. |
+| `pod_name` | Preferred | Target Pod name. |
+| `workload_name` | Optional | Use to derive the Pod selector when Pod name is unknown. |
+| `selector` | Optional | Kubernetes label selector, for example `app=my-app`. |
 
 ## Region Selection
 

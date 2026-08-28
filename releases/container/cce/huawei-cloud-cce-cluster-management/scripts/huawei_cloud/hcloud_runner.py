@@ -220,6 +220,13 @@ def resolve_cce_cluster_id(ctx: CredentialCtx, region: str, value: str) -> Dict[
     if len(matches) == 1:
         cluster_id = (matches[0].get("metadata") or {}).get("uid")
         if _STANDARD_UUID_RE.fullmatch(cluster_id or ""):
+            verification = run(ctx, region, "CCE", "ShowCluster", {"cluster_id": cluster_id})
+            if not verification.get("success"):
+                return {
+                    "success": False,
+                    "error": f"Unable to verify CCE cluster resolved from name '{value}': {verification.get('error', '')}",
+                    "cluster_id": cluster_id,
+                }
             return {"success": True, "id": cluster_id, "resolved_from_name": True}
     if len(matches) > 1:
         return {"success": False, "error": f"cluster_id '{value}' matched multiple CCE clusters; provide a standard UUID"}

@@ -90,7 +90,23 @@ def resolve_cce_cluster_id(
         return {"success": False, "error": f"Unable to list CCE clusters for cluster_id resolution: {result.get('error', '')}"}
     matches = [cluster for cluster in result.get("clusters", []) if cluster.get("name") == value]
     if len(matches) == 1 and is_standard_uuid(matches[0].get("id")):
-        return {"success": True, "id": matches[0]["id"], "resolved_from_name": True}
+        cluster_id = matches[0]["id"]
+        verification = run_hcloud(
+            "CCE",
+            "ShowCluster",
+            region,
+            {"cluster_id": cluster_id, "project_id": project_id},
+            ak=ak,
+            sk=sk,
+            project_id=project_id,
+        )
+        if not verification.get("success"):
+            return {
+                "success": False,
+                "error": f"Unable to verify CCE cluster resolved from name '{value}': {verification.get('error', '')}",
+                "cluster_id": cluster_id,
+            }
+        return {"success": True, "id": cluster_id, "resolved_from_name": True}
     if len(matches) > 1:
         return {"success": False, "error": f"cluster_id '{value}' matched multiple CCE clusters; provide a standard UUID"}
     return {"success": False, "error": f"cluster_id must be a standard UUID. No CCE cluster named '{value}' was found"}

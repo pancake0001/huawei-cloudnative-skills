@@ -11,9 +11,6 @@ version: 1.0.0
 
 # Huawei Cloud CCE Metric Analyzer
 
-## Cluster Target Gate
-For any operation that targets CCE resources inside a cluster, require `region` and `cluster_id` before invoking a downstream tool or command. Validate that the cluster ID is a standard UUID, or resolve an exact cluster name to one existing UUID in the supplied region. If either value is missing, invalid, or cannot be resolved, stop and ask the user for the correct region and cluster ID. Do not continue with an unscoped, region-wide, or all-namespaces fallback.
-
 ## Overview
 
 Query and analyze metrics for CCE clusters (Pod/Node CPU/memory/disk) and cloud resources (ECS, ELB, EIP, NAT). Supports threshold-based anomaly detection,
@@ -297,6 +294,13 @@ This skill is read-only. It does not create, update, delete, restart, scale, or 
 
 ## Parameter Reference
 
+### Input Parameter Validation
+Required parameters must be provided before execution. A required `cluster_id`, or an optional `cluster_id` supplied by the user, must pass the following validation before any cluster-targeted request. Query tools may query the region globally only when their optional `cluster_id` is omitted:
+1. Check whether `cluster_id` is a standard UUID:
+   - UUID: call `hcloud CCE ShowCluster` to verify it.
+   - Otherwise: call `hcloud CCE ListClusters`, perform an exact and unique name match, convert it to a UUID, then call `ShowCluster` to verify it.
+If a required `cluster_id` is missing, or any supplied `cluster_id` is invalid, unmatched, or ambiguous, stop the operation and require the user to provide the correct region and cluster ID. A supplied invalid `cluster_id` must never fall back to a global query; never guess or select a cluster. For any other required resource identifier, first use the corresponding read-only query tool to list candidates when the user cannot provide an unambiguous value, then ask the user to choose; never select a candidate automatically.
+
 ### Common Parameters
 
 | Parameter    | Required/Optional | Description                                                  | Default               |
@@ -494,7 +498,3 @@ See [Output Schema](references/output-schema.md) for the JSON response structure
 ## x509 TLS Retry
 
 If a `kubectl cce` command returns an `x509` certificate-validation error, repeat the same command with `--cce-insecure-upstream-tls=true` immediately after `cce`. For example: `kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> ...`. Use this option only when that TLS validation error occurs.
-
-## Cluster ID Input
-
-`cluster_id` must use a standard UUID. A UUID is verified with `CCE ShowCluster` before the requested operation. If the input is not a standard UUID, first list CCE clusters and perform an exact cluster-name match; convert the name to its UUID only when there is one match. If there is no match or more than one match, require the user to provide a UUID. Never guess or arbitrarily select a cluster. Cloud metric tools follow the same UUID-or-exact-name rule for `instance_id`, `elb_id`, and `nat_gateway_id`; `eip_id` also accepts an exact public IP address because it has no independent resource-name field.

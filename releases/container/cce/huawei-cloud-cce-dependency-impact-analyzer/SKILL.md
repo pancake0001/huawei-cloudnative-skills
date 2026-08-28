@@ -10,9 +10,6 @@ tags: [huawei-cloud, cce, kubectl, dependency, impact]
 
 # Huawei Cloud CCE Dependency Impact Analyzer
 
-## Cluster Target Gate
-For any operation that targets CCE resources inside a cluster, require `region` and `cluster_id` before invoking a downstream tool or command. Validate that the cluster ID is a standard UUID, or resolve an exact cluster name to one existing UUID in the supplied region. If either value is missing, invalid, or cannot be resolved, stop and ask the user for the correct region and cluster ID. Do not continue with an unscoped, region-wide, or all-namespaces fallback.
-
 ## Overview
 
 Map CCE service topology and estimate incident blast radius. Explain how an unhealthy workload or Pod set can affect Services, EndpointSlices, Ingress
@@ -51,16 +48,26 @@ imports.
 
 ## Parameters
 
-| Input             | Required    | Notes                                                        |
-| ----------------- | ----------- | ------------------------------------------------------------ |
-| `region`          | Yes         | Request context or `HW_REGION_NAME`; otherwise ask the user                                        |
-| `project_id`      | Yes         | Pass explicitly to hcloud and kubectl-cce                    |
-| `cluster_id`      | Preferred   | Resolve by name with hcloud if absent                        |
-| `namespace`       | Recommended | Target namespace; use cluster-wide scope only when necessary |
-| `target_name`     | Recommended | Workload, Service, Pod, Ingress, or stable app label value   |
-| `label_selector`  | Optional    | Prefer an explicit selector over name-prefix matching        |
-| `failure_symptom` | Optional    | User-visible failure or suspected affected path              |
-| `fault_time`      | Recommended | Correlates topology with observability evidence              |
+### Input Parameter Validation
+This skill requires both `region` and `cluster_id` before analysis. It never performs a region-wide fallback. The supplied `cluster_id` must pass the following validation before any downstream query:
+1. Check whether `cluster_id` is a standard UUID:
+   - UUID: call `hcloud CCE ShowCluster` to verify it.
+   - Otherwise: call `hcloud CCE ListClusters`, perform an exact and unique name match, convert it to a UUID, then call `ShowCluster` to verify it.
+If a required `cluster_id` is missing, or any supplied `cluster_id` is invalid, unmatched, or ambiguous, stop the operation and require the user to provide the correct region and cluster ID. A supplied invalid `cluster_id` must never fall back to a global query; never guess or select a cluster. For any other required resource identifier, first use the corresponding read-only query tool to list candidates when the user cannot provide an unambiguous value, then ask the user to choose; never select a candidate automatically.
+
+### Input Parameters
+
+| Parameter | Required | Description |
+| --- | --- | --- |
+| `region` | Yes | Region from request context or `HW_REGION_NAME`; otherwise ask the user. |
+| `project_id` | Yes | Huawei Cloud project ID, passed to hcloud and `kubectl cce`. |
+| `cluster_id` | Yes | Target CCE cluster UUID, or an exact cluster name resolved and verified through hcloud. |
+| `namespace` | Optional | Target namespace. Provide it whenever known to bound collection; omit only for an explicitly cluster-wide incident. |
+| `target_name` / `service_name` / `workload_name` / `pod_name` | Recommended | Affected object used to seed topology and blast-radius matching. |
+| `label_selector` | Optional | Preferred precise selector for target Pod and Service matching. |
+| `fault_time`, `hours`, `start_time`, `end_time` | Recommended | Incident time anchor or bounded analysis window for evidence correlation. |
+| `--cli-access-key`, `--cli-secret-key` | Optional | Explicit AK/SK used for every downstream hcloud and `kubectl cce` call. |
+| `--cli-security-token` | Optional | STS security token paired with explicit AK/SK. |
 
 ## Region Selection
 

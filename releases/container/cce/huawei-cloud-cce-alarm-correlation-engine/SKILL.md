@@ -352,6 +352,12 @@ This skill includes read-only query tools and mutation tools. Mutation tools mus
 
 ## Parameter Reference
 
+### Input Parameter Validation
+Required parameters must be provided before execution. A required `cluster_id`, or an optional `cluster_id` supplied by the user, must pass the following validation before any AOM request. Query tools may query the region globally only when their optional `cluster_id` is omitted:
+1. Check whether `cluster_id` is a standard UUID:
+   - UUID: call `hcloud CCE ShowCluster` to verify it.
+   - Otherwise: call `hcloud CCE ListClusters`, perform an exact and unique name match, convert it to a UUID, then call `ShowCluster` to verify it.
+If a required `cluster_id` is missing, or any supplied `cluster_id` is invalid, unmatched, or ambiguous, stop the operation and require the user to provide the correct region and cluster ID. A supplied invalid `cluster_id` must never fall back to a global query; never guess or select a cluster. For other required resource identifiers, including alarm-rule, notification action-rule, mute-rule, and Prometheus-instance names or IDs, first use the corresponding read-only query tool to list candidates when the user cannot provide an unambiguous value, then ask the user to choose; never select a candidate automatically.
 ### Common Parameters
 
 | Parameter                               | Required/Optional | Description                                            | Default                                    |
@@ -379,15 +385,15 @@ This skill includes read-only query tools and mutation tools. Mutation tools mus
 | Tool                                         | Required                                                                   | Notes                                                                                                                           |
 | -------------------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | `huawei_list_aom_alarm_rules`                | `region`                                                                   | Optional `cluster_id`; no `cluster_name` filtering                                                                              |
-| `huawei_create_aom_alarm_rule`               | `region`                                                                   | Template mode: `cluster_id`, `alarm_item`; manual mode: metric fields. Confirmed execution requires `bind_notification_rule_id` |
+| `huawei_create_aom_alarm_rule`               | `region`, `cluster_id`                                                     | Template mode: `alarm_item`; manual mode: metric fields. Confirmed execution requires `bind_notification_rule_id`               |
 | `huawei_create_aom_event_alarm_rule`         | `region`, `cluster_id`, `event_name`                                       | R2; confirmed execution requires `bind_notification_rule_id`; optional `rule_name` overrides template naming                    |
 | `huawei_create_aom_notification_action_rule` | `region`, `rule_name`, `notification_topic_urn`, `notification_topic_name` | R2; user must provide the topic                                                                                                 |
 | `huawei_configure_cce_aom_alarm_rules`       | `region`, `cluster_id`, `bind_notification_rule_id`                        | R2; user must explicitly choose the notification rule                                                                           |
 | `huawei_cleanup_cce_aom_alarm_rules`         | `region`, `cluster_id`                                                     | R0; optional `delete_auto_notification_rule=true`                                                                               |
-| `huawei_update_aom_alarm_rule`               | `region`, `rule_name`                                                      | R1; update fields are tool-specific                                                                                             |
-| `huawei_delete_aom_alarm_rule`               | `region`, `rule_name`                                                      | R0                                                                                                                              |
-| `huawei_disable_aom_alarm_rule`              | `region`, `rule_id`                                                        | R1                                                                                                                              |
-| `huawei_enable_aom_alarm_rule`               | `region`, `rule_id`                                                        | R2                                                                                                                              |
+| `huawei_update_aom_alarm_rule`               | `region`, one of `rule_name` or `rule_id`                                  | R1; update fields are tool-specific                                                                                             |
+| `huawei_delete_aom_alarm_rule`               | `region`, one of `rule_name` or `rule_id`                                  | R0                                                                                                                              |
+| `huawei_disable_aom_alarm_rule`              | `region`, one of `rule_name` or `rule_id`                                  | R1                                                                                                                              |
+| `huawei_enable_aom_alarm_rule`               | `region`, one of `rule_name` or `rule_id`                                  | R2                                                                                                                              |
 
 ## Output Format
 
@@ -492,8 +498,3 @@ Mutation verification:
 | [Acceptance Criteria](references/acceptance-criteria.md)               | Skill acceptance criteria and test cases                                                 |
 | [CCE Event List](references/cce-event-list.md)                         | CCE event names for event alarm rules                                                    |
 | [Prometheus Metric Alarms](references/cce-prometheus-metric-alarms.md) | Prometheus metric alarm references                                                       |
-
-
-## Cluster ID Input
-
-For any cluster-targeted AOM operation, `cluster_id` and `region` are required. A UUID is verified with `hcloud CCE ShowCluster` before any AOM query or mutation. If the input is not a standard UUID, first list CCE clusters and perform an exact cluster-name match; convert the name to its UUID only when there is one match. If either value is missing, or verification or name matching fails, return the error and do not query AOM. When an invalid `cluster_id` was supplied, never fall back to a region-wide query. Never guess or arbitrarily select a cluster.
