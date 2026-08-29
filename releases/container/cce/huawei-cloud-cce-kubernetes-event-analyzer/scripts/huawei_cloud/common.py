@@ -112,3 +112,14 @@ def redact_command(command: list[str]) -> list[str]:
         else:
             redacted.append(re.sub(r"(--cli-(?:access-key|secret-key|security-token)=).*", r"\1***", part))
     return redacted
+
+
+def redact_command_output(text: str, command: list[str], limit: int = 2000) -> str:
+    """Redact CLI credential values that may be echoed in command diagnostics."""
+    redacted = text or ""
+    for part in command:
+        if part.startswith(("--cli-access-key=", "--cli-secret-key=", "--cli-security-token=")):
+            secret = part.split("=", 1)[1]
+            if secret:
+                redacted = redacted.replace(secret, "***")
+    return redacted[:limit]

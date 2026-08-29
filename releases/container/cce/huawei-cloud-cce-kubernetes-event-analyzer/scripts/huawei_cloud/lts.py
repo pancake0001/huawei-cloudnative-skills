@@ -29,21 +29,42 @@ def _run_hcloud(cmd: list[str]) -> Dict[str, Any]:
         completed = subprocess.run(cmd, text=True, capture_output=True, timeout=75, check=False)
     except FileNotFoundError:
         return {"success": False, "error": "hcloud not found in PATH", "command": safe_cmd}
-    except subprocess.TimeoutExpired:
-        return {"success": False, "error": "hcloud command timed out after 75 seconds", "command": safe_cmd}
-    if completed.returncode:
+    except subprocess.TimeoutExpired as exc:
         return {
             "success": False,
-            "error": (completed.stderr or completed.stdout or f"hcloud exited with code {completed.returncode}")[:2000],
+            "error": "hcloud command timed out after 75 seconds",
             "command": safe_cmd,
+            "returncode": None,
+            "stdout": common.redact_command_output(exc.stdout or "", cmd) if isinstance(exc.stdout, str) else "",
+            "stderr": common.redact_command_output(exc.stderr or "", cmd) if isinstance(exc.stderr, str) else "",
+        }
+    stdout = (completed.stdout or "").strip()
+    stderr = (completed.stderr or "").strip()
+    safe_stdout = common.redact_command_output(stdout, cmd)
+    safe_stderr = common.redact_command_output(stderr, cmd)
+    if completed.returncode:
+        diagnostic = safe_stderr or safe_stdout
+        return {
+            "success": False,
+            "error": f"hcloud exited with code {completed.returncode}: {diagnostic}" if diagnostic else f"hcloud exited with code {completed.returncode}",
+            "command": safe_cmd,
+            "returncode": completed.returncode,
+            "stdout": safe_stdout,
+            "stderr": safe_stderr,
+            "raw_error": diagnostic or None,
         }
     try:
-        return {"success": True, "data": _parse_hcloud_json(completed.stdout)}
+        return {"success": True, "data": _parse_hcloud_json(stdout), "command": safe_cmd, "returncode": completed.returncode}
     except (ValueError, json.JSONDecodeError) as exc:
+        diagnostic = safe_stderr or safe_stdout
         return {
             "success": False,
-            "error": f"hcloud response parsing failed: {exc}",
+            "error": f"hcloud returned non-JSON output: {diagnostic}" if diagnostic else f"hcloud response parsing failed: {exc}",
             "command": safe_cmd,
+            "returncode": completed.returncode,
+            "stdout": safe_stdout,
+            "stderr": safe_stderr,
+            "raw_error": diagnostic or None,
         }
 
 

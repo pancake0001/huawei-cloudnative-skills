@@ -214,28 +214,40 @@ def run_hcloud(
         proc = subprocess.run(cmd, text=True, capture_output=True, timeout=timeout)
     except FileNotFoundError:
         return {"success": False, "error": "hcloud CLI not found in PATH", "command": safe_cmd}
-    except subprocess.TimeoutExpired:
-        return {"success": False, "error": f"hcloud command timed out after {timeout}s", "command": safe_cmd}
+    except subprocess.TimeoutExpired as exc:
+        return {
+            "success": False,
+            "error": f"hcloud command timed out after {timeout}s",
+            "command": safe_cmd,
+            "returncode": None,
+            "stdout": _redact_text((exc.stdout or "") if isinstance(exc.stdout, str) else "", access_key, secret_key, security_token)[:2000],
+            "stderr": _redact_text((exc.stderr or "") if isinstance(exc.stderr, str) else "", access_key, secret_key, security_token)[:2000],
+        }
 
     stdout = proc.stdout.strip()
     stderr = proc.stderr.strip()
+    safe_stdout = _redact_text(stdout, access_key, secret_key, security_token)[:2000]
+    safe_stderr = _redact_text(stderr, access_key, secret_key, security_token)[:2000]
     if proc.returncode != 0:
-        message = stderr or stdout or f"hcloud exited with code {proc.returncode}"
-        message = _redact_text(message, access_key, secret_key, security_token)
-        return {"success": False, "error": message, "command": safe_cmd, "returncode": proc.returncode}
+        diagnostic = safe_stderr or safe_stdout
+        message = f"hcloud exited with code {proc.returncode}: {diagnostic}" if diagnostic else f"hcloud exited with code {proc.returncode}"
+        return {"success": False, "error": message, "raw_error": diagnostic or None, "stdout": safe_stdout, "stderr": safe_stderr, "command": safe_cmd, "returncode": proc.returncode}
 
     data, parse_error = _parse_hcloud_json_output(stdout)
     if parse_error:
-        combined_output = "\n".join(item for item in [stdout, stderr] if item)
+        combined_output = "\n".join(item for item in [safe_stdout, safe_stderr] if item)
         return {
             "success": False,
-            "error": f"hcloud returned non-JSON output: {parse_error}",
-            "output": _redact_text(combined_output[:2000], access_key, secret_key, security_token),
+            "error": f"hcloud returned non-JSON output: {combined_output}" if combined_output else f"hcloud returned non-JSON output: {parse_error}",
+            "raw_error": combined_output or None,
+            "stdout": safe_stdout,
+            "stderr": safe_stderr,
+            "output": combined_output,
             "command": safe_cmd,
             "returncode": proc.returncode,
         }
 
-    return {"success": True, "data": data, "command": safe_cmd}
+    return {"success": True, "data": data, "command": safe_cmd, "returncode": proc.returncode}
 
 
 def hcloud_show_metric_data(

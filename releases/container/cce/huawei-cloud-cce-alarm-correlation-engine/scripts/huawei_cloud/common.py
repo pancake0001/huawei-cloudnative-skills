@@ -119,6 +119,18 @@ def redact_command(command: Iterable[str]) -> List[str]:
     return redacted
 
 
+def _redact_hcloud_output(text: str, command: Iterable[str], limit: int = 2000) -> str:
+    """Redact CLI credential values that might be echoed by hcloud diagnostics."""
+    redacted = text or ""
+    sensitive_prefixes = ("--cli-access-key=", "--cli-secret-key=", "--cli-security-token=")
+    for item in command:
+        if item.startswith(sensitive_prefixes):
+            secret = item.split("=", 1)[1]
+            if secret:
+                redacted = redacted.replace(secret, "***")
+    return redacted[:limit]
+
+
 def _base_hcloud_command(
     service: str,
     operation: str,
@@ -186,13 +198,36 @@ def _hcloud_success(returncode: int, stdout: str, parsed: Any) -> bool:
 
 
 def _hcloud_error(returncode: int, stdout: str, stderr: str, parsed: Any) -> str:
+    diagnostic = stderr or stdout
     if returncode != 0:
-        return stderr or stdout or f"hcloud exited with code {returncode}"
+        return f"hcloud exited with code {returncode}: {diagnostic}" if diagnostic else f"hcloud exited with code {returncode}"
     if stdout and parsed is None:
-        return "hcloud returned non-JSON output while --cli-output=json was requested"
+        prefix = "hcloud returned non-JSON output while --cli-output=json was requested"
+        return f"{prefix}: {diagnostic}" if diagnostic else prefix
     if isinstance(parsed, dict) and parsed.get("error_msg"):
         return str(parsed.get("error_msg"))
-    return stderr or stdout or f"hcloud exited with code {returncode}"
+    return diagnostic or f"hcloud exited with code {returncode}"
+
+
+def _hcloud_result(completed: subprocess.CompletedProcess[str], command: Iterable[str]) -> Dict[str, Any]:
+    """Normalize one hcloud execution without hiding non-JSON diagnostics."""
+    stdout = (completed.stdout or "").strip()
+    stderr = (completed.stderr or "").strip()
+    safe_stdout = _redact_hcloud_output(stdout, command)
+    safe_stderr = _redact_hcloud_output(stderr, command)
+    parsed = _parse_hcloud_stdout(stdout) if completed.returncode == 0 else None
+    success = _hcloud_success(completed.returncode, stdout, parsed)
+    error = None if success else _hcloud_error(completed.returncode, safe_stdout, safe_stderr, parsed)
+    return {
+        "success": success,
+        "command": redact_command(command),
+        "returncode": completed.returncode,
+        "stdout": safe_stdout,
+        "stderr": safe_stderr,
+        "data": parsed,
+        "error": error,
+        "raw_error": None if success else (safe_stderr or safe_stdout or None),
+    }
 
 
 def run_hcloud(
@@ -220,25 +255,12 @@ def run_hcloud(
             "success": False,
             "command": redact_command(command),
             "returncode": None,
-            "stdout": (exc.stdout or "").strip() if isinstance(exc.stdout, str) else "",
-            "stderr": (exc.stderr or "").strip() if isinstance(exc.stderr, str) else "",
+            "stdout": _redact_hcloud_output((exc.stdout or "").strip(), command) if isinstance(exc.stdout, str) else "",
+            "stderr": _redact_hcloud_output((exc.stderr or "").strip(), command) if isinstance(exc.stderr, str) else "",
             "data": None,
             "error": f"hcloud command timed out after {timeout} seconds",
         }
-    stdout = completed.stdout.strip()
-    stderr = completed.stderr.strip()
-
-    parsed = _parse_hcloud_stdout(stdout)
-    success = _hcloud_success(completed.returncode, stdout, parsed)
-    return {
-        "success": success,
-        "command": redact_command(command),
-        "returncode": completed.returncode,
-        "stdout": stdout,
-        "stderr": stderr,
-        "data": parsed,
-        "error": None if success else _hcloud_error(completed.returncode, stdout, stderr, parsed),
-    }
+    return _hcloud_result(completed, command)
 
 
 def resolve_cce_cluster_id(
@@ -315,8 +337,8 @@ def run_hcloud_json_input(
                 "success": False,
                 "command": redact_command(command),
                 "returncode": None,
-                "stdout": (exc.stdout or "").strip() if isinstance(exc.stdout, str) else "",
-                "stderr": (exc.stderr or "").strip() if isinstance(exc.stderr, str) else "",
+                "stdout": _redact_hcloud_output((exc.stdout or "").strip(), command) if isinstance(exc.stdout, str) else "",
+                "stderr": _redact_hcloud_output((exc.stderr or "").strip(), command) if isinstance(exc.stderr, str) else "",
                 "data": None,
                 "error": f"hcloud command timed out after {timeout} seconds",
             }
@@ -326,19 +348,7 @@ def run_hcloud_json_input(
         except FileNotFoundError:
             pass
 
-    stdout = completed.stdout.strip()
-    stderr = completed.stderr.strip()
-    parsed = _parse_hcloud_stdout(stdout)
-    success = _hcloud_success(completed.returncode, stdout, parsed)
-    return {
-        "success": success,
-        "command": redact_command(command),
-        "returncode": completed.returncode,
-        "stdout": stdout,
-        "stderr": stderr,
-        "data": parsed,
-        "error": None if success else _hcloud_error(completed.returncode, stdout, stderr, parsed),
-    }
+    return _hcloud_result(completed, command)
 
 
 def get_project_id_for_region(region: str, ak: Optional[str] = None, sk: Optional[str] = None) -> Optional[str]:
