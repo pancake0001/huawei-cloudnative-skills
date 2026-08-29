@@ -395,6 +395,8 @@ def dispatch_action(action: str, params: Dict[str, str]) -> Dict[str, Any]:
                 ("eip_id", network.resolve_eip_id),
                 ("nat_gateway_id", network.resolve_nat_gateway_id),
             ):
+                if parameter == "cluster_id" and parameter not in required:
+                    continue
                 if not normalized.get(parameter):
                     continue
                 input_value = normalized[parameter]

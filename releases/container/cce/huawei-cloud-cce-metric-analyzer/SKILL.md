@@ -295,124 +295,14 @@ This skill is read-only. It does not create, update, delete, restart, scale, or 
 ## Parameter Reference
 
 ### Input Parameter Validation
-Required parameters must be provided before execution. A required `cluster_id`, or an optional `cluster_id` supplied by the user, must pass the following validation before any cluster-targeted request. Query tools may query the region globally only when their optional `cluster_id` is omitted:
-1. Check whether `cluster_id` is a standard UUID:
-   - UUID: call `hcloud CCE ShowCluster` to verify it.
-   - Otherwise: call `hcloud CCE ListClusters`, perform an exact and unique name match, convert it to a UUID, then call `ShowCluster` to verify it.
-If a required `cluster_id` is missing, or any supplied `cluster_id` is invalid, unmatched, or ambiguous, stop the operation and require the user to provide the correct region and cluster ID. A supplied invalid `cluster_id` must never fall back to a global query; never guess or select a cluster. For any other required resource identifier, first use the corresponding read-only query tool to list candidates when the user cannot provide an unambiguous value, then ask the user to choose; never select a candidate automatically.
 
-### Common Parameters
+1. **Cluster-scoped metrics:** `huawei_get_cce_pod_metrics_topN`, `huawei_get_cce_pod_metrics`, `huawei_get_cce_pod_gpu_metrics`, `huawei_get_cce_node_metrics_topN`, `huawei_get_cce_node_metrics`, `huawei_get_cce_node_gpu_metrics`, `huawei_get_cce_coredns_metrics`, `huawei_get_cce_nginx_ingress_metrics`, `huawei_get_cce_autoscaler_metrics`, `huawei_get_cce_apiserver_metrics`, `huawei_get_cce_etcd_metrics`, `huawei_get_cce_controller_manager_metrics`, `huawei_get_cce_scheduler_metrics`, and `huawei_cce_cluster_monitoring_aggregation` require `region` and `cluster_id`, plus their tool-specific inputs. Validate `cluster_id` before any downstream query. When it is missing, stop and require the user to provide a cluster ID or cluster name; do not continue with an unscoped query. When a cluster value is supplied:
+   - Standard UUID: call `hcloud CCE ShowCluster` to verify it; non-UUID value: call `hcloud CCE ListClusters`, perform an exact and unique cluster-name match, convert the match to its UUID, and then call `ShowCluster` to verify it.
+   - Invalid, unmatched, or ambiguous value: stop and require the user to provide the correct region and cluster ID; never guess or select a cluster automatically.
+2. **Cloud CES metrics:** `huawei_get_ecs_metrics` requires an explicit `instance_id`; `huawei_get_elb_metrics` requires an explicit `elb_id`; `huawei_get_eip_metrics` requires an explicit `eip_id`; and `huawei_get_nat_gateway_metrics` requires an explicit `nat_gateway_id`. Each also requires `region`, but does not require `cluster_id`. If the required resource ID is missing or invalid, stop and ask the user to provide the correct ID. Never use `hcloud list` to enumerate all cloud resources or poll metrics across resources as a fallback.
+3. **Direct Pod and Node metrics:** `huawei_get_cce_pod_metrics` requires an explicit `pod_name`, and `huawei_get_cce_node_metrics` requires an explicit `node_ip`. If the target is missing, stop and ask the user to provide it. Query the supplied target directly through AOM PromQL; never enumerate Pods or nodes with `kubectl cce` and then poll their metrics. TopN tools are the explicit exception: they rank a cluster-scoped PromQL result in one query and do not poll resources individually.
 
-| Parameter    | Required/Optional | Description                                                  | Default               |
-| ------------ | ----------------- | ------------------------------------------------------------ | --------------------- |
-| `region`     | Required          | Region from request context or explicit user input           | `HW_REGION_NAME`; otherwise prompt |
-| `cluster_id` | Required          | CCE cluster ID                                               | N/A                   |
-| `namespace`  | Recommended       | Kubernetes namespace                                         | `default`             |
-| `ak`         | Optional          | Explicit AK; highest priority for all calls                  | profile/env fallback  |
-| `sk`         | Optional          | Explicit SK; highest priority for all calls                  | profile/env fallback  |
-| `project_id` | Optional          | Explicit Project ID; hcloud uses profile before env fallback | Auto from IAM/profile |
-
-### `huawei_get_cce_pod_metrics_topN` Parameters
-
-| Parameter        | Required | Description                   | Default |
-| ---------------- | -------- | ----------------------------- | ------- |
-| `namespace`      | No       | Namespace filter              | all     |
-| `label_selector` | No       | Label selector (e.g. app=web) | N/A     |
-| `top_n`          | No       | Number of top items           | 10      |
-| `hours`          | No       | Metrics lookback hours        | 1       |
-| `node_ip`        | No       | Filter Pods on specific node  | N/A     |
-| `cpu_query`      | No       | Custom CPU PromQL             | Auto    |
-| `memory_query`   | No       | Custom memory PromQL          | Auto    |
-| `disk_query`     | No       | Custom disk PromQL            | Auto    |
-
-### `huawei_get_cce_pod_metrics` Parameters
-
-| Parameter      | Required | Description            | Default   |
-| -------------- | -------- | ---------------------- | --------- |
-| `pod_name`     | Yes      | Target Pod name        | N/A       |
-| `namespace`    | No       | Namespace              | `default` |
-| `hours`        | No       | Metrics lookback hours | 1         |
-| `cpu_query`    | No       | Custom CPU PromQL      | Auto      |
-| `memory_query` | No       | Custom memory PromQL   | Auto      |
-| `disk_query`   | No       | Custom disk PromQL     | Auto      |
-
-### `huawei_get_cce_pod_gpu_metrics` Parameters
-
-| Parameter      | Required | Description                                                                                            | Default                                    |
-| -------------- | -------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------ |
-| `pod_name`     | Yes      | Target Pod name                                                                                        | N/A                                        |
-| `namespace`    | No       | Target Pod namespace                                                                                   | all                                        |
-| `hours`        | No       | Metrics lookback hours                                                                                 | 1                                          |
-| `gpu_selector` | No       | Custom GPU metric label selector. Use this when GPU metrics do not use the `pod` or `namespace` labels | `pod="<pod_name>",namespace="<namespace>"` |
-
-Optional custom PromQL overrides are supported for GPU utilization, memory, schedule policy, xGPU allocation/usage, and xGPU health metrics.
-
-### `huawei_get_cce_node_metrics_topN` Parameters
-
-| Parameter | Required | Description            | Default |
-| --------- | -------- | ---------------------- | ------- |
-| `top_n`   | No       | Number of top items    | 10      |
-| `hours`   | No       | Metrics lookback hours | 1       |
-
-### `huawei_get_cce_node_metrics` Parameters
-
-| Parameter | Required | Description            | Default |
-| --------- | -------- | ---------------------- | ------- |
-| `node_ip` | Yes      | Target Node IP         | N/A     |
-| `hours`   | No       | Metrics lookback hours | 1       |
-
-### `huawei_get_cce_node_gpu_metrics` Parameters
-
-| Parameter      | Required | Description                                                                             | Default           |
-| -------------- | -------- | --------------------------------------------------------------------------------------- | ----------------- | ------------- |
-| `node_ip`      | Yes      | Target Node IP or node name                                                             | N/A               |
-| `hours`        | No       | Metrics lookback hours                                                                  | 1                 |
-| `gpu_selector` | No       | Custom GPU metric label selector. Use this when GPU metrics do not use the `node` label | `node=~"<node_ip> | <node_name>"` |
-
-Optional custom PromQL overrides are supported for GPU utilization, memory, temperature, power, schedule policy, xGPU allocation/usage, and xGPU health metrics.
-
-### `huawei_get_cce_coredns_metrics` Parameters
-
-| Parameter   | Required | Description                      | Default       |
-| ----------- | -------- | -------------------------------- | ------------- |
-| `namespace` | No       | CoreDNS namespace                | `kube-system` |
-| `pod_regex` | No       | Regex used to match CoreDNS Pods | `.*coredns.*` |
-| `hours`     | No       | Metrics lookback hours           | 1             |
-
-Optional custom PromQL overrides are supported for QPS, error rate, NXDOMAIN rate, P95 latency, CPU, memory, and replica count.
-
-### `huawei_get_cce_nginx_ingress_metrics` Parameters
-
-| Parameter                  | Required | Description                                                                            | Default              |
-| -------------------------- | -------- | -------------------------------------------------------------------------------------- | -------------------- | -------------------- |
-| `namespace`                | No       | Namespace of nginx-ingress controller Pods. Use an empty value to query all namespaces | `kube-system`        |
-| `pod_regex`                | No       | Regex used to match nginx-ingress controller Pods                                      | `.*nginx.*ingress.\* | .*ingress.*nginx.\*` |
-| `ingress_namespace`        | No       | Namespace filter for Ingress TLS certificate checks                                    | all                  |
-| `hours`                    | No       | Metrics lookback hours                                                                 | 1                    |
-| `cert_expire_warning_days` | No       | Days before expiry to mark certificates as warning                                     | 30                   |
-| `check_certificates`       | No       | Whether to inspect Ingress TLS Secrets for expiration status                           | true                 |
-
-Ingress-controller metrics depend on the corresponding AOM PodMonitor. The `nginx_ingress_controller_requests` metric must be explicitly allowed in the
-ingress-controller PodMonitor; otherwise request-dimension metrics such as 4xx/5xx QPS, success rate, and latency may be empty, and QPS may only use the
-`nginx_ingress_controller_nginx_process_requests_total` fallback when available.
-
-Optional custom PromQL overrides are supported for QPS, 4xx/5xx, success rate, P95 latency, active connections, CPU, and memory.
-
-### `huawei_get_cce_autoscaler_metrics` Parameters
-
-| Parameter       | Required | Description                                                                      | Default                   |
-| --------------- | -------- | -------------------------------------------------------------------------------- | ------------------------- | --------------- |
-| `namespace`     | No       | Namespace of Cluster Autoscaler Pods. Use an empty value to query all namespaces | `kube-system`             |
-| `pod_regex`     | No       | Regex used to match autoscaler Pods                                              | `.*cluster.*autoscaler.\* | ._autoscaler._` |
-| `hpa_namespace` | No       | Namespace filter for HPA replica metrics                                         | all                       |
-| `hours`         | No       | Metrics lookback hours                                                           | 1                         |
-| `include_hpa`   | No       | Whether to query HPA current/desired replica metrics                             | true                      |
-
-Optional custom PromQL overrides are supported for unschedulable Pods, node states, scale events, errors, node groups, HPA replicas, CPU, and memory.
-
-### Detailed Parameters
-
-See [control-plane-and-cloud-parameters.md](references/control-plane-and-cloud-parameters.md) for control-plane metrics, cloud-resource metrics, and cluster aggregation parameters.
+See [Metric Tool Parameters](references/tool-parameters.md) for common parameters and every tool's parameters.
 
 ## Output Format
 
@@ -494,7 +384,3 @@ See [Output Schema](references/output-schema.md) for the JSON response structure
 | [IAM Policies](references/iam-policies.md)                     | Required read-only Huawei Cloud and Kubernetes permissions              |
 | [Verification Method](references/verification-method.md)       | Static checks and smoke tests                                           |
 | [Acceptance Criteria](references/acceptance-criteria.md)       | Functional, security, documentation, and quality gates                  |
-
-## x509 TLS Retry
-
-If a `kubectl cce` command returns an `x509` certificate-validation error, repeat the same command with `--cce-insecure-upstream-tls=true` immediately after `cce`. For example: `kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> ...`. Use this option only when that TLS validation error occurs.

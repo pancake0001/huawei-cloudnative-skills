@@ -60,6 +60,15 @@ def redact_command(command: list[str]) -> list[str]:
     ]
 
 
+def _friendly_hcloud_usage_error(output: str) -> str:
+    """Turn hcloud's exit-zero usage output into an actionable error."""
+    detail = output.replace("[USE_ERROR]", "", 1).strip()
+    return (
+        f"hcloud rejected the request: {detail}. "
+        "Check the region, project ID, supplied credentials, and whether this hcloud version supports the requested parameters."
+    )
+
+
 def _parse_hcloud_output(output: str) -> Any:
     """Parse hcloud JSON while tolerating diagnostics appended after the payload."""
     candidate = output.strip()
@@ -94,12 +103,18 @@ def run_hcloud(command: list[str]) -> dict[str, Any]:
             "command": safe_command,
         }
     output = (process.stdout or "").strip() or "{}"
+    if "[USE_ERROR]" in output:
+        return {
+            "success": False,
+            "error": _friendly_hcloud_usage_error(output[:2000]),
+            "command": safe_command,
+        }
     try:
         data = _parse_hcloud_output(output)
     except json.JSONDecodeError as error:
         return {
             "success": False,
-            "error": f"hcloud returned non-JSON output: {error}",
+            "error": f"hcloud returned non-JSON output while --cli-output=json was requested: {output[:500]}",
             "command": safe_command,
         }
     if isinstance(data, dict) and data.get("error_code"):
