@@ -187,6 +187,7 @@ python3 scripts/huawei-cloud.py huawei_resolve_cce_aom_prom_instance \
 ```
 
 `huawei_list_aom_alarm_rules` supports cluster filtering by `cluster_id` only. Do not use `cluster_name` as a filter.
+Event rules are matched through their `event_alarm_spec.monitor_objects` cluster identifier or name; metric rules are matched only when a trigger-condition PromQL explicitly contains the target `cluster` or `cluster_name` label.
 
 ### 3. Notification Rules
 

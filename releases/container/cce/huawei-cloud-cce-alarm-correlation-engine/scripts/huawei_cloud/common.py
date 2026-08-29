@@ -257,7 +257,13 @@ def resolve_cce_cluster_id(
                 "error": f"Unable to verify CCE cluster_id '{value}': {result.get('error', '')}",
                 "cluster_id": value,
             }
-        return {"success": True, "id": value, "resolved_from_name": False}
+        metadata = ((result.get("data") or {}).get("metadata") or {})
+        return {
+            "success": True,
+            "id": value,
+            "name": metadata.get("name"),
+            "resolved_from_name": False,
+        }
 
     # CCE ListClusters returns all items and does not accept limit or offset parameters.
     result = run_hcloud("CCE", "ListClusters", region, None, ak, sk, project_id)
