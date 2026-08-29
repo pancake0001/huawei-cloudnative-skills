@@ -28,8 +28,8 @@ python3 scripts/huawei-cloud.py huawei_query_kube_apiserver_logs \
 | `huawei_analyze_pod_stdout_realtime_logs` | `region`, `cluster_id`, `namespace`, `pod_name` | `container`, `wait_seconds`, `tail_lines` | Pod name and namespace are both required; samples twice and `wait_seconds` defaults to 30. |
 | `huawei_get_cce_logconfigs` | `region`, `cluster_id` | `namespace`, `project_id` | Requires Cloud Native Logging add-on. `namespace` defaults to `kube-system`; `project_id` is optional when explicit CLI credentials are used. |
 | `huawei_list_lts_access_configs` | `region` | `access_config_name` | Filter returned rules by target `cluster_id` before showing users application-log choices. |
-| `huawei_query_application_logs` | `region`, `cluster_id`, one rule selector | `hours`, `start_time`, `end_time`, `keywords`, `auto_paginate`, `max_pages`, `limit` | Selector is `logconfig_name` or `access_config_id`/`access_config_name`. User must choose it first. |
-| `huawei_analyze_application_logs` | `region`, `cluster_id`, one rule selector | Same as query plus `sample_limit` | Avoid `keywords` when reporting an unscoped abnormal ratio. |
+| `huawei_query_application_logs` | `region`, `cluster_id`, and one rule selector or `namespace` + `app_name` | `hours`, `start_time`, `end_time`, `keywords`, `auto_paginate`, `max_pages`, `limit` | Without a selector, discover CCE LogConfig and LTS Access Config candidates. A unique candidate is used; multiple candidates require user choice. |
+| `huawei_analyze_application_logs` | `region`, `cluster_id`, and one rule selector or `namespace` + `app_name` | Same as query plus `sample_limit` | Avoid `keywords` when reporting an unscoped abnormal ratio. |
 | `huawei_query_cce_audit_logs` | `region`, `cluster_id` | `audit_type`, `pod_name`, `resource_name`, `namespace`, `hours`, `start_time`, `end_time` | Convenience filters are LTS keyword filters, not structured API filters. |
 | `huawei_analyze_cce_audit_timeline` | `region`, `cluster_id` | `resource_name`, `resources`, `namespace`, `verbs`, `hours`, `timeline_limit` | Defaults to mutating verbs; use `include_read_events=true` only when needed. |
 | `huawei_query_kube_apiserver_logs` | `region`, `cluster_id` | `hours`, `start_time`, `end_time`, `keywords`, pagination parameters | Requires kube-apiserver control-plane logging. |
@@ -45,10 +45,10 @@ python3 scripts/huawei-cloud.py huawei_get_pod_stdout_logs \
   region=<region> cluster_id=<cluster-id> namespace=default \
   pod_name=<pod-name> tail_lines=200
 
-# Application logs after the user selects a LogConfig
+# Application logs by namespace and application identity
 python3 scripts/huawei-cloud.py huawei_query_application_logs \
   region=<region> cluster_id=<cluster-id> \
-  logconfig_name=<selected-logconfig> logconfig_namespace=kube-system \
+  namespace=<namespace> app_name=<application-name> \
   hours=1 auto_paginate=true max_pages=5 limit=100
 
 # API server latency and status analysis

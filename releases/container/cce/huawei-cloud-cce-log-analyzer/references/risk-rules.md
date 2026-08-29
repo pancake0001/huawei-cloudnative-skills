@@ -14,7 +14,7 @@ There are no R0 tools in this skill.
 
 - Creating LogConfig or LTS Access Config resources is allowed only through `huawei_create_cce_logconfig` or `huawei_create_lts_access_config`. The tool must preview first and requires `confirm=true` before it changes collection configuration.
 - Deleting LogConfig or LTS Access Config resources is allowed only through `huawei_delete_cce_logconfig` or `huawei_delete_lts_access_config`. The tool must preview the exact target first and requires `confirm=true`.
-- Never select a LogConfig, Access Config, log group, or log stream for the user. Present candidates and wait for the user's explicit choice.
+- Never select a log group or log stream for the user. For read-only application-log queries, a uniquely discovered LogConfig or Access Config may be used automatically; when multiple rules match, present candidates and wait for the user's explicit choice.
 
 ## Scope Boundaries
 

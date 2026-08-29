@@ -15,7 +15,7 @@ Use this skill for read-only log queries and analysis, or for confirmed manageme
 | Need | Use |
 |---|---|
 | Pod stdout/stderr or previous container output | Pod log tools |
-| Application logs collected to LTS | Application log workflow; user selects a collection rule |
+| Application logs collected to LTS | Application log workflow; locate by `namespace` + `app_name` or use a rule selector |
 | Pod/workload operation history and actor | Audit log tools |
 | API status codes and latency | kube-apiserver log tools |
 | Pending Pods and scheduler decisions | kube-scheduler log tools |
@@ -49,8 +49,8 @@ Use this skill for read-only log queries and analysis, or for confirmed manageme
 | `huawei_analyze_pod_stdout_realtime_logs` | R3 | Sample newly produced Pod stdout and analyze it |
 | `huawei_get_cce_logconfigs` | R3 | List CCE Cloud Native Logging rules |
 | `huawei_list_lts_access_configs` | R3 | List LTS collection rules |
-| `huawei_query_application_logs` | R3 | Query logs from one user-selected collection rule |
-| `huawei_analyze_application_logs` | R3 | Analyze logs from one user-selected collection rule |
+| `huawei_query_application_logs` | R3 | Query application logs from an explicit or uniquely discovered collection rule |
+| `huawei_analyze_application_logs` | R3 | Analyze application logs from an explicit or uniquely discovered collection rule |
 | `huawei_query_cce_audit_logs` | R3 | Query retained Kubernetes audit events |
 | `huawei_analyze_cce_audit_timeline` | R3 | Build a resource change timeline from audit events |
 | `huawei_query_kube_apiserver_logs` | R3 | Query kube-apiserver control-plane logs |
@@ -81,7 +81,7 @@ If a required `cluster_id` is missing, or any supplied `cluster_id` is invalid, 
 | `cluster_id` | Operation-specific | Target CCE cluster UUID, or an exact cluster name resolved and verified through hcloud. Required for Pod, LogConfig, audit, control-plane, and application-log operations. |
 | `project_id` | Optional | Target project ID. Required by some `kubectl cce` paths; explicit credentials or hcloud profile may supply it where supported. |
 | `namespace`, `pod_name`, `container` | Operation-specific | Pod stdout queries require both `namespace` and `pod_name`; `container` narrows a multi-container Pod. |
-| `logconfig_name`, `access_config_id`, `access_config_name` | Operation-specific | Application-log query and analysis require exactly one user-selected collection-rule identifier. |
+| `logconfig_name`, `access_config_id`, `access_config_name` | Operation-specific | Optional explicit collection-rule selector. Without one, application-log tools require `namespace` plus `app_name` and discover matching rules. |
 | `log_group_id`, `log_stream_id` | Create only | User-selected LTS destination IDs for LogConfig or LTS Access Config creation. |
 | `hours`, `start_time`, `end_time` | Optional | Narrow bounded query window; start with `hours=1` when the user has not specified a window. |
 | `keywords` | Optional | LTS keyword filter. Do not use it for an unscoped abnormal-ratio analysis unless the user requests keyword-scoped analysis. |
@@ -96,8 +96,8 @@ If a required `cluster_id` is missing, or any supplied `cluster_id` is invalid, 
 | `huawei_analyze_pod_stdout_realtime_logs` | `region`, `cluster_id`, `namespace`, `pod_name` | `container`, `wait_seconds`, `tail_lines` |
 | `huawei_get_cce_logconfigs` | `region`, `cluster_id` | `namespace`, `project_id` |
 | `huawei_list_lts_access_configs` | `region` | `access_config_name` |
-| `huawei_query_application_logs` | `region`, `cluster_id`, one of `logconfig_name`, `access_config_id`, or `access_config_name` | `hours`, `start_time`, `end_time`, `keywords`, `auto_paginate`, `max_pages`, `limit` |
-| `huawei_analyze_application_logs` | `region`, `cluster_id`, one of `logconfig_name`, `access_config_id`, or `access_config_name` | Query options plus `sample_limit` |
+| `huawei_query_application_logs` | `region`, `cluster_id`, and either one rule selector or `namespace` + `app_name` | `hours`, `start_time`, `end_time`, `keywords`, `labels`, `output`, `sample_limit`, `auto_paginate`, `max_pages`, `limit` |
+| `huawei_analyze_application_logs` | `region`, `cluster_id`, and either one rule selector or `namespace` + `app_name` | Query options plus `sample_limit` |
 | `huawei_query_cce_audit_logs` | `region`, `cluster_id` | `audit_type`, `pod_name`, `resource_name`, `namespace`, `hours`, `start_time`, `end_time` |
 | `huawei_analyze_cce_audit_timeline` | `region`, `cluster_id` | `resource_name`, `resources`, `namespace`, `verbs`, `hours`, `timeline_limit`, `include_read_events` |
 | `huawei_query_kube_apiserver_logs` | `region`, `cluster_id` | `hours`, `start_time`, `end_time`, `keywords`, `limit`, `max_pages`, `auto_paginate` |
@@ -145,7 +145,7 @@ Quote JSON arrays so the shell passes them unchanged. Each value must be a valid
 ### 1. Identify the source
 
 - A named Pod: use `huawei_get_pod_stdout_logs` first.
-- A named application: list both LogConfig and LTS Access Config rules, show the target-cluster rules, and wait for the user to select exactly one rule.
+- A named application: provide `namespace` and `app_name`; a unique collection rule is discovered automatically, while multiple matches are presented for the user to choose.
 - Who changed or deleted a resource: use audit logs first. Audit evidence contains actor information; kube-apiserver logs are supplemental HTTP evidence only.
 - API availability or latency: use kube-apiserver analysis. Read `non_success_status_count` for failed HTTP requests and `non_watch_latency` for ordinary API latency.
 - Pending or unschedulable workloads: use kube-scheduler analysis. Repeated scheduling/preemption messages are retries, not separate Pods.
@@ -153,6 +153,10 @@ Quote JSON arrays so the shell passes them unchanged. Each value must be a valid
 ### 2. Query narrowly, then expand
 
 Start with `hours=1`, a specific namespace, Pod, or selected collection rule. Use `auto_paginate=true`, `limit`, and `max_pages` only when the initial result is insufficient. Do not apply `keywords` before an application-log abnormal-ratio analysis unless the user explicitly requests keyword-scoped analysis.
+
+For application logs from a shared LTS stream, inspect `filter_quality` before attributing findings: `exact` means indexed `clusterId`, `nameSpace`, and `appName` labels were applied; `partial` or `unscoped` means returned logs can include other applications, so all statistics apply only to the returned set.
+
+Application queries default to `output=summary`; use `output=samples` for a bounded sample or `output=raw` only when full log entries are required. The tool checks indexed aliases including `clusterId`/`cluster_id`/`k8s.cluster.id`, `nameSpace`/`namespace`/`k8s.namespace.name`, and `appName`/`app.kubernetes.io/name`/`app` before it sends label filters to LTS.
 
 ### 3. Interpret before acting
 
@@ -184,7 +188,7 @@ Confirm the returned source, time window, and collection-rule or Pod target matc
 
 ## Best Practices
 
-Start with a narrow namespace, Pod, time window, or selected collection rule, then expand only when the initial evidence is insufficient.
+Start with a narrow namespace, Pod, time window, or application identity. For application logs, a unique discovered collection rule is used automatically; multiple matching rules are presented for the user to choose.
 
 ## Notes
 
