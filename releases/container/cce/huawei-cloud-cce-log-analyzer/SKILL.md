@@ -1,6 +1,6 @@
 ---
 name: huawei-cloud-cce-log-analyzer
-description: "Query and analyze Huawei Cloud CCE workload, audit, and control-plane logs. Trigger: CCE logs, Kubernetes logs, Pod logs, application logs, audit logs, LTS logs, kube-apiserver logs, kube-scheduler logs, log analysis, log collection, 日志查询, 日志分析, 审计日志, 调度器日志."
+description: "Query and analyze Huawei Cloud CCE workload, audit, and control-plane logs; list, preview-create, and confirmed-delete CCE LogConfig and LTS Access Config collection rules. Trigger: CCE logs, Kubernetes logs, Pod logs, application logs, audit logs, LTS logs, kube-apiserver logs, kube-scheduler logs, log analysis, log collection, log collection rule, LogConfig, LTS Access Config, 日志查询, 日志分析, 日志采集规则, 审计日志, 调度器日志."
 metadata:
   tags: [cce, kubernetes, logs, lts, observability]
 version: 1.0.0
@@ -67,22 +67,24 @@ Use `python3 scripts/huawei-cloud.py help` to print the available actions and re
 ## Parameters And Collection Scope
 
 ### Input Parameter Validation
-Required parameters must be provided before execution. A required `cluster_id`, or an optional `cluster_id` supplied by the user, must pass the following validation before any cluster-targeted request. Query tools may query the region globally only when their optional `cluster_id` is omitted:
-1. Check whether `cluster_id` is a standard UUID:
-   - UUID: call `hcloud CCE ShowCluster` to verify it.
-   - Otherwise: call `hcloud CCE ListClusters`, perform an exact and unique name match, convert it to a UUID, then call `ShowCluster` to verify it.
-If a required `cluster_id` is missing, or any supplied `cluster_id` is invalid, unmatched, or ambiguous, stop the operation and require the user to provide the correct region and cluster ID. A supplied invalid `cluster_id` must never fall back to a global query; never guess or select a cluster. For any other required resource identifier, first use the corresponding read-only query tool to list candidates when the user cannot provide an unambiguous value, then ask the user to choose; never select a candidate automatically.
+1. **Common required inputs:** Every tool requires `region` and `cluster_id`; then provide the tool-specific required inputs listed in [Tool Parameters](#tool-parameters). Do not perform a region-wide fallback.
+2. **Cluster ID validation:** Validate `cluster_id` before any downstream query:
+   - Standard UUID: call `hcloud CCE ShowCluster`.
+   - Other value: call `hcloud CCE ListClusters`, require one exact name match, then call `ShowCluster` for the resolved UUID.
+3. **Validation failure:** A missing, invalid, unmatched, or ambiguous `cluster_id` stops execution. Ask the user for the correct `region` and cluster ID; never guess, select a cluster, or continue with an unscoped query.
+4. **Other resource identifiers:** When a required LogConfig, LTS Access Config, log group, or log stream identifier is not unambiguous, first use the corresponding read-only query tool to list candidates, then ask the user to choose. Never select a candidate automatically.
+5. **Log destinations:** For create previews, omit `log_group_id` and `log_stream_id` together to receive destination candidates. The user must select and provide both IDs before confirmed creation.
 
 ### Input Parameters
 
 | Parameter | Required | Description |
 | --- | --- | --- |
 | `region` | Yes | Region from request context or `HW_REGION_NAME`; otherwise ask the user. |
-| `cluster_id` | Operation-specific | Target CCE cluster UUID, or an exact cluster name resolved and verified through hcloud. Required for Pod, LogConfig, audit, control-plane, and application-log operations. |
+| `cluster_id` | Yes | Target CCE cluster UUID, or an exact cluster name resolved and verified through hcloud. Required for every tool in this skill. |
 | `project_id` | Optional | Target project ID. Required by some `kubectl cce` paths; explicit credentials or hcloud profile may supply it where supported. |
 | `namespace`, `pod_name`, `container` | Operation-specific | Pod stdout queries require both `namespace` and `pod_name`; `container` narrows a multi-container Pod. |
 | `logconfig_name`, `access_config_id`, `access_config_name` | Operation-specific | Application-log query and analysis require exactly one user-selected collection-rule identifier. |
-| `log_group_id`, `log_stream_id` | Create only | User-selected LTS destination IDs for LogConfig or LTS Access Config creation. |
+| `log_group_id`, `log_stream_id` | Optional for create preview | Omit both to list user-selectable LTS destinations; after selection, provide both IDs before confirmed LogConfig or LTS Access Config creation. |
 | `hours`, `start_time`, `end_time` | Optional | Narrow bounded query window; start with `hours=1` when the user has not specified a window. |
 | `keywords` | Optional | LTS keyword filter. Do not use it for an unscoped abnormal-ratio analysis unless the user requests keyword-scoped analysis. |
 | `limit`, `max_pages`, `auto_paginate`, `sample_limit` | Optional | Result and analysis bounds; expand only when the initial result is insufficient. |
@@ -95,7 +97,7 @@ If a required `cluster_id` is missing, or any supplied `cluster_id` is invalid, 
 | `huawei_get_pod_stdout_logs` | `region`, `cluster_id`, `namespace`, `pod_name` | `container`, `previous`, `tail_lines` |
 | `huawei_analyze_pod_stdout_realtime_logs` | `region`, `cluster_id`, `namespace`, `pod_name` | `container`, `wait_seconds`, `tail_lines` |
 | `huawei_get_cce_logconfigs` | `region`, `cluster_id` | `namespace`, `project_id` |
-| `huawei_list_lts_access_configs` | `region` | `access_config_name` |
+| `huawei_list_lts_access_configs` | `region`, `cluster_id` | `access_config_name` |
 | `huawei_query_application_logs` | `region`, `cluster_id`, one of `logconfig_name`, `access_config_id`, or `access_config_name` | `hours`, `start_time`, `end_time`, `keywords`, `auto_paginate`, `max_pages`, `limit` |
 | `huawei_analyze_application_logs` | `region`, `cluster_id`, one of `logconfig_name`, `access_config_id`, or `access_config_name` | Query options plus `sample_limit` |
 | `huawei_query_cce_audit_logs` | `region`, `cluster_id` | `audit_type`, `pod_name`, `resource_name`, `namespace`, `hours`, `start_time`, `end_time` |
@@ -109,8 +111,8 @@ If a required `cluster_id` is missing, or any supplied `cluster_id` is invalid, 
 | --- | --- | --- | --- |
 | `huawei_create_cce_logconfig` | `region`, `cluster_id`, `logconfig_name`, `source_type` | Source-specific selector or file fields, destination IDs, `update_existing`, `confirm` | A confirmed create requires the source-specific selector/file fields and user-selected `log_group_id` plus `log_stream_id`. |
 | `huawei_delete_cce_logconfig` | `region`, `cluster_id`, `logconfig_name` | `logconfig_namespace`, `confirm` | Preview the exact rule before confirmation. |
-| `huawei_create_lts_access_config` | `region`, `access_config_name` | `access_config_type`, collection-source fields, destination IDs, `confirm` | A confirmed create requires collection-source fields and user-selected `log_group_id` plus `log_stream_id`. |
-| `huawei_delete_lts_access_config` | `region`, `access_config_id` | `confirm` | Preview the exact rule before confirmation. |
+| `huawei_create_lts_access_config` | `region`, `cluster_id`, `access_config_name` | `access_config_type`, collection-source fields, destination IDs, `confirm` | A confirmed create requires collection-source fields and user-selected `log_group_id` plus `log_stream_id`. |
+| `huawei_delete_lts_access_config` | `region`, `cluster_id`, `access_config_id` | `confirm` | Preview the exact rule before confirmation. |
 
 ### Collection Scope
 

@@ -1571,13 +1571,13 @@ def _resolve_application_log_source(params: Dict[str, str]) -> Dict[str, Any]:
         sk=params.get("sk"),
         project_id=params.get("project_id"),
         security_token=params.get("security_token"),
+        cluster_id=params["cluster_id"],
     )
     if not result.get("success"):
         return result
     matches = [
         item for item in result.get("access_configs", [])
-        if item.get("cluster_id") == params["cluster_id"]
-        and (not access_config_name or item.get("access_config_name") == access_config_name)
+        if (not access_config_name or item.get("access_config_name") == access_config_name)
         and (not access_config_id or item.get("access_config_id") == access_config_id)
     ]
     if not matches:

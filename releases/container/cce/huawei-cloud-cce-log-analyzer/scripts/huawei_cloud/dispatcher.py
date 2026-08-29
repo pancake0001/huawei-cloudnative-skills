@@ -69,9 +69,9 @@ def _pod_logs(params: Dict[str, str]) -> Dict[str, Any]:
 ACTION_SPECS: Dict[str, tuple[tuple[str, ...], Handler]] = {
     "huawei_get_pod_stdout_logs": (("region", "cluster_id", "namespace", "pod_name"), _pod_logs),
     "huawei_analyze_pod_stdout_realtime_logs": (("region", "cluster_id", "namespace", "pod_name"), cce_app_logs.analyze_pod_realtime_logs_action),
-    "huawei_list_lts_access_configs": (("region",), lambda params: lts.list_access_configs(params["region"], params.get("access_config_name"), params.get("ak"), params.get("sk"), params.get("project_id"), params.get("security_token"))),
-    "huawei_create_lts_access_config": (("region", "access_config_name"), lts.create_access_config_action),
-    "huawei_delete_lts_access_config": (("region", "access_config_id"), lts.delete_access_config_action),
+    "huawei_list_lts_access_configs": (("region", "cluster_id"), lambda params: lts.list_access_configs(params["region"], params.get("access_config_name"), params.get("ak"), params.get("sk"), params.get("project_id"), params.get("security_token"), params["cluster_id"])),
+    "huawei_create_lts_access_config": (("region", "cluster_id", "access_config_name"), lts.create_access_config_action),
+    "huawei_delete_lts_access_config": (("region", "cluster_id", "access_config_id"), lts.delete_access_config_action),
     "huawei_get_cce_logconfigs": (("region", "cluster_id"), cce_app_logs.get_cce_logconfigs_action),
     "huawei_create_cce_logconfig": (("region", "cluster_id", "logconfig_name", "source_type"), cce_app_logs.create_cce_logconfig_action),
     "huawei_delete_cce_logconfig": (("region", "cluster_id", "logconfig_name"), cce_app_logs.delete_cce_logconfig_action),

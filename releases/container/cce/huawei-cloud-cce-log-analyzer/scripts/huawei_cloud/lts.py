@@ -64,6 +64,7 @@ def list_access_configs(
     sk: Optional[str] = None,
     project_id: Optional[str] = None,
     security_token: Optional[str] = None,
+    cluster_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     command = common.hcloud_command("LTS", "ListAccessConfig", region, ak, sk, project_id, security_token)
     if access_config_name:
@@ -72,11 +73,13 @@ def list_access_configs(
     if not result.get("success"):
         return result
     data = result.get("data") or {}
-    configs = [item for item in data.get("result", []) if isinstance(item, dict)]
+    configs = [_access_config_summary(item) for item in data.get("result", []) if isinstance(item, dict)]
+    if cluster_id:
+        configs = [item for item in configs if item.get("cluster_id") == cluster_id]
     return {
         "success": True,
-        "total": data.get("total", len(configs)),
-        "access_configs": [_access_config_summary(item) for item in configs],
+        "total": len(configs),
+        "access_configs": configs,
     }
 
 
@@ -348,6 +351,7 @@ def create_access_config_action(params: Dict[str, str]) -> Dict[str, Any]:
         sk=params.get("sk"),
         project_id=params.get("project_id"),
         security_token=params.get("security_token"),
+        cluster_id=params.get("cluster_id"),
     )
     if not existing_result.get("success"):
         return {
@@ -499,7 +503,7 @@ def delete_access_config_action(params: Dict[str, str]) -> Dict[str, Any]:
     if not access_config_id:
         return {"success": False, "error": "access_config_id is required"}
     listed = list_access_configs(
-        params["region"], ak=params.get("ak"), sk=params.get("sk"), project_id=params.get("project_id"), security_token=params.get("security_token")
+        params["region"], ak=params.get("ak"), sk=params.get("sk"), project_id=params.get("project_id"), security_token=params.get("security_token"), cluster_id=params.get("cluster_id")
     )
     if not listed.get("success"):
         return listed
