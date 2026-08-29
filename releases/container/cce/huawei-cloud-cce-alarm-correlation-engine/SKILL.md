@@ -155,9 +155,9 @@ Follow these rules for every command:
 python3 scripts/huawei-cloud.py huawei_list_aom_alarms \
   region=<region>
 
-# Query active + historical alarms for a cluster
+# Query active + historical alarms for a cluster in the last 3 hours
 python3 scripts/huawei-cloud.py huawei_list_aom_alarms \
-  region=<region> cluster_id=<cluster-id>
+  region=<region> cluster_id=<cluster-id> hours=3
 
 # Query current active alarms only
 python3 scripts/huawei-cloud.py huawei_list_aom_current_alarms \
@@ -167,7 +167,6 @@ python3 scripts/huawei-cloud.py huawei_list_aom_current_alarms \
 python3 scripts/huawei-cloud.py huawei_analyze_aom_alarms \
   region=<region> cluster_id=<cluster-id>
 ```
-
 > Do not conclude "no issue" from absence of active alarms alone. Always consider historical alarms when diagnosing a recent or recovered problem.
 
 ### 2. Alarm Rule Query
@@ -193,7 +192,7 @@ Event rules are matched through their `event_alarm_spec.monitor_objects` cluster
 
 ```bash
 # List existing action/notification rules
-python3 scripts/huawei-cloud.py huawei_list_aom_action_rules \
+python3 scripts/huawei-cloud.py huawei_list_aom_notification_action_rules \
   region=<region>
 
 # Preview creating a notification action rule from an SMN topic
@@ -270,7 +269,7 @@ python3 scripts/huawei-cloud.py huawei_cleanup_cce_aom_alarm_rules \
 ```
 
 `huawei_configure_cce_aom_alarm_rules` requires explicit `bind_notification_rule_id`. If not provided, do not return or choose `available_notification_rules`
-from this tool; call `huawei_list_aom_action_rules` separately and present choices to the user.
+from this tool; call `huawei_list_aom_notification_action_rules` separately and present choices to the user.
 
 ### 6. Alarm Rule Mutation
 
@@ -307,7 +306,7 @@ python3 scripts/huawei-cloud.py huawei_list_aom_mute_rules \
   region=<region>
 
 # Preview deleting an action rule
-python3 scripts/huawei-cloud.py huawei_delete_aom_action_rule \
+python3 scripts/huawei-cloud.py huawei_delete_aom_notification_action_rule \
   region=<region> rule_name=<rule-name>
 ```
 
@@ -338,7 +337,7 @@ This skill includes read-only query tools and mutation tools. Mutation tools mus
 | `huawei_aom_alarm_inspection`                | Query + local analysis | R3         | Inspect cluster alarm health                                                           |
 | `huawei_list_aom_alarm_rules`                | Query                  | R3         | Query AOM alarm rules; supports optional `cluster_id`                                  |
 | `huawei_resolve_cce_aom_prom_instance`       | Query                  | R3         | Resolve the cluster AOM Prometheus instance                                            |
-| `huawei_list_aom_action_rules`               | Query                  | R3         | Query action/notification rules                                                        |
+| `huawei_list_aom_notification_action_rules`  | Query                  | R3         | Query notification action rules                                                        |
 | `huawei_list_aom_mute_rules`                 | Query                  | R3         | Query mute rules                                                                       |
 | `huawei_create_aom_alarm_rule`               | Create                 | R2         | Create an AOM metric alarm rule                                                        |
 | `huawei_create_aom_event_alarm_rule`         | Create                 | R2         | Create an AOM event alarm rule                                                         |
@@ -349,7 +348,7 @@ This skill includes read-only query tools and mutation tools. Mutation tools mus
 | `huawei_disable_aom_alarm_rule`              | Disable                | R1         | Disable an AOM alarm rule                                                              |
 | `huawei_delete_aom_alarm_rule`               | Delete                 | R0         | Delete an AOM alarm rule                                                               |
 | `huawei_cleanup_cce_aom_alarm_rules`         | Batch delete           | R0         | Delete CCE template alarm rules for the target cluster                                 |
-| `huawei_delete_aom_action_rule`              | Delete                 | R0         | Delete a notification action rule                                                      |
+| `huawei_delete_aom_notification_action_rule` | Delete                 | R0         | Delete a notification action rule                                                      |
 
 ## Parameter Reference
 
@@ -376,7 +375,7 @@ If a required `cluster_id` is missing, or any supplied `cluster_id` is invalid, 
 
 | Tool                             | Required               | Optional                                |
 | -------------------------------- | ---------------------- | --------------------------------------- |
-| `huawei_list_aom_alarms`         | `region`               | `cluster_id`, time-window/filter params |
+| `huawei_list_aom_alarms`         | `region`               | `cluster_id`, `hours` (lookback hours; default `1`), `event_severity`, `limit` |
 | `huawei_list_aom_current_alarms` | `region`               | `cluster_id`, filter params             |
 | `huawei_analyze_aom_alarms`      | `region`               | `cluster_id`, time-window/filter params |
 | `huawei_aom_alarm_inspection`    | `region`, `cluster_id` | filter params                           |
@@ -431,7 +430,7 @@ Run read-only checks first:
 ```bash
 python3 scripts/huawei-cloud.py huawei_list_aom_alarms region=<region>
 python3 scripts/huawei-cloud.py huawei_list_aom_alarm_rules region=<region>
-python3 scripts/huawei-cloud.py huawei_list_aom_action_rules region=<region>
+python3 scripts/huawei-cloud.py huawei_list_aom_notification_action_rules region=<region>
 ```
 
 For cluster-scoped checks:

@@ -25,7 +25,7 @@ Use read-only tools first:
 
 ```bash
 python3 scripts/huawei-cloud.py huawei_list_aom_alarm_rules region=<region>
-python3 scripts/huawei-cloud.py huawei_list_aom_action_rules region=<region>
+python3 scripts/huawei-cloud.py huawei_list_aom_notification_action_rules region=<region>
 python3 scripts/huawei-cloud.py huawei_list_aom_alarms region=<region>
 ```
 

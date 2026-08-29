@@ -1354,7 +1354,7 @@ def create_aom_alarm_rule(
                 "success": False,
                 "action": "create_aom_alarm_rule",
                 "executed": False,
-                "error": "bind_notification_rule_id is required for confirmed AOM alarm rule creation. Query existing action rules with huawei_list_aom_action_rules and pass an existing rule ID.",
+                "error": "bind_notification_rule_id is required for confirmed AOM alarm rule creation. Query existing action rules with huawei_list_aom_notification_action_rules and pass an existing rule ID.",
             }
         notification_rule_name = _resolve_notification_rule_name(
             region,
@@ -1440,7 +1440,7 @@ def create_aom_alarm_rule(
             "success": False,
             "action": "create_aom_alarm_rule",
             "executed": False,
-            "error": "bind_notification_rule_id is required for confirmed AOM alarm rule creation. Query existing action rules with huawei_list_aom_action_rules and pass an existing rule ID.",
+            "error": "bind_notification_rule_id is required for confirmed AOM alarm rule creation. Query existing action rules with huawei_list_aom_notification_action_rules and pass an existing rule ID.",
         }
     existing_rule = _existing_alarm_rule(region, _normalize_alarm_rule_name(rule_name), None, ak, sk, project_id)
     if existing_rule:
@@ -1598,7 +1598,7 @@ def create_aom_event_alarm_rule(
             "success": False,
             "action": "create_aom_event_alarm_rule",
             "executed": False,
-            "error": "bind_notification_rule_id is required for confirmed AOM event alarm rule creation. Query existing action rules with huawei_list_aom_action_rules and pass an existing rule ID.",
+            "error": "bind_notification_rule_id is required for confirmed AOM event alarm rule creation. Query existing action rules with huawei_list_aom_notification_action_rules and pass an existing rule ID.",
         }
     existing_rule = _existing_alarm_rule(region, effective_rule_name, cluster_id, ak, sk, project_id)
     if existing_rule:
@@ -1754,7 +1754,7 @@ def configure_cce_aom_alarm_rules(
             "hcloud_command_samples": preview_commands,
             "notes": [
                 "Add confirm=true to create these AOM alarm rules through hcloud.",
-                "bind_notification_rule_id is required during confirmed execution. Query existing rules with huawei_list_aom_action_rules or create one with huawei_create_aom_notification_action_rule first.",
+                "bind_notification_rule_id is required during confirmed execution. Query existing rules with huawei_list_aom_notification_action_rules or create one with huawei_create_aom_notification_action_rule first.",
                 "skip_existing is evaluated only during confirmed execution.",
             ],
         }
@@ -1806,7 +1806,7 @@ def configure_cce_aom_alarm_rules(
             "error": "bind_notification_rule_id is required before creating CCE AOM alarm rules.",
             "bind_notification_rule_id": None,
             "next_steps": [
-                "Call huawei_list_aom_action_rules to list existing notification action rules and ask the user to choose one.",
+                "Call huawei_list_aom_notification_action_rules to list existing notification action rules and ask the user to choose one.",
                 "Or call huawei_create_aom_notification_action_rule with notification_topic_name and notification_topic_urn to create a new rule, then retry with bind_notification_rule_id.",
             ],
         }
