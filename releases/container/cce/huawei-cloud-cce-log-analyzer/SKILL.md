@@ -145,7 +145,7 @@ Quote JSON arrays so the shell passes them unchanged. Each value must be a valid
 ### 1. Identify the source
 
 - A named Pod: use `huawei_get_pod_stdout_logs` first.
-- A named application: provide `namespace` and `app_name`; a unique collection rule is discovered automatically, while multiple matches are presented for the user to choose.
+- A named application: provide `namespace` and `app_name`; query LTS first through `huawei_query_application_logs`. A unique collection rule is discovered automatically, while multiple matches are presented for the user to choose. Only when no usable collection rule exists may the workflow use `huawei_get_pod_stdout_logs`; require the user to provide the Pod name and do not select one automatically.
 - Who changed or deleted a resource: use audit logs first. Audit evidence contains actor information; kube-apiserver logs are supplemental HTTP evidence only.
 - API availability or latency: use kube-apiserver analysis. Read `non_success_status_count` for failed HTTP requests and `non_watch_latency` for ordinary API latency.
 - Pending or unschedulable workloads: use kube-scheduler analysis. Repeated scheduling/preemption messages are retries, not separate Pods.
@@ -156,7 +156,9 @@ Start with `hours=1`, a specific namespace, Pod, or selected collection rule. Us
 
 For application logs from a shared LTS stream, inspect `filter_quality` before attributing findings: `exact` means indexed `clusterId`, `nameSpace`, and `appName` labels were applied; `partial` or `unscoped` means returned logs can include other applications, so all statistics apply only to the returned set.
 
-Application queries default to `output=summary`; use `output=samples` for a bounded sample or `output=raw` only when full log entries are required. The tool checks indexed aliases including `clusterId`/`cluster_id`/`k8s.cluster.id`, `nameSpace`/`namespace`/`k8s.namespace.name`, and `appName`/`app.kubernetes.io/name`/`app` before it sends label filters to LTS.
+Application queries default to `output=summary`; use `output=samples` for a bounded sample or `output=raw` only when full log entries are required. The tool checks indexed aliases including `clusterId`/`cluster_id`/`k8s.cluster.id`, `nameSpace`/`namespace`/`k8s.namespace.name`, and `appName`/`app.kubernetes.io/name`/`app` before it sends label filters to LTS. It also validates `app_name` against current Deployment, StatefulSet, DaemonSet, Job, and CronJob resources in the specified namespace. An unmatched result is a warning, not a query failure, because historical logs can outlive workloads.
+
+When an application query returns no logs, the result includes a prompt to verify `namespace` and `app_name`. If current workload validation is also unmatched, the prompt explicitly calls out that the supplied application name may be incorrect.
 
 ### 3. Interpret before acting
 

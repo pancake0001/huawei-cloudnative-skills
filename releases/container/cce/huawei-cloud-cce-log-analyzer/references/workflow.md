@@ -23,7 +23,7 @@ All explicit `start_time` and `end_time` values for LTS application and audit lo
 
 ### Step 1: Locate Application Collection Rules
 
-When the user provides `namespace` and `app_name`, application-log tools inspect both collection-rule types: CCE LogConfig workload/namespace scope and LTS Access Config namespace/pod regex scope. A unique usable match is selected automatically for this read-only query. If multiple rules match, the tool returns candidates and stops for the user to choose; it never guesses.
+When the user provides `namespace` and `app_name`, application-log tools inspect both collection-rule types: CCE LogConfig workload/namespace scope and LTS Access Config namespace/pod regex scope. A unique usable match is selected automatically for this read-only query. If multiple rules match, the tool returns candidates and stops for the user to choose; it never guesses. Only when no usable collection rule exists may the workflow use `huawei_get_pod_stdout_logs`; require `namespace` and an explicit `pod_name` from the user rather than selecting a Pod automatically.
 
 ```bash
 python3 scripts/huawei-cloud.py huawei_get_cce_logconfigs \

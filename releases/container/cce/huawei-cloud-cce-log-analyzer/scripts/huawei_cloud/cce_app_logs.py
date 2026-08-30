@@ -1671,6 +1671,7 @@ def _resolve_application_log_source(params: Dict[str, str]) -> Dict[str, Any]:
         source["source_resolution"] = "auto_discovered"
         return {"success": True, **source}
 
+
     if logconfig_name:
         lookup_params = dict(params)
         if params.get("logconfig_namespace"):
@@ -1807,6 +1808,55 @@ def _application_identity_filters(cluster_id: str, namespace: Optional[str], app
     return filters, chosen
 
 
+def _validate_application_workload(params: Dict[str, str], namespace: Optional[str], app_name: Optional[str]) -> Dict[str, Any]:
+    """Report whether a named application matches a current common workload."""
+    checked_kinds = ["Deployment", "StatefulSet", "DaemonSet", "Job", "CronJob"]
+    if not namespace or not app_name:
+        return {
+            "status": "not_requested",
+            "checked_workload_kinds": checked_kinds,
+        }
+    result = kubectl_client.run_kubectl(
+        params["region"],
+        params["cluster_id"],
+        ["get", "deployments,statefulsets,daemonsets,jobs,cronjobs", "--namespace", namespace, "--output=json"],
+        ak=params.get("ak"),
+        sk=params.get("sk"),
+        project_id=params.get("project_id"),
+        security_token=params.get("security_token"),
+        explicit_cli_credentials=params.get("_explicit_cli_credentials") == "true",
+    )
+    if not result.get("success"):
+        return {
+            "status": "unavailable",
+            "checked_workload_kinds": checked_kinds,
+            "error": result.get("error"),
+        }
+    matched_workloads = []
+    for item in (result.get("data") or {}).get("items", []):
+        metadata = item.get("metadata") or {}
+        labels = metadata.get("labels") or {}
+        matched_by = "name" if metadata.get("name") == app_name else next((
+            key for key in ("app", "app.kubernetes.io/name", "appName", "k8s-app")
+            if labels.get(key) == app_name
+        ), None)
+        if matched_by:
+            matched_workloads.append({
+                "kind": item.get("kind"),
+                "name": metadata.get("name"),
+                "matched_by": matched_by,
+            })
+    return {
+        "status": "matched" if matched_workloads else "unmatched",
+        "checked_workload_kinds": checked_kinds,
+        "matched_workloads": matched_workloads,
+        "warning": None if matched_workloads else (
+            "No current common workload matches app_name. LTS label matches may represent a deleted workload, "
+            "a collector component, or an incorrect application name."
+        ),
+    }
+
+
 def _application_query_output_mode(params: Dict[str, str]) -> str:
     mode = (params.get("output") or "summary").lower()
     if mode not in {"summary", "samples", "raw"}:
@@ -1857,9 +1907,6 @@ def query_application_logs_action(params: Dict[str, str]) -> Dict[str, Any]:
     except ValueError as exc:
         return {"success": False, "error": str(exc)}
     custom_labels = _parse_labels(params.get("labels"))
-    if policy_name:
-        auto_label_candidates["logconfig"] = policy_name
-
     index_result = lts.list_log_stream_index(
         params["region"],
         source_result["log_group_id"],
@@ -1881,6 +1928,7 @@ def query_application_logs_action(params: Dict[str, str]) -> Dict[str, Any]:
         "nameSpace": namespace if identity_label_fields.get("namespace") else None,
         "appName": app_name if identity_label_fields.get("app") else None,
     })
+    workload_validation = _validate_application_workload(params, namespace, app_name)
 
     start_time = params.get("start_time")
     end_time = params.get("end_time")
@@ -1899,6 +1947,17 @@ def query_application_logs_action(params: Dict[str, str]) -> Dict[str, Any]:
     )
     if hours is not None:
         result["hours"] = hours
+    no_logs_hint = None
+    if result.get("success") and result.get("total", 0) == 0:
+        if workload_validation.get("status") == "unmatched":
+            no_logs_hint = (
+                "No logs matched. Check whether namespace and app_name are correct; no current common workload "
+                "matches the supplied app_name."
+            )
+        else:
+            no_logs_hint = (
+                "No logs matched. Check namespace, app_name, the selected collection rule, and the requested time window."
+            )
     result.update(
         {
             "cluster_id": params["cluster_id"],
@@ -1915,6 +1974,8 @@ def query_application_logs_action(params: Dict[str, str]) -> Dict[str, Any]:
             "log_stream_index_error": None if index_result.get("success") else index_result.get("error"),
             "custom_labels": custom_labels,
             "final_labels": final_labels,
+            "workload_identity_validation": workload_validation,
+            "no_logs_hint": no_logs_hint,
             **filter_precision,
         }
     )
