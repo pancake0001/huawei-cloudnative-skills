@@ -21,9 +21,9 @@ User: "Check Pod my-app-xyz123 logs for errors"
 
 All explicit `start_time` and `end_time` values for LTS application and audit log queries use UTC in `YYYY-MM-DD HH:MM:SS` format. When omitted, the tools generate the recent time window in UTC.
 
-### Step 1: List Cluster Collection Rules
+### Step 1: Locate Application Collection Rules
 
-Before querying or analyzing application logs, always list both collection-rule types for the target cluster. Do this even when the user already names an application, so the user can see and select the actual configured collection rule.
+When the user provides `namespace` and `app_name`, application-log tools inspect both collection-rule types: CCE LogConfig workload/namespace scope and LTS Access Config namespace/pod regex scope. A unique usable match is selected automatically for this read-only query. If multiple rules match, the tool returns candidates and stops for the user to choose; it never guesses. Only when no usable collection rule exists may the workflow use `huawei_get_pod_stdout_logs`; require `namespace` and an explicit `pod_name` from the user rather than selecting a Pod automatically.
 
 ```bash
 python3 scripts/huawei-cloud.py huawei_get_cce_logconfigs \
@@ -36,9 +36,11 @@ python3 scripts/huawei-cloud.py huawei_list_lts_access_configs \
 
 Show all returned CCE LogConfig rules for the cluster. From the LTS response, show only rules whose `cluster_id` equals the target cluster ID. Do not choose a rule based on a matching workload, namespace, policy name, or destination.
 
-### Step 2: User Selects the Collection Rule
+### Step 2: Resolve Multiple Candidates
 
-Show the two rule lists from step 1 to the user. The user must select exactly one collection rule; do not select a rule automatically, including when the rule name appears to match the workload.
+When multiple rules cover the application, show the returned candidates and require exactly one selector (`logconfig_name` with `logconfig_namespace`, or `access_config_id`) before querying. An explicit selector is also supported when the user already knows the intended rule.
+
+For a shared LTS stream, inspect the result's `filter_quality`: only `exact` confirms that indexed `clusterId`, `nameSpace`, and `appName` filters were applied. With `partial` or `unscoped`, report that other applications may be present and do not attribute error rates or findings conclusively to the requested application.
 
 Selection guidance:
 - Use **stdout policies** for standard output logs
@@ -48,14 +50,14 @@ Selection guidance:
 
 ### Step 3: Query Application Logs
 
-`huawei_query_application_logs` requires one user-selected CCE LogConfig or LTS Access Config. It resolves that rule's LTS destination internally, and never chooses a rule.
+`huawei_query_application_logs` resolves the LTS destination internally. Supply one explicit CCE LogConfig or LTS Access Config selector, or supply `namespace` and `app_name` to discover an applicable rule.
 
 ```bash
 python3 scripts/huawei-cloud.py huawei_query_application_logs \
   region=<region> \
   cluster_id=<cluster-id> \
-  logconfig_name=<selected-logconfig-name> \
-  logconfig_namespace=kube-system \
+  namespace=default \
+  app_name=<workload-name> \
   hours=1
 ```
 
@@ -98,7 +100,7 @@ python3 scripts/huawei-cloud.py huawei_query_application_logs \
 
 ### Step 5: Analyze for Abnormalities
 
-Use `huawei_analyze_application_logs` for time-window abnormality analysis. It requires one user-selected CCE LogConfig or LTS Access Config, detects exception/error/fatal/timeout/OOM patterns and HTTP 5xx status codes, then returns:
+Use `huawei_analyze_application_logs` for time-window abnormality analysis. It accepts an explicit selector or discovers one from `namespace` plus `app_name`, detects exception/error/fatal/timeout/OOM patterns and HTTP 5xx status codes, then returns:
 
 - Abnormal ratio
 - Log rates (total and abnormal per time unit)
@@ -115,7 +117,8 @@ Use `huawei_analyze_application_logs` for time-window abnormality analysis. It r
 python3 scripts/huawei-cloud.py huawei_analyze_application_logs \
   region=<region> \
   cluster_id=<cluster-id> \
-  access_config_id=<selected-access-config-id> \
+  namespace=<namespace> \
+  app_name=<workload-name> \
   start_time="2026-05-30 10:00:00" \
   end_time="2026-05-30 11:00:00" \
   auto_paginate=true \

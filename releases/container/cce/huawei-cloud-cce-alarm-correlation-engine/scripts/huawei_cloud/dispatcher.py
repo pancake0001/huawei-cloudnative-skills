@@ -111,6 +111,7 @@ def _list_aom_alarm_rules(params: Dict[str, str]) -> Dict[str, Any]:
         _to_int(params.get("offset"), 0),
         params.get("enterprise_project_id"),
         params.get("cluster_id"),
+        params.get("_resolved_cluster_name"),
     )
 
 
@@ -398,8 +399,8 @@ ACTION_SPECS: Dict[str, tuple[tuple[str, ...], Handler]] = {
     "huawei_delete_aom_alarm_rule": (("region",), _delete_aom_alarm_rule),
     "huawei_disable_aom_alarm_rule": (("region",), _disable_aom_alarm_rule),
     "huawei_enable_aom_alarm_rule": (("region",), _enable_aom_alarm_rule),
-    "huawei_list_aom_action_rules": (("region",), _list_aom_action_rules),
-    "huawei_delete_aom_action_rule": (("region", "cluster_id", "rule_name"), _delete_aom_action_rule),
+    "huawei_list_aom_notification_action_rules": (("region",), _list_aom_action_rules),
+    "huawei_delete_aom_notification_action_rule": (("region", "cluster_id", "rule_name"), _delete_aom_action_rule),
     "huawei_list_aom_mute_rules": (("region",), _list_aom_mute_rules),
     "huawei_list_aom_current_alarms": (("region",), _list_aom_current_alarms),
     "huawei_list_aom_alarms": (("region",), _list_aom_alarms),
@@ -421,14 +422,17 @@ def dispatch_action(action: str, params: Dict[str, str]) -> Dict[str, Any]:
                 return {"success": False, "error": error}
             resolutions = []
             if normalized.get("cluster_id"):
+                input_cluster_id = normalized["cluster_id"]
                 resolved = common.resolve_cce_cluster_id(
-                    normalized["region"], normalized["cluster_id"], normalized.get("ak"), normalized.get("sk"), normalized.get("project_id")
+                    normalized["region"], input_cluster_id, normalized.get("ak"), normalized.get("sk"), normalized.get("project_id")
                 )
                 if not resolved.get("success"):
                     return resolved
+                normalized["cluster_id"] = resolved["id"]
+                if resolved.get("name"):
+                    normalized["_resolved_cluster_name"] = resolved["name"]
                 if resolved.get("resolved_from_name"):
-                    resolutions.append({"parameter": "cluster_id", "input": normalized["cluster_id"], "resolved_id": resolved["id"]})
-                    normalized["cluster_id"] = resolved["id"]
+                    resolutions.append({"parameter": "cluster_id", "input": input_cluster_id, "resolved_id": resolved["id"]})
             result = handler(normalized)
             if resolutions and result.get("success"):
                 result["resolved_resource_ids"] = resolutions

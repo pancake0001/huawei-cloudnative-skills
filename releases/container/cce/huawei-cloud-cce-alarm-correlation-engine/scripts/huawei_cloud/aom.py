@@ -567,12 +567,50 @@ def _filter_events_by_cluster(events: list, cluster_id: Optional[str] = None, cl
     return filtered
 
 
-def _rule_matches_scope(rule: Dict[str, Any], cluster_id: Optional[str] = None) -> bool:
-    if not cluster_id:
+def _promql_matches_cluster(promql: str, cluster_id: Optional[str], cluster_name: Optional[str]) -> bool:
+    """Match only explicit cluster labels in PromQL, never arbitrary text."""
+    for label, value in (("cluster", cluster_id), ("cluster_name", cluster_name)):
+        if not value:
+            continue
+        pattern = rf'\b{label}\s*=~?\s*["\'](?:[^"\']*\b)?{re.escape(value)}(?:\b[^"\']*)?["\']'
+        if re.search(pattern, promql or ""):
+            return True
+    return False
+
+
+def _rule_matches_scope(
+    rule: Dict[str, Any],
+    cluster_id: Optional[str] = None,
+    cluster_name: Optional[str] = None,
+) -> bool:
+    if not cluster_id and not cluster_name:
         return True
-    raw_text = json.dumps(rule, ensure_ascii=False)
-    if cluster_id and cluster_id in raw_text:
-        return True
+
+    event_spec = rule.get("event_alarm_spec") or {}
+    if event_spec:
+        for monitor_object in event_spec.get("monitor_objects") or []:
+            if not isinstance(monitor_object, dict):
+                continue
+            cluster_values = {
+                str(monitor_object.get(key) or "")
+                for key in ("clusterId", "cluster_id", "cluster")
+            }
+            cluster_name_values = {
+                str(monitor_object.get(key) or "")
+                for key in ("clusterName", "cluster_name")
+            }
+            if cluster_id and cluster_id in cluster_values:
+                return True
+            if cluster_name and (cluster_name in cluster_name_values or cluster_name in cluster_values):
+                return True
+        return False
+
+    metric_spec = rule.get("metric_alarm_spec") or {}
+    for condition in metric_spec.get("trigger_conditions") or []:
+        if isinstance(condition, dict) and _promql_matches_cluster(
+            str(condition.get("promql") or ""), cluster_id, cluster_name
+        ):
+            return True
     return False
 
 
@@ -1099,11 +1137,9 @@ def _build_rule_from_template(
         "alarm_rule_type": template_rule.get("alarm_rule_type"),
         "alias": _safe_alarm_alias(template_rule.get("alias") or candidate.get("display_name") or rule_name),
     })
-    effective_prom_instance_id = prom_instance_id
-    if effective_prom_instance_id:
-        body["prom_instance_id"] = effective_prom_instance_id
-
     is_event_rule = body.get("alarm_rule_type") == "event"
+    if prom_instance_id and not is_event_rule:
+        body["prom_instance_id"] = prom_instance_id
     if bind_notification_rule_id:
         notifications = body.setdefault("alarm_notifications", {})
         notifications.update({
@@ -1161,6 +1197,7 @@ def list_aom_alarm_rules(
     offset: int = 0,
     enterprise_project_id: Optional[str] = None,
     cluster_id: Optional[str] = None,
+    cluster_name: Optional[str] = None,
 ) -> Dict[str, Any]:
     filtered = bool(cluster_id)
     page_limit = max(1, min(limit, 200))
@@ -1190,7 +1227,7 @@ def list_aom_alarm_rules(
     total_count = len(all_rules)
     rules = [
         rule for rule in all_rules
-        if _rule_matches_scope(rule, cluster_id)
+        if _rule_matches_scope(rule, cluster_id, cluster_name)
     ] if filtered else all_rules
 
     formatted = []
@@ -1317,7 +1354,7 @@ def create_aom_alarm_rule(
                 "success": False,
                 "action": "create_aom_alarm_rule",
                 "executed": False,
-                "error": "bind_notification_rule_id is required for confirmed AOM alarm rule creation. Query existing action rules with huawei_list_aom_action_rules and pass an existing rule ID.",
+                "error": "bind_notification_rule_id is required for confirmed AOM alarm rule creation. Query existing action rules with huawei_list_aom_notification_action_rules and pass an existing rule ID.",
             }
         notification_rule_name = _resolve_notification_rule_name(
             region,
@@ -1403,7 +1440,7 @@ def create_aom_alarm_rule(
             "success": False,
             "action": "create_aom_alarm_rule",
             "executed": False,
-            "error": "bind_notification_rule_id is required for confirmed AOM alarm rule creation. Query existing action rules with huawei_list_aom_action_rules and pass an existing rule ID.",
+            "error": "bind_notification_rule_id is required for confirmed AOM alarm rule creation. Query existing action rules with huawei_list_aom_notification_action_rules and pass an existing rule ID.",
         }
     existing_rule = _existing_alarm_rule(region, _normalize_alarm_rule_name(rule_name), None, ak, sk, project_id)
     if existing_rule:
@@ -1495,12 +1532,6 @@ def create_aom_event_alarm_rule(
     sk: Optional[str] = None,
     project_id: Optional[str] = None,
 ) -> Dict[str, Any]:
-    effective_prom_instance_id = prom_instance_id
-    if not effective_prom_instance_id:
-        prom_result = resolve_cce_aom_prom_instance(region, cluster_id, ak, sk, project_id)
-        if prom_result.get("success") and prom_result.get("prom_instance_id"):
-            effective_prom_instance_id = str(prom_result["prom_instance_id"])
-
     cloud_template = _load_cce_alarm_rule_templates_from_cloud(
         region,
         ak,
@@ -1567,7 +1598,7 @@ def create_aom_event_alarm_rule(
             "success": False,
             "action": "create_aom_event_alarm_rule",
             "executed": False,
-            "error": "bind_notification_rule_id is required for confirmed AOM event alarm rule creation. Query existing action rules with huawei_list_aom_action_rules and pass an existing rule ID.",
+            "error": "bind_notification_rule_id is required for confirmed AOM event alarm rule creation. Query existing action rules with huawei_list_aom_notification_action_rules and pass an existing rule ID.",
         }
     existing_rule = _existing_alarm_rule(region, effective_rule_name, cluster_id, ak, sk, project_id)
     if existing_rule:
@@ -1590,7 +1621,7 @@ def create_aom_event_alarm_rule(
         cluster_id,
         effective_rule_name,
         _resolve_notification_rule_name(region, bind_notification_rule_id, ak, sk, project_id),
-        effective_prom_instance_id,
+        None,
         enterprise_project_id,
         resolved_project_id,
     )
@@ -1723,7 +1754,7 @@ def configure_cce_aom_alarm_rules(
             "hcloud_command_samples": preview_commands,
             "notes": [
                 "Add confirm=true to create these AOM alarm rules through hcloud.",
-                "bind_notification_rule_id is required during confirmed execution. Query existing rules with huawei_list_aom_action_rules or create one with huawei_create_aom_notification_action_rule first.",
+                "bind_notification_rule_id is required during confirmed execution. Query existing rules with huawei_list_aom_notification_action_rules or create one with huawei_create_aom_notification_action_rule first.",
                 "skip_existing is evaluated only during confirmed execution.",
             ],
         }
@@ -1746,7 +1777,7 @@ def configure_cce_aom_alarm_rules(
             template_rules = existing.get("rules", [])
 
     resolved_prom_instance_id = prom_instance_id
-    if not resolved_prom_instance_id and any(candidate.get("_template_rule") for candidate in candidates):
+    if not resolved_prom_instance_id and any(candidate.get("kind") == "metric" for candidate in candidates):
         prom_resolution = resolve_cce_aom_prom_instance(region, cluster_id, ak, sk, project_id)
         if not prom_resolution.get("success"):
             return {
@@ -1775,7 +1806,7 @@ def configure_cce_aom_alarm_rules(
             "error": "bind_notification_rule_id is required before creating CCE AOM alarm rules.",
             "bind_notification_rule_id": None,
             "next_steps": [
-                "Call huawei_list_aom_action_rules to list existing notification action rules and ask the user to choose one.",
+                "Call huawei_list_aom_notification_action_rules to list existing notification action rules and ask the user to choose one.",
                 "Or call huawei_create_aom_notification_action_rule with notification_topic_name and notification_topic_urn to create a new rule, then retry with bind_notification_rule_id.",
             ],
         }
@@ -1830,7 +1861,7 @@ def configure_cce_aom_alarm_rules(
                     cluster_id,
                     effective_rule_name,
                     resolved_notification_rule_id,
-                    resolved_prom_instance_id,
+                    resolved_prom_instance_id if candidate.get("kind") == "metric" else None,
                     enterprise_project_id,
                     resolved_project_id,
                     "update-alarm-action" if is_update else "add-alarm-action",
@@ -1875,7 +1906,7 @@ def configure_cce_aom_alarm_rules(
                 bind_notification_rule_id=resolved_notification_rule_id,
                 alarm_level=candidate["alarm_level"],
                 description=candidate["description"],
-                prom_instance_id=resolved_prom_instance_id,
+                prom_instance_id=None,
                 enterprise_project_id=enterprise_project_id,
                 confirm=True,
                 ak=ak,

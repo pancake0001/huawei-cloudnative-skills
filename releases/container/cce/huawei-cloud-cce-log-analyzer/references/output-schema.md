@@ -17,6 +17,11 @@ When querying logs (Pod stdout, application logs, or audit logs), prefer this ou
 | `keywords`      | Keyword filter used                                             |
 | `total`         | Number of returned log entries                                  |
 | `has_more`      | Whether an LTS scroll id indicates more data                    |
+| `filter_quality` | Application-log filter precision: `exact`, `partial`, or `unscoped` |
+| `filter_reason` | Indexed identity labels actually applied to the LTS query       |
+| `analysis_scope_note` | Boundary for attributing findings from a shared log stream |
+| `output` | Query response level: `summary`, `samples`, or `raw` |
+| `identity_label_fields` | Indexed label aliases selected for cluster, namespace, and application |
 
 ## Application Log Collection Rule
 
@@ -27,6 +32,8 @@ When querying logs (Pod stdout, application logs, or audit logs), prefer this ou
 | `source_type` | `container_stdout` or `container_file` |
 | `log_group_id` / `log_group_name` | LTS destination log group |
 | `log_stream_id` / `log_stream_name` | LTS destination log stream |
+
+For application logs, `exact` requires the LTS query to apply indexed `clusterId`, `nameSpace`, and `appName` labels matching the request. `partial` means only some identity labels were applied; `unscoped` means none were applied. In the latter two cases, statistics and findings describe only the returned log set and must not be attributed conclusively to the requested application.
 
 ## LogConfig Preview Summary
 
@@ -89,3 +96,5 @@ Control-plane query outputs include `component`, `log_group_name`, `log_stream_n
 | `top_patterns` | Top recurring abnormal patterns with counts |
 | `status_code_distribution` | HTTP status code counts (especially 5xx) |
 | `samples` | Redacted sample abnormal log entries |
+| `exception_fingerprints` | Deduplicated abnormal-message groups with count and time range |
+| `next_steps` | Follow-up actions derived from filter precision and observed anomalies |

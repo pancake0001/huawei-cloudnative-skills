@@ -22,8 +22,8 @@ tools:
   - huawei_delete_aom_alarm_rule
   - huawei_disable_aom_alarm_rule
   - huawei_enable_aom_alarm_rule
-  - huawei_list_aom_action_rules
-  - huawei_delete_aom_action_rule
+  - huawei_list_aom_notification_action_rules
+  - huawei_delete_aom_notification_action_rule
   - huawei_list_aom_mute_rules
   - huawei_aom_alarm_inspection
 references:

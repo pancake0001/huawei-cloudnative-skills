@@ -60,6 +60,17 @@ def redact_command(command: list[str]) -> list[str]:
     ]
 
 
+def _redact_hcloud_output(text: str, command: list[str], limit: int = 2000) -> str:
+    """Redact credentials if hcloud echoes command arguments in diagnostics."""
+    redacted = text or ""
+    for item in command:
+        if item.startswith(("--cli-access-key=", "--cli-secret-key=", "--cli-security-token=")):
+            secret = item.split("=", 1)[1]
+            if secret:
+                redacted = redacted.replace(secret, "***")
+    return redacted[:limit]
+
+
 def _parse_hcloud_output(output: str) -> Any:
     """Parse hcloud JSON while tolerating diagnostics appended after the payload."""
     candidate = output.strip()
@@ -85,30 +96,55 @@ def run_hcloud(command: list[str]) -> dict[str, Any]:
         process = subprocess.run(command, text=True, capture_output=True, timeout=75, check=False)
     except FileNotFoundError:
         return {"success": False, "error": "hcloud not found in PATH", "command": safe_command}
-    except subprocess.TimeoutExpired:
-        return {"success": False, "error": "hcloud command timed out after 75 seconds", "command": safe_command}
-    if process.returncode:
+    except subprocess.TimeoutExpired as exc:
         return {
             "success": False,
-            "error": (process.stderr or process.stdout or f"hcloud exited with code {process.returncode}")[:2000],
+            "error": "hcloud command timed out after 75 seconds",
             "command": safe_command,
+            "returncode": None,
+            "stdout": _redact_hcloud_output(exc.stdout or "", command) if isinstance(exc.stdout, str) else "",
+            "stderr": _redact_hcloud_output(exc.stderr or "", command) if isinstance(exc.stderr, str) else "",
         }
-    output = (process.stdout or "").strip() or "{}"
+    stdout = (process.stdout or "").strip()
+    stderr = (process.stderr or "").strip()
+    safe_stdout = _redact_hcloud_output(stdout, command)
+    safe_stderr = _redact_hcloud_output(stderr, command)
+    if process.returncode:
+        diagnostic = safe_stderr or safe_stdout
+        return {
+            "success": False,
+            "error": f"hcloud exited with code {process.returncode}: {diagnostic}" if diagnostic else f"hcloud exited with code {process.returncode}",
+            "command": safe_command,
+            "returncode": process.returncode,
+            "stdout": safe_stdout,
+            "stderr": safe_stderr,
+            "raw_error": diagnostic or None,
+        }
+    output = stdout or "{}"
     try:
         data = _parse_hcloud_output(output)
     except json.JSONDecodeError as error:
+        diagnostic = safe_stderr or safe_stdout
         return {
             "success": False,
-            "error": f"hcloud returned non-JSON output: {error}",
+            "error": f"hcloud returned non-JSON output: {diagnostic}" if diagnostic else f"hcloud returned non-JSON output: {error}",
             "command": safe_command,
+            "returncode": process.returncode,
+            "stdout": safe_stdout,
+            "stderr": safe_stderr,
+            "raw_error": diagnostic or None,
         }
     if isinstance(data, dict) and data.get("error_code"):
         return {
             "success": False,
             "error": f"{data['error_code']}: {data.get('error_msg', 'hcloud request failed')}",
             "command": safe_command,
+            "returncode": process.returncode,
+            "stdout": safe_stdout,
+            "stderr": safe_stderr,
+            "raw_error": safe_stderr or safe_stdout or None,
         }
-    return {"success": True, "data": data}
+    return {"success": True, "data": data, "command": safe_command, "returncode": process.returncode}
 
 
 def hcloud_command(

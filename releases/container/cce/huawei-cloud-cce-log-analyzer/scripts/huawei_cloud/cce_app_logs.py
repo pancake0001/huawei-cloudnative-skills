@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import time
@@ -19,6 +20,11 @@ DEFAULT_ERROR_PATTERNS = [
 ]
 DEFAULT_WARNING_PATTERNS = [r"\bwarn(?:ing)?\b", r"\bdeprecated\b", r"\bretry(?:ing)?\b", r"\bslow\b"]
 _KUBERNETES_NAMESPACE_RE = re.compile(r"^[a-z0-9]([-a-z0-9]*[a-z0-9])?$")
+_APPLICATION_LABEL_ALIASES = {
+    "cluster": ("clusterId", "cluster_id", "k8s.cluster.id"),
+    "namespace": ("nameSpace", "namespace", "k8s.namespace.name"),
+    "app": ("appName", "app.kubernetes.io/name", "app"),
+}
 
 
 def _get_policy_name(params: Dict[str, str]) -> Optional[str]:
@@ -1508,18 +1514,163 @@ def _extract_logconfig_lts_destination(logconfig: Dict[str, Any]) -> Dict[str, O
     return {"log_group_id": lts_config.get("ltsGroupID"), "log_stream_id": log_stream_id}
 
 
+def _matches_collection_regex(pattern: Any, value: str, allow_pod_suffix: bool = False) -> bool:
+    """Return whether one collection-rule regex can cover an application value."""
+    if not pattern:
+        return True
+    try:
+        if re.fullmatch(str(pattern), value):
+            return True
+        return allow_pod_suffix and bool(re.fullmatch(str(pattern), f"{value}-sample"))
+    except re.error:
+        return False
+
+
+def _logconfig_covers_application(logconfig: Dict[str, Any], namespace: str, app_name: str) -> bool:
+    input_detail = (logconfig.get("spec") or {}).get("inputDetail") or {}
+    input_type = str(input_detail.get("type") or "").replace("_", "").replace("-", "").lower()
+    if input_type not in {"containerstdout", "containerfile"}:
+        return False
+    source = input_detail.get("containerStdout") if input_type == "containerstdout" else input_detail.get("containerFile")
+    source = source or {}
+    if source.get("allContainers") is True:
+        namespaces = source.get("namespaces") or []
+        return not namespaces or namespace in namespaces
+    for workload in source.get("workloads") or []:
+        if workload.get("namespace") == namespace and workload.get("name") == app_name:
+            return True
+    return False
+
+
+def _application_log_source_candidate(
+    collection_rule: Dict[str, Any],
+    log_group_id: Optional[str],
+    log_stream_id: Optional[str],
+    match_basis: str,
+) -> Optional[Dict[str, Any]]:
+    if not log_group_id or not log_stream_id:
+        return None
+    return {
+        "collection_rule": collection_rule,
+        "log_group_id": log_group_id,
+        "log_stream_id": log_stream_id,
+        "match_basis": match_basis,
+    }
+
+
+def _discover_application_log_sources(params: Dict[str, str]) -> Dict[str, Any]:
+    """Find collection rules that can cover one namespace/application pair."""
+    namespace = params.get("namespace")
+    app_name = params.get("app_name")
+    if not namespace or not app_name:
+        return {
+            "success": False,
+            "error": "namespace and app_name are required when no collection rule is specified",
+        }
+
+    candidates: List[Dict[str, Any]] = []
+    discovery_errors: List[Dict[str, str]] = []
+    logconfig_params = dict(params)
+    logconfig_params["namespace"] = params.get("logconfig_namespace") or "kube-system"
+    logconfig_result = get_cce_logconfigs_action(logconfig_params)
+    if logconfig_result.get("success"):
+        for logconfig in logconfig_result.get("logconfigs", []):
+            if not _logconfig_covers_application(logconfig, namespace, app_name):
+                continue
+            destination = _extract_logconfig_lts_destination(logconfig)
+            candidate = _application_log_source_candidate(
+                {
+                    "collection_mode": "cce_logconfig",
+                    "rule_name": logconfig.get("name"),
+                    "rule_namespace": logconfig.get("namespace"),
+                    "rule_id": None,
+                    "source_type": (logconfig.get("spec") or {}).get("inputDetail", {}).get("type"),
+                    "selector": {
+                        "logconfig_name": logconfig.get("name"),
+                        "logconfig_namespace": logconfig.get("namespace"),
+                    },
+                },
+                destination.get("log_group_id"),
+                destination.get("log_stream_id"),
+                "LogConfig workload or namespace scope",
+            )
+            if candidate:
+                candidates.append(candidate)
+    else:
+        discovery_errors.append({"source": "cce_logconfig", "error": str(logconfig_result.get("error", "unknown error"))})
+
+    access_result = lts.list_access_configs(
+        params["region"],
+        ak=params.get("ak"),
+        sk=params.get("sk"),
+        project_id=params.get("project_id"),
+        security_token=params.get("security_token"),
+    )
+    if access_result.get("success"):
+        for access_config in access_result.get("access_configs", []):
+            if access_config.get("cluster_id") != params["cluster_id"]:
+                continue
+            if not _matches_collection_regex(access_config.get("namespace_regex"), namespace):
+                continue
+            if not _matches_collection_regex(access_config.get("pod_name_regex"), app_name, allow_pod_suffix=True):
+                continue
+            candidate = _application_log_source_candidate(
+                {
+                    "collection_mode": "lts_access_config",
+                    "rule_name": access_config.get("access_config_name"),
+                    "rule_namespace": None,
+                    "rule_id": access_config.get("access_config_id"),
+                    "source_type": str(access_config.get("path_type") or "").lower(),
+                    "selector": {"access_config_id": access_config.get("access_config_id")},
+                },
+                access_config.get("log_group_id"),
+                access_config.get("log_stream_id"),
+                "LTS Access Config namespaceRegex and podNameRegex",
+            )
+            if candidate:
+                candidates.append(candidate)
+    else:
+        discovery_errors.append({"source": "lts_access_config", "error": str(access_result.get("error", "unknown error"))})
+
+    return {"success": True, "candidates": candidates, "discovery_errors": discovery_errors}
+
+
 def _resolve_application_log_source(params: Dict[str, str]) -> Dict[str, Any]:
     """Resolve one user-selected collection rule to its LTS destination."""
     logconfig_name = _get_policy_name(params)
     access_config_name = params.get("access_config_name")
     access_config_id = params.get("access_config_id")
     selected = [value for value in (logconfig_name, access_config_name, access_config_id) if value]
-    if len(selected) != 1:
+    if len(selected) > 1:
         return {
             "success": False,
             "error": "exactly one collection rule is required: logconfig_name, access_config_name, or access_config_id",
-            "note": "First list CCE LogConfigs and LTS Access Configs for the target cluster, then provide the rule selected by the user. The tool never selects a rule automatically.",
         }
+
+    if not selected:
+        discovered = _discover_application_log_sources(params)
+        if not discovered.get("success"):
+            return discovered
+        candidates = discovered.get("candidates", [])
+        if not candidates:
+            return {
+                "success": False,
+                "error": f"no usable collection rule covers namespace={params.get('namespace')} app_name={params.get('app_name')}",
+                "candidate_collection_rules": [],
+                "discovery_errors": discovered.get("discovery_errors", []),
+            }
+        if len(candidates) > 1:
+            return {
+                "success": False,
+                "error": "multiple collection rules cover this application; choose one rule selector and retry",
+                "requires_collection_rule_selection": True,
+                "candidate_collection_rules": candidates,
+                "discovery_errors": discovered.get("discovery_errors", []),
+            }
+        source = dict(candidates[0])
+        source["source_resolution"] = "auto_discovered"
+        return {"success": True, **source}
+
 
     if logconfig_name:
         lookup_params = dict(params)
@@ -1561,6 +1712,7 @@ def _resolve_application_log_source(params: Dict[str, str]) -> Dict[str, Any]:
                 "rule_id": None,
                 "source_type": logconfig.get("spec", {}).get("inputDetail", {}).get("type"),
             },
+            "source_resolution": "explicit_selector",
             **destination,
         }
 
@@ -1606,9 +1758,136 @@ def _resolve_application_log_source(params: Dict[str, str]) -> Dict[str, Any]:
             "rule_id": access_config.get("access_config_id"),
             "source_type": str(access_config.get("path_type") or "").lower(),
         },
+        "source_resolution": "explicit_selector",
         "log_group_id": access_config["log_group_id"],
         "log_stream_id": access_config["log_stream_id"],
     }
+
+
+def _application_filter_precision(
+    cluster_id: str,
+    namespace: Optional[str],
+    app_name: Optional[str],
+    labels: Dict[str, str],
+) -> Dict[str, str]:
+    """Describe whether actual LTS labels isolate one application in a shared stream."""
+    expected = {"clusterId": cluster_id, "nameSpace": namespace, "appName": app_name}
+    applied = [key for key, value in expected.items() if value and labels.get(key) == value]
+    missing = [key for key, value in expected.items() if value and key not in applied]
+    if namespace and app_name and not missing:
+        return {
+            "filter_quality": "exact",
+            "filter_reason": "LTS indexed labels isolate clusterId, nameSpace, and appName.",
+            "analysis_scope_note": "Results and analysis are scoped to the requested application labels.",
+        }
+    if applied:
+        return {
+            "filter_quality": "partial",
+            "filter_reason": f"Only these requested identity labels were applied: {', '.join(applied)}; missing: {', '.join(missing) or 'application identity'}.",
+            "analysis_scope_note": "A shared log stream may include other applications. Findings apply only to the returned log set, not conclusively to the requested application.",
+        }
+    return {
+        "filter_quality": "unscoped",
+        "filter_reason": "No requested application identity label is indexed and applied to the LTS query.",
+        "analysis_scope_note": "A shared log stream may include unrelated applications. Findings apply only to the returned log set, not to the requested application.",
+    }
+
+
+def _application_identity_filters(cluster_id: str, namespace: Optional[str], app_name: Optional[str], indexed_fields: Set[str]) -> Tuple[Dict[str, str], Dict[str, str]]:
+    """Select one available Kubernetes label alias for each application identity field."""
+    values = {"cluster": cluster_id, "namespace": namespace, "app": app_name}
+    filters: Dict[str, str] = {}
+    chosen: Dict[str, str] = {}
+    for identity, value in values.items():
+        if not value:
+            continue
+        field = next((candidate for candidate in _APPLICATION_LABEL_ALIASES[identity] if candidate in indexed_fields), None)
+        if field:
+            filters[field] = value
+            chosen[identity] = field
+    return filters, chosen
+
+
+def _validate_application_workload(params: Dict[str, str], namespace: Optional[str], app_name: Optional[str]) -> Dict[str, Any]:
+    """Report whether a named application matches a current common workload."""
+    checked_kinds = ["Deployment", "StatefulSet", "DaemonSet", "Job", "CronJob"]
+    if not namespace or not app_name:
+        return {
+            "status": "not_requested",
+            "checked_workload_kinds": checked_kinds,
+        }
+    result = kubectl_client.run_kubectl(
+        params["region"],
+        params["cluster_id"],
+        ["get", "deployments,statefulsets,daemonsets,jobs,cronjobs", "--namespace", namespace, "--output=json"],
+        ak=params.get("ak"),
+        sk=params.get("sk"),
+        project_id=params.get("project_id"),
+        security_token=params.get("security_token"),
+        explicit_cli_credentials=params.get("_explicit_cli_credentials") == "true",
+    )
+    if not result.get("success"):
+        return {
+            "status": "unavailable",
+            "checked_workload_kinds": checked_kinds,
+            "error": result.get("error"),
+        }
+    matched_workloads = []
+    for item in (result.get("data") or {}).get("items", []):
+        metadata = item.get("metadata") or {}
+        labels = metadata.get("labels") or {}
+        matched_by = "name" if metadata.get("name") == app_name else next((
+            key for key in ("app", "app.kubernetes.io/name", "appName", "k8s-app")
+            if labels.get(key) == app_name
+        ), None)
+        if matched_by:
+            matched_workloads.append({
+                "kind": item.get("kind"),
+                "name": metadata.get("name"),
+                "matched_by": matched_by,
+            })
+    return {
+        "status": "matched" if matched_workloads else "unmatched",
+        "checked_workload_kinds": checked_kinds,
+        "matched_workloads": matched_workloads,
+        "warning": None if matched_workloads else (
+            "No current common workload matches app_name. LTS label matches may represent a deleted workload, "
+            "a collector component, or an incorrect application name."
+        ),
+    }
+
+
+def _application_query_output_mode(params: Dict[str, str]) -> str:
+    mode = (params.get("output") or "summary").lower()
+    if mode not in {"summary", "samples", "raw"}:
+        raise ValueError("output must be summary, samples, or raw")
+    return mode
+
+
+def _shape_application_query_output(result: Dict[str, Any], mode: str, sample_limit: int) -> Dict[str, Any]:
+    result["output"] = mode
+    if not result.get("success") or mode == "raw":
+        return result
+    logs = result.pop("logs", [])
+    if mode == "samples":
+        result["log_samples"] = logs[:sample_limit]
+        result["sample_limit"] = sample_limit
+    return result
+
+
+def _exception_fingerprints(anomalies: List[Dict[str, Any]], limit: int) -> List[Dict[str, Any]]:
+    groups: Dict[str, Dict[str, Any]] = {}
+    for anomaly in anomalies:
+        content = str(anomaly.get("content") or "")
+        normalized = re.sub(r"\b[0-9a-f]{8}-[0-9a-f-]{27,}\b|\b\d+\b", "?", content.lower())
+        fingerprint = hashlib.sha256(normalized.encode("utf-8")).hexdigest()[:16]
+        group = groups.setdefault(fingerprint, {"fingerprint": fingerprint, "count": 0, "severity": anomaly.get("severity"), "reasons": anomaly.get("reasons") or [], "first_seen": anomaly.get("time"), "last_seen": anomaly.get("time"), "sample": content[:500]})
+        group["count"] += 1
+        if anomaly.get("time") and (not group["first_seen"] or anomaly["time"] < group["first_seen"]):
+            group["first_seen"] = anomaly["time"]
+        if anomaly.get("time") and (not group["last_seen"] or anomaly["time"] > group["last_seen"]):
+            group["last_seen"] = anomaly["time"]
+    return sorted(groups.values(), key=lambda item: item["count"], reverse=True)[:limit]
 
 
 def query_application_logs_action(params: Dict[str, str]) -> Dict[str, Any]:
@@ -1617,17 +1896,17 @@ def query_application_logs_action(params: Dict[str, str]) -> Dict[str, Any]:
         return source_result
 
     app_name = params.get("app_name")
-    policy_name = _get_policy_name(params)
+    policy_name = _get_policy_name(params) or (
+        source_result.get("collection_rule", {}).get("rule_name")
+        if source_result.get("collection_rule", {}).get("collection_mode") == "cce_logconfig"
+        else None
+    )
     namespace = params.get("namespace")
+    try:
+        output_mode = _application_query_output_mode(params)
+    except ValueError as exc:
+        return {"success": False, "error": str(exc)}
     custom_labels = _parse_labels(params.get("labels"))
-    auto_label_candidates = {"clusterId": params["cluster_id"]}
-    if app_name:
-        auto_label_candidates["appName"] = app_name
-    if namespace:
-        auto_label_candidates["nameSpace"] = namespace
-    if policy_name:
-        auto_label_candidates["logconfig"] = policy_name
-
     index_result = lts.list_log_stream_index(
         params["region"],
         source_result["log_group_id"],
@@ -1638,15 +1917,18 @@ def query_application_logs_action(params: Dict[str, str]) -> Dict[str, Any]:
         security_token=params.get("security_token"),
     )
     indexed_fields = index_result.get("indexed_fields", set()) if index_result.get("success") else set()
-    auto_label_filter = {
-        key: value for key, value in auto_label_candidates.items()
-        if key in indexed_fields
-    }
+    auto_label_filter, identity_label_fields = _application_identity_filters(params["cluster_id"], namespace, app_name, indexed_fields)
     # Explicit labels remain caller-controlled. Automatic filters are used only
     # when the stream index confirms they can be queried safely.
     final_labels = dict(auto_label_filter)
     if custom_labels:
         final_labels.update(custom_labels)
+    filter_precision = _application_filter_precision(params["cluster_id"], namespace, app_name, {
+        "clusterId": params["cluster_id"] if identity_label_fields.get("cluster") else None,
+        "nameSpace": namespace if identity_label_fields.get("namespace") else None,
+        "appName": app_name if identity_label_fields.get("app") else None,
+    })
+    workload_validation = _validate_application_workload(params, namespace, app_name)
 
     start_time = params.get("start_time")
     end_time = params.get("end_time")
@@ -1665,6 +1947,17 @@ def query_application_logs_action(params: Dict[str, str]) -> Dict[str, Any]:
     )
     if hours is not None:
         result["hours"] = hours
+    no_logs_hint = None
+    if result.get("success") and result.get("total", 0) == 0:
+        if workload_validation.get("status") == "unmatched":
+            no_logs_hint = (
+                "No logs matched. Check whether namespace and app_name are correct; no current common workload "
+                "matches the supplied app_name."
+            )
+        else:
+            no_logs_hint = (
+                "No logs matched. Check namespace, app_name, the selected collection rule, and the requested time window."
+            )
     result.update(
         {
             "cluster_id": params["cluster_id"],
@@ -1673,15 +1966,20 @@ def query_application_logs_action(params: Dict[str, str]) -> Dict[str, Any]:
             "log_group_id": source_result["log_group_id"],
             "log_stream_id": source_result["log_stream_id"],
             "collection_rule": source_result["collection_rule"],
+            "source_resolution": source_result.get("source_resolution"),
             "policy_name": policy_name,
             "auto_label_filter": auto_label_filter,
+            "identity_label_fields": identity_label_fields,
             "log_stream_index_available": index_result.get("success", False),
             "log_stream_index_error": None if index_result.get("success") else index_result.get("error"),
             "custom_labels": custom_labels,
             "final_labels": final_labels,
+            "workload_identity_validation": workload_validation,
+            "no_logs_hint": no_logs_hint,
+            **filter_precision,
         }
     )
-    return result
+    return _shape_application_query_output(result, output_mode, _to_int(params.get("sample_limit"), 20))
 
 
 def analyze_application_logs_action(params: Dict[str, str]) -> Dict[str, Any]:
@@ -1690,6 +1988,7 @@ def analyze_application_logs_action(params: Dict[str, str]) -> Dict[str, Any]:
     query_params.setdefault("max_pages", "10")
     query_params.setdefault("limit", "1000")
     query_params.setdefault("is_desc", "false")
+    query_params["output"] = "raw"
 
     query_params.setdefault("hours", "1")
     query_result = query_application_logs_action(query_params)
@@ -1765,6 +2064,15 @@ def analyze_application_logs_action(params: Dict[str, str]) -> Dict[str, Any]:
     http_5xx_count = sum(count for code, count in status_code_counts.items() if int(code) >= 500)
     top_status_codes = sorted(status_code_counts.items(), key=lambda item: item[1], reverse=True)[:10]
     top_patterns = sorted(reason_counts.items(), key=lambda item: item[1], reverse=True)[:20]
+    next_steps = []
+    if query_result.get("filter_quality") != "exact":
+        next_steps.append("Create LTS indexes for cluster, namespace, and application labels before attributing shared-stream findings to one application.")
+    if http_5xx_count:
+        next_steps.append("Inspect the top 5xx patterns and correlate their timestamps with the target workload's Pod stdout logs.")
+    if abnormal_logs and not recovery:
+        next_steps.append("Expand the time window or inspect current Pod stdout to determine whether the abnormal pattern is ongoing.")
+    if not total_logs:
+        next_steps.append("Verify the collection rule, LTS destination, retention window, and application label indexes.")
     window_start = query_result.get("start_time")
     window_end = query_result.get("end_time")
     window_duration_minutes = None
@@ -1785,6 +2093,9 @@ def analyze_application_logs_action(params: Dict[str, str]) -> Dict[str, Any]:
         "collection_rule": query_result.get("collection_rule"),
         "log_group_id": query_result.get("log_group_id"),
         "log_stream_id": query_result.get("log_stream_id"),
+        "filter_quality": query_result.get("filter_quality"),
+        "filter_reason": query_result.get("filter_reason"),
+        "analysis_scope_note": query_result.get("analysis_scope_note"),
         "analysis_window": {
             "start_time": _format_ts(window_start) if isinstance(window_start, int) else window_start,
             "end_time": _format_ts(window_end) if isinstance(window_end, int) else window_end,
@@ -1819,6 +2130,8 @@ def analyze_application_logs_action(params: Dict[str, str]) -> Dict[str, Any]:
         },
         "incident_windows": _build_incident_windows(anomalies, incident_gap_minutes),
         "top_patterns": [{"pattern": pattern, "count": count} for pattern, count in top_patterns],
+        "exception_fingerprints": _exception_fingerprints(anomalies, sample_limit),
+        "next_steps": next_steps,
         "top_status_codes": [{"status_code": code, "count": count} for code, count in top_status_codes],
         "abnormal_samples": anomalies_sorted[:sample_limit],
         "query_summary": {
@@ -1828,6 +2141,8 @@ def analyze_application_logs_action(params: Dict[str, str]) -> Dict[str, Any]:
             "pages_fetched": query_result.get("pages_fetched"),
             "stopped_reason": query_result.get("stopped_reason"),
             "final_labels": query_result.get("final_labels"),
+            "filter_quality": query_result.get("filter_quality"),
+            "filter_reason": query_result.get("filter_reason"),
             "keywords": params.get("keywords"),
             "keywords_scope_note": "When keywords is set, ratios are calculated only over logs matched by that keyword filter." if params.get("keywords") else None,
         },

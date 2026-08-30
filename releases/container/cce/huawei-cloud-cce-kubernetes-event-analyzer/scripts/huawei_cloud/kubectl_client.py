@@ -37,15 +37,30 @@ def _run_command(cmd: List[str], env: Optional[Dict[str, str]] = None, timeout: 
         return {"success": False, "error": f"command timed out after {timeout}s", "command": safe_cmd}
 
     if proc.returncode:
+        stdout = common.redact_command_output((proc.stdout or "").strip(), cmd)
+        stderr = common.redact_command_output((proc.stderr or "").strip(), cmd)
+        diagnostic = stderr or stdout
         return {
             "success": False,
-            "error": (proc.stderr or proc.stdout or f"command exited with code {proc.returncode}")[:2000],
+            "error": f"command exited with code {proc.returncode}: {diagnostic}" if diagnostic else f"command exited with code {proc.returncode}",
             "command": safe_cmd,
             "returncode": proc.returncode,
+            "stdout": stdout,
+            "stderr": stderr,
+            "raw_error": diagnostic or None,
         }
 
     result = _parse_json_output(proc.stdout, cmd[0])
     result["command"] = safe_cmd
+    result["returncode"] = proc.returncode
+    if not result.get("success"):
+        stdout = common.redact_command_output((proc.stdout or "").strip(), cmd)
+        stderr = common.redact_command_output((proc.stderr or "").strip(), cmd)
+        diagnostic = stderr or stdout
+        result["error"] = f"{cmd[0]} returned non-JSON output: {diagnostic}" if diagnostic else result["error"]
+        result["stdout"] = stdout
+        result["stderr"] = stderr
+        result["raw_error"] = diagnostic or None
     data = result.get("data")
     if result.get("success") and isinstance(data, dict):
         error_code = data.get("error_code") or data.get("errorCode")

@@ -12,12 +12,14 @@ from typing import Any, Dict, List, Optional
 class CredentialCtx:
     """Resolved credential context for hcloud/kubectl calls."""
     def __init__(self, ak: str, sk: str, security_token: Optional[str],
-                 project_id: Optional[str], injected: bool = False):
+                 project_id: Optional[str], injected: bool = False,
+                 prefer_cli_credentials: bool = False):
         self.ak = ak
         self.sk = sk
         self.security_token = security_token
         self.project_id = project_id
         self.injected = injected
+        self.prefer_cli_credentials = prefer_cli_credentials
 
 
 # Credentials injected by the sandbox runtime at the process entry.
@@ -88,8 +90,14 @@ def resolve_credentials(
     if fetch_project_id and not proj_id and region and access_key and secret_key:
         proj_id = _fetch_project_id(region, access_key, secret_key, token)
 
-    return CredentialCtx(ak=access_key, sk=secret_key, security_token=token,
-                          project_id=proj_id, injected=injected)
+    return CredentialCtx(
+        ak=access_key,
+        sk=secret_key,
+        security_token=token,
+        project_id=proj_id,
+        injected=injected,
+        prefer_cli_credentials=bool(ak or sk or _INJECTED_AK or _INJECTED_SK),
+    )
 
 
 def _fetch_project_id(region: str, ak: str, sk: str, token: Optional[str]) -> Optional[str]:
@@ -136,16 +144,110 @@ def _fetch_project_id(region: str, ak: str, sk: str, token: Optional[str]) -> Op
 def _build_auth_args(ctx: CredentialCtx) -> list:
     """Build hcloud CLI auth arguments.
 
-    If hcloud config has credentials, skip AK/SK to avoid ps aux exposure.
+    Explicit or sandbox-injected credentials override a local hcloud profile.
     """
     args = []
-    if not _hcloud_config_has_credentials():
+    if ctx.prefer_cli_credentials or not _hcloud_config_has_credentials():
         args.extend([f"--cli-access-key={ctx.ak}", f"--cli-secret-key={ctx.sk}"])
         if ctx.security_token:
             args.append(f"--cli-security-token={ctx.security_token}")
     if ctx.project_id:
         args.append(f"--cli-project-id={ctx.project_id}")
     return args
+
+
+def _redact_hcloud_output(text: str, ctx: CredentialCtx, limit: int = 2000) -> str:
+    """Redact credentials if hcloud echoes them in a diagnostic response."""
+    redacted = text or ""
+    for secret in (ctx.ak, ctx.sk, ctx.security_token):
+        if secret:
+            redacted = redacted.replace(secret, "***")
+    return redacted[:limit]
+
+
+def _redact_hcloud_command(args: List[str]) -> List[str]:
+    return [re.sub(r"(--cli-(?:access-key|secret-key|security-token)=).*", r"\1***", arg) for arg in args]
+
+
+def _parse_hcloud_output(stdout: str) -> tuple[Optional[Any], Optional[str]]:
+    """Parse the JSON response without treating pure text as a successful response."""
+    text = (stdout or "").strip()
+    if not text:
+        return None, "empty output"
+    try:
+        return json.loads(text), None
+    except json.JSONDecodeError:
+        pass
+    decoder = json.JSONDecoder()
+    for index, char in enumerate(text):
+        if char not in "{[":
+            continue
+        try:
+            value, _ = decoder.raw_decode(text[index:])
+            return value, None
+        except json.JSONDecodeError:
+            continue
+    return None, "no valid JSON object or array found"
+
+
+def _normalize_hcloud_result(
+    args: List[str], result: subprocess.CompletedProcess[str], ctx: CredentialCtx, service: str, operation: str
+) -> Dict[str, Any]:
+    stdout = (result.stdout or "").strip()
+    stderr = (result.stderr or "").strip()
+    safe_stdout = _redact_hcloud_output(stdout, ctx)
+    safe_stderr = _redact_hcloud_output(stderr, ctx)
+    command = _redact_hcloud_command(args)
+    if result.returncode:
+        diagnostic = safe_stderr or safe_stdout
+        return {
+            "success": False,
+            "error": f"hcloud exited with code {result.returncode}: {diagnostic}" if diagnostic else f"hcloud exited with code {result.returncode}",
+            "raw_error": diagnostic or None,
+            "stdout": safe_stdout,
+            "stderr": safe_stderr,
+            "returncode": result.returncode,
+            "command": command,
+        }
+    if "[USE_ERROR]" in stdout:
+        return {
+            "success": False,
+            "error": f"hcloud usage error: {safe_stdout}",
+            "raw_error": safe_stdout or None,
+            "stdout": safe_stdout,
+            "stderr": safe_stderr,
+            "returncode": result.returncode,
+            "command": command,
+        }
+    data, parse_error = _parse_hcloud_output(stdout)
+    if parse_error:
+        diagnostic = safe_stderr or safe_stdout
+        return {
+            "success": False,
+            "error": f"hcloud returned non-JSON output: {diagnostic}" if diagnostic else f"hcloud returned non-JSON output: {parse_error}",
+            "raw_error": diagnostic or None,
+            "stdout": safe_stdout,
+            "stderr": safe_stderr,
+            "returncode": result.returncode,
+            "command": command,
+        }
+    if isinstance(data, dict):
+        status = data.get("status", "")
+        code = data.get("code")
+        error_code = data.get("error_code") or data.get("errorCode")
+        if status == "Failure" or (isinstance(code, int) and code >= 400) or error_code or (isinstance(code, str) and code and data.get("message")):
+            error = data.get("error_msg") or data.get("errorMessage") or data.get("message", "")
+            return {
+                "success": False,
+                "error": f"{error_code or code}: {error}",
+                "data": data,
+                "raw_error": safe_stderr or safe_stdout or None,
+                "stdout": safe_stdout,
+                "stderr": safe_stderr,
+                "returncode": result.returncode,
+                "command": command,
+            }
+    return {"success": True, "data": data, "message": f"{service} {operation} completed", "returncode": result.returncode, "command": command}
 
 
 def run(
@@ -169,29 +271,7 @@ def run(
 
     try:
         r = subprocess.run(args, capture_output=True, text=True, timeout=120, encoding="utf-8", errors="replace")
-        if r.returncode == 0:
-            stdout = r.stdout.strip()
-            # hcloud returns exit code 0 even for usage errors — check [USE_ERROR] marker
-            if "[USE_ERROR]" in stdout:
-                return {"success": False, "error": stdout[:500]}
-            json_start = stdout.find('{')
-            if json_start >= 0:
-                # Use raw_decode to parse only the JSON part (hcloud may append table text after JSON)
-                decoder = json.JSONDecoder()
-                data, _ = decoder.raw_decode(stdout[json_start:])
-            else:
-                data = {}
-            # hcloud returns exit code 0 even for API errors — check response body
-            if isinstance(data, dict):
-                status = data.get("status", "")
-                code = data.get("code")
-                error_code = data.get("error_code") or data.get("errorCode")
-                if status == "Failure" or (isinstance(code, int) and code >= 400) or error_code or (isinstance(code, str) and code and data.get("message")):
-                    err_msg = data.get("error_msg") or data.get("errorMessage") or data.get("message", "")
-                    return {"success": False, "error": f"{error_code or code}: {err_msg}", "data": data}
-            return {"success": True, "data": data, "message": f"{service} {operation} completed"}
-        else:
-            return {"success": False, "error": r.stderr.strip() or r.stdout.strip()}
+        return _normalize_hcloud_result(args, r, ctx, service, operation)
     except subprocess.TimeoutExpired:
         return {"success": False, "error": f"hcloud {service} {operation} timed out"}
     except json.JSONDecodeError as e:
@@ -260,27 +340,7 @@ def run_with_body(
         args.append(f"--cli-jsonInput={tmp_path}")
 
         r = subprocess.run(args, capture_output=True, text=True, timeout=120, encoding="utf-8", errors="replace")
-        if r.returncode == 0:
-            stdout = r.stdout.strip()
-            # hcloud returns exit code 0 even for usage errors — check [USE_ERROR] marker
-            if "[USE_ERROR]" in stdout:
-                return {"success": False, "error": stdout[:500]}
-            json_start = stdout.find('{')
-            if json_start >= 0:
-                decoder = json.JSONDecoder()
-                data, _ = decoder.raw_decode(stdout[json_start:])
-            else:
-                data = {}
-            if isinstance(data, dict):
-                status = data.get("status", "")
-                code = data.get("code")
-                error_code = data.get("error_code") or data.get("errorCode")
-                if status == "Failure" or (isinstance(code, int) and code >= 400) or error_code or (isinstance(code, str) and code and data.get("message")):
-                    err_msg = data.get("error_msg") or data.get("errorMessage") or data.get("message", "")
-                    return {"success": False, "error": f"{error_code or code}: {err_msg}", "data": data}
-            return {"success": True, "data": data, "message": f"{service} {operation} completed"}
-        else:
-            return {"success": False, "error": r.stderr.strip() or r.stdout.strip()}
+        return _normalize_hcloud_result(args, r, ctx, service, operation)
     except Exception as e:
         return {"success": False, "error": str(e), "error_type": type(e).__name__}
     finally:
