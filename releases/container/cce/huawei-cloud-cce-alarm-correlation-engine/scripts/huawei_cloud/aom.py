@@ -1782,8 +1782,17 @@ def configure_cce_aom_alarm_rules(
         if existing.get("success"):
             template_rules = existing.get("rules", [])
 
+    pending_metric_candidates = [
+        candidate for candidate in candidates
+        if candidate.get("kind") == "metric" and not (
+            skip_existing and (
+                _normalize_alarm_rule_name(candidate["rule_name"]) in existing_names
+                or (not explicit_rule_name_prefix and _find_template_rule(candidate, template_rules))
+            )
+        )
+    ]
     resolved_prom_instance_id = prom_instance_id
-    if not resolved_prom_instance_id and any(candidate.get("kind") == "metric" for candidate in candidates):
+    if not resolved_prom_instance_id and pending_metric_candidates:
         prom_resolution = resolve_cce_aom_prom_instance(region, cluster_id, ak, sk, project_id)
         if not prom_resolution.get("success"):
             return {
