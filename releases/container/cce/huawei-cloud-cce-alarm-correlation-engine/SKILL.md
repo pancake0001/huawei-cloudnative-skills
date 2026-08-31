@@ -272,6 +272,8 @@ python3 scripts/huawei-cloud.py huawei_cleanup_cce_aom_alarm_rules \
 from this tool; call `huawei_list_aom_notification_action_rules` separately and present choices to the user.
 
 When batch creation skips an existing rule, each `skipped` entry includes the matched rule details in `rule`.
+The batch response uses `requested_notification_rule_name` only to describe the notification action rule selected for that request. Inspect
+`skipped[].rule.alarm_notifications` for each existing rule's actual notification binding.
 
 ### 6. Alarm Rule Mutation
 

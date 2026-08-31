@@ -1241,6 +1241,13 @@ def list_aom_alarm_rules(
             "enabled": rule.get("alarm_rule_enable"),
             "status": rule.get("alarm_rule_status"),
             "severity": rule.get("event_severity"),
+            "description": rule.get("alarm_rule_description"),
+            "alias": rule.get("alias"),
+            "created_at": rule.get("alarm_create_time"),
+            "updated_at": rule.get("alarm_update_time"),
+            "enterprise_project_id": rule.get("enterprise_project_id"),
+            "prom_instance_id": rule.get("prom_instance_id"),
+            "alarm_notifications": rule.get("alarm_notifications") or {},
             "metric_alarm_spec": metric_spec,
             "event_alarm_spec": event_spec,
             "raw": rule,
@@ -1819,7 +1826,7 @@ def configure_cce_aom_alarm_rules(
             "skipped_count": 0,
             "failed_count": len(candidates),
             "error": "bind_notification_rule_id is required before creating CCE AOM alarm rules.",
-            "bind_notification_rule_id": None,
+            "requested_notification_rule_name": None,
             "next_steps": [
                 "Call huawei_list_aom_notification_action_rules to list existing notification action rules and ask the user to choose one.",
                 "Or call huawei_create_aom_notification_action_rule with notification_topic_name and notification_topic_urn to create a new rule, then retry with bind_notification_rule_id.",
@@ -1968,7 +1975,7 @@ def configure_cce_aom_alarm_rules(
         "created": created,
         "skipped": skipped,
         "failed": failed,
-        "bind_notification_rule_id": resolved_notification_rule_id,
+        "requested_notification_rule_name": resolved_notification_rule_id,
     }
 
 
