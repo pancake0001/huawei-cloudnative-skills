@@ -271,6 +271,8 @@ python3 scripts/huawei-cloud.py huawei_cleanup_cce_aom_alarm_rules \
 `huawei_configure_cce_aom_alarm_rules` requires explicit `bind_notification_rule_id`. If not provided, do not return or choose `available_notification_rules`
 from this tool; call `huawei_list_aom_notification_action_rules` separately and present choices to the user.
 
+When batch creation skips an existing rule, each `skipped` entry includes the matched rule details in `rule`.
+
 ### 6. Alarm Rule Mutation
 
 ```bash

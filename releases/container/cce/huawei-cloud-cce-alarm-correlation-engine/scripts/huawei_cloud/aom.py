@@ -1760,6 +1760,7 @@ def configure_cce_aom_alarm_rules(
         }
 
     existing_names: set[str] = set()
+    existing_rules_by_name: Dict[str, Dict[str, Any]] = {}
     template_rules: List[Dict[str, Any]] = []
     if skip_existing:
         existing = list_aom_alarm_rules(region, ak, sk, project_id, limit=200, offset=0, cluster_id=cluster_id)
@@ -1768,6 +1769,11 @@ def configure_cce_aom_alarm_rules(
         template_rules = existing.get("rules", [])
         existing_names = {
             _normalize_alarm_rule_name(str(rule.get("rule_name")))
+            for rule in existing.get("rules", [])
+            if rule.get("rule_name")
+        }
+        existing_rules_by_name = {
+            _normalize_alarm_rule_name(str(rule.get("rule_name"))): rule
             for rule in existing.get("rules", [])
             if rule.get("rule_name")
         }
@@ -1817,7 +1823,11 @@ def configure_cce_aom_alarm_rules(
     for candidate in candidates:
         normalized_name = _normalize_alarm_rule_name(candidate["rule_name"])
         if skip_existing and normalized_name in existing_names:
-            skipped.append({"rule_name": candidate["rule_name"], "reason": "already exists"})
+            skipped.append({
+                "rule_name": candidate["rule_name"],
+                "reason": "already exists",
+                "rule": existing_rules_by_name.get(normalized_name),
+            })
             continue
 
         existing_template_rule = _find_template_rule(candidate, template_rules)
@@ -1825,6 +1835,7 @@ def configure_cce_aom_alarm_rules(
             skipped.append({
                 "rule_name": existing_template_rule.get("alarm_rule_name") or candidate["rule_name"],
                 "reason": "matching template rule already exists",
+                "rule": existing_template_rule,
             })
             continue
         is_update = bool(existing_template_rule) and not skip_existing
@@ -1923,7 +1934,11 @@ def configure_cce_aom_alarm_rules(
         if result.get("success"):
             created.append(entry)
         elif (result.get("data") or {}).get("error_code") == "AOM.02021062":
-            skipped.append({"rule_name": candidate["rule_name"], "reason": "already exists"})
+            skipped.append({
+                "rule_name": candidate["rule_name"],
+                "reason": "already exists",
+                "rule": _existing_alarm_rule(region, candidate["rule_name"], cluster_id, ak, sk, project_id),
+            })
         else:
             failed.append(entry)
 
