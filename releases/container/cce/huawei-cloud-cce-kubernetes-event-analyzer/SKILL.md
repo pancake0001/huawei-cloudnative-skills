@@ -174,7 +174,7 @@ python3 scripts/huawei-cloud.py huawei_query_k8s_events_from_lts \
 
 LTS time format is UTC `YYYY-MM-DD HH:MM:SS`; the tool always interprets input values as UTC, not the local time zone of the host. The cluster must have the
 Cloud Native Log Collection add-on (`log-agent`) installed and healthy with the `default-event` Event-to-LTS `LogConfig`. The tool uses
-`kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> get logconfigs.logging.openvessel.io -A -o json`, selects `default-event`, and reads
+`kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get logconfigs.logging.openvessel.io -A -o json`, selects `default-event`, and reads
 `outputDetail.LTS.ltsGroupID` and `ltsStreamID`. LTS queries default to `event_type=Warning`, using `Warning` as a server-side keyword filter. For large
 clusters, request full Event history only after user confirmation with `event_type=all`; this removes the type keyword filter. LTS filtering is keyword
 matching, not a structured-field selector.
@@ -232,7 +232,7 @@ If a required `cluster_id` is missing, or any supplied `cluster_id` is invalid, 
 | `cluster_id`                            | Required                                       | Exact CCE cluster ID                          | N/A                                                                    |
 | `ak`                                    | Optional                                       | Explicit AK for access paths that support it  | profile/environment fallback                                           |
 | `sk`                                    | Optional                                       | Explicit SK for access paths that support it  | profile/environment fallback                                           |
-| `project_id`                            | Required for `kubectl cce`; optional otherwise | Target cluster's Huawei Cloud project ID      | hcloud profile/IAM/environment fallback for external kubeconfig access |
+| `project_id`                            | Optional                                       | Target cluster's Huawei Cloud project ID      | Uses explicit input or `HW_PROJECT_ID`; the Python dispatcher resolves it through IAM before `kubectl cce` when omitted. |
 | `--cli-access-key` / `--cli-secret-key` | Optional                                       | Explicit AK/SK for hcloud and `kubectl cce`   | Overrides profile/environment credentials                              |
 | `--cli-security-token`                  | Optional                                       | STS security token paired with explicit AK/SK | Explicitly passed to hcloud and `kubectl cce`                          |
 
@@ -240,7 +240,7 @@ If a required `cluster_id` is missing, or any supplied `cluster_id` is invalid, 
 
 | Tool                    | Required               | Optional                                                                                                                                                                                 |
 | ----------------------- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `huawei_get_cce_events` | `region`, `cluster_id` | `namespace`, `event_type` (`Warning` default, `Normal`, or `all`), `limit`, `ak`, `sk`, `project_id` (required for `kubectl cce`), `security_token`, or the `--cli-*` credential aliases |
+| `huawei_get_cce_events` | `region`, `cluster_id` | `namespace`, `event_type` (`Warning` default, `Normal`, or `all`), `limit`, `ak`, `sk`, `project_id` (auto-resolved through IAM for `kubectl cce` when omitted), `security_token`, or the `--cli-*` credential aliases |
 
 ### Historical Event Query Parameters
 
@@ -338,7 +338,7 @@ logging configuration as part of verification.
 
 ## x509 TLS Retry
 
-If a `kubectl cce` command returns an `x509` certificate-validation error, repeat the same command with `--cce-insecure-upstream-tls=true` immediately after `cce`. For example: `kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> ...`. Use this option only when that TLS validation error occurs.
+If a `kubectl cce` command returns an `x509` certificate-validation error, repeat the same command with `--cce-insecure-upstream-tls=true` immediately after `cce`. For example: `kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --project-id <project-id> ...`. Use this option only when that TLS validation error occurs.
 
 
 ## Cluster ID Input

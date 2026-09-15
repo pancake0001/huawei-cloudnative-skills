@@ -9,7 +9,7 @@ import tempfile
 from typing import Any, Dict, List, Optional
 
 from . import common
-from .common import get_credentials, get_security_token, run_hcloud
+from .common import get_credentials, get_credentials_with_region, get_security_token, run_hcloud
 
 
 def _run_json_command(cmd: List[str], env: Optional[Dict[str, str]] = None, timeout: int = 60) -> Dict[str, Any]:
@@ -125,7 +125,9 @@ def _kubectl_get_with_cce_plugin(region: str, cluster_id: str, resource_args: Li
     explicit_credentials = common.has_explicit_credentials()
     access_key = ak if explicit_credentials else ak or os.environ.get("HW_ACCESS_KEY") or os.environ.get("HUAWEICLOUD_SDK_AK")
     secret_key = sk if explicit_credentials else sk or os.environ.get("HW_SECRET_KEY") or os.environ.get("HUAWEICLOUD_SDK_SK")
-    proj_id = project_id if explicit_credentials else project_id or os.environ.get("HW_PROJECT_ID") or os.environ.get("HUAWEICLOUD_SDK_PROJECT_ID")
+    access_key, secret_key, proj_id = get_credentials_with_region(region, access_key, secret_key, project_id)
+    if not proj_id:
+        return {"success": False, "error": "unable to resolve project_id for kubectl cce through IAM"}
     env = os.environ.copy()
     if explicit_credentials:
         for name in (
@@ -151,8 +153,7 @@ def _kubectl_get_with_cce_plugin(region: str, cluster_id: str, resource_args: Li
         env["HUAWEICLOUD_SECURITY_TOKEN"] = sec_token
 
     command = ["kubectl", "cce", "--cce-insecure-upstream-tls=true", "--cluster-id", cluster_id, "--region", region]
-    if proj_id:
-        command.extend(["--project-id", proj_id])
+    command.extend(["--project-id", proj_id])
     if access_key:
         command.extend(["--cli-access-key", access_key])
     if secret_key:

@@ -30,6 +30,7 @@ prerequisite recovery step when `kubectl` or the `kubectl-cce` plugin is unavail
 | --- | --- |
 | `cluster_id` | Required standard UUID. An exact name may be resolved with `hcloud CCE ListClusters`, but never run `kubectl cce` until it resolves to one UUID. |
 | `region` | Required. Obtain it from the request or current context, then `HW_REGION_NAME`; otherwise ask the user. |
+| `project_id` | Required. Pass it explicitly as `--project-id <project-id>` on every `kubectl cce` command. Obtain it from explicit input or `HW_PROJECT_ID`; never rely on an implicit plugin default. |
 | Resource kind | Required, for example `pod`, `deployment`, `service`, `configmap`, or `node`. |
 | Namespace or exact name | At least one is required. Namespaced resources require a namespace; cluster-scoped resources require an exact name. |
 
@@ -63,20 +64,20 @@ Credentials follow the plugin rules in [plugin-usage.md](references/plugin-usage
 Use one explicit namespace per namespaced query:
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> \
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> \
   get pod <pod-name> --namespace <namespace> -o yaml
 
-kubectl cce --cluster-id <cluster-id> --region <region> \
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> \
   describe deployment <deployment-name> --namespace <namespace>
 
-kubectl cce --cluster-id <cluster-id> --region <region> \
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> \
   get service <service-name> --namespace <namespace> -o yaml
 ```
 
 For a cluster-scoped resource, use an exact name:
 
 ```bash
-kubectl cce --cluster-id <cluster-id> --region <region> \
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> \
   get node <node-name> -o yaml
 ```
 

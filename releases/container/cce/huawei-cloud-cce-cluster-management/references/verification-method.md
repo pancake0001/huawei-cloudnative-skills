@@ -73,7 +73,7 @@ python3 huawei-cloud.py huawei_list_cce_clusters region=cn-north-4
 ### Step 5: Verify kubectl Path (Node Status)
 
 ```bash
-# Exercises the full kubectl cce path: kubectl cce --cce-insecure-upstream-tls=true --cluster-id ... get node
+# Exercises the full kubectl cce path: kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --project-id <project-id> get node
 python3 huawei-cloud.py huawei_cce_node_status \
   region=cn-north-4 \
   cluster_id=<cluster_id> \

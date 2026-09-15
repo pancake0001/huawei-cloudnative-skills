@@ -6,10 +6,11 @@ import json
 import os
 import re
 import subprocess
-from typing import Any, Optional
+from typing import Any, Dict, Optional
 
 
 _STANDARD_UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$", re.IGNORECASE)
+_PROJECT_ID_CACHE: Dict[str, str] = {}
 
 
 def get_credentials(
@@ -173,6 +174,31 @@ def hcloud_command(
     if resolved_security_token:
         command.append(f"--cli-security-token={resolved_security_token}")
     return command
+
+
+def resolve_project_id(
+    region: str,
+    ak: Optional[str] = None,
+    sk: Optional[str] = None,
+    project_id: Optional[str] = None,
+    security_token: Optional[str] = None,
+) -> Optional[str]:
+    """Resolve a regional project ID for commands that require --project-id."""
+    if project_id:
+        return project_id
+    if region in _PROJECT_ID_CACHE:
+        return _PROJECT_ID_CACHE[region]
+    result = run_hcloud(
+        hcloud_command("IAM", "KeystoneListProjects", region, ak, sk, None, security_token) + [f"--name={region}"]
+    )
+    if not result.get("success"):
+        return None
+    projects = ((result.get("data") or {}).get("projects") or [])
+    matches = [item.get("id") for item in projects if item.get("name") == region and item.get("id")]
+    if len(matches) == 1:
+        _PROJECT_ID_CACHE[region] = matches[0]
+        return matches[0]
+    return None
 
 
 def resolve_cce_cluster_id(
