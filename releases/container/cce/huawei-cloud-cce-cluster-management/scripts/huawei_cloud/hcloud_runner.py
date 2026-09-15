@@ -87,7 +87,7 @@ def resolve_credentials(
     proj_id = project_id or os.environ.get("HW_PROJECT_ID") or os.environ.get("HUAWEI_PROJECT_ID") or os.environ.get("HUAWEICLOUD_SDK_PROJECT_ID")
     injected = (_INJECTED_AK is not None) and not ak
 
-    if fetch_project_id and not proj_id and region and access_key and secret_key:
+    if fetch_project_id and not proj_id and region:
         proj_id = _fetch_project_id(region, access_key, secret_key, token)
 
     return CredentialCtx(
@@ -100,7 +100,7 @@ def resolve_credentials(
     )
 
 
-def _fetch_project_id(region: str, ak: str, sk: str, token: Optional[str]) -> Optional[str]:
+def _fetch_project_id(region: str, ak: Optional[str], sk: Optional[str], token: Optional[str]) -> Optional[str]:
     """Fetch project_id via hcloud IAM KeystoneListProjects, cache in process memory."""
     if region in _PROJECT_ID_CACHE:
         return _PROJECT_ID_CACHE[region]
@@ -113,6 +113,8 @@ def _fetch_project_id(region: str, ak: str, sk: str, token: Optional[str]) -> Op
     ]
     # Only pass AK/SK as CLI args if hcloud config doesn't have credentials
     if not _hcloud_config_has_credentials():
+        if not ak or not sk:
+            return None
         args.extend([f"--cli-access-key={ak}", f"--cli-secret-key={sk}"])
         if token:
             args.append(f"--cli-security-token={token}")
@@ -364,13 +366,15 @@ def kubectl_cce(ctx: CredentialCtx, region: str, cluster_id: str,
     Credentials are passed via environment variables (HW_ACCESS_KEY, HW_SECRET_KEY,
     HW_SECURITY_TOKEN, HW_PROJECT_ID) which the plugin reads automatically.
     """
+    if not ctx.project_id:
+        return {"success": False, "error": "unable to resolve project_id for kubectl cce through IAM"}
+
     cmd = [
         "kubectl", "cce", "--cce-insecure-upstream-tls=true",
         f"--cluster-id={cluster_id}",
         f"--region={region}",
     ]
-    if ctx.project_id:
-        cmd.append(f"--project-id={ctx.project_id}")
+    cmd.append(f"--project-id={ctx.project_id}")
     if ctx.injected:
         cmd.append(f"--cli-access-key={ctx.ak}")
         cmd.append(f"--cli-secret-key={ctx.sk}")

@@ -300,10 +300,7 @@ def _node_operation(params: Dict[str, str], operation: str) -> Dict[str, Any]:
     node_name = params["node_name"]
     confirm = params.get("confirm", "").lower() == "true"
 
-    # kubectl-cce node operations don't need project_id — skip fetching to avoid
-    # unnecessary credential exposure (R5: _fetch_project_id would expose AK/SK in ps aux)
-    ctx = resolve_credentials(params.get("ak"), params.get("sk"), params.get("project_id"), region,
-                              fetch_project_id=False)
+    ctx = resolve_credentials(params.get("ak"), params.get("sk"), params.get("project_id"), region)
     if not ctx.ak or not ctx.sk:
         return {"success": False, "error": "Credentials not provided."}
 
