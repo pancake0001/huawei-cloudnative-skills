@@ -17,6 +17,8 @@ Use `hcloud` for cloud resource discovery and cluster validation. Use `huawei-cl
 
 Explicit `--cli-access-key`, `--cli-secret-key`, and optional `--cli-security-token` take precedence and are forwarded to CLI calls. Otherwise use hcloud profile then `HW_ACCESS_KEY`/`HW_SECRET_KEY`, optionally `HW_SECURITY_TOKEN` and `HW_PROJECT_ID`. Resolve `region` from input/context, then `HW_REGION_NAME`, or ask the user.
 
+Every manual `kubectl cce` command must include `--project-id <project-id>`. Obtain the project ID from explicit input or `HW_PROJECT_ID`; do not rely on an implicit plugin default.
+
 ## Tools
 
 | Tool | Purpose | Risk |

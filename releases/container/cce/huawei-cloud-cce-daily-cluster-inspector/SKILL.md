@@ -15,6 +15,8 @@ Perform periodic, low-risk CCE health inspections. Start with a quick check and 
 
 Use `hcloud` for cluster and cloud evidence. Use `huawei-cloud-kubectl-cce-installer` for Kubernetes resources, with namespace- or resource-scoped reads. AOM and Prometheus checks require the monitoring integration. Explicit CLI credentials take precedence, then hcloud profile, then `HW_ACCESS_KEY`/`HW_SECRET_KEY` with optional `HW_SECURITY_TOKEN` and `HW_PROJECT_ID`. Resolve region from input/context, then `HW_REGION_NAME`, or ask the user.
 
+Every manual `kubectl cce` command must include `--project-id <project-id>`. Obtain the project ID from explicit input or `HW_PROJECT_ID`; do not rely on an implicit plugin default.
+
 ## Tools
 
 | Tool | Purpose | Risk |

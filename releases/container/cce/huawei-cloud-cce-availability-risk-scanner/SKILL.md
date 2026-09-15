@@ -15,6 +15,8 @@ Perform a read-only CCE availability assessment covering workload replica/PDB/pr
 
 Use `hcloud` for cloud resources and `huawei-cloud-kubectl-cce-installer` for Kubernetes reads. Prometheus/AOM checks require the cluster monitoring integration. Credentials use explicit CLI inputs first, then hcloud profile, then `HW_ACCESS_KEY`/`HW_SECRET_KEY` with optional `HW_SECURITY_TOKEN` and `HW_PROJECT_ID`. Obtain `region` from input/context, then `HW_REGION_NAME`, or request it.
 
+Every manual `kubectl cce` command must include `--project-id <project-id>`. Obtain the project ID from explicit input or `HW_PROJECT_ID`; do not rely on an implicit plugin default.
+
 ## Tools
 
 | Tool | Purpose | Risk |

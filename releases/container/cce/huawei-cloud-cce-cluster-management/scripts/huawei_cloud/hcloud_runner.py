@@ -78,8 +78,8 @@ def resolve_credentials(
 ) -> CredentialCtx:
     """Resolve credentials from params > injected > env vars. Auto-fetch project_id if missing.
 
-    Set fetch_project_id=False for operations that don't need project_id
-    (e.g., kubectl-cce node operations) to avoid unnecessary credential exposure.
+    All kubectl-cce operations require a resolved project ID so the command can
+    pass it explicitly with --project-id.
     """
     access_key = ak or _INJECTED_AK or os.environ.get("HW_ACCESS_KEY") or os.environ.get("HUAWEI_AK") or os.environ.get("HUAWEICLOUD_SDK_AK")
     secret_key = sk or _INJECTED_SK or os.environ.get("HW_SECRET_KEY") or os.environ.get("HUAWEI_SK") or os.environ.get("HUAWEICLOUD_SDK_SK")
@@ -364,13 +364,18 @@ def kubectl_cce(ctx: CredentialCtx, region: str, cluster_id: str,
     Credentials are passed via environment variables (HW_ACCESS_KEY, HW_SECRET_KEY,
     HW_SECURITY_TOKEN, HW_PROJECT_ID) which the plugin reads automatically.
     """
+    if not ctx.project_id:
+        return {
+            "success": False,
+            "error": "project_id is required for kubectl cce; provide project_id or set HW_PROJECT_ID",
+        }
+
     cmd = [
         "kubectl", "cce", "--cce-insecure-upstream-tls=true",
         f"--cluster-id={cluster_id}",
         f"--region={region}",
     ]
-    if ctx.project_id:
-        cmd.append(f"--project-id={ctx.project_id}")
+    cmd.append(f"--project-id={ctx.project_id}")
     if ctx.injected:
         cmd.append(f"--cli-access-key={ctx.ak}")
         cmd.append(f"--cli-secret-key={ctx.sk}")

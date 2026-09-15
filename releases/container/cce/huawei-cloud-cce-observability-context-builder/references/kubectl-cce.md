@@ -5,8 +5,9 @@ before querying cluster resources.
 
 ## Resource Query Constraints
 
-Use this plugin for read-only CCE resource queries. Always provide `--cluster-id` and `--region`; for namespaced resources, provide
-`--namespace <namespace>` whenever the tool input supports it. Default to a specific namespace or resource name instead of `-A` or `--all-namespaces`.
+Use this plugin for read-only CCE resource queries. Always provide `--cluster-id`, `--region`, and `--project-id`; for namespaced resources, provide
+`--namespace <namespace>` whenever the tool input supports it. Obtain the project ID from explicit input or `HW_PROJECT_ID`; do not rely on an implicit
+plugin default. Default to a specific namespace or resource name instead of `-A` or `--all-namespaces`.
 
 Before invoking `kubectl cce`, validate that `cluster_id` resolves to one existing CCE cluster UUID in the supplied region. If the region or cluster ID is
 missing, invalid, or cannot be resolved, do not run the resource query; ask the user to provide the correct region and cluster ID.
@@ -43,10 +44,10 @@ For trusted sandbox/agent runtimes that inject credentials per invocation and co
 
 ```bash
 # Mode 1 (env vars)
-kubectl cce --cluster-id <cluster-id> --region "${HW_REGION}" get pod <pod-name> --namespace <namespace>
+kubectl cce --cluster-id <cluster-id> --region "${HW_REGION}" --project-id "${HW_PROJECT_ID}" get pod <pod-name> --namespace <namespace>
 
 # Mode 2 (runtime injection — runtime supplies the real values; never log them)
-kubectl cce --cluster-id <cluster-id> --region <region> \
+kubectl cce --cluster-id <cluster-id> --region <region> --project-id <project-id> \
   --cli-access-key <access-key> --cli-secret-key <secret-key> \
   [--cli-security-token <token>] get pod <pod-name> --namespace <namespace>
 ```
@@ -55,4 +56,4 @@ Do not run write operations during installation verification.
 
 ## x509 TLS Retry
 
-If a `kubectl cce` command returns an `x509` certificate-validation error, repeat the same command with `--cce-insecure-upstream-tls=true` immediately after `cce`. For example: `kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> ...`. Use this option only when that TLS validation error occurs.
+If a `kubectl cce` command returns an `x509` certificate-validation error, repeat the same command with `--cce-insecure-upstream-tls=true` immediately after `cce`. For example: `kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --project-id <project-id> ...`. Use this option only when that TLS validation error occurs.

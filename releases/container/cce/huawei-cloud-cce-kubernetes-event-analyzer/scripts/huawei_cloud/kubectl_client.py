@@ -99,6 +99,22 @@ def _run_hcloud(
     return _run_command(cmd)
 
 
+def _resolve_project_id(
+    region: str, ak: Optional[str], sk: Optional[str], project_id: Optional[str]
+) -> tuple[Optional[str], Optional[str]]:
+    """Return an explicit project ID, discovering it from IAM when necessary."""
+    if project_id:
+        return project_id, None
+    result = _run_hcloud("IAM", "KeystoneListProjects", region, {"name": region}, ak, sk, None)
+    if not result.get("success"):
+        return None, result.get("error") or "IAM project lookup failed"
+    projects = ((result.get("data") or {}).get("projects") or [])
+    matches = [item.get("id") for item in projects if item.get("name") == region and item.get("id")]
+    if len(matches) == 1:
+        return matches[0], None
+    return None, "IAM project lookup did not return one project for the target region"
+
+
 def _cluster_has_external_access(cluster: Dict[str, Any]) -> bool:
     status = cluster.get("status") or {}
     for condition in status.get("conditions", []) or []:
@@ -167,6 +183,13 @@ def _get_events_with_cce_plugin(
     access_key = ak or env_ak
     secret_key = sk or env_sk
     resolved_project_id = project_id or env_project_id
+    if not resolved_project_id:
+        resolved_project_id, project_error = _resolve_project_id(region, ak, sk, None)
+        if not resolved_project_id:
+            return {
+                "success": False,
+                "error": f"unable to resolve project_id for kubectl cce: {project_error}",
+            }
     env = os.environ.copy()
     if explicit_credentials:
         for name in (
@@ -185,8 +208,7 @@ def _get_events_with_cce_plugin(
     if security_token:
         env.update({"HW_SECURITY_TOKEN": security_token, "HUAWEICLOUD_SECURITY_TOKEN": security_token})
     command = ["kubectl", "cce", "--cce-insecure-upstream-tls=true", "--cluster-id", cluster_id, "--region", region]
-    if resolved_project_id:
-        command.extend(["--project-id", resolved_project_id])
+    command.extend(["--project-id", resolved_project_id])
     if access_key:
         command.extend(["--cli-access-key", access_key])
     if secret_key:

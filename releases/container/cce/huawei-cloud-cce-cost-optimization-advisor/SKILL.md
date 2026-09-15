@@ -15,6 +15,8 @@ Provide read-only CCE cost-efficiency findings from node utilization, workload r
 
 Use `hcloud` for cloud discovery and cluster validation; use `huawei-cloud-kubectl-cce-installer` for scoped Kubernetes reads. AOM Prometheus data requires the monitoring integration. Explicit CLI credentials take precedence; otherwise use hcloud profile then `HW_ACCESS_KEY`/`HW_SECRET_KEY`, with optional `HW_SECURITY_TOKEN` and `HW_PROJECT_ID`. Resolve `region` from input/context, then `HW_REGION_NAME`, or ask for it.
 
+Every manual `kubectl cce` command must include `--project-id <project-id>`. Obtain the project ID from explicit input or `HW_PROJECT_ID`; do not rely on an implicit plugin default.
+
 ## Tools
 
 | Tool | Purpose | Risk |

@@ -97,8 +97,14 @@ def _plugin_kubectl(region: str, cluster_id: str, arguments: List[str], ak: Opti
         environment.update({"HW_SECURITY_TOKEN": token, "HUAWEICLOUD_SECURITY_TOKEN": token})
     command = ["kubectl", "cce", "--cce-insecure-upstream-tls=true", "--cluster-id", cluster_id, "--region", region]
     resolved_project_id = project_id if explicit_cli_credentials else project_id or env_project
-    if resolved_project_id:
-        command.extend(["--project-id", resolved_project_id])
+    if not resolved_project_id:
+        resolved_project_id = common.resolve_project_id(region, ak, sk, None, security_token)
+    if not resolved_project_id:
+        return {
+            "success": False,
+            "error": "unable to resolve project_id for kubectl cce through IAM",
+        }
+    command.extend(["--project-id", resolved_project_id])
     if explicit_cli_credentials:
         command.extend([f"--cli-access-key={ak}", f"--cli-secret-key={sk}"])
         if security_token:
