@@ -52,6 +52,7 @@ threshold-based anomaly detection.
 ### 1. Runtime Dependencies
 
 - Python 3.8+ for the dispatcher and result processing
+- `httpx[socks]` for signed AOM Prometheus HTTPS queries; it respects standard HTTP/HTTPS/SOCKS proxy environment variables when a proxy is required
 - hcloud (KooCLI) 7.2.2+ for CCE/ECS/ELB/VPC/EIP/NAT/CES/IAM cloud service queries
 - `kubectl` only for Kubernetes resource reads that cannot be derived from AOM/hcloud, such as Pod `label_selector` filtering, Ingress TLS certificate checks,
   and LoadBalancer Service discovery for ELB/EIP association; clusters without external EIP require `kubectl cce`.
