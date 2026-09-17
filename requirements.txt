@@ -14,7 +14,7 @@ huaweicloudsdkhss
 huaweicloudsdksfsturbo
 kubernetes
 requests
+httpx[socks]
 PyYAML
 matplotlib
 numpy
-

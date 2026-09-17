@@ -21,6 +21,7 @@ def _get_aom_instance(region: str, cluster_id: str, ak: Optional[str], sk: Optio
     if not cluster_id:
         return {"success": False, "error": "cluster_id is required"}
 
+    debug_log("discovering cie-collector addon: region=%s cluster_id=%s project_id_supplied=%s", region, cluster_id, bool(project_id))
     list_resp = run_hcloud(
         "CCE",
         "ListAddonInstances",
@@ -31,18 +32,30 @@ def _get_aom_instance(region: str, cluster_id: str, ak: Optional[str], sk: Optio
         project_id=project_id,
     )
     if not list_resp.get("success"):
+        debug_log("ListAddonInstances failed while discovering cie-collector")
         return list_resp
 
+    addon_items = (list_resp.get("data") or {}).get("items", []) or []
+    addon_names = [
+        metadata.get("name")
+        for addon in addon_items
+        if isinstance(addon, dict)
+        for metadata in [addon.get("metadata") or {}]
+        if metadata.get("name")
+    ]
+    debug_log("ListAddonInstances returned %d addon(s): %s", len(addon_items), ", ".join(addon_names) or "none")
     cie_addon_id = None
-    for addon in (list_resp.get("data") or {}).get("items", []) or []:
+    for addon in addon_items:
         metadata = addon.get("metadata") or {}
         if metadata.get("name") == "cie-collector":
             cie_addon_id = metadata.get("uid")
             break
 
     if not cie_addon_id:
+        debug_log("cie-collector addon was not present in ListAddonInstances response")
         return {"success": False, "error": "cie-collector addon not found in cluster"}
 
+    debug_log("cie-collector addon matched; requesting addon configuration")
     show_resp = run_hcloud(
         "CCE",
         "ShowAddonInstance",
@@ -53,6 +66,7 @@ def _get_aom_instance(region: str, cluster_id: str, ak: Optional[str], sk: Optio
         project_id=project_id,
     )
     if not show_resp.get("success"):
+        debug_log("ShowAddonInstance failed for cie-collector")
         return show_resp
 
     detail = show_resp.get("data") or {}
@@ -74,8 +88,10 @@ def _get_aom_instance(region: str, cluster_id: str, ak: Optional[str], sk: Optio
     for source, data in candidates:
         aom_instance_id = data.get("aom_instance_id") or data.get("prom_instance_id") or data.get("aom_id")
         if aom_instance_id:
+            debug_log("AOM Prometheus instance resolved from %s", source)
             return {"success": True, "aom_instance_id": aom_instance_id, "source": source}
 
+    debug_log("cie-collector configuration did not contain an AOM Prometheus instance ID")
     return {"success": False, "error": "aom_instance_id not found in cie-collector addon config"}
 
 def get_cce_pod_metrics_topN(region: str, cluster_id: str, ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None, namespace: str = None, label_selector: str = None, top_n: int = 10, hours: int = 1, cpu_query: str = None, memory_query: str = None, disk_query: str = None, node_ip: Optional[str] = None, security_token: Optional[str] = None) -> Dict[str, Any]:
@@ -113,7 +129,7 @@ def get_cce_pod_metrics_topN(region: str, cluster_id: str, ak: Optional[str] = N
     # ========== 1. 获取集群名称 ==========
     cluster_name = cluster_id
     try:
-        clusters_result = cce.list_cce_clusters(region, ak, sk, project_id)
+        clusters_result = cce.list_cce_clusters(region, access_key, secret_key, proj_id)
         if clusters_result.get("success"):
             for c in clusters_result.get("clusters", []):
                 if c.get("id") == cluster_id:
@@ -205,7 +221,7 @@ def get_cce_pod_metrics_topN(region: str, cluster_id: str, ak: Optional[str] = N
                     }
 
     # ========== 3. 获取 AOM 实例 ==========
-    aom_result = _get_aom_instance(region, cluster_id, ak, sk, project_id)
+    aom_result = _get_aom_instance(region, cluster_id, access_key, secret_key, proj_id)
     if not aom_result.get("success"):
         return {
             "success": False,
@@ -383,7 +399,7 @@ def get_cce_pod_metrics(region: str, cluster_id: str, pod_name: str, ak: Optiona
     # ========== 1. 获取集群名称 ==========
     cluster_name = cluster_id
     try:
-        clusters_result = cce.list_cce_clusters(region, ak, sk, project_id)
+        clusters_result = cce.list_cce_clusters(region, access_key, secret_key, proj_id)
         if clusters_result.get("success"):
             for c in clusters_result.get("clusters", []):
                 if c.get("id") == cluster_id:
@@ -393,7 +409,7 @@ def get_cce_pod_metrics(region: str, cluster_id: str, pod_name: str, ak: Optiona
         pass
 
     # ========== 2. 获取 AOM 实例 ==========
-    aom_result = _get_aom_instance(region, cluster_id, ak, sk, project_id)
+    aom_result = _get_aom_instance(region, cluster_id, access_key, secret_key, proj_id)
     if not aom_result.get("success"):
         return {
             "success": False,
@@ -510,7 +526,7 @@ def get_cce_coredns_metrics(
 
     cluster_name = cluster_id
     try:
-        clusters_result = cce.list_cce_clusters(region, ak, sk, project_id)
+        clusters_result = cce.list_cce_clusters(region, access_key, secret_key, proj_id)
         if clusters_result.get("success"):
             for cluster in clusters_result.get("clusters", []):
                 if cluster.get("id") == cluster_id:
@@ -519,7 +535,7 @@ def get_cce_coredns_metrics(
     except Exception:
         pass
 
-    aom_result = _get_aom_instance(region, cluster_id, ak, sk, project_id)
+    aom_result = _get_aom_instance(region, cluster_id, access_key, secret_key, proj_id)
     if not aom_result.get("success"):
         return {
             "success": False,
@@ -725,7 +741,7 @@ def get_cce_nginx_ingress_metrics(
 
     cluster_name = cluster_id
     try:
-        clusters_result = cce.list_cce_clusters(region, ak, sk, project_id)
+        clusters_result = cce.list_cce_clusters(region, access_key, secret_key, proj_id)
         if clusters_result.get("success"):
             for cluster in clusters_result.get("clusters", []):
                 if cluster.get("id") == cluster_id:
@@ -734,7 +750,7 @@ def get_cce_nginx_ingress_metrics(
     except Exception:
         pass
 
-    aom_result = _get_aom_instance(region, cluster_id, ak, sk, project_id)
+    aom_result = _get_aom_instance(region, cluster_id, access_key, secret_key, proj_id)
     if not aom_result.get("success"):
         return {
             "success": False,
@@ -996,7 +1012,7 @@ def get_cce_autoscaler_metrics(
 
     cluster_name = cluster_id
     try:
-        clusters_result = cce.list_cce_clusters(region, ak, sk, project_id)
+        clusters_result = cce.list_cce_clusters(region, access_key, secret_key, proj_id)
         if clusters_result.get("success"):
             for cluster in clusters_result.get("clusters", []):
                 if cluster.get("id") == cluster_id:
@@ -1005,7 +1021,7 @@ def get_cce_autoscaler_metrics(
     except Exception:
         pass
 
-    aom_result = _get_aom_instance(region, cluster_id, ak, sk, project_id)
+    aom_result = _get_aom_instance(region, cluster_id, access_key, secret_key, proj_id)
     if not aom_result.get("success"):
         return {
             "success": False,
@@ -1268,7 +1284,7 @@ def _get_cce_control_plane_metrics(
 
     cluster_name = cluster_id
     try:
-        clusters_result = cce.list_cce_clusters(region, ak, sk, project_id)
+        clusters_result = cce.list_cce_clusters(region, access_key, secret_key, proj_id)
         if clusters_result.get("success"):
             for cluster in clusters_result.get("clusters", []):
                 if cluster.get("id") == cluster_id:
@@ -1277,7 +1293,7 @@ def _get_cce_control_plane_metrics(
     except Exception:
         pass
 
-    aom_result = _get_aom_instance(region, cluster_id, ak, sk, project_id)
+    aom_result = _get_aom_instance(region, cluster_id, access_key, secret_key, proj_id)
     if not aom_result.get("success"):
         return {
             "success": False,
@@ -1601,7 +1617,7 @@ def get_cce_node_gpu_metrics(
     cluster_name = cluster_id
     node_name = node_ip
     try:
-        clusters_result = cce.list_cce_clusters(region, ak, sk, project_id)
+        clusters_result = cce.list_cce_clusters(region, access_key, secret_key, proj_id)
         if clusters_result.get("success"):
             for cluster in clusters_result.get("clusters", []):
                 if cluster.get("id") == cluster_id:
@@ -1610,7 +1626,7 @@ def get_cce_node_gpu_metrics(
     except Exception:
         pass
 
-    aom_result = _get_aom_instance(region, cluster_id, ak, sk, project_id)
+    aom_result = _get_aom_instance(region, cluster_id, access_key, secret_key, proj_id)
     if not aom_result.get("success"):
         return {
             "success": False,
@@ -1833,7 +1849,7 @@ def get_cce_pod_gpu_metrics(
 
     cluster_name = cluster_id
     try:
-        clusters_result = cce.list_cce_clusters(region, ak, sk, project_id)
+        clusters_result = cce.list_cce_clusters(region, access_key, secret_key, proj_id)
         if clusters_result.get("success"):
             for cluster in clusters_result.get("clusters", []):
                 if cluster.get("id") == cluster_id:
@@ -1842,7 +1858,7 @@ def get_cce_pod_gpu_metrics(
     except Exception:
         pass
 
-    aom_result = _get_aom_instance(region, cluster_id, ak, sk, project_id)
+    aom_result = _get_aom_instance(region, cluster_id, access_key, secret_key, proj_id)
     if not aom_result.get("success"):
         return {
             "success": False,
@@ -2057,7 +2073,7 @@ def get_cce_node_metrics_topN(region: str, cluster_id: str, ak: Optional[str] = 
     # ========== 1. 获取集群名称 ==========
     cluster_name = cluster_id
     try:
-        clusters_result = cce.list_cce_clusters(region, ak, sk, project_id)
+        clusters_result = cce.list_cce_clusters(region, access_key, secret_key, proj_id)
         if clusters_result.get("success"):
             for c in clusters_result.get("clusters", []):
                 if c.get("id") == cluster_id:
@@ -2068,7 +2084,7 @@ def get_cce_node_metrics_topN(region: str, cluster_id: str, ak: Optional[str] = 
 
     # ========== 2. 获取节点信息映射 ==========
     node_info_map = {}  # best-effort CCE node metadata, no Kubernetes API required
-    cce_nodes_result = cce.list_cce_cluster_nodes(region, cluster_id, ak, sk, project_id)
+    cce_nodes_result = cce.list_cce_cluster_nodes(region, cluster_id, access_key, secret_key, proj_id)
     if cce_nodes_result.get("success"):
         for cce_node in cce_nodes_result.get("nodes", []):
             cce_node_name = cce_node.get("name", "")
@@ -2082,7 +2098,7 @@ def get_cce_node_metrics_topN(region: str, cluster_id: str, ak: Optional[str] = 
                 }
 
     # ========== 3. 获取 AOM 实例 ==========
-    aom_result = _get_aom_instance(region, cluster_id, ak, sk, project_id)
+    aom_result = _get_aom_instance(region, cluster_id, access_key, secret_key, proj_id)
     if not aom_result.get("success"):
         return {
             "success": False,
@@ -2264,7 +2280,7 @@ def get_cce_node_metrics(region: str, cluster_id: str, node_ip: str, ak: Optiona
     # ========== 1. 获取集群名称 ==========
     cluster_name = cluster_id
     try:
-        clusters_result = cce.list_cce_clusters(region, ak, sk, project_id)
+        clusters_result = cce.list_cce_clusters(region, access_key, secret_key, proj_id)
         if clusters_result.get("success"):
             for c in clusters_result.get("clusters", []):
                 if c.get("id") == cluster_id:
@@ -2275,7 +2291,7 @@ def get_cce_node_metrics(region: str, cluster_id: str, node_ip: str, ak: Optiona
 
     # ========== 2. 获取节点信息 ==========
     node_info = {}
-    cce_nodes_result = cce.list_cce_cluster_nodes(region, cluster_id, ak, sk, project_id)
+    cce_nodes_result = cce.list_cce_cluster_nodes(region, cluster_id, access_key, secret_key, proj_id)
     if cce_nodes_result.get("success"):
         for cce_node in cce_nodes_result.get("nodes", []):
             cce_node_name = cce_node.get("name", "")
@@ -2287,7 +2303,7 @@ def get_cce_node_metrics(region: str, cluster_id: str, node_ip: str, ak: Optiona
                 break
 
     # ========== 3. 获取 AOM 实例 ==========
-    aom_result = _get_aom_instance(region, cluster_id, ak, sk, project_id)
+    aom_result = _get_aom_instance(region, cluster_id, access_key, secret_key, proj_id)
     if not aom_result.get("success"):
         return {
             "success": False,
