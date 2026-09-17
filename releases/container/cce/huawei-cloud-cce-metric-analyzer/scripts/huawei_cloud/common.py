@@ -289,63 +289,6 @@ def hcloud_show_metric_data(
     return {"success": True, "datapoints": datapoints, "raw": data}
 
 
-def _get_project_id_via_signed_iam(region: str, ak: str, sk: str) -> Optional[str]:
-    """Resolve a regional project ID without requiring an hcloud profile."""
-    try:
-        import hashlib
-        import hmac
-        import time as time_module
-        from urllib.parse import quote
-
-        import httpx
-    except ImportError:
-        return None
-
-    host = f"iam.{region}.myhuaweicloud.com"
-    request_path = "/v3/projects"
-    canonical_uri = "/v3/projects/"
-    canonical_querystring = f"name={quote(region, safe='~')}"
-    timestamp = time_module.strftime("%Y%m%dT%H%M%SZ", time_module.gmtime())
-    header_items = [("host", host), ("x-sdk-date", timestamp)]
-    security_token = get_security_token()
-    if security_token:
-        header_items.append(("x-security-token", security_token))
-    signed_headers = ";".join(key for key, _ in header_items)
-    canonical_headers = "".join(f"{key}:{value}\n" for key, value in header_items)
-    canonical_request = "\n".join(
-        [
-            "GET",
-            canonical_uri,
-            canonical_querystring,
-            canonical_headers,
-            signed_headers,
-            hashlib.sha256(b"").hexdigest(),
-        ]
-    )
-    algorithm = "SDK-HMAC-SHA256"
-    string_to_sign = f"{algorithm}\n{timestamp}\n{hashlib.sha256(canonical_request.encode('utf-8')).hexdigest()}"
-    signature = hmac.new(sk.encode("utf-8"), string_to_sign.encode("utf-8"), hashlib.sha256).digest().hex()
-    headers = {
-        "Host": host,
-        "X-Sdk-Date": timestamp,
-        "Authorization": f"{algorithm} Access={ak}, SignedHeaders={signed_headers}, Signature={signature}",
-    }
-    if security_token:
-        headers["X-Security-Token"] = security_token
-
-    try:
-        with httpx.Client(timeout=httpx.Timeout(30.0, connect=10.0), verify=True, follow_redirects=False) as client:
-            response = client.get(f"https://{host}{request_path}?{canonical_querystring}", headers=headers)
-        if response.status_code != 200:
-            return None
-        projects = response.json().get("projects") or []
-    except (httpx.HTTPError, ValueError):
-        return None
-
-    matches = [project.get("id") for project in projects if project.get("name") == region and project.get("id")]
-    return matches[0] if len(matches) == 1 else None
-
-
 def get_project_id_for_region(region: str, ak: Optional[str] = None, sk: Optional[str] = None) -> Optional[str]:
     """Get project ID for a specific region via hcloud IAM if not cached.
 
@@ -363,12 +306,6 @@ def get_project_id_for_region(region: str, ak: Optional[str] = None, sk: Optiona
     if region in _PROJECT_ID_CACHE:
         return _PROJECT_ID_CACHE[region]
 
-    if ak and sk and not _has_hcloud_profile():
-        project_id = _get_project_id_via_signed_iam(region, ak, sk)
-        if project_id:
-            _PROJECT_ID_CACHE[region] = project_id
-            return project_id
-
     result = run_hcloud("IAM", "KeystoneListProjects", region, {"name": region}, ak=ak, sk=sk)
     if not result.get("success"):
         result = run_hcloud("IAM", "KeystoneListProjects", region, {}, ak=ak, sk=sk)
@@ -379,17 +316,7 @@ def get_project_id_for_region(region: str, ak: Optional[str] = None, sk: Optiona
             project_id = project.get("id")
             if name and project_id:
                 _PROJECT_ID_CACHE[name] = project_id
-        project_id = _PROJECT_ID_CACHE.get(region)
-        if project_id:
-            return project_id
-
-    if ak and sk:
-        project_id = _get_project_id_via_signed_iam(region, ak, sk)
-        if project_id:
-            _PROJECT_ID_CACHE[region] = project_id
-            return project_id
-
-    return None
+    return _PROJECT_ID_CACHE.get(region)
 
 def get_credentials_with_region(region: str, ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None) -> tuple:
     """Get signing credentials with automatic project_id lookup for region.
