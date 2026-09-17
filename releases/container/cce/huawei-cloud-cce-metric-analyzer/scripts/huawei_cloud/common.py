@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import subprocess
@@ -15,6 +16,20 @@ _PROJECT_ID_CACHE = {}
 _ACTIVE_SECURITY_TOKEN: ContextVar[Optional[str]] = ContextVar("active_security_token", default=None)
 _EXPLICIT_CREDENTIALS: ContextVar[bool] = ContextVar("explicit_credentials", default=False)
 _STANDARD_UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$", re.IGNORECASE)
+_LOGGER = logging.getLogger("huawei_cloud.cce_metric_analyzer")
+
+
+def debug_log(message: str, *args: Any) -> None:
+    """Write opt-in diagnostics to stderr without affecting JSON stdout."""
+    if os.environ.get("HUAWEI_CCE_LOG_LEVEL", "").upper() != "DEBUG":
+        return
+    if not _LOGGER.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+        _LOGGER.addHandler(handler)
+        _LOGGER.propagate = False
+    _LOGGER.setLevel(logging.DEBUG)
+    _LOGGER.debug(message, *args)
 
 
 def is_standard_uuid(value: str | None) -> bool:
@@ -210,6 +225,7 @@ def run_hcloud(
         cmd.append(f"--{key}={value}")
 
     safe_cmd = redact_command(cmd)
+    debug_log("running hcloud command: %s", " ".join(safe_cmd))
     try:
         proc = subprocess.run(cmd, text=True, capture_output=True, timeout=timeout)
     except FileNotFoundError:
@@ -230,12 +246,14 @@ def run_hcloud(
     safe_stderr = _redact_text(stderr, access_key, secret_key, security_token)[:2000]
     if proc.returncode != 0:
         diagnostic = safe_stderr or safe_stdout
+        debug_log("hcloud command failed: returncode=%s diagnostic=%s", proc.returncode, diagnostic)
         message = f"hcloud exited with code {proc.returncode}: {diagnostic}" if diagnostic else f"hcloud exited with code {proc.returncode}"
         return {"success": False, "error": message, "raw_error": diagnostic or None, "stdout": safe_stdout, "stderr": safe_stderr, "command": safe_cmd, "returncode": proc.returncode}
 
     data, parse_error = _parse_hcloud_json_output(stdout)
     if parse_error:
         combined_output = "\n".join(item for item in [safe_stdout, safe_stderr] if item)
+        debug_log("hcloud command returned invalid JSON: %s", combined_output or parse_error)
         return {
             "success": False,
             "error": f"hcloud returned non-JSON output: {combined_output}" if combined_output else f"hcloud returned non-JSON output: {parse_error}",

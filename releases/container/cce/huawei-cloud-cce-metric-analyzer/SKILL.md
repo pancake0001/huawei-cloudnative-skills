@@ -75,6 +75,8 @@ threshold-based anomaly detection.
   Do not combine them with conflicting `ak`, `sk`, or `security_token` values.
 - Tools resolve a missing `project_id` through `hcloud IAM KeystoneListProjects` when the local hcloud configuration provides the required IAM context.
   When callers provide only explicit AK/SK (with or without an STS token) and hcloud cannot resolve the project, they must provide `project_id` explicitly.
+- **Debug logging:** Set `HUAWEI_CCE_LOG_LEVEL=DEBUG` to write dispatcher diagnostics to stderr. Debug output includes redacted hcloud commands,
+  addon discovery names, and failure context, but never AK/SK or security-token values. Leave it unset for normal JSON-only output.
 - **Security Rules**:
   - 🚫 Never expose AK/SK values in code, conversation, or commands
   - 🚫 Never use `echo $HW_ACCESS_KEY` or `echo $HW_SECRET_KEY` to check credentials

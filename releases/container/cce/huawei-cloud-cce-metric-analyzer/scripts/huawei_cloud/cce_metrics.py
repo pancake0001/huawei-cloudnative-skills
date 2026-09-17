@@ -21,6 +21,7 @@ def _get_aom_instance(region: str, cluster_id: str, ak: Optional[str], sk: Optio
     if not cluster_id:
         return {"success": False, "error": "cluster_id is required"}
 
+    debug_log("discovering cie-collector addon: region=%s cluster_id=%s project_id_supplied=%s", region, cluster_id, bool(project_id))
     list_resp = run_hcloud(
         "CCE",
         "ListAddonInstances",
@@ -31,18 +32,30 @@ def _get_aom_instance(region: str, cluster_id: str, ak: Optional[str], sk: Optio
         project_id=project_id,
     )
     if not list_resp.get("success"):
+        debug_log("ListAddonInstances failed while discovering cie-collector")
         return list_resp
 
+    addon_items = (list_resp.get("data") or {}).get("items", []) or []
+    addon_names = [
+        metadata.get("name")
+        for addon in addon_items
+        if isinstance(addon, dict)
+        for metadata in [addon.get("metadata") or {}]
+        if metadata.get("name")
+    ]
+    debug_log("ListAddonInstances returned %d addon(s): %s", len(addon_items), ", ".join(addon_names) or "none")
     cie_addon_id = None
-    for addon in (list_resp.get("data") or {}).get("items", []) or []:
+    for addon in addon_items:
         metadata = addon.get("metadata") or {}
         if metadata.get("name") == "cie-collector":
             cie_addon_id = metadata.get("uid")
             break
 
     if not cie_addon_id:
+        debug_log("cie-collector addon was not present in ListAddonInstances response")
         return {"success": False, "error": "cie-collector addon not found in cluster"}
 
+    debug_log("cie-collector addon matched; requesting addon configuration")
     show_resp = run_hcloud(
         "CCE",
         "ShowAddonInstance",
@@ -53,6 +66,7 @@ def _get_aom_instance(region: str, cluster_id: str, ak: Optional[str], sk: Optio
         project_id=project_id,
     )
     if not show_resp.get("success"):
+        debug_log("ShowAddonInstance failed for cie-collector")
         return show_resp
 
     detail = show_resp.get("data") or {}
@@ -74,8 +88,10 @@ def _get_aom_instance(region: str, cluster_id: str, ak: Optional[str], sk: Optio
     for source, data in candidates:
         aom_instance_id = data.get("aom_instance_id") or data.get("prom_instance_id") or data.get("aom_id")
         if aom_instance_id:
+            debug_log("AOM Prometheus instance resolved from %s", source)
             return {"success": True, "aom_instance_id": aom_instance_id, "source": source}
 
+    debug_log("cie-collector configuration did not contain an AOM Prometheus instance ID")
     return {"success": False, "error": "aom_instance_id not found in cie-collector addon config"}
 
 def get_cce_pod_metrics_topN(region: str, cluster_id: str, ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None, namespace: str = None, label_selector: str = None, top_n: int = 10, hours: int = 1, cpu_query: str = None, memory_query: str = None, disk_query: str = None, node_ip: Optional[str] = None, security_token: Optional[str] = None) -> Dict[str, Any]:
