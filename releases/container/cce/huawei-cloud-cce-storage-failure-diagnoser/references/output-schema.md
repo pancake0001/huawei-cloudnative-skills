@@ -13,6 +13,12 @@
     "pod_name": "optional",
     "volume_id": "optional"
   },
+  "collection": {
+    "failure_symptom": "failed_mount",
+    "event_limit": 100,
+    "csi_log_tail_lines": 200,
+    "resource_scope": "namespace plus named PVC or Pod"
+  },
   "summary": {
     "headline": "storage diagnosis summary",
     "top_cause": {},
@@ -45,9 +51,19 @@
     "csi_logs": [],
     "cloud_storage": []
   },
+  "data_gaps": [
+    {
+      "source": "VolumeAttachment",
+      "reason": "A specific PV could not be resolved without a broad cluster query",
+      "impact": "attach-stage confidence reduced"
+    }
+  ],
   "report_markdown": "# CCE Storage Failure Diagnosis Report..."
 }
 ```
+
+Before rendering or returning evidence, redact credential values, authorization headers, token-like strings, Secret data, and endpoint URLs that contain
+credentials. Preserve only the backend type, resource ID, hostname, and non-sensitive error context needed for diagnosis.
 
 Markdown section order:
 

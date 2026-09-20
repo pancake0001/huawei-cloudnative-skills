@@ -1,0 +1,18 @@
+﻿name: huawei-cloud-cce-autoscaling-diagnoser
+level: L3
+domain: reliability-diagnosis
+description: Diagnose Huawei Cloud CCE autoscaling failures across HPA, CCE elastic engine or Cluster Autoscaler, metrics, resource requests, Pending Pods, scheduling constraints, nodepool max nodes, subnet IP, quota, and IAM permission signals.
+tools:
+  - huawei_diagnose_cce_hpa_autoscaling
+  - huawei_diagnose_cce_cluster_autoscaler
+references:
+  - references/cli-installation-guide.md
+  - references/iam-policies.md
+  - references/verification-method.md
+  - references/acceptance-criteria.md
+  - references/workflow.md
+  - references/output-schema.md
+  - references/capability-map.md
+  - references/risk-rules.md
+guardrails:
+  max_auto_risk: R3

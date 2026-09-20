@@ -15,6 +15,14 @@ tags: [huawei-cloud, cce, kubectl, storage, diagnosis]
 This skill diagnoses CCE/Kubernetes storage failures across provisioning, binding, scheduling, attach/mount, runtime I/O, capacity, permission, and teardown
 stages.
 
+### Application Routing
+
+Use this skill when a user supplies `namespace + app_name` and reports a storage-related symptom: PVC Pending, a volume mount/attach failure, filesystem I/O
+or read-only errors, capacity/inode exhaustion, or a workload that cannot schedule because of a PV constraint. Treat `app_name` as a named Deployment or
+StatefulSet unless the user supplies `workload_type`. Read only that workload and its selector-matched Pods, then derive referenced PVCs from Pod volumes and
+continue with the exact PVC/PV chain. Do not use this skill merely because an application is unhealthy without storage evidence; route general application
+failures to the Pod or workload failure diagnoser instead.
+
 Execution model:
 
 ```text
@@ -53,7 +61,7 @@ This skill requires both `region` and `cluster_id` before diagnosis. It never pe
 1. Check whether `cluster_id` is a standard UUID:
    - UUID: call `hcloud CCE ShowCluster` to verify it.
    - Otherwise: call `hcloud CCE ListClusters`, perform an exact and unique name match, convert it to a UUID, then call `ShowCluster` to verify it.
-If a required `cluster_id` is missing, or any supplied `cluster_id` is invalid, unmatched, or ambiguous, stop the operation and require the user to provide the correct region and cluster ID. A supplied invalid `cluster_id` must never fall back to a global query; never guess or select a cluster. For any other required resource identifier, first use the corresponding read-only query tool to list candidates when the user cannot provide an unambiguous value, then ask the user to choose; never select a candidate automatically.
+If a required `cluster_id` is missing, or any supplied `cluster_id` is invalid, unmatched, or ambiguous, stop the operation and require the user to provide the correct region and cluster ID. A supplied invalid `cluster_id` must never fall back to a global query; never guess or select a cluster. Storage diagnosis requires one explicit scope: `namespace` plus `app_name`, `namespace` plus `pvc_name`, or a specific `pv_name`. If none is supplied, stop and request the required scope; never enumerate PVCs, Pods, or PVs to choose on the user's behalf. For any other required resource identifier, first use the corresponding read-only query tool to list candidates when the user cannot provide an unambiguous value, then ask the user to choose; never select a candidate automatically.
 
 ### Input Parameters
 
@@ -62,9 +70,12 @@ If a required `cluster_id` is missing, or any supplied `cluster_id` is invalid, 
 | `region` | Yes | Request context or `HW_REGION_NAME`; otherwise ask the user. |
 | `project_id` | Operation-specific | Resolve through hcloud or active credentials when needed; ask the user only when the target project cannot be determined. |
 | `cluster_id` | Yes | Target CCE cluster UUID, or an exact cluster name resolved and verified through hcloud. |
-| `namespace` | Recommended | Needed for PVC or Pod scope. |
+| `namespace` | Required with app or PVC scope | Required with `app_name`, `pod_name`, or `pvc_name`; never use `-A`. |
+| `app_name` | Optional | Application/workload name. Requires `namespace`; resolve only the named workload and its Pods. |
+| `workload_type` | Optional | `deployment` or `statefulset`. Required only when `app_name` is ambiguous between workload kinds. |
 | `pvc_name` | Optional | Specific PVC. |
 | `pod_name` | Optional | Specific Pod with a mount or I/O symptom. |
+| `pv_name` | Optional | Specific cluster-scoped PV. |
 | `failure_symptom` | Recommended | `pvc_pending`, `failed_mount`, `failed_attach`, `capacity`, `readonly_fs`, `nfs_timeout`, `obs_403`, or `terminating`. |
 | `volume_id` | Optional | EVS, SFS, SFS Turbo, or OBS identifier when known. |
 
@@ -101,18 +112,24 @@ hcloud CCE ShowCluster --cluster_id=<cluster-id> --project_id=<project-id> --cli
 
 ### 3. Collect Kubernetes Storage Evidence
 
+Collect the minimum evidence for the declared symptom. Require `namespace + app_name`, `namespace + pvc_name`, or `pv_name` before Kubernetes collection. For application scope, read the named Deployment/StatefulSet, then only its selector-matched Pods and referenced PVCs. Do not discover candidates by listing PVCs or Pods.
+Never use `-A` or enumerate all cluster storage resources. Resolve identities in this order: named Pod/application -> PVC -> PV -> StorageClass -> VolumeAttachment.
+
 ```bash
-kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get pvc,pv,storageclass,volumeattachments -A -o json
-kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n <namespace> -o wide
-kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> describe pvc <pvc-name> -n <namespace>
-kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> describe pod <pod-name> -n <namespace>
-kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -n <namespace> --sort-by=.lastTimestamp
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get pvc <pvc-name> -n <namespace> -o json
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get pod <pod-name> -n <namespace> -o json
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get pv <pv-name> -o json
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get storageclass <storage-class-name> -o json
+kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get events -n <namespace> --field-selector type=Warning --chunk-size=100 -o json
 ```
+
+Keep at most 100 Warning Events and 200 CSI log lines by default. A cluster-scoped VolumeAttachment query is permitted only after a specific PV name is
+resolved and must be filtered locally to that PV; if RBAC or API filtering cannot narrow the result, record a data gap instead of broadening collection.
 
 ### 4. Collect CSI Evidence
 
-When RBAC allows, discover the deployed CSI Pod names and labels before selecting a target; CCE versions may use different labels. Keep logs bounded and
-sanitized:
+Identify the backend from the StorageClass provisioner first, then query only its corresponding CSI controller/node Pods in `kube-system`. CCE versions may
+use different labels, so a bounded `kube-system` discovery query is allowed. Keep logs bounded and sanitize endpoint, credential, Secret, and mount details:
 
 ```bash
 kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region <region> --project-id <project-id> get pods -n kube-system --show-labels
@@ -122,8 +139,8 @@ kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --region 
 
 ### 5. Collect Cloud-Side Evidence
 
-Collect cloud-side read-only evidence only when identifiers are known or safely derived. Use hcloud for EVS/SFS/SFS Turbo/OBS/VPC/security-group/ACL context and
-metric skills for time-series evidence. If an operation name or identifier is uncertain, run help or record a data gap.
+Extract the backend identity from PV `spec.csi.volumeHandle`, CSI `volumeAttributes`, and StorageClass parameters first. Use hcloud for EVS/SFS/SFS
+Turbo/OBS/VPC/security-group/ACL context only after that identity is known. If extraction is ambiguous, record a data gap; never guess a cloud resource.
 
 ## Diagnosis Workflow
 
@@ -177,13 +194,3 @@ only.
 - `references/workflow.md`: staged storage diagnosis workflow.
 - `references/output-schema.md`: structured output and Markdown layout.
 - `references/risk-rules.md`: read-only boundaries and high-risk handoff rules.
-
-
-## x509 TLS Retry
-
-If a `kubectl cce` command returns an `x509` certificate-validation error, repeat the same command with `--cce-insecure-upstream-tls=true` immediately after `cce`. For example: `kubectl cce --cce-insecure-upstream-tls=true --cluster-id <cluster-id> --project-id <project-id> ...`. Use this option only when that TLS validation error occurs.
-
-
-## Cluster ID Input
-
-`cluster_id` must use a standard UUID. If the input is not a standard UUID, first list CCE clusters and perform an exact cluster-name match; convert the name to its UUID only when there is one match. If there is no match or more than one match, require the user to provide a UUID. Never guess or arbitrarily select a cluster.
