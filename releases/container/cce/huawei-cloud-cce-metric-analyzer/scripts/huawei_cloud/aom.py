@@ -34,7 +34,13 @@ def get_aom_prom_metrics_http(
     import urllib.parse
     from urllib.parse import quote, unquote
 
-    import requests
+    try:
+        import httpx
+    except ImportError:
+        return {
+            "success": False,
+            "error": "httpx is required for AOM Prometheus queries; install it with 'python3 -m pip install httpx'",
+        }
 
     access_key, secret_key, proj_id = get_credentials_with_region(region, ak, sk, project_id)
     token = get_security_token(security_token)
@@ -120,7 +126,9 @@ def get_aom_prom_metrics_http(
         headers["X-Security-Token"] = token
 
     try:
-        response = requests.get(url, headers=headers, verify=True, timeout=30)
+        timeout = httpx.Timeout(30.0, connect=10.0)
+        with httpx.Client(timeout=timeout, verify=True, follow_redirects=False) as client:
+            response = client.get(url, headers=headers)
         if response.status_code != 200:
             return {
                 "success": False,
@@ -137,7 +145,7 @@ def get_aom_prom_metrics_http(
                 },
             }
         result = response.json()
-    except Exception as exc:
+    except (httpx.HTTPError, ImportError, ValueError) as exc:
         return {"success": False, "error": str(exc), "url": url}
 
     return {

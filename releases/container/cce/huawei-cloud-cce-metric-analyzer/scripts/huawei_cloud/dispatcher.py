@@ -387,6 +387,23 @@ def dispatch_action(action: str, params: Dict[str, str]) -> Dict[str, Any]:
             error = _require(normalized, *required)
             if error:
                 return {"success": False, "error": error}
+
+            # Resource ID validation invokes hcloud before the action handler. Resolve
+            # the project once here so CCE APIs do not depend on a local CLI profile.
+            if not normalized.get("project_id") and normalized.get("ak") and normalized.get("sk"):
+                _, _, resolved_project_id = common.get_credentials_with_region(
+                    normalized["region"], normalized["ak"], normalized["sk"]
+                )
+                if not resolved_project_id:
+                    return {
+                        "success": False,
+                        "error": (
+                            f"Unable to resolve project_id for region '{normalized['region']}'. "
+                            "Provide valid AK/SK with IAM KeystoneListProjects permission, or pass project_id explicitly."
+                        ),
+                    }
+                normalized["project_id"] = resolved_project_id
+
             resolutions = []
             for parameter, resolver in (
                 ("cluster_id", cce.resolve_cce_cluster_id),

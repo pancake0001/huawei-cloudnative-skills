@@ -52,6 +52,7 @@ threshold-based anomaly detection.
 ### 1. Runtime Dependencies
 
 - Python 3.8+ for the dispatcher and result processing
+- `httpx[socks]` for signed AOM Prometheus HTTPS queries; it respects standard HTTP/HTTPS/SOCKS proxy environment variables when a proxy is required
 - hcloud (KooCLI) 7.2.2+ for CCE/ECS/ELB/VPC/EIP/NAT/CES/IAM cloud service queries
 - `kubectl` only for Kubernetes resource reads that cannot be derived from AOM/hcloud, such as Pod `label_selector` filtering, Ingress TLS certificate checks,
   and LoadBalancer Service discovery for ELB/EIP association; clusters without external EIP require `kubectl cce`.
@@ -72,6 +73,10 @@ threshold-based anomaly detection.
 - CLI callers may pass `--cli-access-key`, `--cli-secret-key`, and optional `--cli-security-token`. AK/SK must be supplied together, and a token requires
   that pair. They are passed explicitly to hcloud and `kubectl cce`; profile and authentication environment-variable fallback are disabled for the request.
   Do not combine them with conflicting `ak`, `sk`, or `security_token` values.
+- Tools resolve a missing `project_id` through `hcloud IAM KeystoneListProjects` when the local hcloud configuration provides the required IAM context.
+  When callers provide only explicit AK/SK (with or without an STS token) and hcloud cannot resolve the project, they must provide `project_id` explicitly.
+- **Debug logging:** Set `HUAWEI_CCE_LOG_LEVEL=DEBUG` to write dispatcher diagnostics to stderr. Debug output includes redacted hcloud commands,
+  addon discovery names, and failure context, but never AK/SK or security-token values. Leave it unset for normal JSON-only output.
 - **Security Rules**:
   - 🚫 Never expose AK/SK values in code, conversation, or commands
   - 🚫 Never use `echo $HW_ACCESS_KEY` or `echo $HW_SECRET_KEY` to check credentials
@@ -310,7 +315,7 @@ If a required `cluster_id` is missing, or any supplied `cluster_id` is invalid, 
 | `namespace`  | Recommended       | Kubernetes namespace                                         | `default`             |
 | `ak`         | Optional          | Explicit AK; highest priority for all calls                  | profile/env fallback  |
 | `sk`         | Optional          | Explicit SK; highest priority for all calls                  | profile/env fallback  |
-| `project_id` | Optional          | Explicit Project ID; hcloud uses profile before env fallback | Auto from IAM/profile |
+| `project_id` | Optional          | Explicit target Project ID; required when hcloud IAM lookup is unavailable | hcloud IAM/profile, then environment fallback |
 
 ### `huawei_get_cce_pod_metrics_topN` Parameters
 
