@@ -9,9 +9,13 @@ import urllib.parse
 from typing import Any, Dict, Optional
 from urllib.parse import quote, unquote
 
-import requests
+import httpx
 
 from .common import get_credentials_with_region
+
+
+def _aom_prom_host(region: str) -> str:
+    return "aomperform.cn-north-7.myhuaweicloud.com" if region == "cn-north-7" else f"aom.{region}.myhuaweicloud.com"
 
 
 def _query_aom_prometheus(region: str, aom_instance_id: str, endpoint: str, query: str, query_params: list[tuple[str, str]], ak: Optional[str], sk: Optional[str], project_id: Optional[str], security_token: Optional[str], **details: Any) -> Dict[str, Any]:
@@ -30,7 +34,7 @@ def _query_aom_prometheus(region: str, aom_instance_id: str, endpoint: str, quer
         canonical_uri += "/"
     canonical_query = "&".join(f"{encode(key)}={encode(value)}" for key, value in sorted(query_params))
     timestamp = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime(now))
-    host = f"aom.{region}.myhuaweicloud.com"
+    host = _aom_prom_host(region)
     signed_headers = "host;x-project-id;x-sdk-date"
     canonical_headers = f"host:{host}\nx-project-id:{resolved_project_id}\nx-sdk-date:{timestamp}\n"
     if security_token:
@@ -44,8 +48,10 @@ def _query_aom_prometheus(region: str, aom_instance_id: str, endpoint: str, quer
         headers["X-Security-Token"] = security_token
     url = f"https://{host}{path}?" + "&".join(f"{key}={urllib.parse.quote(str(value))}" for key, value in query_params)
     try:
-        response = requests.get(url, headers=headers, timeout=30, verify=True)
-    except requests.RequestException as exc:
+        timeout = httpx.Timeout(30.0, connect=10.0)
+        with httpx.Client(timeout=timeout, verify=True, follow_redirects=False) as client:
+            response = client.get(url, headers=headers)
+    except httpx.HTTPError as exc:
         return {"success": False, "error": str(exc)}
     if response.status_code != 200:
         return {"success": False, "error": f"HTTP {response.status_code}: {response.text[:500]}"}
