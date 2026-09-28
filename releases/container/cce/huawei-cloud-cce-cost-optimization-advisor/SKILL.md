@@ -30,7 +30,7 @@ CCE, AOM, hcloud, and scoped Kubernetes data collection are internal implementat
 | Parameter | Required | Description |
 | --- | --- | --- |
 | `region` | Yes | Huawei Cloud region. |
-| `cluster_id` | Yes | CCE cluster UUID or exact cluster name. |
+| `cluster_id` | Yes | CCE cluster UUID. |
 | `analysis_days`, `analysis_date`, `top_n` | No | Number of completed calendar days to analyze (`1`-`7`, default `1`), one exact calendar day in `YYYY-MM-DD` form, and namespace result limit. The range always ends at today `00:00` in `Asia/Shanghai`; `analysis_date` is only valid with `analysis_days=1`. |
 | `exclude_namespaces` | No | Comma-separated namespaces excluded from namespace allocation and usage analysis. Default: none; system namespaces are displayed for visibility. |
 | `output_file`, `output_format` | No | Local report path and output type for `huawei_generate_cce_cost_optimization_report`. `output_format` is `html` (default), `markdown`, or `both`. HTML reports embed interactive trend charts; Markdown reports present self-contained summary tables plus six-hour cluster and namespace trend tables. Without `output_file`, files are written under `/tmp`. |
@@ -40,21 +40,21 @@ CCE, AOM, hcloud, and scoped Kubernetes data collection are internal implementat
 
 ### Input Parameter Validation
 
-Required `region` and `cluster_id` must be supplied. Validate UUIDs with `hcloud CCE ShowCluster`; otherwise resolve exactly one name using `hcloud CCE ListClusters` and then verify its UUID. Invalid, unmatched, ambiguous, or missing input stops the operation. Never broaden the analysis to another cluster.
+Required `region` and `cluster_id` must be supplied. The cost analysis does not issue a separate CCE cluster-validation call before querying AOM and hcloud; provide the target cluster UUID exactly. A failed downstream query is returned as a scoped error and never broadens the analysis to another cluster.
 
 ## Core Commands
 
 ```bash
 python3 scripts/huawei-cloud.py huawei_analyze_cce_cost_optimization \
-  region=<region> cluster_id=<cluster-id-or-name> analysis_days=7 top_n=20
+  region=<region> cluster_id=<cluster-id> analysis_days=7 top_n=20
 
 # Include redacted hcloud/AOM HTTP diagnostics in the JSON result.
 python3 scripts/huawei-cloud.py huawei_analyze_cce_cost_optimization \
-  region=<region> cluster_id=<cluster-id-or-name> debug=true debug_response_limit=4000
+  region=<region> cluster_id=<cluster-id> debug=true debug_response_limit=4000
 
 # Generate a Markdown report
 python3 scripts/huawei-cloud.py huawei_generate_cce_cost_optimization_report \
-  region=<region> cluster_id=<cluster-id-or-name> output_format=markdown \
+  region=<region> cluster_id=<cluster-id> output_format=markdown \
   output_file=/tmp/cce-cost-report.md
 ```
 

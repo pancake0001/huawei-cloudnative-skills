@@ -150,6 +150,14 @@ ACTION_SPECS: Dict[str, tuple[tuple[str, ...], Handler]] = {
     "huawei_generate_cce_hpa_manifest": (("workload_name", "namespace"), _hpa_manifest),
 }
 
+# Cost analysis is driven by cluster-scoped AOM metrics.  Do not block it on an
+# additional CCE ShowCluster/ListClusters request, which may be unavailable in
+# constrained diagnostic environments.
+_COST_ANALYSIS_ACTIONS = {
+    "huawei_analyze_cce_cost_optimization",
+    "huawei_generate_cce_cost_optimization_report",
+}
+
 
 def list_actions() -> Dict[str, tuple[str, ...]]:
     return {action: required for action, (required, _) in sorted(ACTION_SPECS.items())}
@@ -172,7 +180,7 @@ def dispatch_action(action: str, params: Dict[str, str]) -> Dict[str, Any]:
     token = common.enable_debug_trace(trace, params.get("debug_response_limit")) if debug_enabled else None
     try:
         source_id = params.get("cluster_id")
-        if source_id:
+        if source_id and action not in _COST_ANALYSIS_ACTIONS:
             resolved = common.resolve_cce_cluster_id(params["region"], source_id, **_cluster_kwargs(params))
             if not resolved.get("success"):
                 result = resolved
@@ -181,7 +189,7 @@ def dispatch_action(action: str, params: Dict[str, str]) -> Dict[str, Any]:
                 result = handler(params)
         else:
             result = handler(params)
-        if source_id and result.get("success") and source_id != params.get("cluster_id"):
+        if source_id and action not in _COST_ANALYSIS_ACTIONS and result.get("success") and source_id != params.get("cluster_id"):
             result["resolved_resource_ids"] = [{"parameter": "cluster_id", "input": source_id, "resolved_id": params["cluster_id"]}]
         if debug_enabled:
             result["debug_trace"] = trace
