@@ -911,6 +911,17 @@ def _condition_map(hpa: Dict[str, Any]) -> dict[str, Dict[str, Any]]:
     return {item.get("type"): item for item in _list(hpa.get("conditions")) if item.get("type")}
 
 
+def _hpa_is_currently_healthy(conditions: Dict[str, Dict[str, Any]], missing_requests: Iterable[Dict[str, Any]]) -> bool:
+    """Determine whether an HPA event reflects a current problem or history."""
+    scaling_active = _dict(conditions.get("ScalingActive"))
+    able_to_scale = _dict(conditions.get("AbleToScale"))
+    return (
+        str(scaling_active.get("status")).lower() == "true"
+        and str(able_to_scale.get("status")).lower() == "true"
+        and not list(missing_requests)
+    )
+
+
 def _add_issue(
     issues: list[Dict[str, Any]],
     code: str,
@@ -978,6 +989,9 @@ def _analyze_hpa_path(
         hpa_events = _events_for_hpa(events, hpa, hpa_pods) + _events_for_hpa(hpa_normal_events, hpa, hpa_pods)
         conditions = _condition_map(hpa)
         metric_entries = _metric_entries(hpa)
+        required_metrics = _requested_resource_metrics(hpa)
+        missing = _missing_requests(hpa_pods, required_metrics)
+        hpa_currently_healthy = _hpa_is_currently_healthy(conditions, missing)
         behavior = _hpa_behavior(hpa)
         aggregate_usage = _dict(hpa_resource_usage.get(f"{hpa.get('namespace')}/{hpa.get('name')}"))
         current_replicas = _as_int(hpa.get("current_replicas"))
@@ -1149,35 +1163,39 @@ def _analyze_hpa_path(
 
         for event in hpa_events:
             blob = _event_text(event)
+            historical_evidence = (
+                f"Current HPA status is healthy (ScalingActive=True, AbleToScale=True); "
+                f"historical Event {event.get('reason')}: {event.get('message')}"
+            )
             if "missing request" in blob or "missing request for" in blob:
                 _add_issue(
                     issues,
-                    "HPA_REQUEST_MISSING_EVENT",
-                    "HPA Event 显示容器缺少 request",
-                    "critical",
+                    "HPA_REQUEST_MISSING_EVENT_RECOVERED" if hpa_currently_healthy else "HPA_REQUEST_MISSING_EVENT",
+                    "HPA Event 记录的 request 缺失已恢复" if hpa_currently_healthy else "HPA Event 显示容器缺少 request",
+                    "info" if hpa_currently_healthy else "critical",
                     "HPA",
-                    f"{event.get('reason')}: {event.get('message')}",
-                    "给被 HPA 采样的容器补齐 CPU/Memory requests；CPU/内存利用率型 HPA 依赖 request 作为分母。",
+                    historical_evidence if hpa_currently_healthy else f"{event.get('reason')}: {event.get('message')}",
+                    "该问题当前已恢复；继续确保被 HPA 采样的容器保留 CPU/Memory requests。" if hpa_currently_healthy else "给被 HPA 采样的容器补齐 CPU/Memory requests；CPU/内存利用率型 HPA 依赖 request 作为分母。",
                 )
             elif any(token in blob for token in ("failedgetresource", "failedcomputemetrics", "unable to get metric", "no metrics")):
                 _add_issue(
                     issues,
-                    "HPA_METRIC_EVENT",
-                    "HPA Event 显示指标获取失败",
-                    "critical",
+                    "HPA_METRIC_EVENT_RECOVERED" if hpa_currently_healthy else "HPA_METRIC_EVENT",
+                    "HPA Event 记录的指标获取失败已恢复" if hpa_currently_healthy else "HPA Event 显示指标获取失败",
+                    "info" if hpa_currently_healthy else "critical",
                     "HPA",
-                    f"{event.get('reason')}: {event.get('message')}",
-                    "检查 metrics.k8s.io/custom.metrics.k8s.io/external.metrics.k8s.io 及 AOM/Prometheus 数据流。",
+                    historical_evidence if hpa_currently_healthy else f"{event.get('reason')}: {event.get('message')}",
+                    "该问题当前已恢复；如反复出现，检查 metrics API 与 AOM/Prometheus 数据流。" if hpa_currently_healthy else "检查 metrics.k8s.io/custom.metrics.k8s.io/external.metrics.k8s.io 及 AOM/Prometheus 数据流。",
                 )
             elif any(token in blob for token in ("failedgetscale", "not found", "selector")):
                 _add_issue(
                     issues,
-                    "HPA_TARGET_OR_SELECTOR_EVENT",
-                    "HPA Event 指向目标对象或选择器异常",
-                    "high",
+                    "HPA_TARGET_OR_SELECTOR_EVENT_RECOVERED" if hpa_currently_healthy else "HPA_TARGET_OR_SELECTOR_EVENT",
+                    "HPA Event 记录的目标对象或选择器异常已恢复" if hpa_currently_healthy else "HPA Event 指向目标对象或选择器异常",
+                    "info" if hpa_currently_healthy else "high",
                     "HPA",
-                    f"{event.get('reason')}: {event.get('message')}",
-                    "核对 HPA scaleTargetRef、工作负载 selector 和 Pod template labels。",
+                    historical_evidence if hpa_currently_healthy else f"{event.get('reason')}: {event.get('message')}",
+                    "该问题当前已恢复；如再次出现，核对 HPA scaleTargetRef、工作负载 selector 和 Pod template labels。" if hpa_currently_healthy else "核对 HPA scaleTargetRef、工作负载 selector 和 Pod template labels。",
                 )
             elif any(token in blob for token in ("backoff", "stabiliz", "cooldown")):
                 _add_issue(
@@ -1190,8 +1208,6 @@ def _analyze_hpa_path(
                     "等待稳定窗口结束，或审视 autoscaling/v2 behavior 的 scaleUp/scaleDown 策略。",
                 )
 
-        required_metrics = _requested_resource_metrics(hpa)
-        missing = _missing_requests(hpa_pods, required_metrics)
         if missing:
             sample = ", ".join(f"{item['namespace']}/{item['pod']}:{item['container']} missing {','.join(item['missing_requests'])}" for item in missing[:5])
             _add_issue(
