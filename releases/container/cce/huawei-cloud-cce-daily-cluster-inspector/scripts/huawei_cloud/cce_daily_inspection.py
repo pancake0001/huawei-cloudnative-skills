@@ -1149,7 +1149,7 @@ def inspect_active_aom_alarms(region: str, cluster_id: str, cluster_name: Option
     return {"success": True, "action": "active_aom_alarms", "scope": _scope(region, cluster_id), "source": "aom", "active_alarms": alarms, "findings": findings, "alarm_summary": {"active_returned": len(alarms), "limit": alarm_limit, "truncated": truncated, "pages": pages}}
 
 
-def aggregate(results: Iterable[Dict[str, Any]], action: str = "cce_auto_inspection") -> Dict[str, Any]:
+def aggregate(results: Iterable[Dict[str, Any]], action: str = "aggregate_inspection_results") -> Dict[str, Any]:
     checks = list(results)
     for check in checks:
         if not check.get("success"):

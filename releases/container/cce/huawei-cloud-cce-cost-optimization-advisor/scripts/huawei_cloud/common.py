@@ -61,7 +61,7 @@ def get_project_id_for_region(region: str, ak: Optional[str] = None, sk: Optiona
         return os.environ["HW_PROJECT_ID"]
     if region in _PROJECT_ID_CACHE:
         return _PROJECT_ID_CACHE[region]
-    command = ["hcloud", "IAM", "KeystoneListProjects", "--cli-output=json", "--cli-connect-timeout=10", "--cli-read-timeout=60", *_credential_args(ak, sk, None, security_token)]
+    command = ["hcloud", "IAM", "KeystoneListProjects", f"--cli-region={region}", "--cli-output=json", "--cli-connect-timeout=10", "--cli-read-timeout=60", *_credential_args(ak, sk, None, security_token)]
     result = _run_hcloud_json(command)
     for project in ((result.get("data") or {}).get("projects") or []):
         if project.get("name") == region and project.get("id"):

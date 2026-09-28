@@ -110,15 +110,15 @@ def _generate_cost_report(params: Dict[str, str]) -> Dict[str, Any]:
 
 
 def _pod_metrics(params: Dict[str, str]) -> Dict[str, Any]:
-    return cce_metrics.get_cce_pod_metrics_topN(params["region"], params["cluster_id"], params.get("ak"), params.get("sk"), params.get("project_id"), params.get("namespace"), params.get("label_selector"), _integer(params.get("top_n"), 10), _integer(params.get("hours"), 1), params.get("cpu_query"), params.get("memory_query"), params.get("node_ip"))
+    return cce_metrics.get_cce_pod_metrics_topN(params["region"], params["cluster_id"], params.get("ak"), params.get("sk"), params.get("project_id"), params.get("namespace"), params.get("label_selector"), _integer(params.get("top_n"), 10), _integer(params.get("hours"), 1), params.get("cpu_query"), params.get("memory_query"), params.get("node_ip"), params.get("security_token"))
 
 
 def _node_metrics(params: Dict[str, str]) -> Dict[str, Any]:
-    return cce_metrics.get_cce_node_metrics_topN(params["region"], params["cluster_id"], params.get("ak"), params.get("sk"), params.get("project_id"), _integer(params.get("top_n"), 10), _integer(params.get("hours"), 1), params.get("cpu_query"), params.get("memory_query"), params.get("disk_query"))
+    return cce_metrics.get_cce_node_metrics_topN(params["region"], params["cluster_id"], params.get("ak"), params.get("sk"), params.get("project_id"), _integer(params.get("top_n"), 10), _integer(params.get("hours"), 1), params.get("cpu_query"), params.get("memory_query"), params.get("disk_query"), params.get("security_token"))
 
 
 def _aom_metrics(params: Dict[str, str]) -> Dict[str, Any]:
-    return aom.get_aom_prom_metrics_http(params["region"], params["aom_instance_id"], params["query"], hours=_integer(params.get("hours"), 1), ak=params.get("ak"), sk=params.get("sk"), project_id=params.get("project_id"))
+    return aom.get_aom_prom_metrics_http(params["region"], params["aom_instance_id"], params["query"], hours=_integer(params.get("hours"), 1), ak=params.get("ak"), sk=params.get("sk"), project_id=params.get("project_id"), security_token=params.get("security_token"))
 
 
 def _hpa_manifest(params: Dict[str, str]) -> Dict[str, Any]:
@@ -161,6 +161,20 @@ def dispatch_action(action: str, params: Dict[str, str]) -> Dict[str, Any]:
     required, handler = ACTION_SPECS[action]
     if error := _require(params, *required):
         return {"success": False, "error": error}
+    if params.get("region") and params.get("ak"):
+        access_key, secret_key, project_id = common.get_credentials_with_region(
+            params["region"],
+            ak=params.get("ak"),
+            sk=params.get("sk"),
+            project_id=params.get("project_id"),
+            security_token=params.get("security_token"),
+        )
+        if not project_id:
+            return {
+                "success": False,
+                "error": f"Unable to resolve project_id for region '{params['region']}'; provide valid AK/SK with IAM KeystoneListProjects permission or pass project_id explicitly",
+            }
+        params["ak"], params["sk"], params["project_id"] = access_key, secret_key, project_id
     source_id = params.get("cluster_id")
     if source_id:
         resolved = common.resolve_cce_cluster_id(params["region"], source_id, **_cluster_kwargs(params))
