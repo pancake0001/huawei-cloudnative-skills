@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import time
 from typing import Any, Dict, List, Optional
 
 from . import common
@@ -29,12 +30,24 @@ def _kubectl(region: str, cluster_id: str, arguments: List[str], ak: Optional[st
     if security_token:
         command.extend(["--cli-security-token", security_token])
     command.extend(arguments)
+    started = time.monotonic()
     try:
         completed = subprocess.run(command, capture_output=True, text=True, timeout=75, check=False)
     except FileNotFoundError:
+        common.record_debug_event({"type": "kubectl_cce", "command": common._redact_command(command), "error": "kubectl cce was not found in PATH"})
         return {"success": False, "error": "kubectl cce is required but was not found in PATH"}
     except subprocess.TimeoutExpired:
+        common.record_debug_event({"type": "kubectl_cce", "command": common._redact_command(command), "duration_ms": round((time.monotonic() - started) * 1000), "error": "request timed out"})
         return {"success": False, "error": "kubectl cce request timed out"}
+    common.record_debug_event({
+        "type": "kubectl_cce",
+        "command": common._redact_command(command),
+        "exit_code": completed.returncode,
+        "duration_ms": round((time.monotonic() - started) * 1000),
+        "stdout_preview": (completed.stdout or "")[:common.current_debug_response_limit()],
+        "stderr_preview": (completed.stderr or "")[:common.current_debug_response_limit()],
+        "response_truncated": len(completed.stdout or "") > common.current_debug_response_limit() or len(completed.stderr or "") > common.current_debug_response_limit(),
+    })
     if completed.returncode:
         return {"success": False, "error": (completed.stderr or completed.stdout or "kubectl cce request failed").strip()[:500]}
     if not expect_json:

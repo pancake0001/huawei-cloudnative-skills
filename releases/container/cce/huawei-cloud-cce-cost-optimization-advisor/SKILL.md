@@ -35,6 +35,7 @@ CCE, AOM, hcloud, and scoped Kubernetes data collection are internal implementat
 | `exclude_namespaces` | No | Comma-separated namespaces excluded from namespace allocation and usage analysis. Default: none; system namespaces are displayed for visibility. |
 | `output_file`, `output_format` | No | Local report path and output type for `huawei_generate_cce_cost_optimization_report`. `output_format` is `html` (default), `markdown`, or `both`. HTML reports embed interactive trend charts; Markdown reports present self-contained summary tables plus six-hour cluster and namespace trend tables. Without `output_file`, files are written under `/tmp`. |
 | `hpa_*` | No | Values used only in a generated HPA recommendation. |
+| `debug`, `debug_response_limit` | No | Set `debug=true` to return a diagnostic trace for hcloud, AOM HTTP, and any kubectl-cce calls. Credential values, tokens, signatures, and Authorization headers are redacted. Response previews default to 4,000 characters and can be set from `200` to `20,000`. |
 | `--cli-access-key`, `--cli-secret-key`, `--cli-security-token` | No | Explicit credentials. |
 
 ### Input Parameter Validation
@@ -46,6 +47,10 @@ Required `region` and `cluster_id` must be supplied. Validate UUIDs with `hcloud
 ```bash
 python3 scripts/huawei-cloud.py huawei_analyze_cce_cost_optimization \
   region=<region> cluster_id=<cluster-id-or-name> analysis_days=7 top_n=20
+
+# Include redacted hcloud/AOM HTTP diagnostics in the JSON result.
+python3 scripts/huawei-cloud.py huawei_analyze_cce_cost_optimization \
+  region=<region> cluster_id=<cluster-id-or-name> debug=true debug_response_limit=4000
 
 # Generate a Markdown report
 python3 scripts/huawei-cloud.py huawei_generate_cce_cost_optimization_report \

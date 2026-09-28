@@ -10,10 +10,63 @@ import json
 import os
 import re
 import subprocess
+import time
+from contextvars import ContextVar
 from typing import Any, Dict, List, Optional
 
 
 _PROJECT_ID_CACHE: Dict[str, str] = {}
+_DEBUG_TRACE: ContextVar[Optional[List[Dict[str, Any]]]] = ContextVar("debug_trace", default=None)
+_DEBUG_RESPONSE_LIMIT: ContextVar[int] = ContextVar("debug_response_limit", default=4_000)
+_SENSITIVE_ARGUMENTS = {"--cli-access-key", "--cli-secret-key", "--cli-security-token"}
+
+
+def enable_debug_trace(trace: List[Dict[str, Any]], response_limit: Any = 4_000) -> tuple[Any, Any]:
+    return _DEBUG_TRACE.set(trace), _DEBUG_RESPONSE_LIMIT.set(debug_response_limit(response_limit))
+
+
+def disable_debug_trace(token: tuple[Any, Any]) -> None:
+    trace_token, limit_token = token
+    _DEBUG_TRACE.reset(trace_token)
+    _DEBUG_RESPONSE_LIMIT.reset(limit_token)
+
+
+def current_debug_trace() -> Optional[List[Dict[str, Any]]]:
+    return _DEBUG_TRACE.get()
+
+
+def _redact_command(command: List[str]) -> List[str]:
+    redacted: List[str] = []
+    redact_next = False
+    for part in command:
+        if redact_next:
+            redacted.append("***")
+            redact_next = False
+            continue
+        name, separator, _ = part.partition("=")
+        if name in _SENSITIVE_ARGUMENTS:
+            redacted.append(f"{name}=***" if separator else name)
+            redact_next = not bool(separator)
+        else:
+            redacted.append(part)
+    return redacted
+
+
+def debug_response_limit(value: Any) -> int:
+    try:
+        return max(200, min(int(value), 20_000))
+    except (TypeError, ValueError):
+        return 4_000
+
+
+def current_debug_response_limit() -> int:
+    return _DEBUG_RESPONSE_LIMIT.get()
+
+
+def record_debug_event(event: Dict[str, Any], trace: Optional[List[Dict[str, Any]]] = None) -> None:
+    target = trace if trace is not None else current_debug_trace()
+    if target is not None:
+        target.append(event)
 
 
 def get_credentials(ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None) -> tuple[Optional[str], Optional[str], Optional[str]]:
@@ -38,12 +91,24 @@ def _hcloud_command(region: str, operation: str, ak: Optional[str], sk: Optional
 
 
 def _run_hcloud_json(command: List[str]) -> Dict[str, Any]:
+    started = time.monotonic()
     try:
         completed = subprocess.run(command, capture_output=True, text=True, timeout=75, check=False)
     except FileNotFoundError:
+        record_debug_event({"type": "hcloud", "command": _redact_command(command), "error": "hcloud was not found in PATH"})
         return {"success": False, "error": "hcloud is required but was not found in PATH"}
     except subprocess.TimeoutExpired:
+        record_debug_event({"type": "hcloud", "command": _redact_command(command), "duration_ms": round((time.monotonic() - started) * 1000), "error": "request timed out"})
         return {"success": False, "error": "hcloud request timed out"}
+    record_debug_event({
+        "type": "hcloud",
+        "command": _redact_command(command),
+        "exit_code": completed.returncode,
+        "duration_ms": round((time.monotonic() - started) * 1000),
+        "stdout_preview": (completed.stdout or "")[:current_debug_response_limit()],
+        "stderr_preview": (completed.stderr or "")[:current_debug_response_limit()],
+        "response_truncated": len(completed.stdout or "") > current_debug_response_limit() or len(completed.stderr or "") > current_debug_response_limit(),
+    })
     output = (completed.stdout or "").strip()
     if completed.returncode:
         return {"success": False, "error": (completed.stderr or output or "hcloud request failed").strip().replace("\n", " ")[:500]}

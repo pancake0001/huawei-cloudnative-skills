@@ -11,10 +11,10 @@ from urllib.parse import quote, unquote
 
 import requests
 
-from .common import get_credentials_with_region
+from .common import get_credentials_with_region, record_debug_event
 
 
-def get_aom_prom_metrics_http(region: str, aom_instance_id: str, query: str, start: Optional[int] = None, end: Optional[int] = None, step: int = 60, hours: int = 1, ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None, security_token: Optional[str] = None) -> Dict[str, Any]:
+def get_aom_prom_metrics_http(region: str, aom_instance_id: str, query: str, start: Optional[int] = None, end: Optional[int] = None, step: int = 60, hours: int = 1, ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None, security_token: Optional[str] = None, debug_trace: Optional[list[Dict[str, Any]]] = None, debug_response_limit: int = 4_000) -> Dict[str, Any]:
     """Query AOM Prometheus using an AK/SK-signed HTTP request."""
     access_key, secret_key, resolved_project_id = get_credentials_with_region(region, ak, sk, project_id)
     if not access_key or not secret_key:
@@ -48,12 +48,25 @@ def get_aom_prom_metrics_http(region: str, aom_instance_id: str, query: str, sta
     if security_token:
         headers["X-Security-Token"] = security_token
     url = f"https://{host}{path}?" + "&".join(f"{key}={urllib.parse.quote(str(value))}" for key, value in query_params)
+    started_request = time.monotonic()
     try:
         response = requests.get(url, headers=headers, timeout=30, verify=True)
     except requests.RequestException as exc:
+        record_debug_event({"type": "aom_http", "method": "GET", "url": url, "promql": query, "error": str(exc), "duration_ms": round((time.monotonic() - started_request) * 1000)}, debug_trace)
         return {"success": False, "error": str(exc)}
+    response_text = response.text
+    record_debug_event({
+        "type": "aom_http",
+        "method": "GET",
+        "url": url,
+        "promql": query,
+        "status_code": response.status_code,
+        "duration_ms": round((time.monotonic() - started_request) * 1000),
+        "response_preview": response_text[:debug_response_limit],
+        "response_truncated": len(response_text) > debug_response_limit,
+    }, debug_trace)
     if response.status_code != 200:
-        return {"success": False, "error": f"HTTP {response.status_code}: {response.text[:500]}"}
+        return {"success": False, "error": f"HTTP {response.status_code}: {response_text[:500]}"}
     try:
         payload = response.json()
     except ValueError:

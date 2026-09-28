@@ -92,7 +92,12 @@ def _hpas(params: Dict[str, str]) -> Dict[str, Any]:
 
 
 def _diagnose(params: Dict[str, str]) -> Dict[str, Any]:
-    return cce_cost_optimization.analyze_cce_cost_optimization(region=params["region"], cluster_id=params["cluster_id"], hours=_integer(params.get("hours"), 24), top_n=_integer(params.get("top_n"), 20), **_cluster_kwargs(params))
+    return cce_cost_optimization.analyze_cce_cost_optimization(
+        region=params["region"], cluster_id=params["cluster_id"],
+        analysis_date=params.get("analysis_date"), analysis_days=_integer(params.get("analysis_days"), 1),
+        top_n=_integer(params.get("top_n"), 20), exclude_namespaces=params.get("exclude_namespaces"),
+        debug_response_limit=_integer(params.get("debug_response_limit"), 4000), **_cluster_kwargs(params),
+    )
 
 
 def _generate_cost_report(params: Dict[str, str]) -> Dict[str, Any]:
@@ -105,6 +110,7 @@ def _generate_cost_report(params: Dict[str, str]) -> Dict[str, Any]:
         exclude_namespaces=params.get("exclude_namespaces"),
         output_file=params.get("output_file"),
         output_format=params.get("output_format", "html"),
+        debug_response_limit=_integer(params.get("debug_response_limit"), 4000),
         **_cluster_kwargs(params),
     )
 
@@ -161,13 +167,25 @@ def dispatch_action(action: str, params: Dict[str, str]) -> Dict[str, Any]:
     required, handler = ACTION_SPECS[action]
     if error := _require(params, *required):
         return {"success": False, "error": error}
-    source_id = params.get("cluster_id")
-    if source_id:
-        resolved = common.resolve_cce_cluster_id(params["region"], source_id, **_cluster_kwargs(params))
-        if not resolved.get("success"):
-            return resolved
-        params["cluster_id"] = resolved["id"]
-    result = handler(params)
-    if source_id and result.get("success") and source_id != params["cluster_id"]:
-        result["resolved_resource_ids"] = [{"parameter": "cluster_id", "input": source_id, "resolved_id": params["cluster_id"]}]
-    return result
+    debug_enabled = str(params.get("debug", "false")).lower() in {"1", "true", "yes", "on"}
+    trace: list[Dict[str, Any]] = []
+    token = common.enable_debug_trace(trace, params.get("debug_response_limit")) if debug_enabled else None
+    try:
+        source_id = params.get("cluster_id")
+        if source_id:
+            resolved = common.resolve_cce_cluster_id(params["region"], source_id, **_cluster_kwargs(params))
+            if not resolved.get("success"):
+                result = resolved
+            else:
+                params["cluster_id"] = resolved["id"]
+                result = handler(params)
+        else:
+            result = handler(params)
+        if source_id and result.get("success") and source_id != params.get("cluster_id"):
+            result["resolved_resource_ids"] = [{"parameter": "cluster_id", "input": source_id, "resolved_id": params["cluster_id"]}]
+        if debug_enabled:
+            result["debug_trace"] = trace
+        return result
+    finally:
+        if token is not None:
+            common.disable_debug_trace(token)

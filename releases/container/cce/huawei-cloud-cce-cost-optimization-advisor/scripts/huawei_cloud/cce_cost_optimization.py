@@ -13,7 +13,7 @@ from typing import Any, Dict, Iterable, Optional
 from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
-from . import aom, cce
+from . import aom, cce, common
 
 
 _GIB = 1024 ** 3
@@ -154,8 +154,8 @@ def _analysis_window(analysis_date: Optional[str], analysis_days: int) -> tuple[
     return start_day.isoformat(), end_day.isoformat(), int(start.timestamp()), int(end.timestamp())
 
 
-def _query(region: str, instance_id: str, query: str, start: int, end: int, ak: Optional[str], sk: Optional[str], project_id: Optional[str], security_token: Optional[str]) -> Dict[str, Any]:
-    return aom.get_aom_prom_metrics_http(region, instance_id, query, start=start, end=end, step=300, ak=ak, sk=sk, project_id=project_id, security_token=security_token)
+def _query(region: str, instance_id: str, query: str, start: int, end: int, ak: Optional[str], sk: Optional[str], project_id: Optional[str], security_token: Optional[str], debug_trace: Optional[list[Dict[str, Any]]] = None, debug_response_limit: int = 4_000) -> Dict[str, Any]:
+    return aom.get_aom_prom_metrics_http(region, instance_id, query, start=start, end=end, step=300, ak=ak, sk=sk, project_id=project_id, security_token=security_token, debug_trace=debug_trace, debug_response_limit=debug_response_limit)
 
 
 def _resolve_prom_instance(region: str, cluster_id: str, start: int, end: int, ak: Optional[str], sk: Optional[str], project_id: Optional[str], security_token: Optional[str]) -> Dict[str, Any]:
@@ -185,7 +185,7 @@ def _resource(value: Optional[float], unit: str) -> Optional[float]:
     return round(value / _GIB, 2) if value is not None and unit == "GiB" else round(value, 3) if value is not None else None
 
 
-def analyze_cce_cost_optimization(region: str, cluster_id: str, ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None, analysis_date: Optional[str] = None, analysis_days: int = 1, top_n: int = 20, security_token: Optional[str] = None, exclude_namespaces: Optional[str] = None, include_chart_series: bool = False, **_: Any) -> Dict[str, Any]:
+def analyze_cce_cost_optimization(region: str, cluster_id: str, ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None, analysis_date: Optional[str] = None, analysis_days: int = 1, top_n: int = 20, security_token: Optional[str] = None, exclude_namespaces: Optional[str] = None, include_chart_series: bool = False, debug_response_limit: int = 4_000, **_: Any) -> Dict[str, Any]:
     """Analyze capacity, requests, actual use, elasticity, and cost opportunities.
 
     Prometheus is the primary source so the analysis does not enumerate Pods or
@@ -246,9 +246,13 @@ def analyze_cce_cost_optimization(region: str, cluster_id: str, ak: Optional[str
         "pool_memory_requests": f'sum by (label_cce_cloud_com_cce_nodepool) (kube_pod_container_resource_requests{{{selector},resource="memory",unit="byte"}} * on (namespace,pod) group_left(node) kube_pod_info{{{selector}}} * on (node) group_left(label_cce_cloud_com_cce_nodepool) kube_node_labels{{{selector}}})',
         "hpa_max_replicas": f'max by (namespace, horizontalpodautoscaler) (kube_horizontalpodautoscaler_spec_max_replicas{{{selector}}})',
     }
+    debug_trace = common.current_debug_trace()
+    if debug_trace is not None:
+        debug_trace.append({"type": "kubectl_cce", "skipped": True, "reason": "cost analysis uses AOM Prometheus and hcloud; it does not require Kubernetes resource reads"})
+
     def _run_query(item: tuple[str, str]) -> tuple[str, Dict[str, Any]]:
         name, query = item
-        return name, _query(region, instance["aom_instance_id"], query, start, end, ak, sk, project_id, security_token)
+        return name, _query(region, instance["aom_instance_id"], query, start, end, ak, sk, project_id, security_token, debug_trace, common.debug_response_limit(debug_response_limit))
 
     with ThreadPoolExecutor(max_workers=min(8, len(queries))) as executor:
         results = dict(executor.map(_run_query, queries.items()))
@@ -750,7 +754,7 @@ table {{ width: 100%; border-collapse: collapse; font-size: 13px; }} th, td {{ p
     return str(output_path)
 
 
-def generate_cce_cost_optimization_report(region: str, cluster_id: str, ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None, analysis_date: Optional[str] = None, analysis_days: int = 1, top_n: int = 20, security_token: Optional[str] = None, exclude_namespaces: Optional[str] = None, output_file: Optional[str] = None, output_format: str = "html") -> Dict[str, Any]:
+def generate_cce_cost_optimization_report(region: str, cluster_id: str, ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None, analysis_date: Optional[str] = None, analysis_days: int = 1, top_n: int = 20, security_token: Optional[str] = None, exclude_namespaces: Optional[str] = None, output_file: Optional[str] = None, output_format: str = "html", debug_response_limit: int = 4_000) -> Dict[str, Any]:
     """Run the cost analysis and render HTML and/or Markdown reports without cloud changes."""
     output_format = (output_format or "html").strip().lower()
     if output_format not in {"html", "markdown", "both"}:
@@ -767,6 +771,7 @@ def generate_cce_cost_optimization_report(region: str, cluster_id: str, ak: Opti
         security_token=security_token,
         exclude_namespaces=exclude_namespaces,
         include_chart_series=True,
+        debug_response_limit=debug_response_limit,
     )
     if not analysis.get("success"):
         return analysis
