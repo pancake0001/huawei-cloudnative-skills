@@ -1,7 +1,7 @@
 from .common import *
 from . import aom, cce
 
-def get_cce_pod_metrics_topN(region: str, cluster_id: str, ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None, namespace: str = None, label_selector: str = None, top_n: int = 10, hours: int = 1, cpu_query: str = None, memory_query: str = None, node_ip: Optional[str] = None) -> Dict[str, Any]:
+def get_cce_pod_metrics_topN(region: str, cluster_id: str, ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None, namespace: str = None, label_selector: str = None, top_n: int = 10, hours: int = 1, cpu_query: str = None, memory_query: str = None, node_ip: Optional[str] = None, security_token: Optional[str] = None) -> Dict[str, Any]:
     """获取 CCE 集群 Pod 监控数据
 
     自动获取 AOM 实例并执行 Pod CPU/内存监控查询，返回 Top N 数据。
@@ -27,7 +27,7 @@ def get_cce_pod_metrics_topN(region: str, cluster_id: str, ak: Optional[str] = N
     node_ip = node_ip
     import time as time_module
 
-    access_key, secret_key, proj_id = get_credentials_with_region(region, ak, sk, project_id)
+    access_key, secret_key, proj_id = get_credentials_with_region(region, ak, sk, project_id, security_token=security_token)
     if not access_key or not secret_key:
         return {"success": False, "error": "Credentials not provided"}
 
@@ -37,7 +37,7 @@ def get_cce_pod_metrics_topN(region: str, cluster_id: str, ak: Optional[str] = N
     # ========== 1. 获取集群名称 ==========
     cluster_name = cluster_id
     try:
-        clusters_result = cce.list_cce_clusters(region, access_key, secret_key, proj_id)
+        clusters_result = cce.list_cce_clusters(region, access_key, secret_key, proj_id, security_token=security_token)
         if clusters_result.get("success"):
             for c in clusters_result.get("clusters", []):
                 if c.get("id") == cluster_id:
@@ -61,7 +61,7 @@ def get_cce_pod_metrics_topN(region: str, cluster_id: str, ak: Optional[str] = N
 
         if label_filters:
             # 获取 Pod 列表
-            pods_result = cce.get_kubernetes_pods(region, cluster_id, access_key, secret_key, proj_id, namespace)
+            pods_result = cce.get_kubernetes_pods(region, cluster_id, access_key, secret_key, proj_id, namespace, security_token=security_token)
             if pods_result.get("success"):
                 matched_pods = []
                 for pod in pods_result.get("pods", []):
@@ -126,7 +126,7 @@ def get_cce_pod_metrics_topN(region: str, cluster_id: str, ak: Optional[str] = N
                     }
 
     # ========== 3. 获取 AOM 实例 ==========
-    aom_result = cce.get_prom_instance_id(region, cluster_id, access_key, secret_key, proj_id)
+    aom_result = cce.get_prom_instance_id(region, cluster_id, access_key, secret_key, proj_id, security_token=security_token)
     if not aom_result.get("success"):
         return {
             "success": False,
@@ -165,8 +165,8 @@ def get_cce_pod_metrics_topN(region: str, cluster_id: str, ak: Optional[str] = N
             memory_query = f'topk({top_n}, sum by (pod, namespace) (container_memory_working_set_bytes{{image!=""{pod_filter_clause}{node_filter_clause}}}) / on (pod, namespace) group_left sum by (pod, namespace) (kube_pod_container_resource_limits{{resource="memory"{pod_filter_clause}{node_filter_clause}}}) * 100)'
 
     # ========== 5. 执行查询 ==========
-    cpu_result = aom.get_aom_prom_metrics_http(region, aom_instance_id, cpu_query, hours=hours, ak=access_key, sk=secret_key, project_id=proj_id)
-    memory_result = aom.get_aom_prom_metrics_http(region, aom_instance_id, memory_query, hours=hours, ak=access_key, sk=secret_key, project_id=proj_id)
+    cpu_result = aom.get_aom_prom_metrics_http(region, aom_instance_id, cpu_query, hours=hours, ak=access_key, sk=secret_key, project_id=proj_id, security_token=security_token)
+    memory_result = aom.get_aom_prom_metrics_http(region, aom_instance_id, memory_query, hours=hours, ak=access_key, sk=secret_key, project_id=proj_id, security_token=security_token)
 
     # ========== 6. 解析结果 ==========
     cpu_metrics = []
@@ -394,7 +394,7 @@ def get_cce_pod_metrics(region: str, cluster_id: str, pod_name: str, ak: Optiona
         }
     }
 
-def get_cce_node_metrics_topN(region: str, cluster_id: str, ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None, top_n: int = 10, hours: int = 1, cpu_query: str = None, memory_query: str = None, disk_query: str = None) -> Dict[str, Any]:
+def get_cce_node_metrics_topN(region: str, cluster_id: str, ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None, top_n: int = 10, hours: int = 1, cpu_query: str = None, memory_query: str = None, disk_query: str = None, security_token: Optional[str] = None) -> Dict[str, Any]:
     """获取 CCE 集群节点监控数据
 
     自动获取 AOM 实例并执行节点 CPU/内存/磁盘监控查询，返回 Top N 数据。
@@ -416,7 +416,7 @@ def get_cce_node_metrics_topN(region: str, cluster_id: str, ak: Optional[str] = 
     """
     import time as time_module
 
-    access_key, secret_key, proj_id = get_credentials_with_region(region, ak, sk, project_id)
+    access_key, secret_key, proj_id = get_credentials_with_region(region, ak, sk, project_id, security_token=security_token)
     if not access_key or not secret_key:
         return {"success": False, "error": "Credentials not provided"}
 
@@ -426,7 +426,7 @@ def get_cce_node_metrics_topN(region: str, cluster_id: str, ak: Optional[str] = 
     # ========== 1. 获取集群名称 ==========
     cluster_name = cluster_id
     try:
-        clusters_result = cce.list_cce_clusters(region, access_key, secret_key, proj_id)
+        clusters_result = cce.list_cce_clusters(region, access_key, secret_key, proj_id, security_token=security_token)
         if clusters_result.get("success"):
             for c in clusters_result.get("clusters", []):
                 if c.get("id") == cluster_id:
@@ -439,7 +439,7 @@ def get_cce_node_metrics_topN(region: str, cluster_id: str, ak: Optional[str] = 
     node_info_map = {}  # IP -> 节点信息
 
     # 从 Kubernetes API 获取节点信息（节点名称即 IP）
-    k8s_nodes_result = cce.get_kubernetes_nodes(region, cluster_id, access_key, secret_key, proj_id)
+    k8s_nodes_result = cce.get_kubernetes_nodes(region, cluster_id, access_key, secret_key, proj_id, security_token=security_token)
     if k8s_nodes_result.get("success"):
         for node in k8s_nodes_result.get("nodes", []):
             node_name = node.get("name", "")  # Kubernetes 节点名即 IP
@@ -453,22 +453,8 @@ def get_cce_node_metrics_topN(region: str, cluster_id: str, ak: Optional[str] = 
                     "container_runtime": node.get("container_runtime", "")
                 }
 
-    # 从 CCE API 获取节点规格等信息（按名称匹配）
-    cce_nodes_result = cce.list_cce_cluster_nodes(region, cluster_id, access_key, secret_key, proj_id)
-    if cce_nodes_result.get("success"):
-        for cce_node in cce_nodes_result.get("nodes", []):
-            cce_node_name = cce_node.get("name", "")
-            # 尝试通过名称匹配
-            for ip, node_info in node_info_map.items():
-                if ip in cce_node_name or cce_node_name.endswith(ip.replace(".", "")):
-                    node_info["cce_name"] = cce_node_name
-                    node_info["id"] = cce_node.get("id", "")
-                    node_info["flavor"] = cce_node.get("flavor", "")
-                    node_info["cce_status"] = cce_node.get("status", "")
-                    break
-
     # ========== 3. 获取 AOM 实例 ==========
-    aom_result = cce.get_prom_instance_id(region, cluster_id, access_key, secret_key, proj_id)
+    aom_result = cce.get_prom_instance_id(region, cluster_id, access_key, secret_key, proj_id, security_token=security_token)
     if not aom_result.get("success"):
         return {
             "success": False,
@@ -493,9 +479,9 @@ def get_cce_node_metrics_topN(region: str, cluster_id: str, ak: Optional[str] = 
         disk_query = f"topk({top_n}, avg by (instance) ((1 - node_filesystem_avail_bytes{{mountpoint='/',fstype!~'tmpfs|fuse.lxcfs',cluster_name='{cluster_name}'}} / node_filesystem_size_bytes{{mountpoint='/',fstype!~'tmpfs|fuse.lxcfs',cluster_name='{cluster_name}'}})) * 100)"
 
     # ========== 5. 执行查询 ==========
-    cpu_result = aom.get_aom_prom_metrics_http(region, aom_instance_id, cpu_query, hours=hours, ak=access_key, sk=secret_key, project_id=proj_id)
-    memory_result = aom.get_aom_prom_metrics_http(region, aom_instance_id, memory_query, hours=hours, ak=access_key, sk=secret_key, project_id=proj_id)
-    disk_result = aom.get_aom_prom_metrics_http(region, aom_instance_id, disk_query, hours=hours, ak=access_key, sk=secret_key, project_id=proj_id)
+    cpu_result = aom.get_aom_prom_metrics_http(region, aom_instance_id, cpu_query, hours=hours, ak=access_key, sk=secret_key, project_id=proj_id, security_token=security_token)
+    memory_result = aom.get_aom_prom_metrics_http(region, aom_instance_id, memory_query, hours=hours, ak=access_key, sk=secret_key, project_id=proj_id, security_token=security_token)
+    disk_result = aom.get_aom_prom_metrics_http(region, aom_instance_id, disk_query, hours=hours, ak=access_key, sk=secret_key, project_id=proj_id, security_token=security_token)
 
     # ========== 6. 解析结果 ==========
     def parse_node_result(result, metric_name):

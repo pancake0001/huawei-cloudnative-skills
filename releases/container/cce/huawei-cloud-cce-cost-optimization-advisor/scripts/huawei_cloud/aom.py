@@ -16,7 +16,13 @@ from .common import get_credentials_with_region
 
 def get_aom_prom_metrics_http(region: str, aom_instance_id: str, query: str, start: Optional[int] = None, end: Optional[int] = None, step: int = 60, hours: int = 1, ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None, security_token: Optional[str] = None) -> Dict[str, Any]:
     """Query AOM Prometheus using an AK/SK-signed HTTP request."""
-    access_key, secret_key, resolved_project_id = get_credentials_with_region(region, ak, sk, project_id)
+    access_key, secret_key, resolved_project_id = get_credentials_with_region(
+        region,
+        ak,
+        sk,
+        project_id,
+        security_token=security_token,
+    )
     if not access_key or not secret_key:
         return {"success": False, "error": "AK and SK are required for the direct AOM Prometheus query"}
     if not resolved_project_id:

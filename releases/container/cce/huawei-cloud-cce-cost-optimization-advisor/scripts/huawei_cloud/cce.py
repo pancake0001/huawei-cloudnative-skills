@@ -21,7 +21,7 @@ def _hcloud(region: str, operation: str, ak: Optional[str], sk: Optional[str], p
 def _kubectl(region: str, cluster_id: str, arguments: List[str], ak: Optional[str], sk: Optional[str], project_id: Optional[str], security_token: Optional[str] = None, expect_json: bool = True) -> Dict[str, Any]:
     command = ["kubectl", "cce", "--cluster-id", cluster_id, "--region", region, "--cce-insecure-upstream-tls=true"]
     if project_id:
-        command.extend(["--cli-project-id", project_id])
+        command.extend(["--project-id", project_id])
     if ak:
         command.extend(["--cli-access-key", ak])
     if sk:
