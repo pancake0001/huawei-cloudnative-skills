@@ -226,18 +226,47 @@ def _group_current_count(group: Dict[str, Any], statuses: Iterable[Dict[str, Any
     return None
 
 
+def _scalable_condition(conditions: Iterable[Dict[str, Any]]) -> Dict[str, Any]:
+    for condition in conditions:
+        if _text(condition.get("type")).lower() != "scalable":
+            continue
+        status = _text(condition.get("status"))
+        return {
+            "reported": True,
+            "status": status or "Unknown",
+            "scalable": status.lower() == "true",
+            "reason": _text(condition.get("reason")),
+            "message": _text(condition.get("message")),
+            "last_transition_time": _text(condition.get("lastTransitionTime") or condition.get("last_transition_time")),
+        }
+    return {"reported": False, "status": "Unknown", "scalable": None, "reason": "", "message": ""}
+
+
 def _nodepool_discovery(nodepools: Dict[str, Any]) -> Dict[str, Any]:
     enabled = False
     max_reached = []
+    not_scalable = []
+    scalable_status_unknown = []
     pools = []
     for pool in _list(nodepools.get("nodepools")):
         statuses = _list(pool.get("scale_group_statuses"))
+        scalable = _scalable_condition(_list(pool.get("conditions")))
         pool_entry = {
             "name": pool.get("name") or pool.get("id"),
             "id": pool.get("id"),
             "enabled": False,
+            "scalable": scalable,
             "groups": [],
         }
+        if scalable["scalable"] is False:
+            not_scalable.append({
+                "nodepool": pool_entry["name"],
+                "reason": scalable["reason"],
+                "message": scalable["message"],
+                "status": scalable["status"],
+            })
+        elif not scalable["reported"]:
+            scalable_status_unknown.append(pool_entry["name"])
         groups = _list(pool.get("scale_groups"))
         # The hcloud collector returns flattened node-pool autoscaling fields.
         # Keep support for detailed scale groups when callers provide them.
@@ -279,7 +308,19 @@ def _nodepool_discovery(nodepools: Dict[str, Any]) -> Dict[str, Any]:
         "nodepool_autoscaling_enabled": enabled,
         "nodepool_count": nodepools.get("count"),
         "nodepools": pools,
+        "scalable_conditions": [
+            {
+                "nodepool": pool["name"],
+                "status": pool["scalable"]["status"],
+                "scalable": pool["scalable"]["scalable"],
+                "reason": pool["scalable"]["reason"],
+                "message": pool["scalable"]["message"],
+            }
+            for pool in pools
+        ],
         "max_reached": max_reached,
+        "not_scalable": not_scalable,
+        "scalable_status_unknown": scalable_status_unknown,
     }
 
 
@@ -1569,6 +1610,7 @@ def _analyze_ca_path(
         "summary": (
             f"ca_addon_installed={addon_info['ca_addon_installed']}, "
             f"nodepool_autoscaling_enabled={nodepool_info['nodepool_autoscaling_enabled']}, "
+            f"nodepool_scalable_conditions={nodepool_info['scalable_conditions']}, "
             f"pending_pods={len(pending)}"
         ),
     })
@@ -1674,6 +1716,18 @@ def _analyze_ca_path(
             "CA",
             f"{item['nodepool']}/{item['scale_group']} current={item['current_node_count']} max={item['max_node_count']}",
             "提升节点池 max_nodes，或扩展新的可调度节点池/规格。",
+        )
+
+    for item in nodepool_info["not_scalable"]:
+        detail = "; ".join(value for value in (item.get("reason"), item.get("message")) if value) or "CCE status.conditions reports Scalable=False."
+        _add_issue(
+            issues,
+            "NODEPOOL_NOT_SCALABLE",
+            "节点池当前不可扩容",
+            "critical",
+            "CA",
+            f"{item['nodepool']} Scalable={item['status']}: {detail}",
+            "根据节点池 Scalable Condition 的 reason/message 修复资源、配额、子网 IP 或节点池配置问题后再重试扩容。",
         )
 
     if direction != "scale_down":
@@ -2158,7 +2212,10 @@ def assess_autoscaling_context(
         "ca_addon_low_version": addon_info["ca_addon_low_version"],
         "ca_addon_abnormal": [{"name": a.get("name"), "version": a.get("version"), "status": a.get("status")} for a in addon_info["ca_addon_abnormal"]],
         "nodepool_autoscaling_enabled": nodepool_info["nodepool_autoscaling_enabled"],
+        "nodepool_scalable_conditions": nodepool_info["scalable_conditions"],
         "nodepool_max_reached": nodepool_info["max_reached"],
+        "nodepool_not_scalable": nodepool_info["not_scalable"],
+        "nodepool_scalable_status_unknown": nodepool_info["scalable_status_unknown"],
         "metric_addon_detected": addon_info["metric_addon_detected"],
         "metric_addons": [item.get("name") or item.get("template_name") for item in addon_info["metric_addons"]],
         "ca_pod_phase": ca_log_result.get("ca_pod_phase", ""),

@@ -74,7 +74,7 @@ def list_cce_node_pools(region: str, cluster_id: str, ak: Optional[str] = None, 
     for item in _items(result):
         metadata, spec, status = item.get("metadata") or {}, item.get("spec") or {}, item.get("status") or {}
         scaling = spec.get("autoscaling") or spec.get("scaling") or {}
-        pools.append({"id": metadata.get("uid"), "name": metadata.get("name"), "status": status.get("phase"), "min_node_count": scaling.get("minNodeCount", scaling.get("min_node_count")), "max_node_count": scaling.get("maxNodeCount", scaling.get("max_node_count")), "current_node_count": status.get("currentNode", status.get("currentNodeCount", status.get("current_node_count"))), "autoscaling_enabled": bool(scaling.get("enable") or scaling.get("enabled"))})
+        pools.append({"id": metadata.get("uid"), "name": metadata.get("name"), "status": status.get("phase"), "conditions": status.get("conditions") or [], "min_node_count": scaling.get("minNodeCount", scaling.get("min_node_count")), "max_node_count": scaling.get("maxNodeCount", scaling.get("max_node_count")), "current_node_count": status.get("currentNode", status.get("currentNodeCount", status.get("current_node_count"))), "autoscaling_enabled": bool(scaling.get("enable") or scaling.get("enabled"))})
     return {"success": True, "source": "hcloud", "region": region, "cluster_id": cluster_id, "count": len(pools), "nodepools": pools[offset:offset + limit]}
 
 
