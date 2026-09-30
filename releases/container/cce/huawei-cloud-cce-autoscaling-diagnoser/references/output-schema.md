@@ -23,12 +23,30 @@ Both public diagnosis tools return structured evidence and a Markdown report. Th
   "route": "A | B | C | BLOCKED",
   "discovery": {
     "has_hpa": true,
-    "hpa_count": 1,
+    "namespace_hpa_count": 1,
     "selected_hpa_count": 1,
     "has_ca": true,
     "ca_addon_installed": true,
     "nodepool_autoscaling_enabled": true,
+    "nodepool_scalable_conditions": [
+      {
+        "nodepool": "worker-pool",
+        "status": "True",
+        "scalable": true,
+        "reason": "",
+        "message": ""
+      }
+    ],
     "nodepool_max_reached": [],
+    "nodepool_not_scalable": [
+      {
+        "nodepool": "worker-pool",
+        "status": "False",
+        "reason": "QuotaExceeded",
+        "message": "Insufficient quota for additional nodes."
+      }
+    ],
+    "nodepool_scalable_status_unknown": [],
     "metric_addon_detected": true
   },
   "issues": [

@@ -22,7 +22,7 @@ Credential priority is explicit tool input, then local hcloud profile, then `HW_
 | Tool | Purpose | Risk |
 | --- | --- | --- |
 | `huawei_diagnose_cce_hpa_autoscaling` | Diagnose HPA metric, Condition, metric APIService, behavior policy, target workload, Request, replica-limit, and related-event failures | R3 |
-| `huawei_diagnose_cce_cluster_autoscaler` | Diagnose Cluster Autoscaler, Pending Pod, scheduling, node-pool bounds, PDB/eviction blockers, and autoscaler-log failures | R3 |
+| `huawei_diagnose_cce_cluster_autoscaler` | Diagnose Cluster Autoscaler, Pending Pod, scheduling, node-pool bounds and Scalable status conditions, PDB/eviction blockers, and autoscaler-log failures | R3 |
 
 HPA, add-on, node-pool, Pod, workload, Event, PDB, autoscaler-log, and AOM metric collection are internal evidence sources and are not exposed as standalone tools.
 
