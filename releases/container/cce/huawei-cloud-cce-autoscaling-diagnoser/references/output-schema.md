@@ -23,7 +23,7 @@ Both public diagnosis tools return structured evidence and a Markdown report. Th
   "route": "A | B | C | BLOCKED",
   "discovery": {
     "has_hpa": true,
-    "hpa_count": 1,
+    "namespace_hpa_count": 1,
     "selected_hpa_count": 1,
     "has_ca": true,
     "ca_addon_installed": true,

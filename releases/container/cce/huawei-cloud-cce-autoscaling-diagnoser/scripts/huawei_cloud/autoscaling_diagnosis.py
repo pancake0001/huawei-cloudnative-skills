@@ -974,7 +974,7 @@ def _analyze_hpa_path(
             "未发现匹配的 HPA",
             "critical",
             "HPA",
-            f"HPA 查询成功但匹配范围 {scope} 下没有 HPA；集群 HPA 总数={hpas.get('count', 0)}。",
+            f"HPA 查询成功但匹配范围 {scope} 下没有 HPA；指定命名空间内 HPA 总数={hpas.get('count', 0)}。",
             "为目标 Deployment/StatefulSet 创建 HPA，或确认客户实际使用的是 CronHPA/CustomedHPA/AHPA 等其他策略。",
         )
         return {"issues": issues, "evidence": evidence, "hpa_scaled": False}
@@ -1916,7 +1916,7 @@ def build_markdown_report(result: Dict[str, Any]) -> str:
         _md_table(
             ["能力", "发现结果", "证据"],
             [
-                ["HPA", "存在" if discovery.get("has_hpa") else "未发现", f"匹配 HPA={discovery.get('selected_hpa_count')}，集群 HPA={discovery.get('hpa_count')}"],
+                ["HPA", "存在" if discovery.get("has_hpa") else "未发现", f"匹配 HPA={discovery.get('selected_hpa_count')}，命名空间 HPA={discovery.get('namespace_hpa_count')}"],
                 ["CCE 弹性引擎/CA", "存在" if discovery.get("has_ca") else "未发现", f"插件={discovery.get('ca_addon_installed')}，节点池伸缩={discovery.get('nodepool_autoscaling_enabled')}"],
                 ["指标链路", "有候选插件" if discovery.get("metric_addon_detected") else "未识别", discovery.get("metric_addons") or "-"],
             ],
@@ -2099,7 +2099,7 @@ def assess_autoscaling_context(
 
     process = [
         f"Gateway：基于问题文本判定 Target={target_intent}，ScaleDirection={direction}。",
-        f"Discovery：HPA 总数={hpas.get('count', 0)}，匹配 HPA={len(selected_hpas)}；CA 插件={addon_info['ca_addon_installed']}，节点池伸缩={nodepool_info['nodepool_autoscaling_enabled']}。",
+        f"Discovery：指定命名空间 HPA 总数={hpas.get('count', 0)}，匹配 HPA={len(selected_hpas)}；CA 插件={addon_info['ca_addon_installed']}，节点池伸缩={nodepool_info['nodepool_autoscaling_enabled']}。",
         f"Route：进入 {route}。",
     ]
 
@@ -2150,7 +2150,7 @@ def assess_autoscaling_context(
 
     discovery = {
         "has_hpa": has_hpa,
-        "hpa_count": hpas.get("count", 0),
+        "namespace_hpa_count": hpas.get("count", 0),
         "selected_hpa_count": len(selected_hpas),
         "has_ca": has_ca,
         "ca_addon_installed": addon_info["ca_addon_installed"],
