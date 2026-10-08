@@ -47,6 +47,10 @@ def _integer(value: str | None, default: int) -> int:
         return default
 
 
+def _boolean(value: str | None, default: bool = False) -> bool:
+    return default if value is None else value.strip().lower() in {"1", "true", "yes", "on"}
+
+
 def _cluster_kwargs(params: Dict[str, str]) -> Dict[str, Any]:
     return {"ak": params.get("ak"), "sk": params.get("sk"), "project_id": params.get("project_id"), "security_token": params.get("security_token")}
 
@@ -92,7 +96,16 @@ def _hpas(params: Dict[str, str]) -> Dict[str, Any]:
 
 
 def _diagnose(params: Dict[str, str]) -> Dict[str, Any]:
-    return cce_cost_optimization.analyze_cce_cost_optimization(region=params["region"], cluster_id=params["cluster_id"], hours=_integer(params.get("hours"), 24), top_n=_integer(params.get("top_n"), 20), **_cluster_kwargs(params))
+    return cce_cost_optimization.analyze_cce_cost_optimization(
+        region=params["region"],
+        cluster_id=params["cluster_id"],
+        analysis_date=params.get("analysis_date"),
+        analysis_days=_integer(params.get("analysis_days"), 1),
+        include_today=_boolean(params.get("include_today")),
+        top_n=_integer(params.get("top_n"), 20),
+        exclude_namespaces=params.get("exclude_namespaces"),
+        **_cluster_kwargs(params),
+    )
 
 
 def _generate_cost_report(params: Dict[str, str]) -> Dict[str, Any]:
@@ -101,6 +114,7 @@ def _generate_cost_report(params: Dict[str, str]) -> Dict[str, Any]:
         cluster_id=params["cluster_id"],
         analysis_date=params.get("analysis_date"),
         analysis_days=_integer(params.get("analysis_days"), 1),
+        include_today=_boolean(params.get("include_today")),
         top_n=_integer(params.get("top_n"), 20),
         exclude_namespaces=params.get("exclude_namespaces"),
         output_file=params.get("output_file"),

@@ -137,21 +137,29 @@ def _rows(result: Dict[str, Any]) -> list[Dict[str, Any]]:
     return (((result.get("result") or {}).get("data") or {}).get("result") or []) if result.get("success") else []
 
 
-def _analysis_window(analysis_date: Optional[str], analysis_days: int) -> tuple[str, str, int, int]:
+def _analysis_window(analysis_date: Optional[str], analysis_days: int, include_today: bool = False) -> tuple[str, str, int, int, bool]:
     timezone = ZoneInfo("Asia/Shanghai")
     try:
         if analysis_days < 1 or analysis_days > 7:
             raise ValueError("analysis_days must be between 1 and 7")
         if analysis_date and analysis_days != 1:
             raise ValueError("analysis_date can only be used with analysis_days=1")
-        end_day = date.fromisoformat(analysis_date) + timedelta(days=1) if analysis_date else datetime.now(timezone).date()
+        if analysis_date and include_today:
+            raise ValueError("analysis_date cannot be used with include_today=true")
+        now = datetime.now(timezone)
+        if include_today:
+            start_day = now.date() - timedelta(days=analysis_days - 1)
+            end_day = now.date() + timedelta(days=1)
+            start = datetime.combine(start_day, time.min, tzinfo=timezone)
+            return start_day.isoformat(), end_day.isoformat(), int(start.timestamp()), int(now.timestamp()), True
+        end_day = date.fromisoformat(analysis_date) + timedelta(days=1) if analysis_date else now.date()
     except ValueError as exc:
         message = str(exc)
         raise ValueError(message if message.startswith("analysis_") else "analysis_date must use YYYY-MM-DD") from exc
     start_day = end_day - timedelta(days=analysis_days)
     start = datetime.combine(start_day, time.min, tzinfo=timezone)
     end = datetime.combine(end_day, time.min, tzinfo=timezone)
-    return start_day.isoformat(), end_day.isoformat(), int(start.timestamp()), int(end.timestamp())
+    return start_day.isoformat(), end_day.isoformat(), int(start.timestamp()), int(end.timestamp()), False
 
 
 def _query(region: str, instance_id: str, query: str, start: int, end: int, ak: Optional[str], sk: Optional[str], project_id: Optional[str], security_token: Optional[str]) -> Dict[str, Any]:
@@ -185,7 +193,7 @@ def _resource(value: Optional[float], unit: str) -> Optional[float]:
     return round(value / _GIB, 2) if value is not None and unit == "GiB" else round(value, 3) if value is not None else None
 
 
-def analyze_cce_cost_optimization(region: str, cluster_id: str, ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None, analysis_date: Optional[str] = None, analysis_days: int = 1, top_n: int = 20, security_token: Optional[str] = None, exclude_namespaces: Optional[str] = None, include_chart_series: bool = False, **_: Any) -> Dict[str, Any]:
+def analyze_cce_cost_optimization(region: str, cluster_id: str, ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None, analysis_date: Optional[str] = None, analysis_days: int = 1, include_today: bool = False, top_n: int = 20, security_token: Optional[str] = None, exclude_namespaces: Optional[str] = None, include_chart_series: bool = False, **_: Any) -> Dict[str, Any]:
     """Analyze capacity, requests, actual use, elasticity, and cost opportunities.
 
     Prometheus is the primary source so the analysis does not enumerate Pods or
@@ -193,7 +201,7 @@ def analyze_cce_cost_optimization(region: str, cluster_id: str, ak: Optional[str
     data gaps rather than silently replaced with a broader cluster read.
     """
     try:
-        start_day, end_day, start, end = _analysis_window(analysis_date, int(analysis_days))
+        start_day, end_day, start, end, partial_day = _analysis_window(analysis_date, int(analysis_days), include_today)
     except ValueError as exc:
         return {"success": False, "action": "analyze_cce_cost_optimization", "error": str(exc)}
     excluded = {item.strip() for item in (exclude_namespaces or "").split(",") if item.strip()}
@@ -511,7 +519,7 @@ def analyze_cce_cost_optimization(region: str, cluster_id: str, ak: Optional[str
     response = {
         "success": True,
         "action": "analyze_cce_cost_optimization",
-        "scope": {"region": region, "cluster_id": cluster_id, "analysis_start_date": start_day, "analysis_end_date_exclusive": end_day, "analysis_days": analysis_days, "time_zone": "Asia/Shanghai", "start": start, "end": end, "excluded_namespaces": sorted(excluded), "data_source": "AOM Prometheus"},
+        "scope": {"region": region, "cluster_id": cluster_id, "analysis_start_date": start_day, "analysis_end_date_exclusive": end_day, "analysis_days": analysis_days, "include_today": include_today, "partial_day": partial_day, "time_zone": "Asia/Shanghai", "start": start, "end": end, "analysis_start_at": _time_label(start), "analysis_end_at": _time_label(end), "excluded_namespaces": sorted(excluded), "data_source": "AOM Prometheus"},
         "capacity": {"minimum_total_cpu_cores": _resource(_minimum(total_capacity_cpu_samples), "core"), "minimum_total_memory_gib": _resource(_minimum(total_capacity_memory_samples), "GiB"), "minimum_allocatable_cpu_cores": _resource(capacity_cpu, "core"), "minimum_allocatable_memory_gib": _resource(capacity_memory, "GiB"), "average_allocatable_cpu_cores": _resource(mean(capacity_cpu_samples), "core") if capacity_cpu_samples else None, "average_allocatable_memory_gib": _resource(mean(capacity_memory_samples), "GiB") if capacity_memory_samples else None, "total_cpu_trend": total_cpu_trend, "total_memory_trend": total_memory_trend, "allocatable_cpu_trend": allocatable_cpu_trend, "allocatable_memory_trend": allocatable_memory_trend, "declared_cpu_request_trend": declared_cpu_trend, "declared_memory_request_trend": declared_memory_trend, "node_bound_cpu_request_trend": bound_cpu_trend, "node_bound_memory_request_trend": bound_memory_trend, "pending_cpu_request_trend": pending_cpu_trend, "pending_memory_request_trend": pending_memory_trend, "cpu_request_allocation_trend": cpu_allocation_trend, "memory_request_allocation_trend": memory_allocation_trend, "minimum_unallocated_cpu_cores": _resource(reserve_cpu, "core"), "minimum_unallocated_memory_gib": _resource(reserve_memory, "GiB"), "calculation": "Node-bound Requests determine allocation and unallocated redundancy; Pending Requests are reported separately."},
         "resource_cost_view": resource_cost_view,
         "node_change": {"cluster_node_count_trend": cluster_node_count_trend},
@@ -750,7 +758,7 @@ table {{ width: 100%; border-collapse: collapse; font-size: 13px; }} th, td {{ p
     return str(output_path)
 
 
-def generate_cce_cost_optimization_report(region: str, cluster_id: str, ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None, analysis_date: Optional[str] = None, analysis_days: int = 1, top_n: int = 20, security_token: Optional[str] = None, exclude_namespaces: Optional[str] = None, output_file: Optional[str] = None, output_format: str = "html") -> Dict[str, Any]:
+def generate_cce_cost_optimization_report(region: str, cluster_id: str, ak: Optional[str] = None, sk: Optional[str] = None, project_id: Optional[str] = None, analysis_date: Optional[str] = None, analysis_days: int = 1, include_today: bool = False, top_n: int = 20, security_token: Optional[str] = None, exclude_namespaces: Optional[str] = None, output_file: Optional[str] = None, output_format: str = "html") -> Dict[str, Any]:
     """Run the cost analysis and render HTML and/or Markdown reports without cloud changes."""
     output_format = (output_format or "html").strip().lower()
     if output_format not in {"html", "markdown", "both"}:
@@ -763,6 +771,7 @@ def generate_cce_cost_optimization_report(region: str, cluster_id: str, ak: Opti
         project_id=project_id,
         analysis_date=analysis_date,
         analysis_days=analysis_days,
+        include_today=include_today,
         top_n=top_n,
         security_token=security_token,
         exclude_namespaces=exclude_namespaces,
@@ -842,7 +851,7 @@ def generate_cce_cost_optimization_report(region: str, cluster_id: str, ak: Opti
         "## Scope",
         f"- Region: `{scope['region']}`",
         f"- Cluster ID: `{scope['cluster_id']}`",
-        f"- Analysis window: {scope['analysis_start_date']} to {scope['analysis_end_date_exclusive']} ({scope['time_zone']})",
+        f"- Analysis window: {scope['analysis_start_at']} to {scope['analysis_end_at']} ({scope['time_zone']})" + ("; includes an incomplete current day" if scope.get("partial_day") else ""),
         f"- Data source: {scope['data_source']}",
         f"- AOM resource data coverage: {coverage.get('first_sample_at') or 'N/A'} to {coverage.get('last_sample_at') or 'N/A'} ({coverage.get('sample_count', 0)} samples at {coverage.get('step_seconds', 300)}-second intervals)",
         "",

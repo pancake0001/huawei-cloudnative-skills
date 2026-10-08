@@ -14,9 +14,13 @@ The cost optimization report follows this JSON structure:
     "analysis_start_date": "2026-09-01",
     "analysis_end_date_exclusive": "2026-09-08",
     "analysis_days": 7,
+    "include_today": false,
+    "partial_day": false,
     "time_zone": "Asia/Shanghai",
     "start": 0,
     "end": 0,
+    "analysis_start_at": "2026-09-01T00:00:00+08:00",
+    "analysis_end_at": "2026-09-08T00:00:00+08:00",
     "data_source": "AOM Prometheus"
   },
   "capacity": {

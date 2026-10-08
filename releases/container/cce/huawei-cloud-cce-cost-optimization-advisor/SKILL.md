@@ -31,7 +31,7 @@ CCE, AOM, hcloud, and scoped Kubernetes data collection are internal implementat
 | --- | --- | --- |
 | `region` | Yes | Huawei Cloud region. |
 | `cluster_id` | Yes | CCE cluster UUID or exact cluster name. |
-| `analysis_days`, `analysis_date`, `top_n` | No | Number of completed calendar days to analyze (`1`-`7`, default `1`), one exact calendar day in `YYYY-MM-DD` form, and namespace result limit. The range always ends at today `00:00` in `Asia/Shanghai`; `analysis_date` is only valid with `analysis_days=1`. |
+| `analysis_days`, `analysis_date`, `include_today`, `top_n` | No | `analysis_days` is `1`-`7` (default `1`). By default it analyzes completed calendar days ending at today `00:00` in `Asia/Shanghai`; `analysis_date=YYYY-MM-DD` selects one completed calendar day. Set `include_today=true` to include today's partial data through the current time; with `analysis_days>1`, it includes the current partial day plus preceding completed days. `analysis_date` and `include_today=true` cannot be combined. |
 | `exclude_namespaces` | No | Comma-separated namespaces excluded from namespace allocation and usage analysis. Default: none; system namespaces are displayed for visibility. |
 | `output_file`, `output_format` | No | Local report path and output type for `huawei_generate_cce_cost_optimization_report`. `output_format` is `html` (default), `markdown`, or `both`. HTML reports embed interactive trend charts; Markdown reports present self-contained summary tables plus six-hour cluster and namespace trend tables. Without `output_file`, files are written under `/tmp`. |
 | `hpa_*` | No | Values used only in a generated HPA recommendation. |
@@ -47,6 +47,10 @@ Required `region` and `cluster_id` must be supplied. Validate UUIDs with `hcloud
 python3 scripts/huawei-cloud.py huawei_analyze_cce_cost_optimization \
   region=<region> cluster_id=<cluster-id-or-name> analysis_days=7 top_n=20
 
+# Analyze today from 00:00 through the current time (partial-day result)
+python3 scripts/huawei-cloud.py huawei_analyze_cce_cost_optimization \
+  region=<region> cluster_id=<cluster-id-or-name> include_today=true
+
 # Generate a Markdown report
 python3 scripts/huawei-cloud.py huawei_generate_cce_cost_optimization_report \
   region=<region> cluster_id=<cluster-id-or-name> output_format=markdown \
@@ -56,7 +60,7 @@ python3 scripts/huawei-cloud.py huawei_generate_cce_cost_optimization_report \
 ## Workflow
 
 1. Validate the target cluster.
-2. Use the cluster's AOM Prometheus instance to collect completed calendar days in `Asia/Shanghai` (default: the previous day; optional: the preceding `2`-`7` days, all ending at today `00:00:00`): allocatable capacity and Pod Requests start/end/minimum/maximum/average/change trends, namespace Requests trends, namespace actual usage, cluster usage trends, and HPA metric coverage. Trends return start, minimum, maximum, and end key points rather than every five-minute sample. Do not base capacity conclusions on a final-sample snapshot.
+2. Use the cluster's AOM Prometheus instance to collect completed calendar days in `Asia/Shanghai` (default: the previous day; optional: the preceding `2`-`7` days, all ending at today `00:00:00`). Set `include_today=true` to instead end at the current time; the response and report mark this as partial-day data. The collection includes allocatable capacity and Pod Requests start/end/minimum/maximum/average/change trends, namespace Requests trends, namespace actual usage, cluster usage trends, and HPA metric coverage. Trends return start, minimum, maximum, and end key points rather than every five-minute sample. Do not base capacity conclusions on a final-sample snapshot.
 3. Use hcloud to collect node-pool autoscaling configuration and current node counts.
 4. At each aligned Prometheus sampling point, use node-bound Requests to calculate cluster and node-pool allocation rate and free reserve. For each namespace, show allocated Requests and actual usage as a percentage of total allocatable capacity, then assess actual usage against Requests. A non-system namespace whose usage exceeds Requests is under-requested and should be reviewed for a Request increase; a namespace that remains well below Requests is over-requested and can be reviewed for a reduction. Report declared and Pending Pod Requests separately.
 5. Return advisory optimization options without applying changes. Potential savings are capacity estimates, not billing estimates.
