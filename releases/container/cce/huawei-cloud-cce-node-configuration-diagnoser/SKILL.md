@@ -92,7 +92,8 @@ collection failure, timeout, and successful diagnosis. Consumers can rely on the
   after user confirmation.
 - A `Succeeded` collection can still contain warning or critical findings. In particular, failed dependency checks and component health are evaluated from
   the returned content, not merely the collection phase.
-- x509 failures from `kubectl cce` are retried once with `--cce-insecure-upstream-tls=true`.
+- All internal `kubectl cce` calls include `--cce-insecure-upstream-tls=true` as required for the target environment. This skips upstream TLS certificate
+  verification; use it only where the network path and CCE endpoint are trusted.
 
 ## References
 
