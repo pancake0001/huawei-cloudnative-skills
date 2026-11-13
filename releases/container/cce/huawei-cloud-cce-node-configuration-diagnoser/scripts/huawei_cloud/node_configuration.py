@@ -119,7 +119,7 @@ def _project_id(region: str, project_id: Optional[str], ak: Optional[str], sk: O
 
 
 def _kubectl(region: str, cluster_id: str, project_id: Optional[str], ak: Optional[str], sk: Optional[str], token: Optional[str], *arguments: str) -> list[str]:
-    command = ["kubectl", "cce", f"--cluster-id={cluster_id}", f"--region={region}"]
+    command = ["kubectl", "cce", "--cce-insecure-upstream-tls=true", f"--cluster-id={cluster_id}", f"--region={region}"]
     if project_id:
         command.append(f"--project-id={project_id}")
     command.extend(_credential_args(ak, sk, token))
@@ -127,11 +127,7 @@ def _kubectl(region: str, cluster_id: str, project_id: Optional[str], ak: Option
 
 
 def _kubectl_json(command: list[str], explicit_credentials: bool, trace: list[Dict[str, Any]], debug: bool) -> Dict[str, Any]:
-    result = _run_json(command, explicit_credentials, trace, debug)
-    if result.get("success") or "x509" not in (result.get("error") or "").lower():
-        return result
-    retry = [command[0], command[1], "--cce-insecure-upstream-tls=true", *command[2:]]
-    return _run_json(retry, explicit_credentials, trace, debug)
+    return _run_json(command, explicit_credentials, trace, debug)
 
 
 def _safe_json(value: Any, default: Any) -> Any:
